@@ -336,3 +336,6 @@ inner headings still name the current step and Back still navigates within Taste
 
 Taste Lab suggested meal names and swap headings wrap to their full length; cards grow
 with the title and decision controls remain in the scrolling flow.
+
+Taste Lab exhausted results use a prominent recovery panel explaining filters/passes and
+linking to Edit filters; saved allergies and passes remain intact.

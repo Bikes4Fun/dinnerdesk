@@ -590,3 +590,7 @@ code { font-size: 0.86em; background: var(--soft); padding: 0.1rem 0.35rem; bord
 .swap-header .kicker { margin: 0; }
 .swap-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
 .swap-actions .btn { min-width: 0; min-height: 48px; padding: 0.75rem 0.5rem; }
+
+.recovery { padding: 1.25rem; border: 2px solid var(--aubergine); border-radius: 16px; background: var(--aubergine-tint); }
+.recovery h2 { margin: 0 0 0.75rem; color: var(--aubergine); }
+.recovery p { line-height: 1.5; }

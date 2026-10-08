@@ -790,8 +790,12 @@ const macros = (r) => {
     <div class="shell">
       ${head("No meals match", -1)}
       ${banner()}
-      <p class="lead">Nothing left fits these filters. Drop one to see more meals.</p>
-      <button type="button" class="btn primary" data-edit-filters>Edit filters</button>
+      <section class="recovery" role="status">
+        <h2>No more matching dinners</h2>
+        <p>You’ve reached the end of meals that fit your filters and passes. Edit your filters to look for more options, or return to Recipes to choose meals yourself.</p>
+        <p>Your allergies and passed meals stay saved.</p>
+        <button type="button" class="btn primary" data-edit-filters>Edit filters</button>
+      </section>
     </div>`;
 
   const renderError = () => `
