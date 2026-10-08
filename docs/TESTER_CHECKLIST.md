@@ -101,7 +101,7 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 
 **Come back to it later**
 
-- [ ] Make a proposal, close it without deciding, then open ⋯ → **Review pending suggestions**. It's still there.
+- [ ] Make a proposal, close it without deciding, then reopen the Plan screen. It is still available.
 - [ ] Close the app completely, reopen it, and review the proposal again.
 
 
@@ -280,3 +280,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #20: inspect long substitution names at maximum iPhone text size and web zoom/narrow width. Names wrap between words; the replacement and Remove action remain readable.
 
 - [ ] #22: with grayscale enabled, each selected tab remains identifiable by label weight (and underline on web); badges and labels remain within the bar.
+
+- [ ] #26: Plan ⋯ on app/web has neither Review pending suggestions nor Choose my own meals. New meal plan still requests suggestions; adding from Recipes still works.

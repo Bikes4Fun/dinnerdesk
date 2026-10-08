@@ -351,3 +351,6 @@ ingredient words remain readable at accessibility sizes.
 
 Selected tabs use bold labels on iPhone and bold underlined labels on web, with aria-current
 on web links. Selection remains visible without relying on accent color.
+
+Plan ⋯ omits Review pending suggestions and Choose my own meals. New meal plan requests
+four suggestions; Recipes remains the entry point for adding individual meals.

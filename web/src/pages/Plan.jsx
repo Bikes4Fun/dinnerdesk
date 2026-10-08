@@ -22,7 +22,6 @@ export function Plan() {
   const [swapError, setSwapError] = useState("");
   const [swapLoading, setSwapLoading] = useState(false);
   const [proposal, setProposal] = useState(null);
-  const [keepCurrent, setKeepCurrent] = useState(false);
   const [plan, setPlan] = useState(null);
   const [editing, setEditing] = useState(false);
   const [grid, setGrid] = useState(false);
@@ -33,7 +32,6 @@ export function Plan() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [making, setMaking] = useState(null);
   const [suggested, setSuggested] = useState(false);
 
   useEffect(() => {
@@ -76,13 +74,13 @@ export function Plan() {
   async function newPlan(source, mealCount) {
     const body = {};
     if (source != null) body.source_plan_id = source;
-    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = keepCurrent; }
+    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = false; }
     const created = await api.createPlan(body);
     if (created.status === "suggested") setProposal(created);
     else setPlan(created);
     setSuggested(Boolean(created.suggestion_note));
 
-    setSaved(null); setSelected(new Set()); setPlacing(null); setMaking(null); await week.load();
+    setSaved(null); setSelected(new Set()); setPlacing(null); await week.load();
   }
   function toggleSelection(id) {
     setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -116,7 +114,6 @@ export function Plan() {
             }}>Save as draft</button>
             <button type="button" disabled={busy} onClick={() => act(async () => setSaved((await api.plans()).plans))}>View drafts</button>
             <button type="button" disabled={busy} onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); act(() => newPlan(undefined, 4)); }}>New meal plan</button>
-            <button type="button" disabled={busy} onClick={() => setMaking("how")}>Choose my own meals</button>
           </div>
         </details>
       </div>
@@ -208,16 +205,6 @@ export function Plan() {
       {swapError && <p role="alert">{swapError}</p>}
       {swapLoading ? <p>Loading…</p> : swapOptions.length === 0 ? <p>No matching meals. Try another search or loosen Settings → Filters.</p> : swapOptions.map((option) => <button key={option.id} className="list-link" disabled={busy} onClick={() => act(async () => { setProposal(await api.swapSuggestion(proposal.id, swapping.id, option.id)); setSwapping(null); })}>{option.name}{option.cooking_minutes ? ` · ${option.cooking_minutes} min` : ""}</button>)}
       <button onClick={() => setSwapping(null)}>Cancel</button>
-    </section></div>}
-    {making && <div className="sheet-backdrop" role="presentation"><section className="schedule-sheet" role="dialog" aria-modal="true" aria-labelledby="new-plan-title">
-      {making === "how" && <>
-        <h2 id="new-plan-title">New meal plan</h2>
-        <p>Choose your own meals or start with four suggestions.</p>
-        {!!plan.slots.length && <label><input type="checkbox" checked={keepCurrent} onChange={(e) => setKeepCurrent(e.target.checked)} />Keep my selected meals</label>}
-        <button type="button" className="btn-secondary block" disabled={busy} onClick={() => act(() => newPlan())}>I'll choose the meals</button>
-        <button type="button" className="btn-primary block" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}>Suggest 4 meals</button>
-        <button type="button" onClick={() => setMaking(null)}>Cancel</button>
-      </>}
     </section></div>}
     {placing && <div className="sheet-backdrop" role="presentation"><section className="schedule-sheet" role="dialog" aria-modal="true" aria-labelledby="schedule-title">
       <h2 id="schedule-title">Schedule {placing.recipe_name}</h2>

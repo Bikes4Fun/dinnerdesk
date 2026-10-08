@@ -14,7 +14,6 @@ struct PlanView: View {
   @State private var savingDraft = false
   @State private var draftTitle = ""
   @State private var removing = false
-  @State private var makingPlan = false
   /// Width of the plan list after its padding. One photo size is chosen from this.
   @State private var totalRowWidth: CGFloat = 350
 
@@ -169,8 +168,7 @@ struct PlanView: View {
       }
       .sheet(item: $picking) { slot in ScheduleMealSheet(slot: slot) }
       .sheet(isPresented: $drafts) { SavedPlansView() }
-      .sheet(isPresented: $makingPlan) { NewPlanSheet() }
-      .sheet(isPresented: Binding(get: { store.proposal != nil && !makingPlan }, set: { if !$0 { store.proposal = nil } })) {
+      .sheet(isPresented: Binding(get: { store.proposal != nil }, set: { if !$0 { store.proposal = nil } })) {
         SuggestedPlanReview()
       }
       .refreshable { await store.loadAll() }
@@ -408,40 +406,6 @@ struct PlanView: View {
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: 12))
-  }
-}
-
-private struct NewPlanSheet: View {
-  @EnvironmentObject private var store: Store
-  @Environment(\.dismiss) private var dismiss
-  @State private var keepCurrent = false
-  @State private var saving = false
-
-  var body: some View {
-    NavigationStack {
-      VStack(alignment: .leading, spacing: 16) {
-        Text("Choose your own meals or start with four suggestions.")
-        if !(store.plan?.slots.isEmpty ?? true) { Toggle("Keep my selected meals", isOn: $keepCurrent) }
-        Button("Suggest 4 meals") { go(meals: 4) }.buttonStyle(.borderedProminent).disabled(saving)
-        Button("I'll choose the meals") { go(meals: nil) }.disabled(saving)
-        if let error = store.error { ErrorBanner(message: error) }
-      }
-      .padding()
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-      .background(Theme.bg)
-      .navigationTitle("New meal plan")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-    }
-    .tint(Theme.accent)
-  }
-
-  private func go(meals: Int?) {
-    saving = true
-    Task {
-      if await store.newPlan(meals: meals, keepCurrent: keepCurrent) { dismiss() }
-      saving = false
-    }
   }
 }
 
