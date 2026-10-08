@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taste Lab — collected data</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      .review { width: min(100%, 860px); margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+      .session { margin: 0 0 0.85rem; padding: 1rem; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+      .session h2 { margin: 0 0 0.35rem; font-size: 1.15rem; }
+      .session pre { margin: 0.7rem 0 0; padding: 0.75rem; background: var(--soft); border-radius: 10px; overflow: auto; font-size: 0.75rem; }
+    </style>
+  </head>
+  <body>
+    <div class="review">
+      <div class="top">
+        <h1 class="brand">Collected labels</h1>
+        <span>
+          <a class="lab-link" href="/groups.html">Swipe groups</a>
+          ·
+          <a class="lab-link" href="/">Taste Lab</a>
+        </span>
+      </div>
+      <p class="lead" id="summary">Loading…</p>
+      <div id="list"></div>
+    </div>
+    <script>
+      const esc = (s) => String(s ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;");
+      const show = (rows) => {
+        document.getElementById("summary").textContent = rows.length
+          ? `${rows.length} labeled session${rows.length === 1 ? "" : "s"}.`
+          : "No sessions yet.";
+        document.getElementById("list").innerHTML = rows
+          .map((s) => {
+            const p = s.profile || {};
+            const likes = (s.swipes || []).filter((x) => x.liked).length;
+            const plans = (s.plans || []).map((x) => x.verdict).join(", ") || "none";
+            return `<article class="session">
+              <h2>${esc((s.created_at || "").slice(0, 16) || "session")}</h2>
+              <p class="hint">${esc((p.diets || []).join(", "))} · allergens ${esc((p.allergens || []).join(", ") || "—")} · avoids ${esc((p.dislikes || []).join(", ") || "—")} · ${likes} meal likes · plan ${esc(plans)}</p>
+              <pre>${esc(JSON.stringify(s, null, 2))}</pre>
+            </article>`;
+          })
+          .join("");
+      };
+      fetch("/api/sessions")
+        .then((r) => r.json())
+        .then((data) => show(data.sessions || []))
+        .catch(() => show([]));
+    </script>
+  </body>
+</html>

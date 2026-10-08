@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taste Lab — swipe groups</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="groups-page">
+      <div class="top">
+        <h1 class="brand">Swipe groups</h1>
+        <a class="lab-link" href="/">Back to Taste Lab</a>
+      </div>
+      <p class="lead">Everyone sees the first two. After the quiz, one meal is drawn from each group (or any leftover meal if a group is fully filtered out).</p>
+      <div id="list">Loading…</div>
+    </div>
+    <script src="swipe-groups.js"></script>
+    <script>
+      const esc = (s) =>
+        String(s ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll('"', "&quot;");
+      const card = (r) => {
+        if (!r) return `<article class="meal"><div class="meal-body"><h3>Missing from catalog</h3></div></article>`;
+        const img = r.photo
+          ? `<img src="${esc(r.photo)}" alt="" />`
+          : `<div class="ph">${esc((r.name || "?").slice(0, 1))}</div>`;
+        const bits = [r.mins && `${r.mins} min`, r.calories && `${r.calories} cal`, r.protein && `${r.protein}g protein`]
+          .filter(Boolean)
+          .join(" · ");
+        return `<article class="meal">
+          <div class="meal-photo">${img}</div>
+          <div class="meal-body">
+            <h3 title="${esc(r.name)}">${esc(r.name)}</h3>
+            <p>${esc(bits)}</p>
+          </div>
+        </article>`;
+      };
+      const section = (title, note, ids, by) => `
+        <section class="group-block">
+          <h2 class="page" style="font-size:1.45rem;margin:0 0 0.35rem">${esc(title)}</h2>
+          <p class="hint">${esc(note)}</p>
+          <div class="plan-grid">${ids.map((id) => card(by.get(String(id)))).join("")}</div>
+        </section>`;
+      fetch("/api/catalog")
+        .then((r) => r.json())
+        .then((data) => {
+          const by = new Map((data.recipes || []).map((r) => [String(r.id), r]));
+          document.getElementById("list").innerHTML = [
+            section("Everyone first", "Both of these, then the filter quiz.", TASTE_SEEDS, by),
+            ...TASTE_GROUPS.flatMap((g) => {
+              const main = section(g.title, `${g.ids.length} meals. One of these is shown if any still fit.`, g.ids, by);
+              const last = g.last?.length
+                ? section(`${g.title} — last resort`, "Only if every meal above is blocked. After that, any leftover catalog meal.", g.last, by)
+                : "";
+              return [main, last];
+            }),
+          ].join("");
+        })
+        .catch(() => {
+          document.getElementById("list").textContent = "Could not load catalog.";
+        });
+    </script>
+  </body>
+</html>

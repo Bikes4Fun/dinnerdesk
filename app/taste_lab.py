@@ -1,0 +1,210 @@
+"""Taste Lab APIs. Recipe cards come from the PostgreSQL catalog."""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import re
+from app.auth import SESSION_COOKIE, session_info
+from app.db.database import PgConnection
+from collections import defaultdict
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
+
+from app.db.database import ROOT
+from app.deps import DbDep
+from app.domain.recipe_photos import usable_photo
+
+TASTE_SERVER = ROOT / "tastelab" / "server.py"
+SKIP = {"incomplete", "side", "sauce", "dressing", "meal_component"}
+ARCHIVE_ID = re.compile(r"/(\d+)/?$")
+# Shared stand-in photos. usable_photo can still return one; don't put it on the wrong dish.
+GENERIC_PHOTOS = frozenset({
+    "food/pasta-tomato.jpg",
+    "food/pasta-veg.png",
+    "food/salad-garden.png",
+    "food/salad-chicken.png",
+    "food/chicken-pilaf.png",
+    "food/chicken-roast.jpg",
+    "food/steak-wedges.png",
+    "food/steak-plate.png",
+})
+
+router = APIRouter()
+_mod = None
+
+
+def taste():
+    global _mod
+    if _mod is None:
+        spec = importlib.util.spec_from_file_location("taste_lab_server", TASTE_SERVER)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"cannot load {TASTE_SERVER}")
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.init_db()
+        _mod = mod
+    return _mod
+
+
+def archive_id(row) -> str:
+    url = (row["source_url"] or "").split("?")[0].rstrip("/")
+    m = ARCHIVE_ID.search(url)
+    if m:
+        return m.group(1)
+    slug = str(row["slug"] or "")
+    if slug.isdigit():
+        return slug
+    return str(row["id"])
+
+
+def catalog_from_db(db: PgConnection) -> list[dict]:
+    keep = taste().group_ids()
+    tags_by: dict[int, set[str]] = defaultdict(set)
+    for t in db.execute("SELECT recipe_id, tag FROM recipe_tags"):
+        tags_by[int(t["recipe_id"])].add(t["tag"])
+    ings_by: dict[int, list[str]] = defaultdict(list)
+    for x in db.execute(
+        """SELECT ri.recipe_id, i.canonical_name
+           FROM recipe_ingredients ri
+           JOIN ingredients i ON i.id = ri.ingredient_id
+           ORDER BY ri.recipe_id, ri.sort"""
+    ):
+        ings_by[int(x["recipe_id"])].append(x["canonical_name"])
+    out = []
+    for r in db.execute(
+        """SELECT id, name, slug, servings, cooking_minutes, photo_path, source_url
+           FROM recipes WHERE household_id IS NULL"""
+    ):
+        rid = int(r["id"])
+        tags = tags_by[rid]
+        if tags & SKIP and "full_meal" not in tags and "main_dish" not in tags:
+            continue
+        ings = ings_by[rid]
+        if not ings:
+            continue
+        archive = archive_id(r)
+        photo = usable_photo(r["photo_path"] or "", rid)
+        if photo and not photo.startswith("/"):
+            photo = f"/{photo}"
+        # Shared stand-in photos (a garden salad, a steak plate…) aren't the dish.
+        # The Recipes tab already hides these; showing them here put a salad on a frittata.
+        if not photo or photo.lstrip("/") in GENERIC_PHOTOS:
+            continue
+        mins = r["cooking_minutes"]
+        out.append(
+            {
+                "id": archive,
+                "recipe_id": rid,
+                "name": r["name"],
+                "mins": int(mins) if mins is not None else None,
+                "servings": r["servings"],
+                "photo": photo,
+                "calories": None,
+                "protein": None,
+                "ingredients": ings,
+            }
+        )
+    return out
+
+
+@router.get("/catalog")
+def catalog(request: Request, db: PgConnection = DbDep):
+    rows = catalog_from_db(db)
+    # Signed in: leave out meals the household gave a 👎 on their plan.
+    row = session_info(db, request.cookies.get(SESSION_COOKIE))
+    if row and row["household_id"]:
+        down = {
+            int(r["recipe_id"])
+            for r in db.execute(
+                "SELECT recipe_id FROM household_meal_ratings WHERE household_id = ? AND rating < 0",
+                (row["household_id"],),
+            )
+        }
+        rows = [r for r in rows if r["recipe_id"] not in down]
+    return {"recipes": rows, "count": len(rows)}
+
+
+@router.get("/sessions")
+def sessions():
+    rows = taste().list_sessions()
+    return {"sessions": rows, "count": len(rows)}
+
+
+@router.post("/sessions")
+async def save_session(request: Request, db: PgConnection = DbDep):
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(400, {"error": "bad_json", "detail": "object"})
+    row = session_info(db, request.cookies.get(SESSION_COOKIE))
+    if row:
+        body["account_id"] = str(row["user_id"])
+    sid = taste().save_event(body)
+    return {"ok": True, "id": sid}
+
+
+def public_taste(snapshots: list[dict], *, signed_in: bool) -> dict:
+    """What Taste Lab should show this person. Same vote rules as suggestions."""
+    if not signed_in:
+        return {"signed_in": False, "profile": None, "likes": 0, "passes": 0, "votes": []}
+    from app.domain.taste_rank import learn
+
+    taste = learn(snapshots, [])
+    profile = {"diets": ["omnivore"], "allergens": [], "dislikes": []}
+    for snap in snapshots:
+        prof = snap.get("profile")
+        if not isinstance(prof, dict):
+            continue
+        diets = [str(item).strip().lower() for item in (prof.get("diets") or []) if str(item).strip()]
+        profile = {
+            "diets": diets or ["omnivore"],
+            "allergens": [str(item).strip().lower() for item in (prof.get("allergens") or []) if str(item).strip()],
+            "dislikes": [str(item).strip().lower() for item in (prof.get("dislikes") or []) if str(item).strip()],
+        }
+    votes = [{"recipe_id": rid, "liked": False} for rid in sorted(taste.passed)]
+    votes.extend({"recipe_id": rid, "liked": True} for rid in sorted(taste.liked))
+    votes.extend({"recipe_id": rid, "liked": True, "plan": True} for rid in sorted(taste.plan_liked))
+    return {
+        "signed_in": True,
+        "profile": profile,
+        "likes": len(taste.liked) + len(taste.plan_liked),
+        "passes": len(taste.passed),
+        "votes": votes,
+    }
+
+
+@router.get("/taste")
+def my_taste(request: Request, db: PgConnection = DbDep):
+    row = session_info(db, request.cookies.get(SESSION_COOKIE))
+    if not row:
+        return public_taste([], signed_in=False)
+    return public_taste(snapshots_for_accounts([str(row["user_id"])]), signed_in=True)
+
+
+def snapshots_for_accounts(account_ids: list[str]) -> list[dict]:
+    """Latest-to-oldest snapshot bodies for signed-in accounts, oldest first."""
+    if not account_ids:
+        return []
+    marks = ", ".join("?" for _ in account_ids)
+    with taste().db() as con:
+        rows = con.execute(
+            f"""SELECT e.body, p.account_id
+                FROM taste_events e
+                JOIN taste_sessions s ON s.id = e.session_id
+                JOIN taste_people p ON p.id = s.person_id
+                WHERE e.kind = 'snapshot' AND p.account_id IN ({marks})
+                ORDER BY e.id""",
+            account_ids,
+        ).fetchall()
+    out = []
+    for row in rows:
+        raw = row["body"]
+        body = json.loads(raw) if isinstance(raw, str) else raw
+        if not isinstance(body, dict):
+            continue
+        saved = dict(body)
+        saved["account_id"] = row["account_id"]
+        out.append(saved)
+    return out

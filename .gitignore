@@ -1,0 +1,67 @@
+# Python and test artifacts
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# JavaScript dependencies and build output
+node_modules/
+web/dist/
+
+# Local configuration, secrets, and databases
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-*
+*.db
+*.db-*
+/data/backups/
+/local/
+/.cursor/
+
+# macOS and Xcode local/build/export artifacts
+.DS_Store
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+*.xccheckout
+project.xcworkspace/xcshareddata/swiftpm/configuration/
+DerivedData/
+build/
+*.xcarchive/
+*.ipa
+*.dSYM/
+*.dSYM.zip
+*.p12
+*.p8
+*.pfx
+*.key
+*.mobileprovision
+*.log
+/dinnerdesk 20*/
+**/ExportOptions.plist
+**/DistributionSummary.plist
+
+# Research and review material belongs in the sibling dd_support repository
+/references/
+/support/
+/mealime-refs/
+/data/mealime_bulk_scrape/
+/docs/**/*.png
+/docs/**/*.jpg
+/docs/**/*.jpeg
+/docs/**/*.pdf
+
+# Private catalogs, recipe photos, exports and trained data
+/data/
+/food/
+/tastelab/data/

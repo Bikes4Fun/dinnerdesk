@@ -1,0 +1,23 @@
+{
+  "protein": [
+    "chicken",
+    "tofu",
+    "beans",
+    "beef",
+    "salmon",
+    "lentils"
+  ],
+  "vegetable": [
+    "carrot",
+    "broccoli",
+    "tomato",
+    "spinach",
+    "onion"
+  ],
+  "starch": [
+    "rice",
+    "pasta",
+    "potato",
+    "polenta"
+  ]
+}

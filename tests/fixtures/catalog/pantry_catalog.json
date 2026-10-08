@@ -1,0 +1,126 @@
+[
+  {
+    "name": "rice",
+    "zone": "dry"
+  },
+  {
+    "name": "chicken",
+    "zone": "dry"
+  },
+  {
+    "name": "carrot",
+    "zone": "dry"
+  },
+  {
+    "name": "broccoli",
+    "zone": "dry"
+  },
+  {
+    "name": "beans",
+    "zone": "dry"
+  },
+  {
+    "name": "tomato",
+    "zone": "dry"
+  },
+  {
+    "name": "pasta",
+    "zone": "dry"
+  },
+  {
+    "name": "tofu",
+    "zone": "dry"
+  },
+  {
+    "name": "potato",
+    "zone": "dry"
+  },
+  {
+    "name": "spinach",
+    "zone": "dry"
+  },
+  {
+    "name": "onion",
+    "zone": "dry"
+  },
+  {
+    "name": "olive oil",
+    "zone": "dry"
+  },
+  {
+    "name": "salt",
+    "zone": "dry"
+  },
+  {
+    "name": "black pepper",
+    "zone": "dry"
+  },
+  {
+    "name": "sugar",
+    "zone": "dry"
+  },
+  {
+    "name": "flour",
+    "zone": "dry"
+  },
+  {
+    "name": "milk",
+    "zone": "dry"
+  },
+  {
+    "name": "eggs",
+    "zone": "dry"
+  },
+  {
+    "name": "butter",
+    "zone": "dry"
+  },
+  {
+    "name": "lemon",
+    "zone": "dry"
+  },
+  {
+    "name": "cheese",
+    "zone": "dry"
+  },
+  {
+    "name": "beef",
+    "zone": "dry"
+  },
+  {
+    "name": "salmon",
+    "zone": "dry"
+  },
+  {
+    "name": "lentils",
+    "zone": "dry"
+  },
+  {
+    "name": "yellow potatoes",
+    "zone": "dry"
+  },
+  {
+    "name": "red potatoes",
+    "zone": "dry"
+  },
+  {
+    "name": "lime",
+    "zone": "dry"
+  },
+  {
+    "name": "all-purpose flour",
+    "zone": "dry"
+  },
+  {
+    "name": "cayenne pepper",
+    "zone": "dry"
+  },
+  {
+    "name": "jalape\u00f1o peppers",
+    "zone": "dry"
+  },
+  {
+    "name": "garlic",
+    "zone": "dry"
+  }
+]
