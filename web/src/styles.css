@@ -1484,3 +1484,6 @@ img { display: block; max-width: 100%; }
 
 .nav-link.is-on { font-weight: 800; }
 .tabbar .nav-link.is-on { text-decoration: underline; text-underline-offset: 0.25em; text-decoration-thickness: 2px; }
+
+.plan-meal-list .meal-title strong { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; overflow-wrap: normal; word-break: normal; }
+.plan-meal-list .meal-schedule { margin-top: 0.5rem; max-width: 100%; white-space: normal; }

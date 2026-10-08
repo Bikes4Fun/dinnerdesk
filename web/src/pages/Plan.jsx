@@ -170,7 +170,10 @@ export function Plan() {
             </div>
             <div className="meal-copy">
               <button type="button" className={`meal-title${slot.cooked ? " plan-completed" : ""}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}><strong>{slot.recipe_name}</strong></button>
-              {!editing && <span className="muted">{slot.servings} servings</span>}
+              {!editing && <>
+                <span className="muted">{slot.servings} servings</span>
+                {!grid && <button type="button" className="meal-schedule" disabled={busy} aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</button>}
+              </>}
         
               {editing && <>
                 <div className="meal-edit-controls">

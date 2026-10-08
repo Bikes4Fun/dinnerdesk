@@ -359,3 +359,7 @@ Prep completion uses PUT /prep/{id}/steps and task JSON as its sole store. Start
 legacy per-step checks into task JSON before dropping the old table; completion follows
 step identities when tasks regroup. Deploy API and app together: the duplicate PATCH step
 endpoint is retired.
+
+Plan list rows show full wrapping titles and a Schedule button outside editing. iPhone
+photos retain their 160-point size; accessibility sizes stack the title/controls below the
+photo rather than shrinking it. Web list thumbnails retain their existing dimensions.

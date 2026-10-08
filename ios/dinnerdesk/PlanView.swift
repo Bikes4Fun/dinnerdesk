@@ -187,57 +187,9 @@ struct PlanView: View {
     }
   }
 
-  /// One photo size for every list row. Grows to 200 only when every title fits on two
-  /// lines beside that photo. Otherwise the widest 16-character opening in the plan
-  /// pulls every photo down together, never above the 160 ideal. At 70 the photo
-  /// stops shrinking and the title may show fewer than 16 characters.
+  /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.
   private func calculateGlobalPhotoWidth(for plan: Plan, availableWidth: CGFloat) -> CGFloat {
-    let minPhoto: CGFloat = 70
-    let ideal: CGFloat = 160
-    let maxPhoto: CGFloat = 200
-    let gap: CGFloat = 8 + (editing ? 40 : 0)
-    let font = mealTitleFont()
-    let names = plan.slots.map(\.recipeName)
-    guard !names.isEmpty else { return ideal }
-
-    func textTrack(photo: CGFloat) -> CGFloat { availableWidth - gap - photo }
-
-    let roomAtMax = textTrack(photo: maxPhoto)
-    if roomAtMax > 0, names.allSatisfy({ fits($0, width: roomAtMax, lines: 2, font: font) }) {
-      return maxPhoto
-    }
-
-    let floor = names.map { widthForTwoLines(String($0.prefix(16)), font: font) }.max() ?? 0
-    return min(ideal, max(minPhoto, availableWidth - gap - floor))
-  }
-
-  /// DM Sans Semibold 17, the same face as Theme.mealName, scaled for the current text size.
-  private func mealTitleFont() -> UIFont {
-    let base = UIFont(name: "DMSans-SemiBold", size: 17) ?? .systemFont(ofSize: 17, weight: .semibold)
-    return UIFontMetrics(forTextStyle: .body).scaledFont(for: base)
-  }
-
-  private func fits(_ text: String, width: CGFloat, lines: Int, font: UIFont) -> Bool {
-    guard width > 1, !text.isEmpty else { return text.isEmpty }
-    let rect = (text as NSString).boundingRect(
-      with: CGSize(width: width, height: .greatestFiniteMagnitude),
-      options: [.usesLineFragmentOrigin, .usesFontLeading],
-      attributes: [.font: font],
-      context: nil
-    )
-    return ceil(rect.height) <= font.lineHeight * CGFloat(lines) + 1
-  }
-
-  private func widthForTwoLines(_ text: String, font: UIFont) -> CGFloat {
-    if text.isEmpty { return 0 }
-    let single = ceil((text as NSString).size(withAttributes: [.font: font]).width)
-    var low: CGFloat = 0
-    var high = max(single, 1)
-    for _ in 0..<18 {
-      let mid = (low + high) / 2
-      if fits(text, width: mid, lines: 2, font: font) { high = mid } else { low = mid }
-    }
-    return ceil(high)
+    160
   }
 
   private func meal(_ slot: PlanSlot, plan: Plan, grid: Bool, photoWidth: CGFloat) -> some View {
@@ -251,6 +203,16 @@ struct PlanView: View {
           }
           if editing { editControls(slot, plan: plan) }
         }
+      } else if typeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 12) {
+          HStack(alignment: .top) {
+            if editing { selectionButton(slot) }
+            photo(slot, side: photoWidth)
+          }
+          title(slot, plan: plan)
+          if editing { editControls(slot, plan: plan) }
+          else { scheduleButton(slot, plan: plan) }
+        }
       } else {
         HStack(alignment: .top, spacing: 8) {
           if editing { selectionButton(slot) }
@@ -258,6 +220,7 @@ struct PlanView: View {
           VStack(alignment: .leading, spacing: 8) {
             title(slot, plan: plan)
             if editing { editControls(slot, plan: plan) }
+            else { scheduleButton(slot, plan: plan) }
           }
         }
       }
@@ -366,7 +329,7 @@ struct PlanView: View {
     } label: {
       VStack(alignment: .leading, spacing: 4) {
         Text(slot.recipeName).font(Theme.mealName).foregroundStyle(Theme.ink)
-          .multilineTextAlignment(.leading).lineLimit(2).truncationMode(.tail)
+          .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
         if !editing {
           Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
