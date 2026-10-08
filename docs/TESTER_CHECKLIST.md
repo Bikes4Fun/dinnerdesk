@@ -1,6 +1,6 @@
 # Dinnerdesk tester checklist
 
-*Last updated: Oct 7, 2026 · Build: merged `main` + `prep-grocery-recipes` (includes suggested-plan work)*
+*Last updated: Oct 8, 2026 · Candidate: `codex/even-issues-validation` (cumulative even-issue fixes; not deployed)*
 
 *For the team: each section here matches a section of [`DESIGN.md`](DESIGN.md) → Features. When a feature changes, update both.*
 
@@ -8,14 +8,16 @@ Thanks for testing. Work through the sections in order; each one builds on the l
 
 ## Focus for this build
 
-These changed most recently, so check them first and most carefully:
+These changed most recently, so check them first:
 
-- **Weekend prep (section 8):** rebuilt. The same prep from several meals is now one task ("Prep potatoes" for two meals), you can check off each item, and closing a task really hides its details.
-- **Diet and avoid filters (section 5):** they now hide recipes in Recipes, not just in suggestions. Pick one of omnivore / pescatarian / vegetarian / vegan. Fish and "None" are in the avoid list.
-- **Grocery (section 6):** share or email the list, show/hide completed items from the bottom of the list, a simpler Add item sheet, clearer menu names.
-- **Recipes (section 5):** timers on Cook steps, and a "Uses pantry" filter on iPhone.
-- **Suggested plans (section 3):** review, swap, approve or decline a proposal; keep your own picks.
-- **Larger text (sections 5, 6, 7, 10):** grocery rows, recipe cards, icon rows like "Aisle order", and section headers.
+- **Recipe plan controls:** brief Added/Removed confirmation, then the opposite action; recipe options use a scrolling sheet on iPhone.
+- **Plan:** singular removal confirmation, full meal names with unchanged photo size, Schedule outside editing, a short suggestion summary, and declining replaces only the proposal.
+- **Taste Lab:** duplicate branding removed in embedded completion, full meal names, and prominent recovery when results run out.
+- **Grocery / My kitchen:** no empty ingredient photo box, usage heading fills available width, and substitutions stack when needed.
+- **Navigation:** selected labels have a non-color cue; tapping the current tab returns to its root.
+- **Prep:** one PUT step endpoint and one completion store, with tested migration of existing checks. Updated API and app must ship together.
+
+The tour order, category preference behavior, and More grouping remain proposals awaiting product choices. Detailed checks are under **Even issue verification — Oct 8, 2026** below.
 
 Everything else is a regression check: it worked before, so confirm it still does.
 
