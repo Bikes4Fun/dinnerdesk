@@ -100,6 +100,7 @@ function NavLink({ href, navKey, label, icon, page, className = "" }) {
       onClick={(e) => {
         e.preventDefault();
         go(href);
+        window.dispatchEvent(new Event("dinnerdesk-tab-root"));
       }}
     >
       {icon ? <Icon name={icon} /> : null}
@@ -109,6 +110,12 @@ function NavLink({ href, navKey, label, icon, page, className = "" }) {
 }
 
 export function App() {
+  const [tabRootVersion, setTabRootVersion] = useState(0);
+  useEffect(() => {
+    const reset = () => setTabRootVersion((value) => value + 1);
+    window.addEventListener("dinnerdesk-tab-root", reset);
+    return () => window.removeEventListener("dinnerdesk-tab-root", reset);
+  }, []);
   const [route, setRoute] = useState(() => parsePath(window.location.pathname));
   const [tasteHome, setTasteHome] = useState(true);
   const [authStatus, setAuthStatus] = useState(null);
@@ -235,7 +242,7 @@ export function App() {
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
         </nav>
       </aside>
-      <div className="main">
+      <div className="main" key={tabRootVersion}>
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes />}
         {page === "recipe" && <Recipe id={route.id} />}

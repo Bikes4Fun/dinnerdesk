@@ -290,3 +290,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #32: decline several proposals. Review remains open, with no whole-page reload or grocery changes. Fail the replacement request: a readable error and Try another suggestion remain; retry does not decline twice.
 
 - [ ] #34: grocery item’s You’ll use this in heading uses the available width, stays smaller than the item title, and has no truncation/overlap at maximum text size or web zoom.
+
+- [ ] #36: open nested pages in each tab and tap that same tab. Its main page returns. Repeat with recipe search, Grocery item, More → Settings, and both standard/accessibility tab layouts. No household data is lost.

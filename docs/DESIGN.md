@@ -370,3 +370,6 @@ approved or modified again.
 
 The grocery “You’ll use this in…” heading uses the full content width and a secondary
 heading font, wrapping naturally only when needed at large text sizes.
+
+Tapping the selected tab again returns to its main page and resets local navigation/search
+state. On web, primary navigation remounts the destination screen without reloading the page.
