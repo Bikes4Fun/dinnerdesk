@@ -238,6 +238,9 @@ struct AlwaysCheckedView: View {
 }
 
 /// Search the grocery catalog and pick one item (or keep what you typed).
+/// Its own search field (not `.searchable`, which drew a second ✕ beside the field's clear
+/// button) and full keyboard use: the field is focused on open, ↓ / ↑ move through results,
+/// Return picks the highlighted (or first) result, Escape closes. Tab reaches every row.
 struct KitchenItemPicker: View {
   let title: String
   let onPick: @MainActor (String) async -> Void
@@ -247,6 +250,8 @@ struct KitchenItemPicker: View {
   @State private var hits: [String] = []
   @State private var searchError: String?
   @State private var picking = false
+  @State private var highlighted: Int?
+  @FocusState private var searchFocused: Bool
 
   init(title: String, onPick: @escaping @MainActor (String) async -> Void) {
     self.title = title
@@ -255,33 +260,32 @@ struct KitchenItemPicker: View {
 
   var body: some View {
     NavigationStack {
-      List(hits, id: \.self) { name in
-        Button {
-          guard !picking else { return }
-          picking = true
-          let selectedName = name
-          Task { @MainActor in
-            await onPick(selectedName)
-            dismiss()
+      VStack(spacing: 0) {
+        searchField
+        List(Array(hits.enumerated()), id: \.element) { index, name in
+          Button {
+            pick(name)
+          } label: {
+            Text(name).font(Theme.mealName).foregroundStyle(Theme.ink)
+              .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+              .contentShape(Rectangle())
           }
-        } label: {
-          Text(name).font(Theme.mealName).foregroundStyle(Theme.ink)
+          .buttonStyle(.plain)
+          .disabled(picking)
+          .listRowBackground(index == highlighted ? Theme.aubergineTint : Theme.bg)
+          .accessibilityAddTraits(index == highlighted ? .isSelected : [])
         }
-        .disabled(picking)
-        .kitchenRows()
-      }
-      .overlay {
-        if let searchError {
-          ErrorBanner(message: searchError)
-        } else if hits.isEmpty {
-          Text(query.isEmpty ? "Type an item, like garlic or rice." : "No matches")
-            .foregroundStyle(Theme.muted)
+        .kitchenList()
+        .overlay {
+          if let searchError {
+            ErrorBanner(message: searchError)
+          } else if hits.isEmpty {
+            Text(query.isEmpty ? "Type an item, like garlic or rice." : "No matches")
+              .foregroundStyle(Theme.muted)
+          }
         }
       }
-      .kitchenList()
-      .searchable(
-        text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search items"
-      )
+      .background(Theme.bg)
       .navigationTitle(title)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
@@ -290,8 +294,10 @@ struct KitchenItemPicker: View {
         }
       }
       .tint(Theme.accent)
+      .onAppear { searchFocused = true }
       .task(id: query) {
         let q = query.trimmingCharacters(in: .whitespaces)
+        highlighted = nil
         guard !q.isEmpty else {
           hits = []
           return
@@ -306,6 +312,64 @@ struct KitchenItemPicker: View {
           searchError = KitchenAPI.message(error)
         }
       }
+    }
+  }
+
+  private var searchField: some View {
+    HStack(spacing: 8) {
+      Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted).accessibilityHidden(true)
+      TextField("Search items", text: $query)
+        .font(Theme.body)
+        .focused($searchFocused)
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .submitLabel(.done)
+        .onSubmit {
+          if let name = highlighted.flatMap({ hits.indices.contains($0) ? hits[$0] : nil }) ?? hits.first {
+            pick(name)
+          }
+        }
+        .onKeyPress(.downArrow) {
+          guard !hits.isEmpty else { return .ignored }
+          highlighted = min((highlighted ?? -1) + 1, hits.count - 1)
+          return .handled
+        }
+        .onKeyPress(.upArrow) {
+          guard let current = highlighted else { return .ignored }
+          highlighted = current > 0 ? current - 1 : nil
+          return .handled
+        }
+        .onKeyPress(.escape) {
+          dismiss()
+          return .handled
+        }
+      if !query.isEmpty {
+        Button {
+          query = ""
+          searchFocused = true
+        } label: {
+          Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Clear search")
+      }
+    }
+    .padding(.leading, 12)
+    .frame(minHeight: 44)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+    .padding(.horizontal, 16)
+    .padding(.vertical, 8)
+  }
+
+  private func pick(_ name: String) {
+    guard !picking else { return }
+    picking = true
+    Task { @MainActor in
+      await onPick(name)
+      dismiss()
     }
   }
 }

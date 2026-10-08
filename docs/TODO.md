@@ -105,7 +105,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### My kitchen
 
-- [ ] Add-to-pantry search has two X buttons, and the keyboard can't move through results
+- [x] Add-to-pantry search has two X buttons, and the keyboard can't move through results
       (tab, arrow up/down).
       `docs/my kitchen to do/add to pantry search has two x_s and doesn't allow tab arrow down up select.png`
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.57.09 PM.png`
