@@ -122,7 +122,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 - [ ] The current tab is shown by color only (the filled-icon fix was reverted).
       `docs/accessibility to do/color only representation of current page.png`
-- [ ] The selected-tab highlight spills past the tab bar and clips the Grocery badge.
+- [x] The selected-tab highlight spills past the tab bar and clips the Grocery badge.
       `docs/accessibility to do/bottom nav highlight overlow when selected.png`
 - [ ] Large-text pass on Pantry, the recipe page, Cook, Prep, and Settings (needs a device).
 - [ ] Opening a tab again should show that tab's main page.
