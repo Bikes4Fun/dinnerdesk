@@ -342,3 +342,6 @@ linking to Edit filters; saved allergies and passes remain intact.
 
 The iPhone recipe options control opens the shared scrolling menu sheet, with a 44-point
 tap target, so long labels and accessibility text sizes remain reachable.
+
+Grocery detail shows an ingredient photo only when available; missing/failed photos leave
+no empty photo box. Individual food assets are supplied through GROCERY_PHOTO_DIR.

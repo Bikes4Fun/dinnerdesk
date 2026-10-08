@@ -399,14 +399,17 @@ struct GroceryItemView: View {
                   .foregroundStyle(Theme.muted)
               }
 
-              if let path = line.ingredientPhotoPath {
-                RecipePhoto(
-                  path: path, large: true, bannerHeight: min(220, geometry.size.height * 0.25))
-              } else {
-                RoundedRectangle(cornerRadius: 16)
-                  .fill(Theme.surface)
-                  .frame(height: min(220, geometry.size.height * 0.25))
-                  .accessibilityLabel("Ingredient photo space")
+              if let url = API.photoURL(line.ingredientPhotoPath) {
+                AsyncImage(url: url) { phase in
+                  if let image = phase.image {
+                    image.resizable().scaledToFill()
+                      .frame(maxWidth: .infinity)
+                      .frame(height: min(220, geometry.size.height * 0.25))
+                      .clipped()
+                      .clipShape(RoundedRectangle(cornerRadius: 16))
+                      .accessibilityLabel("Photo of \(line.name)")
+                  }
+                }
               }
               ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
