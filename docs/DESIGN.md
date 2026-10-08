@@ -139,6 +139,12 @@ Hearts, To try, and hides belong to this kitchen.
 **Recipe page and Cook mode.** Overview is the photo and full ingredient list; Cook is numbered
 steps. Both show this kitchen's overlay when there is one.
 
+Recipe detail add controls reflect membership in the current plan: already included recipes
+show "Remove from this plan". Successful adds/removals show a brief confirmation popup.
+On iPhone the toolbar plus becomes a minus,
+with a matching VoiceOver label; the add action is beside the heart rather than in the ⋯ menu.
+Hide and To try remain available for recipes on the plan.
+
 - **Must:** keep line breaks and `- ` bullets in a step; `Heading:` reads as a label. Show the
   amounts for each step under it. Show a Prep chip on tagged steps. A step that mentions a time
   ("simmer 10 minutes", "3–4 minutes") gets a timer, using the shorter time of a range.

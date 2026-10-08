@@ -133,6 +133,8 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 - [ ] Open the steps. Each step is numbered, and amounts for that step appear under it.
 - [ ] **Edit** a recipe and save. Your change shows. **Restore** brings back the original.
 - [ ] **Add to this plan** from a recipe page. It's added and you stay on the recipe.
+- [ ] Open a recipe already on the current plan: the bottom button says “Remove from this plan”. On iPhone, the icon beside the heart is a minus and VoiceOver says “Remove from this plan”; Hide and To try still work in ⋯.
+- [ ] Add a recipe, leave and reopen it: both add controls offer Remove. Adding shows a brief “Added to this plan” popup; removing shows “Removed from this plan” and restores Add. Remove it from the plan and reopen: Add is available again. Tap Add rapidly: only one copy is added. Repeat on the website.
 - [ ] In Cook mode, a step that mentions a time ("simmer 10 minutes") has a timer button. Start it; it counts down and says "Time's up" at zero (with a buzz on iPhone). For a range like "3–4 minutes" it uses the shorter time.
 - [ ] Search, then tap **Uses pantry**. Only recipes using things you have stay. (On iPhone this is new.)
 - [ ] At the largest text size, search results show one recipe per row and the browse rows' cards are wider, so names aren't broken mid-word.

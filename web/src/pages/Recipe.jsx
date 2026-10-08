@@ -21,7 +21,7 @@ export function Recipe({ id }) {
   const [editing, setEditing] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  const [added, setAdded] = useState(false);
+  const added = week?.weekIds?.has(Number(id)) ?? false;
   const [name, setName] = useState("");
   const [servings, setServings] = useState(4);
   const [minutes, setMinutes] = useState("");
@@ -32,7 +32,6 @@ export function Recipe({ id }) {
   const moreRef = useRef(null);
 
   useEffect(() => {
-    setAdded(false);
     setEditing(false);
     setDraftServings(null);
     setShowMore(false);
@@ -125,16 +124,18 @@ export function Recipe({ id }) {
   }
 
   async function addToWeek() {
+    if (busy) return;
     setBusy(true);
     try {
       const plan = await api.plan();
-      const slots = [
+      const removing = plan.slots.some((slot) => slot.recipe_id === recipe.id);
+      const slots = removing ? plan.slots.filter((slot) => slot.recipe_id !== recipe.id).map(asSlotIn) : [
         ...plan.slots.map(asSlotIn),
         { recipe_id: recipe.id, day_index: null, meal_type: "dinner", servings: draftServings ?? recipe.servings },
       ];
       await api.putSlots(plan.id, slots);
       await week?.load?.();
-      setAdded(true);
+      week?.toast?.(removing ? "Removed from this plan" : "Added to this plan");
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -395,8 +396,8 @@ export function Recipe({ id }) {
             ) : null}
           </>
         ) : (
-          <button type="button" className="btn-primary block" disabled={busy || added} onClick={addToWeek}>
-            {added ? "Added to this plan" : busy ? "Adding…" : "Add to this plan"}
+          <button type="button" className="btn-primary block" disabled={busy} onClick={addToWeek}>
+            {busy ? "Updating…" : added ? "Remove from this plan" : "Add to this plan"}
           </button>
         )}
       </footer>
