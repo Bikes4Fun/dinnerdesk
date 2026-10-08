@@ -482,11 +482,7 @@ button:focus-visible, .text-link:focus-visible {
   letter-spacing: 0;
   color: var(--ink);
   line-height: 1.25;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
+  overflow-wrap: normal;
 }
 .swap-list {
   display: grid;
@@ -529,13 +525,8 @@ button:focus-visible, .text-link:focus-visible {
   letter-spacing: 0;
   color: var(--ink);
   line-height: 1.25;
-  height: 2.5em;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 .meal p {
   margin: 0;

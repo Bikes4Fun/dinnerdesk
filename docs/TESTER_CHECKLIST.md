@@ -268,3 +268,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #8: proposal shows a short why-these-meals summary on web/iPhone; swap and resize update it. Approve: the current plan has no approval/swap-count commentary.
 
 - [ ] #10: walk embedded Taste Lab on iPhone and web through filters, swipe, suggested dinners, completion, and empty results. Taste Lab branding appears once; step headings and Back work. Standalone Taste Lab retains its title.
+
+- [ ] #12: long Taste Lab suggested meal names and swap headings show in full at normal and larger text on app/web. Scroll to reach decisions; words do not split unnecessarily.

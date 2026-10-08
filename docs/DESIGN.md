@@ -333,3 +333,6 @@ swaps and resizing. Approved plans omit suggestion commentary and internal decis
 
 Embedded Taste Lab uses the host screen’s Taste Lab title and suppresses repeated branding;
 inner headings still name the current step and Back still navigates within Taste Lab.
+
+Taste Lab suggested meal names and swap headings wrap to their full length; cards grow
+with the title and decision controls remain in the scrolling flow.
