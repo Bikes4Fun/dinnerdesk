@@ -1481,3 +1481,6 @@ img { display: block; max-width: 100%; }
 .substitution-row { flex-wrap: wrap; gap: 0.75rem; }
 .substitution-row strong { min-width: 0; flex: 1 1 16rem; overflow-wrap: normal; word-break: normal; }
 .substitution-row button { flex-shrink: 0; }
+
+.nav-link.is-on { font-weight: 800; }
+.tabbar .nav-link.is-on { text-decoration: underline; text-underline-offset: 0.25em; text-decoration-thickness: 2px; }

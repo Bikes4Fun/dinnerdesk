@@ -119,6 +119,13 @@ private struct InstantTabSwitch: UIViewRepresentable {
 
     func install(from view: UIView?) {
       guard let tabBar = view?.nearestTabBarController() else { return }
+      let appearance = tabBar.tabBar.standardAppearance.copy() as! UITabBarAppearance
+      for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
+        layout.normal.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 10, weight: .regular)
+        layout.selected.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 10, weight: .bold)
+      }
+      tabBar.tabBar.standardAppearance = appearance
+      tabBar.tabBar.scrollEdgeAppearance = appearance
       if tabBar.delegate === self { return }
       guard let existing = tabBar.delegate as? NSObject else { return }
       next = tabBar.delegate

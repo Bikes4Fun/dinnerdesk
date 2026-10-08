@@ -95,6 +95,7 @@ function NavLink({ href, navKey, label, icon, page, className = "" }) {
   return (
     <a
       href={href}
+      aria-current={isOn(page, navKey) ? "page" : undefined}
       className={`nav-link${isOn(page, navKey) ? " is-on" : ""}${className ? ` ${className}` : ""}`}
       onClick={(e) => {
         e.preventDefault();

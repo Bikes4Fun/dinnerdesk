@@ -348,3 +348,6 @@ no empty photo box. Individual food assets are supplied through GROCERY_PHOTO_DI
 
 Substitution names move to stacked rows when the horizontal layout cannot fit; full
 ingredient words remain readable at accessibility sizes.
+
+Selected tabs use bold labels on iPhone and bold underlined labels on web, with aria-current
+on web links. Selection remains visible without relying on accent color.

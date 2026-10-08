@@ -278,3 +278,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #18: open grocery items with a photo, without one, and with a failed photo URL. Only a usable ingredient photo occupies space on app/web; other fields remain available.
 
 - [ ] #20: inspect long substitution names at maximum iPhone text size and web zoom/narrow width. Names wrap between words; the replacement and Remove action remain readable.
+
+- [ ] #22: with grayscale enabled, each selected tab remains identifiable by label weight (and underline on web); badges and labels remain within the bar.
