@@ -1477,3 +1477,7 @@ img { display: block; max-width: 100%; }
 .step-timer.is-running { font-variant-numeric: tabular-nums; cursor: default; color: var(--ink, inherit); }
 .step-timer.is-done { background: var(--accent); color: #fff; }
 .step-timer.is-done .text-link { color: #fff; }
+
+.substitution-row { flex-wrap: wrap; gap: 0.75rem; }
+.substitution-row strong { min-width: 0; flex: 1 1 16rem; overflow-wrap: normal; word-break: normal; }
+.substitution-row button { flex-shrink: 0; }

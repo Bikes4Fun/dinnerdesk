@@ -345,3 +345,6 @@ tap target, so long labels and accessibility text sizes remain reachable.
 
 Grocery detail shows an ingredient photo only when available; missing/failed photos leave
 no empty photo box. Individual food assets are supplied through GROCERY_PHOTO_DIR.
+
+Substitution names move to stacked rows when the horizontal layout cannot fit; full
+ingredient words remain readable at accessibility sizes.

@@ -276,3 +276,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #16: tap recipe ⋯ repeatedly at normal/maximum text size. The options sheet stays open until dismissed; To try and Hide work, and all options are reachable.
 
 - [ ] #18: open grocery items with a photo, without one, and with a failed photo URL. Only a usable ingredient photo occupies space on app/web; other fields remain available.
+
+- [ ] #20: inspect long substitution names at maximum iPhone text size and web zoom/narrow width. Names wrap between words; the replacement and Remove action remain readable.
