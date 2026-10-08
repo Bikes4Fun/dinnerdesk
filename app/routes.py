@@ -487,6 +487,7 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
         "status": plan["status"],
         "slots": slots,
         **json.loads(plan["suggestion_json"] or "{}"),
+        "suggestion_note": json.loads(plan["suggestion_json"] or "{}").get("suggestion_note") if plan["status"] == "suggested" else None,
     }
 
 
@@ -2500,7 +2501,7 @@ def decide_suggestion(plan_id: int, decision: str, db: PgConnection = DbDep, hou
         stored = db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
         meta = json.loads(stored["suggestion_json"])
         meta["decision"] = decision
-        meta["suggestion_note"] = f"{len(plan['slots'])} meals · {'Approved' if decision == 'approve' else 'Declined'} · {len(meta['changes'])} swaps"
+        meta["suggestion_note"] = None
         meta["reviewed_at"] = now()
         meta["feedback"] += [{"recipe_id": str(s["recipe_id"]), "liked": decision == "approve"} for s in plan["slots"] if s["recipe_id"] in meta["suggested_recipe_ids"]]
         if decision == "approve":
@@ -2593,7 +2594,10 @@ def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = D
         meta = json.loads(row["suggestion_json"])
         meta["suggested_recipe_ids"] = suggested
         meta.setdefault("count_changes", []).append({"from": len(plan["slots"]), "to": body.meal_count, "at": now()})
-        meta["suggestion_note"] = f"{body.meal_count} meals. Swap any suggestion before approving."
+        reasons = meta.setdefault("suggestion_reasons", {})
+        if delta > 0:
+            reasons.update({str(meal["id"]): meal.get("reasons", []) for meal in added})
+        meta["suggestion_note"] = _proposal_note(reasons, suggested)
         db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), plan_id))
     return _plan_out(db, plan_id, household_id)
 

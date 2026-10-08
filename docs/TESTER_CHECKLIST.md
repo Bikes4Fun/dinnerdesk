@@ -264,3 +264,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 ## Even issue verification — Oct 8, 2026
 
 - [ ] #6: select one meal, then several. Remove confirmation uses meal/meals correctly on app and web. At maximum iPhone text size, Cancel and Remove remain reachable; Cancel changes nothing.
+
+- [ ] #8: proposal shows a short why-these-meals summary on web/iPhone; swap and resize update it. Approve: the current plan has no approval/swap-count commentary.

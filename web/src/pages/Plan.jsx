@@ -81,7 +81,7 @@ export function Plan() {
     if (created.status === "suggested") setProposal(created);
     else setPlan(created);
     setSuggested(Boolean(created.suggestion_note));
-    if (created.suggestion_note) setMessage(created.suggestion_note);
+
     setSaved(null); setSelected(new Set()); setPlacing(null); setMaking(null); await week.load();
   }
   function toggleSelection(id) {
@@ -126,6 +126,7 @@ export function Plan() {
       {message && <p role="status">{message}</p>}
       {proposal && <section className="saved-plans">
         <h2>Review your suggestions</h2>
+        {proposal.suggestion_note && <p className="muted">{proposal.suggestion_note}</p>}
         <label>Meals <select value={proposal.slots.length} disabled={busy} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>

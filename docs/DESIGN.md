@@ -327,3 +327,6 @@ HealthKit for nutrition sync.
 
 Plan removal confirms the selected meal count with singular/plural wording. On iPhone,
 accessibility text sizes open a full-height, scrolling confirmation with reachable Cancel.
+
+Suggested-plan review displays one short explanation for the selected meals, updated after
+swaps and resizing. Approved plans omit suggestion commentary and internal decision/swap counts.

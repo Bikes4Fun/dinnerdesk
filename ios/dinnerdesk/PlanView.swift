@@ -43,7 +43,7 @@ struct PlanView: View {
           if let error = store.error { ErrorBanner(message: error) }
           if let plan = store.plan {
             let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
-            if let note = plan.suggestionNote, !note.isEmpty {
+            if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
               VStack(alignment: .leading, spacing: 8) {
                 Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
                 NavigationLink {
@@ -593,6 +593,10 @@ private struct SuggestedPlanReview: View {
             Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
           }
           Text("Your current plan stays in place until you approve.").font(Theme.subtitle).foregroundStyle(Theme.muted)
+          if let note = store.proposal?.suggestionNote, !note.isEmpty {
+            Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+          }
           NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.action) }
           if let error = store.proposalError {
             ErrorBanner(message: error)
