@@ -63,27 +63,28 @@ struct PlanView: View {
                 systemImage: "calendar")
             }
             if editing && !plan.slots.isEmpty {
-              HStack {
-                Button(selected.count == plan.slots.count ? "Deselect all" : "Select all") {
-                  selected = selected.count == plan.slots.count ? [] : Set(plan.slots.map(\.id))
+              // Side by side when it fits; stacked at large text so no word breaks mid-way.
+              ViewThatFits(in: .horizontal) {
+                HStack {
+                  selectAllButton(plan)
+                  Spacer()
+                  selectedCount
                 }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Select all meals")
-                .accessibilityValue(
-                  selected.count == plan.slots.count ? "All meals selected" : "Select all meals")
-                Spacer()
-                Text("\(selected.count) selected").foregroundStyle(Theme.muted)
+                VStack(alignment: .leading, spacing: 8) {
+                  selectAllButton(plan)
+                  selectedCount
+                }
               }
-              HStack {
-                Button("Mark cooked") {
-                  Task {
-                    await store.markCooked(ids: selected)
-                    selected = []
-                  }
+              ViewThatFits(in: .horizontal) {
+                HStack {
+                  markCookedButton
+                  Spacer()
+                  removeButton
                 }
-                Spacer()
-                Button("Remove", role: .destructive) { removing = true }
+                VStack(alignment: .leading, spacing: 8) {
+                  markCookedButton
+                  removeButton
+                }
               }
               .disabled(selected.isEmpty)
             }
@@ -273,6 +274,37 @@ struct PlanView: View {
     }
   }
 
+  private func selectAllButton(_ plan: Plan) -> some View {
+    Button(selected.count == plan.slots.count ? "Deselect all" : "Select all") {
+      selected = selected.count == plan.slots.count ? [] : Set(plan.slots.map(\.id))
+    }
+    .buttonStyle(.plain)
+    .frame(minHeight: 44)
+    .contentShape(Rectangle())
+    .accessibilityLabel("Select all meals")
+    .accessibilityValue(
+      selected.count == plan.slots.count ? "All meals selected" : "Select all meals")
+  }
+
+  private var selectedCount: some View {
+    Text("\(selected.count) selected").foregroundStyle(Theme.muted)
+  }
+
+  private var markCookedButton: some View {
+    Button("Mark cooked") {
+      Task {
+        await store.markCooked(ids: selected)
+        selected = []
+      }
+    }
+    .frame(minHeight: 44)
+  }
+
+  private var removeButton: some View {
+    Button("Remove", role: .destructive) { removing = true }
+      .frame(minHeight: 44)
+  }
+
   private func selectionButton(_ slot: PlanSlot) -> some View {
     Button {
       if !selected.insert(slot.id).inserted { selected.remove(slot.id) }
@@ -329,20 +361,27 @@ struct PlanView: View {
     return date.formatted(.dateTime.month(.abbreviated).day())
   }
 
+  /// − count + in one box. The buttons grow with the text size so they never spill out of
+  /// the box, and the count wraps instead of being cut off ("4 servin…").
   private func servingsControl(_ slot: PlanSlot) -> some View {
     HStack(spacing: 2) {
       Button {
         Task { await store.setServings(slot, slot.servings - 1) }
       } label: {
-        Image(systemName: "minus").frame(width: 28, height: 44).contentShape(Rectangle())
+        Image(systemName: "minus").font(Theme.count)
+          .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
       }
       .disabled(slot.servings <= 1)
       .accessibilityLabel("Decrease servings for \(slot.recipeName)")
-      Text("\(slot.servings) servings").font(Theme.count).lineLimit(1)
+      Text("\(slot.servings) servings").font(Theme.count)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .layoutPriority(1)
       Button {
         Task { await store.setServings(slot, slot.servings + 1) }
       } label: {
-        Image(systemName: "plus").frame(width: 28, height: 44).contentShape(Rectangle())
+        Image(systemName: "plus").font(Theme.count)
+          .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
       }
       .disabled(slot.servings >= 50)
       .accessibilityLabel("Increase servings for \(slot.recipeName)")
