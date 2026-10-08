@@ -119,15 +119,22 @@ Hearts, To try, and hides belong to this kitchen.
   least 40% of a short list). Never-shop staples don't count. Same rule on iOS and the web.
 - **Bug if:** heart, hide, or To try creates a copy; hide removes the recipe for everyone.
 
-**Diet and avoid filters** (Settings → What to eat, the tour, and Taste Lab).
+**Diet, allergy, and avoid filters** (Settings → Filters, the tour, and Taste Lab).
 
+- **Must:** one filter system. All three screens read and write the household's
+  `prefs.filters` (diets, allergens, avoids, time); each sends only the keys it shows and the
+  server merges, so the tour can't wipe allergies. Taste Lab's old per-person filters were folded
+  into the household's once and no longer apply on their own. Lists live in
+  `app/domain/diet_filter.py`; a test keeps the web, iOS, and Taste Lab copies equal.
 - **Must:** pick one of omnivore, pescatarian, vegetarian, or vegan; gluten-free and dairy-free
-  add on. Avoids include fish, shellfish, peanuts, cilantro, spicy, or None.
+  add on. Allergies: soy, peanut, tree nuts, dairy, egg, gluten, sesame, fish, shellfish, Other,
+  or None. Avoids: Taste Lab's full list plus spicy, Other, or None.
 - **Must:** diets and avoids hide recipes in Recipes *and* in suggestions, matching the name and
   ingredients (including this kitchen's edits). Plant-based items such as peanut butter, coconut
   milk, or "vegan sausage" don't count as dairy or meat. Recipes this kitchen wrote always show.
   Cook time only steers suggestions.
-- **Bug if:** a vegan kitchen sees meat, fish, eggs, or dairy in Recipes.
+- **Bug if:** a vegan kitchen sees meat, fish, eggs, or dairy in Recipes, or a filter set in Taste
+  Lab doesn't show in Settings (or the other way round).
 
 **Recipe page and Cook mode.** Overview is the photo and full ingredient list; Cook is numbered
 steps. Both show this kitchen's overlay when there is one.

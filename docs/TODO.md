@@ -34,7 +34,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 - [ ] Plan ⋯: remove "Review pending suggestions" and "Choose my own meals". They were added
       without being asked for.
-- [ ] Settings filters and Taste Lab filters are two separate systems. With Settings almost
+- [x] Settings filters and Taste Lab filters are two separate systems. With Settings almost
       empty, suggestions still failed ("No matching suggestions") because of Taste Lab's filters.
       Make them one system, and make Settings → What to eat match or exceed Taste Lab (allergies,
       the full avoid list, Other).

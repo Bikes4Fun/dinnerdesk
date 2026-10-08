@@ -55,13 +55,22 @@ struct SettingsView: View {
   }
 }
 
-/// What you eat: diet, things to avoid, cook time. Saved to household prefs.filters (same as the website).
+/// What you eat: diet, allergies, things to avoid, cook time. Saved to household prefs.filters.
+/// This is the only filter system: the website and Taste Lab edit the same lists
+/// (app/domain/diet_filter.py; a test keeps these copies equal).
 struct FiltersView: View {
   @EnvironmentObject private var store: Store
   static let diets = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
   /// Pick one of these. The others (gluten-free, dairy-free) combine with it.
   static let exclusiveDiets: Set<String> = ["omnivore", "pescatarian", "vegetarian", "vegan"]
-  static let avoids = ["fish", "shellfish", "peanuts", "cilantro", "spicy"]
+  static let allergens = [
+    ("soy", "Soy"), ("peanut", "Peanut"), ("tree-nuts", "Tree nuts"), ("dairy", "Dairy"), ("egg", "Egg"),
+    ("gluten", "Gluten"), ("sesame", "Sesame"), ("fish", "Fish"), ("shellfish", "Shellfish"),
+  ]
+  static let avoids = [
+    "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
+    "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
+  ]
   struct TimeOption: Identifiable {
     let id: String
     let label: String
@@ -74,7 +83,10 @@ struct FiltersView: View {
   ]
 
   @State private var diets: Set<String> = ["omnivore"]
+  @State private var allergens: Set<String> = []
   @State private var avoids: Set<String> = []
+  @State private var otherAllergens = ""
+  @State private var otherAvoids = ""
   @State private var time = "any"
   @State private var loaded = false
   @State private var error: String?
@@ -92,9 +104,25 @@ struct FiltersView: View {
         }
       }
       .kitchenRows()
+      KitchenSection("Allergies") {
+        CheckRow(label: "None", on: allergens.isEmpty && Self.words(otherAllergens).isEmpty) {
+          allergens = []
+          otherAllergens = ""
+          save()
+        }
+        ForEach(Self.allergens, id: \.0) { item in
+          CheckRow(label: item.1, on: allergens.contains(item.0)) {
+            if allergens.contains(item.0) { allergens.remove(item.0) } else { allergens.insert(item.0) }
+            save()
+          }
+        }
+        OtherField(label: "Other allergies", text: $otherAllergens) { save() }
+      }
+      .kitchenRows()
       KitchenSection("Avoid") {
-        CheckRow(label: "None", on: avoids.isEmpty) {
+        CheckRow(label: "None", on: avoids.isEmpty && Self.words(otherAvoids).isEmpty) {
           avoids = []
+          otherAvoids = ""
           save()
         }
         ForEach(Self.avoids, id: \.self) { item in
@@ -102,6 +130,7 @@ struct FiltersView: View {
             toggleAvoid(item)
           }
         }
+        OtherField(label: "Other foods to avoid", text: $otherAvoids) { save() }
       }
       .kitchenRows()
       KitchenSection("Cook time") {
@@ -144,6 +173,21 @@ struct FiltersView: View {
     return next
   }
 
+  /// "kale, anchovies" → ["kale", "anchovies"], lowercased, no repeats.
+  static func words(_ raw: String) -> [String] {
+    var out: [String] = []
+    for part in raw.split(separator: ",") {
+      let word = part.trimmingCharacters(in: .whitespaces).lowercased()
+      if !word.isEmpty && !out.contains(word) { out.append(word) }
+    }
+    return out
+  }
+
+  /// Chips in list order, then the Other words that aren't chips.
+  static func saved(_ picked: Set<String>, known: [String], other: String) -> [String] {
+    known.filter { picked.contains($0) } + words(other).filter { !known.contains($0) }
+  }
+
   private func toggleDiet(_ item: String) {
     diets = Self.toggled(diets, item)
     save()
@@ -158,7 +202,15 @@ struct FiltersView: View {
     do {
       let filters = try await KitchenAPI.prefs()["filters"] as? [String: Any] ?? [:]
       if let d = filters["diets"] as? [String], !d.isEmpty { diets = Self.cleaned(d) }
-      if let a = filters["avoids"] as? [String] { avoids = Set(a) }
+      if let a = filters["allergens"] as? [String] {
+        let known = Self.allergens.map(\.0)
+        allergens = Set(a.filter { known.contains($0) })
+        otherAllergens = a.filter { !known.contains($0) }.joined(separator: ", ")
+      }
+      if let a = filters["avoids"] as? [String] {
+        avoids = Set(a.filter { Self.avoids.contains($0) })
+        otherAvoids = a.filter { !Self.avoids.contains($0) }.joined(separator: ", ")
+      }
       if let t = filters["time"] as? String { time = t }
       loaded = true
       error = nil
@@ -171,7 +223,8 @@ struct FiltersView: View {
     guard loaded else { return }
     let body: [String: Any] = [
       "diets": Self.diets.filter { diets.contains($0) },
-      "avoids": Self.avoids.filter { avoids.contains($0) },
+      "allergens": Self.saved(allergens, known: Self.allergens.map(\.0), other: otherAllergens),
+      "avoids": Self.saved(avoids, known: Self.avoids, other: otherAvoids),
       "time": time,
     ]
     Task {
@@ -183,6 +236,28 @@ struct FiltersView: View {
         self.error = KitchenAPI.message(error)
       }
     }
+  }
+}
+
+/// Comma-separated words that aren't in the list. Saves when you press Return or leave the field.
+private struct OtherField: View {
+  let label: String
+  @Binding var text: String
+  let onCommit: () -> Void
+  @FocusState private var focused: Bool
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(label).font(Theme.body).foregroundStyle(Theme.ink)
+      TextField("e.g. kale, anchovies", text: $text)
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .submitLabel(.done)
+        .focused($focused)
+        .onSubmit(onCommit)
+        .onChange(of: focused) { _, isFocused in if !isFocused { onCommit() } }
+    }
+    .accessibilityElement(children: .contain)
   }
 }
 

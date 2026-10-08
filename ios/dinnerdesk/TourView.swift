@@ -251,7 +251,8 @@ struct TourView: View {
   private var filterBody: [String: Any] {
     [
       "diets": FiltersView.diets.filter { diets.contains($0) },
-      "avoids": FiltersView.avoids.filter { avoids.contains($0) },
+      // Keep Other words saved in Settings or Taste Lab; allergies aren't sent, so the server keeps them.
+      "avoids": FiltersView.avoids.filter { avoids.contains($0) } + avoids.filter { !FiltersView.avoids.contains($0) }.sorted(),
       "time": time,
     ]
   }

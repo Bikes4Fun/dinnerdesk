@@ -30,12 +30,12 @@ from app.domain.ingredient_review import (
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots
-from app.domain.diet_filter import allowed as diet_allowed, blocks_for, normalize_diets
+from app.domain.diet_filter import allowed as diet_allowed, blocks_for, merge_filters
 from app.domain.search import hard_tokens, search_grocery_names, tokens as search_tokens
 from app.domain.suggest import norm_pantry
 from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, suggestion_note, suggestion_penalties
 from app.taste_lab import SKIP as TASTE_SKIP
-from app.taste_lab import archive_id, snapshots_for_accounts
+from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
     PlanCreate,
     SuggestionResize,
@@ -1996,6 +1996,7 @@ def put_prep_step(
 
 @router.get("/household")
 def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
+    household_filters(db, household_id)
     row = db.execute("SELECT * FROM households WHERE id = ?", (household_id,)).fetchone()
     if not row:
         raise HTTPException(404, {"error": "not_found", "detail": "household"})
@@ -2012,6 +2013,8 @@ def put_household(
     db: PgConnection = DbDep,
     household_id: int = HhDep,
 ):
+    # Fold old Taste Lab filters in before this save, so a later read can't add them back on top.
+    household_filters(db, household_id)
     row = db.execute("SELECT * FROM households WHERE id = ?", (household_id,)).fetchone()
     if not row:
         raise HTTPException(404, {"error": "not_found", "detail": "household"})
@@ -2026,14 +2029,12 @@ def put_household(
             previous = {store["id"] for store in prefs.get("grocery", {}).get("stores", [])}
             current = {store["id"] for store in grocery["stores"]}
             removed_stores = previous - current
+        saved_filters = prefs.get("filters")
         prefs.update(body.prefs)
-        filters = prefs.get("filters")
-        if isinstance(filters, dict):
-            # Omnivore / pescatarian / vegetarian / vegan rule each other out; "none" is not an avoid.
-            if isinstance(filters.get("diets"), list):
-                filters["diets"] = normalize_diets(filters["diets"])
-            if isinstance(filters.get("avoids"), list):
-                filters["avoids"] = [a for a in filters["avoids"] if str(a).strip().lower() != "none"]
+        if isinstance(body.prefs.get("filters"), dict):
+            # Settings, the tour and Taste Lab each send only what they show; merge so one
+            # screen can't wipe another's choices. Diets rule each other out; "none" isn't an avoid.
+            prefs["filters"] = merge_filters(saved_filters, body.prefs["filters"])
     name = body.name.strip() if body.name else row["name"]
     with transaction(db):
         db.execute(
@@ -2259,19 +2260,11 @@ def list_templates(db: PgConnection = DbDep):
 
 
 def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, int | None]:
-    hh = db.execute("SELECT prefs_json FROM households WHERE id = ?", (household_id,)).fetchone()
-    try:
-        prefs = json.loads((hh["prefs_json"] if hh else None) or "{}")
-    except json.JSONDecodeError:
-        raise
-    filters = prefs.get("filters") if isinstance(prefs, dict) else None
-    if not isinstance(filters, dict):
-        filters = {}
-    diets = filters.get("diets") if isinstance(filters.get("diets"), list) else []
-    avoids = filters.get("avoids") if isinstance(filters.get("avoids"), list) else []
+    """Diets, everything to keep out (allergies and avoids), and max cook time."""
+    filters = household_filters(db, household_id)
     time = filters.get("time")
     max_minutes = int(time) if str(time or "").isdigit() else None
-    return diets, avoids, max_minutes
+    return filters["diets"], [*filters["allergens"], *filters["avoids"]], max_minutes
 
 
 def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
@@ -2352,7 +2345,11 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int) -> tuple[list
         str(r["id"])
         for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))
     ]
-    snapshots = snapshots_for_accounts(accounts)
+    # Settings → Filters is the one filter system (Taste Lab edits it too), so the diet,
+    # allergy and avoid lists inside old Taste Lab snapshots no longer apply here.
+    snapshots = [
+        {k: v for k, v in snap.items() if k != "profile"} for snap in snapshots_for_accounts(accounts)
+    ]
     # Plan thumbs count like Taste Lab swipes: a 👎 drops the meal, a 👍 boosts it and similar meals.
     rated = _meal_ratings(db, household_id)
     if rated:
@@ -2434,7 +2431,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
         reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
         note = _proposal_note(reasons, [m["id"] for m in picked])
         if not picked:
-            raise HTTPException(409, "No matching suggestions. Adjust your Taste Lab filters or choose meals yourself.")
+            raise HTTPException(409, "No matching suggestions. Loosen Settings → Filters or choose meals yourself.")
     with transaction(db):
         db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
         if not body.draft and not picked:
@@ -2533,7 +2530,7 @@ def swap_suggestion(plan_id: int, slot_id: int, body: SuggestionSwap | None = No
         else:
             meal = next((m for m in picked if m["id"] not in excluded), None)
         if not meal:
-            raise HTTPException(409, "No more matching meals. Try changing your Taste Lab filters.")
+            raise HTTPException(409, "No more matching meals. Try loosening Settings → Filters.")
         stored = db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
         meta = json.loads(stored["suggestion_json"])
         if slot["recipe_id"] not in meta["suggested_recipe_ids"]:
