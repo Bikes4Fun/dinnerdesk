@@ -205,7 +205,7 @@ export function Plan() {
       <p>Replace {swapping.recipe_name}</p>
       <input style={{width: "100%", boxSizing: "border-box"}} aria-label="Search replacement meals" placeholder="Search meals or ingredients" value={swapQuery} onChange={(e) => setSwapQuery(e.target.value)} />
       {swapError && <p role="alert">{swapError}</p>}
-      {swapLoading ? <p>Loading…</p> : swapOptions.length === 0 ? <p>No matching meals. Try another search or update Taste Lab filters.</p> : swapOptions.map((option) => <button key={option.id} className="list-link" disabled={busy} onClick={() => act(async () => { setProposal(await api.swapSuggestion(proposal.id, swapping.id, option.id)); setSwapping(null); })}>{option.name}{option.cooking_minutes ? ` · ${option.cooking_minutes} min` : ""}</button>)}
+      {swapLoading ? <p>Loading…</p> : swapOptions.length === 0 ? <p>No matching meals. Try another search or loosen Settings → Filters.</p> : swapOptions.map((option) => <button key={option.id} className="list-link" disabled={busy} onClick={() => act(async () => { setProposal(await api.swapSuggestion(proposal.id, swapping.id, option.id)); setSwapping(null); })}>{option.name}{option.cooking_minutes ? ` · ${option.cooking_minutes} min` : ""}</button>)}
       <button onClick={() => setSwapping(null)}>Cancel</button>
     </section></div>}
     {making && <div className="sheet-backdrop" role="presentation"><section className="schedule-sheet" role="dialog" aria-modal="true" aria-labelledby="new-plan-title">

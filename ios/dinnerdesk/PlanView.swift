@@ -656,7 +656,7 @@ private struct ProposalSwapPicker: View {
         Text("Replace \(slot.recipeName)").font(Theme.subtitle)
         if let error { ErrorBanner(message: error) }
         if loading { ProgressView() }
-        if !loading && options.isEmpty { Text("No matching meals. Try another search or update your Taste Lab filters.").font(Theme.body) }
+        if !loading && options.isEmpty { Text("No matching meals. Try another search or loosen Settings → Filters.").font(Theme.body) }
         ForEach(options) { option in
           Button {
             saving = true

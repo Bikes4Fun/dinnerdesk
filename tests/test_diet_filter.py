@@ -1,4 +1,4 @@
-from app.domain.diet_filter import allowed, blocks_for, normalize_diets
+from app.domain.diet_filter import allowed, blocks_for, clean_filters, fold_profiles, merge_filters, normalize_diets
 
 
 def ok(name, ings, diets=(), avoids=()):
@@ -51,3 +51,80 @@ def test_normalize_diets_keeps_one_exclusive_diet():
         "vegetarian", "gluten-free", "dairy-free"]
     assert normalize_diets(["gluten-free", "gluten-free"]) == ["gluten-free"]
     assert normalize_diets([]) == []
+
+
+# One filter system (#1): Settings → Filters and Taste Lab edit the same household filters.
+
+def test_clean_filters_moves_old_allergy_avoids_and_drops_none():
+    out = clean_filters({"diets": ["vegan", "omnivore"], "avoids": ["Peanuts", "shellfish", "none", "olives", "olives"], "time": "30"})
+    assert out["diets"] == ["omnivore"]
+    assert out["allergens"] == ["peanut", "shellfish"]
+    assert out["avoids"] == ["olives"]
+    assert out["time"] == "30"
+    assert clean_filters(None) == {"diets": ["omnivore"], "allergens": [], "avoids": []}
+
+
+def test_merge_keeps_what_the_other_screen_set():
+    saved = {"diets": ["vegetarian"], "allergens": ["sesame"], "avoids": ["olives"], "time": "45"}
+    # The Quick start tour sends diets, avoids and time but not allergies.
+    out = merge_filters(saved, {"diets": ["omnivore"], "avoids": [], "time": "30"})
+    assert out["allergens"] == ["sesame"]
+    assert out["avoids"] == []
+    assert out["time"] == "30"
+    # Taste Lab sends diets, allergens and avoids but not time.
+    out = merge_filters(out, {"diets": ["vegan"], "allergens": [], "avoids": ["kale"]})
+    assert out == {"diets": ["vegan"], "allergens": [], "avoids": ["kale"], "time": "30"}
+
+
+def test_fold_profiles_keeps_every_allergy_and_the_strictest_diet():
+    out = fold_profiles(
+        {"diets": ["vegetarian", "gluten-free"], "allergens": ["egg"], "avoids": ["spicy"], "time": "any"},
+        [
+            {"diets": ["vegan"], "allergens": ["sesame"], "dislikes": ["olives", "kale"]},
+            {"diets": ["omnivore", "dairy-free"], "allergens": ["egg", "peanuts"], "dislikes": []},
+        ],
+    )
+    assert out["diets"] == ["vegan", "gluten-free", "dairy-free"]
+    assert out["allergens"] == ["egg", "sesame", "peanut"]
+    assert out["avoids"] == ["spicy", "olives", "kale"]
+    assert out["time"] == "any"
+
+
+def test_allergens_block_meals_like_avoids():
+    clean = clean_filters({"allergens": ["tree-nuts", "sesame"]})
+    groups = blocks_for(clean["diets"], [*clean["allergens"], *clean["avoids"]])
+    assert not allowed("Pesto", ["basil", "pine nuts", "walnuts"], groups)
+    assert not allowed("Noodles", ["tahini", "noodles"], groups)
+    assert allowed("Tacos", ["beef", "tortillas"], groups)
+
+
+def test_every_screen_offers_the_same_choices():
+    """Settings (web, iOS), the tour and Taste Lab copy these lists; keep them equal."""
+    import re
+    from pathlib import Path
+
+    from app.domain.diet_filter import ALLERGENS, AVOIDS, DIETS
+
+    root = Path(__file__).resolve().parents[1]
+
+    def quoted(text: str) -> set[str]:
+        return set(re.findall(r'"([^"]+)"', text))
+
+    def block(text: str, start: str, end: str) -> str:
+        i = text.index(start)
+        return text[i:text.index(end, i)]
+
+    web = (root / "web/src/diet.js").read_text()
+    assert quoted(block(web, "export const DIETS", ";")) == set(DIETS)
+    assert quoted(block(web, "export const ALLERGENS", "];")) & set(ALLERGENS) == set(ALLERGENS)
+    assert quoted(block(web, "export const AVOIDS", "];")) == set(AVOIDS)
+
+    lab = (root / "tastelab/web/app.js").read_text()
+    assert quoted(block(lab, "const AVOIDS", "];")) == set(AVOIDS)
+    assert quoted(block(lab, "const ALLERGENS", "];")) & set(ALLERGENS) == set(ALLERGENS)
+    assert quoted(block(lab, "const DIETS", "];")) & set(DIETS) == set(DIETS)
+
+    ios = (root / "ios/dinnerdesk/SettingsView.swift").read_text()
+    assert quoted(block(ios, "static let diets", "\n")) == set(DIETS)
+    assert quoted(block(ios, "static let allergens", "]\n")) & set(ALLERGENS) == set(ALLERGENS)
+    assert quoted(block(ios, "static let avoids", "]\n")) == set(AVOIDS)

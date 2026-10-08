@@ -345,3 +345,14 @@ def test_contextual_refusals_accumulate_without_banning():
     assert suggestion_penalties([changed])[1] > suggestion_penalties([declined])[1]
     approved = {"decision": "approve", "suggested_recipe_ids": [1], "changes": []}
     assert suggestion_penalties([declined, approved])[1] == 0
+
+
+def test_public_taste_shows_household_filters_when_given():
+    from app.taste_lab import public_taste
+
+    body = public_taste(
+        [snap("1", dislikes=["mushrooms"], diets=["vegan"])],
+        signed_in=True,
+        filters={"diets": ["omnivore"], "allergens": ["sesame"], "avoids": ["olives"], "time": "30"},
+    )
+    assert body["profile"] == {"diets": ["omnivore"], "allergens": ["sesame"], "dislikes": ["olives"]}

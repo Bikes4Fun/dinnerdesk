@@ -1100,3 +1100,54 @@ def test_startup_does_not_import_catalog(tmp_path, monkeypatch):
     with _client(tmp_path):
         with connect() as db:
             assert db.execute("SELECT COUNT(*) AS c FROM recipes").fetchone()["c"] == 2
+
+
+def test_settings_and_taste_lab_share_one_filter_system(tmp_path, monkeypatch):
+    """#1: Settings → Filters is the only filter system. Old Taste Lab filters are folded in
+    once, then clearing Settings lets meals through even though the Lab snapshot still has them."""
+    import app.routes as routes
+    import app.taste_lab as taste_lab
+
+    lab = [{
+        "account_id": "1",
+        "profile": {"diets": ["vegetarian"], "allergens": ["sesame"], "dislikes": ["olives"]},
+        "swipes": [],
+    }]
+    monkeypatch.setattr(taste_lab, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
+    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Olive tapenade pasta", "ingredients": ["olives", "pasta"], "tags": [], "cooking_minutes": 20},
+        {"id": 2, "keys": ["2"], "name": "Sesame chicken", "ingredients": ["chicken", "sesame seeds"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        signup = client.post("/api/auth/signup", json={
+            "email": "one@example.com", "password": "correct horse battery staple", "household_name": "One"})
+        assert signup.status_code == 200
+
+        # The Lab-only filters show up in Settings, so nothing silently stops applying.
+        filters = client.get("/api/household").json()["prefs"]["filters"]
+        assert filters["diets"] == ["vegetarian"]
+        assert filters["allergens"] == ["sesame"]
+        assert filters["avoids"] == ["olives"]
+        assert client.get("/api/taste").json()["profile"] == {
+            "diets": ["vegetarian"], "allergens": ["sesame"], "dislikes": ["olives"]}
+
+        # Taste Lab saves only its keys; cook time from Settings survives.
+        client.put("/api/household", json={"prefs": {"filters": {"time": "30"}}})
+        client.put("/api/household", json={"prefs": {"filters": {"diets": ["omnivore"], "allergens": [], "avoids": []}}})
+        filters = client.get("/api/household").json()["prefs"]["filters"]
+        assert filters["time"] == "30"
+        assert filters["allergens"] == [] and filters["avoids"] == []
+        # Cleared in one place means cleared everywhere: the old Lab profile isn't folded back.
+        assert client.get("/api/taste").json()["profile"]["allergens"] == []
+
+        response = client.get("/api/suggestions/recipes")
+        assert response.status_code == 200
+        assert {1, 2} <= set(response.json()["recipe_ids"])
+
+        # The tour sends diets, avoids and time; an allergy set elsewhere stays.
+        client.put("/api/household", json={"prefs": {"filters": {"allergens": ["sesame"]}}})
+        client.put("/api/household", json={"prefs": {"filters": {"diets": ["omnivore"], "avoids": [], "time": "any"}}})
+        assert client.get("/api/household").json()["prefs"]["filters"]["allergens"] == ["sesame"]
+        response = client.get("/api/suggestions/recipes")
+        assert 2 not in response.json()["recipe_ids"]

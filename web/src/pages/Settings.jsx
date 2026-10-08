@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
-import { AVOIDS, DIETS, cleanDiets, toggleAvoid, toggleDiet } from "../diet.js";
+import { ALLERGENS, AVOIDS, DIETS, cleanDiets, otherWords, splitOther, toggleAvoid, toggleDiet } from "../diet.js";
 
 function Back() {
   return (
@@ -99,8 +99,65 @@ const TIMES = [
   ["45", "≤45 min"],
 ];
 
+/** Chips for a list plus an Other box for words not on it. Saves the whole list. */
+function ChoiceBlock({ label, items, saved, onChange, otherLabel }) {
+  const custom = otherWords(saved, items);
+  const [other, setOther] = useState(custom.join(", "));
+  const [open, setOpen] = useState(custom.length > 0);
+  const known = saved.filter((w) => !custom.includes(w));
+  useEffect(() => {
+    setOther(custom.join(", "));
+    if (custom.length) setOpen(true);
+    // Only when the saved words change, not on every keystroke.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [custom.join(",")]);
+  const commitOther = () => {
+    const words = splitOther(other).filter((w) => !items.some((k) => (Array.isArray(k) ? k[0] : k) === w));
+    const next = [...known, ...words];
+    if (next.join(",") !== saved.join(",")) onChange(next);
+  };
+  return (
+    <>
+      <h3 className="block-label">{label}</h3>
+      <div className="chip-row wrap">
+        <button type="button" className={`chip${saved.length ? "" : " is-on"}`} aria-pressed={!saved.length} onClick={() => { setOther(""); setOpen(false); onChange([]); }}>
+          none
+        </button>
+        {items.map((item) => {
+          const [id, text] = Array.isArray(item) ? item : [item, item];
+          const on = saved.includes(id);
+          return (
+            <button key={id} type="button" className={`chip${on ? " is-on" : ""}`} aria-pressed={on} onClick={() => onChange(toggleAvoid(saved, id))}>
+              {text.toLowerCase()}
+            </button>
+          );
+        })}
+        <button type="button" className={`chip${open ? " is-on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+          other…
+        </button>
+      </div>
+      {open && (
+        <>
+          <input
+            aria-label={otherLabel}
+            className="field"
+            type="text"
+            value={other}
+            placeholder="e.g. kale, anchovies"
+            onChange={(e) => setOther(e.target.value)}
+            onBlur={commitOther}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+          />
+          <p className="help">Separate with commas.</p>
+        </>
+      )}
+    </>
+  );
+}
+
 export function Filters() {
   const [diets, setDiets] = useState(["omnivore"]);
+  const [allergens, setAllergens] = useState([]);
   const [avoids, setAvoids] = useState([]);
   const [time, setTime] = useState("any");
   const [err, setErr] = useState("");
@@ -111,27 +168,25 @@ export function Filters() {
       .then((hh) => {
         const f = hh.prefs?.filters || {};
         if (Array.isArray(f.diets)) setDiets(cleanDiets(f.diets));
+        if (Array.isArray(f.allergens)) setAllergens(f.allergens);
         if (Array.isArray(f.avoids)) setAvoids(f.avoids);
         if (f.time) setTime(f.time);
       })
       .catch((e) => setErr(e.message));
   }, []);
 
-  async function persist(next) {
+  // The server merges filters, so send only what changed.
+  async function setFilter(patch) {
+    if (patch.diets) setDiets(patch.diets);
+    if (patch.allergens) setAllergens(patch.allergens);
+    if (patch.avoids) setAvoids(patch.avoids);
+    if (patch.time) setTime(patch.time);
     try {
-      const hh = await api.household();
-      await api.putHousehold({ prefs: { ...(hh.prefs || {}), filters: next } });
+      await api.putHousehold({ prefs: { filters: patch } });
+      setErr("");
     } catch (e) {
       setErr(e.message);
     }
-  }
-
-  function setFilter(patch) {
-    const next = { diets, avoids, time, ...patch };
-    if (patch.diets) setDiets(patch.diets);
-    if (patch.avoids) setAvoids(patch.avoids);
-    if (patch.time) setTime(patch.time);
-    persist(next);
   }
 
   return (
@@ -145,6 +200,7 @@ export function Filters() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
+        <p className="help">Recipes, suggestions and Taste Lab all use these. Changing them in Taste Lab changes them here.</p>
         <h3 className="block-label">Diet</h3>
         <div className="chip-row wrap">
           {DIETS.map((d) => (
@@ -152,28 +208,15 @@ export function Filters() {
               key={d}
               type="button"
               className={`chip${diets.includes(d) ? " is-on" : ""}`}
+              aria-pressed={diets.includes(d)}
               onClick={() => setFilter({ diets: toggleDiet(diets, d) })}
             >
               {d}
             </button>
           ))}
         </div>
-        <h3 className="block-label">Avoid</h3>
-        <div className="chip-row wrap">
-          <button type="button" className={`chip${avoids.length ? "" : " is-on"}`} onClick={() => setFilter({ avoids: [] })}>
-            none
-          </button>
-          {AVOIDS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              className={`chip${avoids.includes(d) ? " is-on" : ""}`}
-              onClick={() => setFilter({ avoids: toggleAvoid(avoids, d) })}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+        <ChoiceBlock label="Allergies" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />
+        <ChoiceBlock label="Avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" onChange={(next) => setFilter({ avoids: next })} />
         <h3 className="block-label">Time</h3>
         <div className="chip-row wrap">
           {TIMES.map(([k, label]) => (
@@ -181,6 +224,7 @@ export function Filters() {
               key={k}
               type="button"
               className={`chip${time === k ? " is-on" : ""}`}
+              aria-pressed={time === k}
               onClick={() => setFilter({ time: k })}
             >
               {label}

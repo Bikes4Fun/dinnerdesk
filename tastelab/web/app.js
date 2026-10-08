@@ -19,6 +19,7 @@
     "eggplant",
     "brussels sprouts",
     "coconut",
+    "spicy",
   ];
   const ALLERGENS = [
     ["soy", "Soy"],
@@ -31,6 +32,7 @@
     ["fish", "Fish"],
     ["shellfish", "Shellfish"],
   ];
+  // Same lists as Settings → Filters (app/domain/diet_filter.py; a test keeps them equal).
   const DIETS = [
     ["omnivore", "Omnivore"],
     ["vegetarian", "Vegetarian"],
@@ -110,6 +112,7 @@
     "brussels sprouts": ["brussels sprout", "brussel sprout"],
     coconut: ["coconut"],
     meat: ["chicken", "beef", "pork", "turkey", "lamb", "bacon", "sausage", "steak", "ham", "prosciutto"],
+    spicy: ["spicy", "jalapeño", "jalapeno", "sriracha", "chili flake", "cayenne", "hot sauce"],
   };
 
   const splitExtra = (raw) =>
@@ -357,6 +360,27 @@ const macros = (r) => {
     state.error = "";
   };
 
+  // Signed in, these filters are the household's Settings → Filters: one list, edited from either
+  // screen. Only the keys Taste Lab shows are sent; the server keeps cook time and anything else.
+  const saveFilters = async () => {
+    if (!state.signedIn) return;
+    const response = await fetch("/api/household", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prefs: {
+          filters: { diets: [...state.profile.diets], allergens: allergenIds(), avoids: dislikeIds() },
+        },
+      }),
+    });
+    if (!response.ok) throw new Error(`Couldn't save your filters (HTTP ${response.status})`);
+  };
+
+  const saveWithFilters = async () => {
+    await save();
+    await saveFilters();
+  };
+
   const remember = (id, liked) => {
     const key = String(id);
     state.prior.add(key);
@@ -532,7 +556,7 @@ const macros = (r) => {
   };
 
   const afterQuiz = async () => {
-    await save();
+    await saveWithFilters();
     state.didQuiz = true;
     if (eligible().length < MIN_POOL) {
       state.screen = "relax";
@@ -552,7 +576,7 @@ const macros = (r) => {
       return;
     }
     if (state.screen === "quiz" || state.screen === "relax") {
-      await save();
+      await saveWithFilters();
       if (state.quizBack === "swipe" || state.quizBack === "plan") {
         resumeAfterFilters();
         return;
@@ -600,7 +624,7 @@ const macros = (r) => {
   const renderQuiz = () => `
     <div class="shell">
       ${head("Filters", state.quizBack ? -1 : 1)}
-      <p class="lead">We’ll hide meals that don’t fit. Allergies and avoids stay out of suggestions.</p>
+      <p class="lead">We’ll hide meals that don’t fit. Allergies and avoids stay out of suggestions.${state.signedIn ? " These are the same filters as Settings → Filters." : ""}</p>
       ${banner()}
       <section class="panel">
         <h2 class="block first">Diet</h2>
@@ -945,7 +969,7 @@ const macros = (r) => {
       state.profile.diets = state.profile.diets.filter((d) => d !== t.dataset.dropDiet);
       if (!state.profile.diets.length) state.profile.diets.push("omnivore");
       render();
-      run(save);
+      run(saveWithFilters);
       return;
     }
     if (t.dataset.dropDislike) {
@@ -953,12 +977,12 @@ const macros = (r) => {
       state.profile.dislikes = state.profile.dislikes.filter((d) => d !== id);
       state.profile.extraAvoid = splitExtra(state.profile.extraAvoid).filter((d) => d !== id).join(", ");
       render();
-      run(save);
+      run(saveWithFilters);
       return;
     }
     if (t.hasAttribute("data-after-relax")) {
       run(async () => {
-        await save();
+        await saveWithFilters();
         if (state.quizBack) resumeAfterFilters();
         else startMore();
       });
