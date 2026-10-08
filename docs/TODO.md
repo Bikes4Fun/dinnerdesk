@@ -89,7 +89,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Recipes
 
-- [ ] Use "See all" or an arrow for section links, not both.
+- [x] Use "See all" or an arrow for section links, not both.
       `docs/recipes page to do/choose either see all or arrow not both.png`
 - [ ] Browse cards break names mid-word at large text. A fix is on main; check it on a fresh
       build. Same screenshot as above.

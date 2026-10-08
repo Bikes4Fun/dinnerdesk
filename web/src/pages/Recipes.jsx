@@ -175,7 +175,7 @@ function Row({ title, onSeeAll, children, empty }) {
       <div className="section-head flush">
         <h2>{title}</h2>
         {onSeeAll ? (
-          <button type="button" className="text-link" onClick={onSeeAll}>
+          <button type="button" className="text-link" aria-label={`See all ${title}`} onClick={onSeeAll}>
             See all
           </button>
         ) : null}
