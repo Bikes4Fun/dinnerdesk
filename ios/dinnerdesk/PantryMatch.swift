@@ -3,7 +3,7 @@ import Foundation
 /// "Uses pantry" for recipe search: the same rule as the website (web/src/pages/Recipes.jsx).
 /// A recipe uses the pantry when two or more ingredients are things you have, or one when
 /// that's at least 40% of a short ingredient list. Never-shop staples (salt, oil) don't count.
-enum PantryMatch {
+nonisolated enum PantryMatch {
   static func have(_ items: [KitchenPantryItem]) -> Set<String> {
     Set(items.filter { $0.have && !$0.neverShop }.map { norm($0.name) }.filter { !$0.isEmpty })
   }
