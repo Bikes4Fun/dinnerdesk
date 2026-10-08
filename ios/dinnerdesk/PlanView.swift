@@ -492,43 +492,51 @@ struct SavedPlansView: View {
         if let error { ErrorBanner(message: error) }
         if loading { ProgressView() }
         Section("Drafts") {
-          if !loading && plans.filter({ $0.status == "draft" }).isEmpty {
-            Text("No saved drafts yet").foregroundStyle(Theme.muted)
+          if !loading && drafts.isEmpty {
+            Text("No drafts yet. Use ⋯ → Save as draft to keep a plan for later.")
+              .foregroundStyle(Theme.muted)
           }
-          ForEach(plans.filter { $0.status == "draft" }, id: \.id) { plan in
-            Button("\(plan.title) · \(plan.slots.count) meals") {
-              Task { if await store.newPlan(source: plan.id) { dismiss() } }
+          ForEach(drafts, id: \.id) { plan in
+            HStack(alignment: .top, spacing: 8) {
+              Button {
+                Task { if await store.newPlan(source: plan.id) { dismiss() } }
+              } label: {
+                row(plan)
+              }
+              .buttonStyle(.plain)
+              deleteButton(plan)
             }
-            .swipeActions { Button("Delete", role: .destructive) { deleting = plan } }
           }
         }
         Section("Plan history") {
-          ForEach(plans.filter { $0.status != "draft" && $0.status != "active" || $0.decision != nil }, id: \.id) { plan in
-            NavigationLink {
-              List(plan.slots) { slot in
-                NavigationLink {
-                  RecipeDetailView(id: slot.recipeId)
-                } label: {
-                  VStack(alignment: .leading) {
-                    Text(slot.recipeName)
-                    Text("\(slot.servings) servings · \(slot.cooked ? "Cooked" : "Not cooked")")
-                      .font(Theme.subtitle)
+          if !loading && history.isEmpty {
+            Text("No past plans yet. Plans you approve or finish show up here.")
+              .foregroundStyle(Theme.muted)
+          }
+          ForEach(history, id: \.id) { plan in
+            HStack(alignment: .top, spacing: 8) {
+              NavigationLink {
+                List(plan.slots) { slot in
+                  NavigationLink {
+                    RecipeDetailView(id: slot.recipeId)
+                  } label: {
+                    VStack(alignment: .leading) {
+                      Text(slot.recipeName)
+                      Text("\(slot.servings) servings · \(slot.cooked ? "Cooked" : "Not cooked")")
+                        .font(Theme.subtitle)
+                    }
                   }
-                }
-              }.navigationTitle(plan.title)
-            } label: {
-              VStack(alignment: .leading, spacing: 5) {
-                Text(plan.title).font(Theme.mealName)
-                Text("\(planDate(plan.startDate)?.formatted(date: .abbreviated, time: .omitted) ?? plan.startDate) · \(plan.slots.count) meals").font(Theme.subtitle)
-                Text("\(plan.decision == "approve" ? "Approved" : plan.decision == "decline" ? "Declined" : plan.status.capitalized) · \(plan.changes?.count ?? 0) swaps").font(Theme.subtitle).foregroundStyle(Theme.muted)
-              }.fixedSize(horizontal: false, vertical: true).padding(.vertical, 4)
+                }.navigationTitle(heading(plan))
+              } label: {
+                row(plan)
+              }
+              if plan.status != "active" { deleteButton(plan) }
             }
-            .swipeActions { if plan.status != "active" { Button("Delete", role: .destructive) { deleting = plan } } }
           }
         }
       }.kitchenList().navigationTitle("Saved plans")
         .sheet(item: $deleting) { plan in
-          RemovalConfirmation(title: "Delete this plan?", message: plan.title, actionTitle: "Delete plan") {
+          RemovalConfirmation(title: "Delete this plan?", message: heading(plan), actionTitle: "Delete plan") {
             do {
               let _: DeletePlanResult = try await API.send("plans/\(plan.id)", method: "DELETE")
               plans.removeAll { $0.id == plan.id }
@@ -544,6 +552,85 @@ struct SavedPlansView: View {
           loading = false
         }
     }
+  }
+
+  private var drafts: [SavedPlan] { plans.filter { $0.status == "draft" } }
+  private var history: [SavedPlan] {
+    plans.filter { $0.status != "draft" && $0.status != "active" || $0.decision != nil }
+  }
+
+  /// One plan: its name (or the week it starts), dates, meal count and status, the first
+  /// few meals, and when it was saved, so rows that share a week can be told apart.
+  private func row(_ plan: SavedPlan) -> some View {
+    VStack(alignment: .leading, spacing: 4) {
+      Text(heading(plan)).font(Theme.mealName).foregroundStyle(Theme.ink)
+      Text(([dateRange(plan), "\(plan.slots.count) \(plan.slots.count == 1 ? "meal" : "meals")"]
+        + [statusWord(plan)].compactMap { $0 }).joined(separator: " · "))
+        .font(Theme.subtitle)
+      if !plan.slots.isEmpty {
+        Text(mealsLine(plan)).font(Theme.subtitle).foregroundStyle(Theme.muted).lineLimit(2)
+      }
+      if let saved = savedLine(plan) {
+        Text(saved).font(Theme.subtitle).foregroundStyle(Theme.muted)
+      }
+    }
+    .fixedSize(horizontal: false, vertical: true)
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(.vertical, 4)
+    .contentShape(Rectangle())
+  }
+
+  /// A visible delete, so it doesn't depend on discovering swipe.
+  private func deleteButton(_ plan: SavedPlan) -> some View {
+    Button {
+      deleting = plan
+    } label: {
+      Image(systemName: "trash")
+        .foregroundStyle(Theme.accent)
+        .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.borderless)
+    .accessibilityLabel("Delete \(heading(plan))")
+  }
+
+  private func heading(_ plan: SavedPlan) -> String {
+    let title = plan.title.trimmingCharacters(in: .whitespaces)
+    if !title.isEmpty && title != "This week" { return title }
+    guard let start = planDate(plan.startDate) else { return "Plan" }
+    return "Week of \(start.formatted(.dateTime.month(.abbreviated).day()))"
+  }
+
+  private func dateRange(_ plan: SavedPlan) -> String {
+    guard let start = planDate(plan.startDate) else { return plan.startDate }
+    let end = Calendar.current.date(byAdding: .day, value: max(plan.days, 1) - 1, to: start) ?? start
+    let day = Date.FormatStyle.dateTime.month(.abbreviated).day()
+    return "\(start.formatted(day)) – \(end.formatted(day))"
+  }
+
+  private func statusWord(_ plan: SavedPlan) -> String? {
+    switch plan.decision {
+    case "approve": return "Approved"
+    case "decline": return "Declined"
+    default: break
+    }
+    switch plan.status {
+    case "draft": return nil
+    case "active": return "Current plan"
+    case "suggested": return "Waiting for review"
+    default: return plan.status.capitalized
+    }
+  }
+
+  private func mealsLine(_ plan: SavedPlan) -> String {
+    let names = plan.slots.map(\.recipeName)
+    let shown = names.prefix(3).joined(separator: ", ")
+    return names.count > 3 ? "\(shown) +\(names.count - 3) more" : shown
+  }
+
+  private func savedLine(_ plan: SavedPlan) -> String? {
+    guard let raw = plan.createdAt, let date = ISO8601DateFormatter().date(from: raw) else { return nil }
+    return "Saved \(date.formatted(.dateTime.month(.abbreviated).day().hour().minute()))"
   }
 }
 

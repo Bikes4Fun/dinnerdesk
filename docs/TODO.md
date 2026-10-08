@@ -67,7 +67,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
       should look the same whether meals were suggested or chosen.
       `docs/weekend prep to do/removed excess commentary but also removed the summary of why its a good plan.png`
-- [ ] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
+- [x] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
       means nothing to users. Clearer rows, accessible delete, empty states.
       `docs/suggestion meal plan to do/history 0 swaps is data for us the user doesn't care.png`
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`

@@ -1477,3 +1477,12 @@ img { display: block; max-width: 100%; }
 .step-timer.is-running { font-variant-numeric: tabular-nums; cursor: default; color: var(--ink, inherit); }
 .step-timer.is-done { background: var(--accent); color: #fff; }
 .step-timer.is-done .text-link { color: #fff; }
+
+/* Saved plans and history rows (Plan ⋯ → View drafts) */
+.saved-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.saved-row-main { flex: 1; min-width: 0; text-align: left; }
+.saved-row-main > summary { cursor: pointer; list-style-position: outside; }
+.saved-summary { display: inline-flex; flex-direction: column; gap: 2px; vertical-align: top; }
+.saved-summary .muted { font-size: 0.9rem; }
+.saved-row-delete { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent); border-radius: 10px; }
+.saved-row-delete:hover { background: var(--coral-tint); }

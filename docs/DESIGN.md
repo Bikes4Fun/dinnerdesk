@@ -101,6 +101,8 @@ This week's meals, scheduled on days or unscheduled. Grocery and prep follow thi
   remove), and 👍/👎 per meal. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
 - **Must:** save the plan as a draft without replacing it. Starting a new plan moves the live
   week to history; nothing is deleted. Saved plans can be deleted, except the active plan.
+  Each saved row shows its name (or "Week of …"), dates, meal count, status, first meals and
+  when it was saved; delete is a visible button, not swipe-only.
 - **Must not:** clone a catalog recipe because it was added to a day; blow away the rest of the
   week to change one day; mix last week's meals into this one.
 - **Bug if:** removing a meal leaves its ingredients on the grocery list; moving a meal drops

@@ -116,7 +116,8 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 - [ ] ⋯ → **Grid view**: meals line up neatly in two columns, photos aligned. At the largest text sizes it shows as a list instead.
 - [ ] ⋯ menu: every option is fully readable and reachable, even at large text (scroll if needed).
 - [ ] ⋯ → **Save as draft**, then ⋯ → **Saved plans & history**: the draft is there and loads correctly.
-- [ ] In Saved plans & history, approved and declined suggestions show the right meal count, decision, and number of swaps.
+- [ ] In Saved plans & history, each row shows its name (or "Week of …"), dates, meal count, status, the first meals, and when it was saved. No swap counts.
+- [ ] Each draft and past plan has a visible delete (trash) button; empty Drafts and History each say what will appear there.
 - [ ] Nothing at the bottom of the screen is hidden behind the tab bar.
 
 
