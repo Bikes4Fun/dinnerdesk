@@ -339,3 +339,6 @@ with the title and decision controls remain in the scrolling flow.
 
 Taste Lab exhausted results use a prominent recovery panel explaining filters/passes and
 linking to Edit filters; saved allergies and passes remain intact.
+
+The iPhone recipe options control opens the shared scrolling menu sheet, with a 44-point
+tap target, so long labels and accessibility text sizes remain reachable.

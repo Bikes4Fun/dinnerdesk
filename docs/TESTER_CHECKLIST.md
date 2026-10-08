@@ -272,3 +272,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #12: long Taste Lab suggested meal names and swap headings show in full at normal and larger text on app/web. Scroll to reach decisions; words do not split unnecessarily.
 
 - [ ] #14: exhaust Taste Lab plans. A prominent recovery panel explains what happened, offers Edit filters, and stays readable at large text. Saved allergies/passes remain intact.
+
+- [ ] #16: tap recipe ⋯ repeatedly at normal/maximum text size. The options sheet stays open until dismissed; To try and Hide work, and all options are reachable.

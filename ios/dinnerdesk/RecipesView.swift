@@ -452,6 +452,7 @@ struct RecipeDetailView: View {
   private var added: Bool { store.onWeek(id) }
   @State private var adding = false
   @State private var planNotice: String?
+  @State private var showingMenu = false
   @State private var tab: RecipePageTab = .overview
   @State private var nameExpanded = false
   @State private var draftServings: Int?
@@ -574,24 +575,27 @@ struct RecipeDetailView: View {
               Image(systemName: recipe.favorited ? "heart.fill" : "heart")
                 .foregroundStyle(recipe.favorited ? Theme.accent : Theme.muted)
             }
-            Menu {
-              Button(recipe.toTry ? "Remove from To try" : "To try") {
-                Task { await tryLater(recipe) }
-              }
-              Button(
-                recipe.hidden ? "Unhide recipe" : "Hide recipe",
-                role: recipe.hidden ? .none : .destructive
-              ) {
-                Task { await hide(on: !recipe.hidden) }
-              }
-            } label: {
+            Button { showingMenu = true } label: {
               Image(systemName: "ellipsis.circle")
-                .padding(4)
-                .contentShape(Circle())
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
+            .accessibilityLabel("Recipe options")
           }
         }
       }
+    }
+    .menuSheet(isPresented: $showingMenu) {
+      if let recipe {
+        [
+          MenuSheetItem(title: recipe.toTry ? "Remove from To try" : "To try", systemImage: "bookmark") {
+            Task { await tryLater(recipe) }
+          },
+          MenuSheetItem(title: recipe.hidden ? "Unhide recipe" : "Hide recipe", systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
+            Task { await hide(on: !recipe.hidden) }
+          }
+        ]
+      } else { [] }
     }
     .task {
       do {
