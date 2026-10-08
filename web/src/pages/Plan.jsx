@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, photoSrc } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
+import { Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
 
@@ -188,11 +189,11 @@ export function Plan() {
                     </button>
                   </div>
                 </div>
-                <span className="meal-thumbs">
+                <div className="meal-thumbs">
                   <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
-                  {slot.rating < 0 && <span className="muted">Won’t be suggested again</span>}
                   {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
-                </span>
+                </div>
+                {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
               </>}
             </div>
           </article>)}

@@ -215,7 +215,8 @@ sign out everywhere live there too.
   stop pinning; menus and grids grow or drop to one column; nothing hides behind the tab bar.
 - Never show state by color alone.
 - Help text that explains a feature is a *tip* (purple ★), marked with `data-tip="<area>.<name>"`
-  so `scripts/list_tips.py` can list them.
+  so `scripts/list_tips.py` can list them. Draw new tips with `StarTip(id:)` on iPhone and
+  `<Tip id>` on the website: a purple ★ on the pale aubergine tint.
 - Don't add menu items, tabs, or other navigation without an explicit product decision.
 - Errors are in plain words, on the screen they belong to, and say how to recover.
 

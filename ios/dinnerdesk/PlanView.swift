@@ -261,16 +261,17 @@ struct PlanView: View {
 
   /// Under each meal: rate it so suggestions learn. 👎 = never suggest again.
   private func thumbs(_ slot: PlanSlot) -> some View {
-    HStack(spacing: 4) {
-      ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
-        Task { await store.rateMeal(slot, next) }
+    VStack(alignment: .leading, spacing: 4) {
+      HStack(spacing: 4) {
+        ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
+          Task { await store.rateMeal(slot, next) }
+        }
+        .padding(.leading, -12)
+        if (slot.rating ?? 0) > 0 {
+          Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
       }
-      .padding(.leading, -12)
-      if (slot.rating ?? 0) < 0 {
-        Text("Won't be suggested again").font(Theme.subtitle).foregroundStyle(Theme.muted)
-      } else if (slot.rating ?? 0) > 0 {
-        Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
-      }
+      if (slot.rating ?? 0) < 0 { StarTip(id: "plan.disliked") }
     }
   }
 

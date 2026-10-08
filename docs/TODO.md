@@ -61,7 +61,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
 - [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
       `docs/suggestion meal plan to do/accessiblity remove one meal cut off.png`
-- [ ] "Won't be suggested again" should be a purple ★ tip.
+- [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
 - [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
