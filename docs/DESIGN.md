@@ -211,6 +211,9 @@ sign out everywhere live there too.
   so `scripts/list_tips.py` can list them.
 - Don't add menu items, tabs, or other navigation without an explicit product decision.
 - Errors are in plain words, on the screen they belong to, and say how to recover.
+  Unavailable actions offer retry/support guidance rather than HTTP codes or instructions
+  for the user to update the server. iPhone logs rejected request methods and paths for
+  diagnosis, without logging request bodies or query values.
 
 ---
 

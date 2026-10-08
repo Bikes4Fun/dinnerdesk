@@ -31,7 +31,16 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const detail = data && data.detail;
     const usable = typeof detail === "string" && !detail.trim().startsWith("<");
-    const err = new Error(usable ? detail : res.statusText || "Request failed");
+    const messages = {
+      401: "Please sign in again to continue.",
+      403: "You don't have access to this action.",
+      404: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
+      405: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
+    };
+    const message = messages[res.status] || (res.status >= 500
+      ? "The server couldn't complete this action. Please try again shortly."
+      : usable ? detail : "Couldn't complete this action. Please try again.");
+    const err = new Error(message);
     err.status = res.status;
     err.body = data;
     throw err;

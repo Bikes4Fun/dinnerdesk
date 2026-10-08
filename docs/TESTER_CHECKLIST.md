@@ -243,6 +243,7 @@ Candidate: merged `main` + `prep-grocery-recipes` · Oct 7, 2026 · deployment m
 - [ ] Replay Quick start on web and iOS: the first how-to step is “Fewer dinner decisions,” explaining personalized suggestions and optional browsing.
 
 - [ ] Verify the API and iOS app are deployed/built together. A stale server must show a readable compatibility message before generating a proposal.
+- [ ] On web and iPhone, an unavailable plan action shows retry/support guidance, with no HTTP code or raw JSON. For an iPhone 405, capture the rejected method/path and Allow header from the app console; test rating, servings, scheduling, marking cooked, and removal individually.
 - [ ] In normal and accessibility text sizes, review a proposal, open the swap picker, and expand a long prep task. Buttons remain reachable and titles do not overlap.
 - [ ] Saved plans can be deleted from the library; the active plan is protected and deleting history does not erase recommendation evidence.
 - [ ] Switch from a recipe detail or Taste Lab to another tab and back: the original tab shows its main screen.
