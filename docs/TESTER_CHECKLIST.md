@@ -286,3 +286,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #28: deploy updated API/app together. Check individual prep steps and whole tasks, refresh, rename/regroup unchanged steps, and confirm completion persists. Verify legacy check migration in a dedicated test database before deployment.
 
 - [ ] #30: use long meal names in Plan list view. Full names and Schedule fit without smaller photos. At maximum iPhone text size, rows stack and schedule remains reachable; grid/editing still work.
+
+- [ ] #32: decline several proposals. Review remains open, with no whole-page reload or grocery changes. Fail the replacement request: a readable error and Try another suggestion remain; retry does not decline twice.

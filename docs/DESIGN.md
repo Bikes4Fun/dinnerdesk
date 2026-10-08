@@ -363,3 +363,7 @@ endpoint is retired.
 Plan list rows show full wrapping titles and a Schedule button outside editing. iPhone
 photos retain their 160-point size; accessibility sizes stack the title/controls below the
 photo rather than shrinking it. Web list thumbnails retain their existing dimensions.
+
+Declining replaces the proposal in place: the review stays open and current plan/groceries
+are not reloaded. A failed replacement leaves a retry action; the declined plan cannot be
+approved or modified again.

@@ -519,6 +519,7 @@ private struct SuggestedPlanReview: View {
           Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
             Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
           }
+          .disabled(store.proposal?.status != "suggested")
           Text("Your current plan stays in place until you approve.").font(Theme.subtitle).foregroundStyle(Theme.muted)
           if let note = store.proposal?.suggestionNote, !note.isEmpty {
             Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
@@ -538,13 +539,17 @@ private struct SuggestedPlanReview: View {
                 Text(slot.recipeName).font(Theme.mealName).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
                 if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
                 if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
-                  Button { swapping = slot } label: { Label("Swap meal", systemImage: "arrow.left.arrow.right") }
+                  Button { swapping = slot } label: { Label("Swap meal", systemImage: "arrow.left.arrow.right") }.disabled(store.proposal?.status != "suggested")
                 } else { Text("Your selection").font(Theme.subtitle) }
               }
             }
           }
-          Button("Approve plan") { run { await store.reviewProposal("approve") } }.buttonStyle(.borderedProminent)
-          Button("Decline and suggest another plan") { run { await store.reviewProposal("decline") } }
+          if store.proposal?.status == "suggested" {
+            Button("Approve plan") { run { await store.reviewProposal("approve") } }.buttonStyle(.borderedProminent)
+            Button("Decline and suggest another plan") { run { await store.reviewProposal("decline") } }
+          } else {
+            Button("Try another suggestion") { run { await store.replaceDeclinedProposal() } }
+          }
         }.padding().disabled(busy)
       }.background(Theme.bg).navigationTitle("Suggested plan").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }

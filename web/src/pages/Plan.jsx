@@ -80,7 +80,7 @@ export function Plan() {
     else setPlan(created);
     setSuggested(Boolean(created.suggestion_note));
 
-    setSaved(null); setSelected(new Set()); setPlacing(null); await week.load();
+    if (!mealCount) { setSaved(null); setSelected(new Set()); setPlacing(null); await week.load(); }
   }
   function toggleSelection(id) {
     setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -124,7 +124,7 @@ export function Plan() {
       {proposal && <section className="saved-plans">
         <h2>Review your suggestions</h2>
         {proposal.suggestion_note && <p className="muted">{proposal.suggestion_note}</p>}
-        <label>Meals <select value={proposal.slots.length} disabled={busy} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
+        <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>
         <p>Your plan and groceries stay in place until you approve.</p>
@@ -133,12 +133,12 @@ export function Plan() {
         {proposal.slots.map((s) => <div key={s.id} className="plan-meal grid">
           {s.photo_path && <img src={photoSrc(s.photo_path)} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12 }} />}
           <div><strong>{s.recipe_name}</strong><br />
-            {proposal.suggested_recipe_ids?.includes(s.recipe_id) ? <button disabled={busy} onClick={() => { setSwapping(s); setSwapQuery(""); setSwapOptions([]); }}>Swap meal</button> : <span>Your selection</span>}
+            {proposal.suggested_recipe_ids?.includes(s.recipe_id) ? <button disabled={busy || proposal.status !== "suggested"} onClick={() => { setSwapping(s); setSwapQuery(""); setSwapOptions([]); }}>Swap meal</button> : <span>Your selection</span>}
           </div>
         </div>)}
         </div>
-        <button disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>
-        <button disabled={busy} onClick={() => act(async () => { await api.decideSuggestion(proposal.id, "decline"); setProposal(null); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids.length)); })}>Decline and suggest another plan</button>
+        <button disabled={busy || proposal.status !== "suggested"} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>
+        <button disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.slots.length)); })}>{proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}</button>
       </section>}
       {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
       {saved && <section className="saved-plans">

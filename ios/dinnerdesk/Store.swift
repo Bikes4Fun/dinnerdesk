@@ -693,10 +693,22 @@ extension Store {
     proposalError = nil
     do {
       let reviewed: Plan = try await API.send("plans/\(proposal.id)/decision/\(decision)", method: "POST", body: [:])
-      self.proposal = nil
-      if decision == "approve" { plan = reviewed; await loadGrocery() }
-      else { await newPlan(meals: max(1, proposal.suggestedRecipeIds?.count ?? proposal.slots.count), keepCurrent: proposal.slots.count > (proposal.suggestedRecipeIds?.count ?? proposal.slots.count)) }
+      if decision == "approve" { self.proposal = nil; plan = reviewed; await loadGrocery() }
+      else {
+        self.proposal = reviewed
+        await replaceDeclinedProposal()
+      }
     } catch { proposalError = error.localizedDescription }
+  }
+
+  func replaceDeclinedProposal() async {
+    guard let proposal else { return }
+    let count = max(1, proposal.slots.count)
+    let keep = proposal.slots.count > (proposal.suggestedRecipeIds?.count ?? proposal.slots.count)
+    if !(await newPlan(meals: count, keepCurrent: keep)) {
+      proposalError = error ?? "Couldn't find another plan. Try again or adjust Settings → Filters."
+      error = nil
+    }
   }
 
   func resizeProposal(_ count: Int) async {
@@ -742,8 +754,7 @@ extension Store {
         }
         proposalError = nil
         proposal = created
-      } else { plan = created }
-      await loadGrocery()
+      } else { plan = created; await loadGrocery() }
       error = nil
       return true
     } catch {
