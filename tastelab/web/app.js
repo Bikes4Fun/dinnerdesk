@@ -306,7 +306,7 @@ const macros = (r) => {
   const head = (title, step, meta = "") => `
       <div class="top">
         <button type="button" class="lab-back" data-back aria-label="Back">${icon("back")}</button>
-        <h1 class="brand">${esc(title)}</h1>
+        ${title === "Taste Lab" && params.get("chrome") === "app" ? "" : `<h1 class="brand">${esc(title)}</h1>`}
         <div class="top-tools">
           ${step >= 0 ? steps(step) : ""}
           ${meta ? `<p class="progress">${esc(meta)}</p>` : ""}

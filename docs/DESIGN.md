@@ -330,3 +330,6 @@ accessibility text sizes open a full-height, scrolling confirmation with reachab
 
 Suggested-plan review displays one short explanation for the selected meals, updated after
 swaps and resizing. Approved plans omit suggestion commentary and internal decision/swap counts.
+
+Embedded Taste Lab uses the host screen’s Taste Lab title and suppresses repeated branding;
+inner headings still name the current step and Back still navigates within Taste Lab.
