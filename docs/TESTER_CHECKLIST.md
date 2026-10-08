@@ -288,3 +288,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #30: use long meal names in Plan list view. Full names and Schedule fit without smaller photos. At maximum iPhone text size, rows stack and schedule remains reachable; grid/editing still work.
 
 - [ ] #32: decline several proposals. Review remains open, with no whole-page reload or grocery changes. Fail the replacement request: a readable error and Try another suggestion remain; retry does not decline twice.
+
+- [ ] #34: grocery item’s You’ll use this in heading uses the available width, stays smaller than the item title, and has no truncation/overlap at maximum text size or web zoom.

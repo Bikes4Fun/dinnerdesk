@@ -367,3 +367,6 @@ photo rather than shrinking it. Web list thumbnails retain their existing dimens
 Declining replaces the proposal in place: the review stays open and current plan/groceries
 are not reloaded. A failed replacement leaves a retry action; the declined plan cannot be
 approved or modified again.
+
+The grocery “You’ll use this in…” heading uses the full content width and a secondary
+heading font, wrapping naturally only when needed at large text sizes.

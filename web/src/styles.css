@@ -1487,3 +1487,5 @@ img { display: block; max-width: 100%; }
 
 .plan-meal-list .meal-title strong { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; overflow-wrap: normal; word-break: normal; }
 .plan-meal-list .meal-schedule { margin-top: 0.5rem; max-width: 100%; white-space: normal; }
+
+.grocery-editor > .block-label { align-self: stretch; width: 100%; box-sizing: border-box; overflow-wrap: normal; word-break: normal; }
