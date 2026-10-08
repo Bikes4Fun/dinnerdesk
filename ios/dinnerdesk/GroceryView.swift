@@ -73,11 +73,6 @@ struct GroceryView: View {
                 .multilineTextAlignment(.center)
                 .kitchenBareRow()
             }
-            if visible.contains(where: { $0.fromPantry }) {
-              StarTip(id: "grocery.pantry")
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                .kitchenBareRow()
-            }
             ForEach(aisleBlocks, id: \.id) { block in
               KitchenSection(block.name) {
                 ForEach(block.rows) { line in
@@ -318,6 +313,9 @@ struct GroceryRow: View {
             if !note.isEmpty {
               Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
+            if line.fromPantry && !line.neverShop {
+              pantryTip
+            }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           if !typeSize.isAccessibilitySize, !line.quantity.isEmpty {
@@ -342,10 +340,22 @@ struct GroceryRow: View {
     if store.showMeals && !line.usedBy.isEmpty {
       parts.append(line.usedBy.map(shortMealName).filter { !$0.isEmpty }.joined(separator: " · "))
     }
-    if line.fromPantry {
-      parts.append("Pantry")
-    }
     return parts.joined(separator: " · ")
+  }
+
+  /// The pantry note is a tip (purple ★ on the aubergine tint), not plain grey text.
+  private var pantryTip: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 4) {
+      Image(systemName: "star.fill").font(Theme.subtitle)
+        .foregroundStyle(Color(hex: 0x7A3B73))
+        .accessibilityHidden(true)
+      Text(Copy.text("grocery.pantry")).font(Theme.subtitle).foregroundStyle(Theme.ink)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 3)
+    .background(Theme.aubergineTint, in: Capsule())
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("tip.grocery.pantry")
   }
 }
 

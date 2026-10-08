@@ -19,7 +19,7 @@
   "prep.about": "Built from this plan’s meals. Chop and batch now; cook fresh later in the week.",
   "prep.empty": "No prep yet. Add meals on Plan.",
   "grocery.empty": "Add meals on Plan and they show up here.",
-  "grocery.pantry": "“Pantry” means you said you have it on hand, so it starts checked off. Uncheck it if you need to buy more.",
+  "grocery.pantry": "In your pantry, so it starts checked off",
   "grocery.stores": "Add or remove stores and assign each grocery item.",
   "grocery.aisles": "Set aisle numbers and order, then put each grocery item in an aisle.",
   "kitchen.pantry": "What you already have.",
