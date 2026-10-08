@@ -84,7 +84,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/quick start to do/taste lab filters should fit on one screen from an iphone 16 with standard font size. do not remove options but do consider layout/formatting..png`
 - [ ] Meal names are cut at two lines when there's room for more.
       `docs/quick start to do/tastelab meal names don't need to cut off at two lines assuming they don't spill over the actual phone screen size.png`
-- [ ] Show more plans before "You're set".
+- [x] Show more plans before "You're set".
       `docs/quick start to do/tastelab should be showing more mealplan suggestions before youre set.png`
 
 ### Recipes

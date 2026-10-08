@@ -62,6 +62,7 @@ Find it under More, or "Improve your results" on the Plan screen.
 - [x] On a suggested plan, tap **Not for us**. A different plan appears (not a "You're set" screen).
 - [x] Tap a meal to swap it, then try **More options**. New choices appear, or a clear message says there are no more.
 - [x] The "Not for us" / "This plan works" buttons don't cover any meal names.
+- [ ] Tap **This plan works**: another plan appears ("Plan 2 of 3"). After the third approval you see "You're set." **Done for now** still ends early.
 - [x] Approve a plan. You see a completion screen.
 - [x] Keep rejecting until nothing is left. You get a helpful message, not a dead end. [received a message but it was uninteresting font and i didn't read or notice it right away so it seemed like a glitch]
 

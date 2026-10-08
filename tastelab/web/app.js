@@ -43,6 +43,9 @@
   ];
   const MIN_POOL = 8;
   const FREE_MEALS = 4;
+  // Suggested plans to judge in one session before "You're set" (#13). More verdicts teach
+  // suggestions more; "Done for now" still ends early.
+  const PLAN_ROUNDS = 3;
   const app = document.getElementById("app");
   const storedAnon = localStorage.getItem("dinnerdesk-taste-anon") || localStorage.getItem("weekplate-anon");
   const state = {
@@ -61,6 +64,7 @@
     plans: [],
     lastPlan: [],
     phase: "",
+    round: 0,
     quizBack: null,
     sawPlan: false,
     prior: new Set(),
@@ -459,6 +463,7 @@ const macros = (r) => {
   };
 
   const startSeed = () => {
+    state.round = 0;
     state.phase = "seed";
     state.quizBack = null;
     state.deck = SEED_IDS.map(byId).filter((r) => r && !blocked(r) && !state.prior.has(rid(r)));
@@ -498,6 +503,7 @@ const macros = (r) => {
   };
 
   const startMore = () => {
+    state.round = 0;
     state.quizBack = null;
     state.phase = "more";
     state.deck = pickGroupedSwipes();
@@ -512,6 +518,7 @@ const macros = (r) => {
   };
 
   const startFreeSwipes = () => {
+    state.round = 0;
     state.phase = "free";
     state.quizBack = null;
     state.deck = pickSwipes(FREE_MEALS);
@@ -751,7 +758,7 @@ const macros = (r) => {
     const lead = n === 1 ? "One dinner that fits." : `${n} dinners that fit.`;
     return `
       <div class="shell wide">
-        ${head("Suggested dinners", state.phase === "free" ? -1 : 3)}
+        ${head("Suggested dinners", state.phase === "free" ? -1 : 3, `Plan ${Math.min(state.round + 1, PLAN_ROUNDS)} of ${PLAN_ROUNDS}`)}
         <p class="lead">${lead} Tap a meal to swap it. Not for us drops these meals from suggestions.</p>
         ${banner()}
         <div class="plan-grid">${cards}</div>
@@ -1049,7 +1056,9 @@ const macros = (r) => {
             remember(id, true);
           }
         }
-        if (verdict === "down") showPlan();
+        state.round += 1;
+        const more = verdict === "down" || (state.round < PLAN_ROUNDS && planPool().length > 0);
+        if (more) showPlan();
         else { state.screen = "done"; render(); }
       });
       return;
@@ -1059,6 +1068,7 @@ const macros = (r) => {
       return;
     }
     if (t.hasAttribute("data-see-plan")) {
+      state.round = 0;
       showPlan();
       return;
     }
