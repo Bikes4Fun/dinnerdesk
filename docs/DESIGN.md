@@ -324,3 +324,6 @@ HealthKit for nutrition sync.
 
 **Reference notes:** [`mealime.md`](mealime.md) (how Dinnerdesk compares to Mealime) ·
 [`grocery-plan.md`](grocery-plan.md) (grocery retailer programs) · [`PRIVACY.md`](PRIVACY.md).
+
+Plan removal confirms the selected meal count with singular/plural wording. On iPhone,
+accessibility text sizes open a full-height, scrolling confirmation with reachable Cancel.

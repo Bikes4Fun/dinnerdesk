@@ -260,3 +260,7 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - Confirm restarting the API does not import recipes or overwrite catalog rows.
 - Before Railway deployment, upload and verify the private asset package and configure both required paths.
 - Check Git contains no production recipes, food photos, credentials or database exports.
+
+## Even issue verification — Oct 8, 2026
+
+- [ ] #6: select one meal, then several. Remove confirmation uses meal/meals correctly on app and web. At maximum iPhone text size, Cancel and Remove remain reachable; Cancel changes nothing.

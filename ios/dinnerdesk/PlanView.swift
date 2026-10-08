@@ -162,7 +162,7 @@ struct PlanView: View {
         Button("Cancel", role: .cancel) {}
       }
       .sheet(isPresented: $removing) {
-        RemovalConfirmation(title: "Remove \(selected.count) meals?", message: "These meals will be removed from your plan.", actionTitle: "Remove meals") {
+        RemovalConfirmation(title: "Remove \(selected.count) \(selected.count == 1 ? "meal" : "meals")?", message: "Selected meals will be removed from your plan.", actionTitle: selected.count == 1 ? "Remove meal" : "Remove meals") {
           await store.removeSlots(ids: selected)
           selected = []
         }
@@ -634,6 +634,7 @@ private struct RemovalConfirmation: View {
   let action: () async -> Void
   @Environment(\.dismiss) private var dismiss
   @State private var busy = false
+  @Environment(\.dynamicTypeSize) private var textSize
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
@@ -644,8 +645,8 @@ private struct RemovalConfirmation: View {
           Task { await action(); dismiss() }
         }.buttonStyle(.borderedProminent).tint(.red).frame(maxWidth: .infinity)
         Button("Cancel") { dismiss() }.frame(maxWidth: .infinity, minHeight: 44)
-      }.padding(.horizontal, 6).padding(.vertical, 20).frame(maxWidth: .infinity).disabled(busy)
-    }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible).presentationBackground(Theme.bg)
+      }.padding(.horizontal, 20).padding(.vertical, 20).frame(maxWidth: .infinity).disabled(busy)
+    }.presentationDetents(textSize.isAccessibilitySize ? [.large] : [.medium, .large]).presentationDragIndicator(.visible).presentationBackground(Theme.bg)
   }
 }
 
