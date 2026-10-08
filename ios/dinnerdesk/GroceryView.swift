@@ -73,6 +73,11 @@ struct GroceryView: View {
                 .multilineTextAlignment(.center)
                 .kitchenBareRow()
             }
+            if visible.contains(where: { $0.fromPantry }) {
+              StarTip(id: "grocery.pantry")
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .kitchenBareRow()
+            }
             ForEach(aisleBlocks, id: \.id) { block in
               KitchenSection(block.name) {
                 ForEach(block.rows) { line in

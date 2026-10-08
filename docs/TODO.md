@@ -96,7 +96,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Grocery
 
-- [ ] The "Pantry" note under an item should be a purple ★ tip. Aisle headers (PANTRY) should
+- [x] The "Pantry" note under an item should be a purple ★ tip. Aisle headers (PANTRY) should
       stay smaller than item names at large text.
       `docs/groceries page to do/add a purple stary tip to the _pantry_ note and resize aisle terms to remain smaller than title.png`
 - [ ] Item page shows an empty box where the ingredient photo goes.

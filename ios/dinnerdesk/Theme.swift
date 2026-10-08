@@ -49,6 +49,9 @@ enum Theme {
   static let chipLabel = Font.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline)
   static let subtitle = Font.custom("DMSans-Regular", size: 13, relativeTo: .footnote)
   static let count = Font.custom("DMSans-Medium", size: 13, relativeTo: .footnote)
+  /// Small all-caps section headers (aisles, days, settings groups). Scales with footnote text,
+  /// so it stays smaller than row titles at every text size.
+  static let sectionHeader = Font.custom("DMSans-Bold", size: 14, relativeTo: .footnote)
 
   static func registerFonts() {
     let fonts = [
