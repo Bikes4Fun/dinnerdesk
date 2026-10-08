@@ -58,9 +58,19 @@ struct PlanView: View {
               }
             }
             if plan.slots.isEmpty {
-              EmptyState(
-                title: "Nothing on this plan", message: "Add meals from Recipes.",
-                systemImage: "calendar")
+              VStack {
+                EmptyState(
+                  title: "Nothing on this plan",
+                  message: "Get suggestions for your next meals.",
+                  systemImage: "calendar")
+                Button {
+                  Task { await store.newPlan(meals: 4) }
+                } label: {
+                  Label("New meal plan", systemImage: "sparkles")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.accent)
+              }
             }
             if editing && !plan.slots.isEmpty {
               HStack {
