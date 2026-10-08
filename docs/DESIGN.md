@@ -354,3 +354,8 @@ on web links. Selection remains visible without relying on accent color.
 
 Plan ⋯ omits Review pending suggestions and Choose my own meals. New meal plan requests
 four suggestions; Recipes remains the entry point for adding individual meals.
+
+Prep completion uses PUT /prep/{id}/steps and task JSON as its sole store. Startup migrates
+legacy per-step checks into task JSON before dropping the old table; completion follows
+step identities when tasks regroup. Deploy API and app together: the duplicate PATCH step
+endpoint is retired.

@@ -251,7 +251,7 @@ Candidate: merged `main` + `prep-grocery-recipes` · Oct 7, 2026 · deployment m
 - [ ] Switch from a recipe detail or Taste Lab to another tab and back: the original tab shows its main screen.
 - [ ] Whole-plan refusal is a weaker preference signal than swapping a meal and approving the rest; resizing/cancelling records no dislike.
 
-Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `hits`, and `recipe_text` for the merged diet filter. Both PUT and PATCH Prep step requests use the same completion state.
+Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `hits`, and `recipe_text` for the merged diet filter. Prep step requests use PUT and task JSON; startup preserves legacy per-step checks.
 
 ## Private catalog migration
 
@@ -282,3 +282,5 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #22: with grayscale enabled, each selected tab remains identifiable by label weight (and underline on web); badges and labels remain within the bar.
 
 - [ ] #26: Plan ⋯ on app/web has neither Review pending suggestions nor Choose my own meals. New meal plan still requests suggestions; adding from Recipes still works.
+
+- [ ] #28: deploy updated API/app together. Check individual prep steps and whole tasks, refresh, rename/regroup unchanged steps, and confirm completion persists. Verify legacy check migration in a dedicated test database before deployment.

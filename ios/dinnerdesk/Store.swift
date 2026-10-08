@@ -450,13 +450,6 @@ final class Store: ObservableObject {
     }
   }
 
-  func completePrepStep(taskId: Int, mealId: Int, step: PrepStep) async {
-    do {
-      let _: Ok = try await API.send("prep/\(taskId)/steps", method: "PATCH", body: ["recipe_id": mealId, "key": step.key, "done": !(step.done ?? false)])
-      await loadPrep()
-    } catch { fail(error) }
-  }
-
   func togglePrep(_ task: PrepTask) async {
     let next = !task.done
     if let i = prepTasks.firstIndex(where: { $0.id == task.id }) {

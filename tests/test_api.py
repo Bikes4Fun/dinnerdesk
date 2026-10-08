@@ -982,16 +982,16 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         steps = task["meals"][0]["steps"]
-        response = client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
+        response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
         partial = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert partial["id"] == task["id"] and partial["done"] is False
         assert [s["done"] for s in partial["meals"][0]["steps"]] == [True, False]
-        assert client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
+        assert client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
         client.patch(f"/api/prep/{task['id']}", json={"done": True})
         complete = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert complete["done"] and all(s["done"] for s in complete["meals"][0]["steps"])
-        client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": False})
+        client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": False})
         reopened = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert reopened["done"] is False
         assert [s["done"] for s in reopened["meals"][0]["steps"]] == [False, True]
@@ -1019,7 +1019,7 @@ def test_prep_progress_survives_regrouping_but_changed_steps_reset(tmp_path):
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         first = task["meals"][0]["steps"][0]
-        client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
+        client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
         client.patch(f"/api/recipes/{recipe['id']}", json={"name": "Chicken with mashed potatoes"})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
         potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
@@ -1062,7 +1062,7 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
         assert bad.status_code == 404
 
 
-def test_prep_put_and_patch_share_progress_and_preserve_legacy_checks(tmp_path):
+def test_prep_json_progress_and_legacy_migration(tmp_path):
     import json
     with _client(tmp_path) as client:
         recipe = client.post("/api/recipes", json={"name": "Onion prep", "servings": 4, "instructions": [{"text": "Dice onions."}, {"text": "Mince onions."}]}).json()
@@ -1079,15 +1079,22 @@ def test_prep_put_and_patch_share_progress_and_preserve_legacy_checks(tmp_path):
         assert client.put(f"/api/prep/{task['id']}/steps", json=payload).json()["done"] is True
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["done"] is True
         payload["done"] = False
-        assert client.patch(f"/api/prep/{task['id']}/steps", json=payload).json()["done"] is False
+        assert client.put(f"/api/prep/{task['id']}/steps", json=payload).json()["done"] is False
         refreshed = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert [s["done"] for s in refreshed["meals"][0]["steps"]] == [True, False]
         # Simulate completion persisted by the other branch's per-step table.
         db = connect()
         db.execute("UPDATE prep_tasks SET done = 0, completed_steps_json = '[]' WHERE id = ?", (task["id"],))
+        db.execute("CREATE TABLE prep_step_done (plan_id INTEGER, recipe_id INTEGER, step_key TEXT)")
         db.execute("INSERT INTO prep_step_done (plan_id, recipe_id, step_key) VALUES (?, ?, ?)", (plan["id"], recipe["id"], second["key"]))
         db.commit()
         db.close()
+        from app.db.database import migrate_prep_completion
+        with connect() as db:
+            migrate_prep_completion(db)
+            migrate_prep_completion(db)  # safe to run again
+            assert db.execute("SELECT to_regclass('prep_step_done') AS name").fetchone()["name"] is None
+            db.commit()
         refreshed = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert [s["done"] for s in refreshed["meals"][0]["steps"]] == [False, True]
         payload["key"] = second["key"]

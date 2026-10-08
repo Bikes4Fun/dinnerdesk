@@ -71,7 +71,6 @@ export const api = {
   resizeSuggestion: (id, count) => req(`/api/plans/${id}/resize`, { method: "POST", body: JSON.stringify({ meal_count: count }) }),
   swapOptions: (id, slot, q = "") => req(`/api/plans/${id}/swap-options/${slot}?${new URLSearchParams({ q })}`),
   swapSuggestion: (id, slot, recipeId) => req(`/api/plans/${id}/swap/${slot}`, { method: "POST", body: JSON.stringify(recipeId ? { recipe_id: recipeId } : {}) }),
-  completePrepStep: (id, body) => req(`/api/prep/${id}/steps`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePlan: (id) => req(`/api/plans/${id}`, { method: "DELETE" }),
   createPlan: (body) => req("/api/plans", { method: "POST", body: JSON.stringify(body) }),
   putSlots: (planId, slots) =>
