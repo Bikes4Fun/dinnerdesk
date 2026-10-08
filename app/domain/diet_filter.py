@@ -71,6 +71,76 @@ def allowed(name: str, ingredients: list[str], groups: list[list[str]]) -> bool:
     return not any(hits(blob, group) for group in groups)
 
 
+# The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these
+# (web/src/diet.js, tastelab/web/app.js and ios FiltersView copy them; a test keeps them equal).
+DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
+ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish"]
+AVOIDS = [
+    "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
+    "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
+]
+# Older Settings saved these allergies under Avoid.
+AVOID_TO_ALLERGEN = {"peanuts": "peanut", "peanut": "peanut", "shellfish": "shellfish"}
+STRICTEST = ("vegan", "vegetarian", "pescatarian", "omnivore")
+
+
+def _words_list(items) -> list[str]:
+    out: list[str] = []
+    for raw in items if isinstance(items, list) else []:
+        word = str(raw).strip().lower()
+        if word and word != "none" and word not in out:
+            out.append(word)
+    return out
+
+
+def clean_filters(filters: dict | None) -> dict:
+    """Household filters in one shape: diets, allergens, avoids (plus time and anything else saved)."""
+    out = dict(filters) if isinstance(filters, dict) else {}
+    allergens = [AVOID_ALIAS.get(a, a) for a in _words_list(out.get("allergens"))]
+    avoids = []
+    for word in _words_list(out.get("avoids")):
+        if word in AVOID_TO_ALLERGEN:
+            allergens.append(AVOID_TO_ALLERGEN[word])
+        else:
+            avoids.append(word)
+    out["diets"] = normalize_diets(_words_list(out.get("diets"))) or ["omnivore"]
+    out["allergens"] = list(dict.fromkeys(allergens))
+    out["avoids"] = avoids
+    return out
+
+
+def merge_filters(saved: dict | None, patch: dict | None) -> dict:
+    """A save from any screen changes only the keys it sends, so the tour can't wipe allergies."""
+    base = dict(saved) if isinstance(saved, dict) else {}
+    if isinstance(patch, dict):
+        base.update(patch)
+    return clean_filters(base)
+
+
+def fold_profiles(filters: dict | None, profiles: list[dict]) -> dict:
+    """Add old Taste Lab profiles (diets, allergens, dislikes) to the household filters.
+
+    Nothing is dropped: an allergy set only in Taste Lab must keep blocking meals. For the
+    one-of diets the strictest wins.
+    """
+    out = clean_filters(filters)
+    diets = list(out["diets"])
+    allergens = list(out["allergens"])
+    avoids = list(out["avoids"])
+    for prof in profiles:
+        if not isinstance(prof, dict):
+            continue
+        diets.extend(_words_list(prof.get("diets")))
+        allergens.extend(_words_list(prof.get("allergens")))
+        avoids.extend(_words_list(prof.get("dislikes")))
+    strict = next((d for d in STRICTEST if d in diets), None)
+    rest = [d for d in diets if d not in STRICTEST]
+    out["diets"] = [strict, *rest] if strict else rest
+    out["allergens"] = allergens
+    out["avoids"] = avoids
+    return clean_filters(out)
+
+
 def normalize_diets(diets: list[str] | None) -> list[str]:
     """Keep at most one of omnivore / pescatarian / vegetarian / vegan (the last one picked).
 
