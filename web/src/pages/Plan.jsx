@@ -179,11 +179,11 @@ export function Plan() {
                   <button type="button" className="meal-schedule" aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </button>
                   <div className="meal-servings">
-                    <button type="button" disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
+                    <button type="button" aria-label={`Decrease servings for ${slot.recipe_name}`} disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
                       <Icon name="minus" size={16} />
                     </button>
                     <span>{slot.servings} servings</span>
-                    <button type="button" disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
+                    <button type="button" aria-label={`Increase servings for ${slot.recipe_name}`} disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
                       <Icon name="plus" size={16} />
                     </button>
                   </div>

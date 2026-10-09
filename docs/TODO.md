@@ -54,7 +54,9 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Plan and suggestions
 
-- [ ] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
+- [ ] No obvious Done control when editing the plan.
+      `docs/suggestion meal plan to do/no easy done editing button.png`
+- [x] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
 - [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.

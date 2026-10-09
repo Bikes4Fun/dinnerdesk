@@ -1449,7 +1449,8 @@ img { display: block; max-width: 100%; }
 .meal-edit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .meal-edit-controls .meal-schedule { min-height: 44px; margin: 0; gap: 4px; }
 .meal-edit-controls .meal-servings { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); gap: 2px; }
-.meal-edit-controls .meal-servings button { width: 28px; min-height: 44px; padding: 0; }
+.meal-edit-controls .meal-servings button { min-width: 44px; min-height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.meal-edit-controls .meal-servings span { text-align: center; }
 
 .plan-meal-list .meal-photo-wrap { flex: 0 0 72px; }
 
