@@ -2,8 +2,42 @@ import { useEffect, useState } from "react";
 import { api, photoSrc } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
+import { Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
+
+const shortDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+const inHistory = (p) => (p.status !== "draft" && p.status !== "active") || Boolean(p.decision);
+
+/** The plan's own name, or the week it starts when it's still called "This week". */
+function planHeading(p) {
+  const title = (p.title || "").trim();
+  if (title && title !== "This week") return title;
+  return `Week of ${shortDay(new Date(`${p.start_date}T12:00:00`))}`;
+}
+
+function planStatus(p) {
+  if (p.decision === "approve") return "Approved";
+  if (p.decision === "decline") return "Declined";
+  return { draft: null, active: "Current plan", suggested: "Waiting for review" }[p.status] ?? (p.status ? p.status[0].toUpperCase() + p.status.slice(1) : null);
+}
+
+/** One saved plan: name, dates, meal count and status, the first meals, and when it was saved. */
+function SavedPlanSummary({ plan: p }) {
+  const start = new Date(`${p.start_date}T12:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + Math.max(p.days || 1, 1) - 1);
+  const names = p.slots.map((s) => s.recipe_name);
+  const meals = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3} more` : "");
+  const saved = p.created_at ? new Date(p.created_at) : null;
+  return <span className="saved-summary">
+    <strong>{planHeading(p)}</strong>
+    <span>{[`${shortDay(start)} – ${shortDay(end)}`, `${names.length} ${names.length === 1 ? "meal" : "meals"}`, planStatus(p)].filter(Boolean).join(" · ")}</span>
+    {meals && <span className="muted">{meals}</span>}
+    {saved && !Number.isNaN(saved.getTime()) && <span className="muted">Saved {saved.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>}
+  </span>;
+}
 
 function slotDate(plan, index) {
   const date = new Date(`${plan.start_date}T12:00:00`);
@@ -87,6 +121,10 @@ export function Plan() {
   function toggleSelection(id) {
     setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
+  function deleteSaved(p) {
+    if (window.confirm(`Delete ${planHeading(p)}?`)) act(async () => { await api.deletePlan(p.id); setSaved(saved.filter((other) => other.id !== p.id)); });
+  }
+
   function schedule(slot) {
     setPlacing(slot);
     const today = new Date();
@@ -145,11 +183,17 @@ export function Plan() {
       {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
       {saved && <section className="saved-plans">
         <h2>Drafts</h2>
-        {!saved.some((p) => p.status === "draft") && <p>No saved drafts yet.</p>}
-        {saved.filter((p) => p.status === "draft").map((p) => <button key={p.id} type="button" className="list-link" disabled={busy} onClick={() => act(() => newPlan(p.id))}>{p.title} · {p.slots.length} meals</button>)}
-        {saved.filter((p) => p.status !== "active").map((p) => <button key={`delete-${p.id}`} disabled={busy} onClick={() => { if (window.confirm(`Delete ${p.title}?`)) act(async () => { await api.deletePlan(p.id); setSaved(saved.filter((other) => other.id !== p.id)); }); }}>Delete {p.title}</button>)}
+        {!saved.some((p) => p.status === "draft") && <p className="muted">No drafts yet. Use ⋯ → Save as draft to keep a plan for later.</p>}
+        {saved.filter((p) => p.status === "draft").map((p) => <div key={p.id} className="saved-row">
+          <button type="button" className="saved-row-main" disabled={busy} onClick={() => act(() => newPlan(p.id))}><SavedPlanSummary plan={p} /></button>
+          <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>
+        </div>)}
         <h2>Plan history</h2>
-        {saved.filter((p) => p.status !== "draft" && p.status !== "active" || p.decision).map((p) => <details key={p.id}><summary>{p.title} · {p.start_date} · {p.decision || p.status} · {p.changes?.length || 0} swaps</summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>)}
+        {!saved.some(inHistory) && <p className="muted">No past plans yet. Plans you approve or finish show up here.</p>}
+        {saved.filter(inHistory).map((p) => <div key={p.id} className="saved-row">
+          <details className="saved-row-main"><summary><SavedPlanSummary plan={p} /></summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>
+          {p.status !== "active" && <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>}
+        </div>)}
         <button type="button" className="text-link" onClick={() => setSaved(null)}>Close saved plans</button>
       </section>}
       {editing && plan.slots.length > 0 && <div className="plan-bulk">
@@ -179,20 +223,20 @@ export function Plan() {
                   <button type="button" className="meal-schedule" aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </button>
                   <div className="meal-servings">
-                    <button type="button" disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
+                    <button type="button" aria-label={`Decrease servings for ${slot.recipe_name}`} disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
                       <Icon name="minus" size={16} />
                     </button>
                     <span>{slot.servings} servings</span>
-                    <button type="button" disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
+                    <button type="button" aria-label={`Increase servings for ${slot.recipe_name}`} disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
                       <Icon name="plus" size={16} />
                     </button>
                   </div>
                 </div>
-                <span className="meal-thumbs">
+                <div className="meal-thumbs">
                   <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
-                  {slot.rating < 0 && <span className="muted">Won’t be suggested again</span>}
                   {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
-                </span>
+                </div>
+                {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
               </>}
             </div>
           </article>)}
