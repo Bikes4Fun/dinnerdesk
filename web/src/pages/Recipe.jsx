@@ -8,6 +8,7 @@ import { RecipeEditorFields, serializeSteps, stepsFromRecipe } from "../RecipeEd
 import { StepText, amountLines } from "../stepText.jsx";
 // Far-future feature: inline recipe timers are disabled.
 // import { StepTimers } from "../StepTimers.jsx";
+import { Tip } from "../Tip.jsx";
 
 function ingLines(recipe) {
   return (recipe.ingredients || [])
@@ -326,6 +327,7 @@ export function Recipe({ id }) {
               {tab === "overview" && (
                 <>
                   {recipe.photo_path && <img className="hero" src={photoSrc(recipe.photo_path)} alt="" />}
+                  {recipe.photo_path && recipe.photo_ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
                   <ServingsMeta />
                   {recipe.tags.length > 0 && (
                     <p className="muted">{recipe.tags.map((t) => t.replaceAll("_", " ")).join(" · ")}</p>

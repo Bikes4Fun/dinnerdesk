@@ -1531,3 +1531,5 @@ img { display: block; max-width: 100%; }
 /* Keep newer review requirements while sharing Taste Lab card styling. */
 .suggested-plan .proposal-swap { background: var(--coral); color: var(--brand); }
 .suggested-plan .sp-body strong { overflow-wrap: normal; word-break: normal; }
+
+.ai-photo-tip { margin: 8px 0 12px; }

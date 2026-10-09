@@ -16,16 +16,24 @@ from pathlib import Path
 
 _DATA = json.loads((catalog_dir() / "recipe_photos.json").read_text())
 USE: dict[str, int | None] = {}
+# Photos made with AI: entries marked `"ai_generated": true`, or files named
+# `<id>_<name>_ai-generated.png`. Those recipes say so with a purple ★ tip (#33).
+AI: set[str] = set()
+AI_SUFFIX = "_ai-generated"
 for item in _DATA.get("use") or []:
     if isinstance(item, str):
         name = Path(item).name
         recipe_id = None
+        ai = False
     else:
         name = Path(str(item.get("file") or "")).name
         raw = item.get("recipe_id")
         recipe_id = int(raw) if raw is not None else None
+        ai = item.get("ai_generated") is True
     if name:
         USE[name] = recipe_id
+        if ai:
+            AI.add(name)
 
 
 def photo_name(path: str) -> str:
@@ -42,3 +50,9 @@ def usable_photo(path: str, *_recipe_ids: int | None) -> str:
     if not filename or filename not in USE:
         return ""
     return text
+
+
+def photo_is_ai(path: str) -> bool:
+    """True when the photo shown for a recipe was made with AI."""
+    name = photo_name(path)
+    return bool(name) and (name in AI or Path(name).stem.endswith(AI_SUFFIX))

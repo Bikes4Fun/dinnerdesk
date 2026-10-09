@@ -482,6 +482,9 @@ struct RecipeDetailView: View {
 
             if tab == .overview {
               RecipePhoto(path: recipe.photoPath, large: true)
+              if recipe.photoAI && recipe.photoPath != nil {
+                StarTip(id: "recipes.ai-photo")
+              }
             }
 
             // Long names at large text sizes pushed everything else off screen.

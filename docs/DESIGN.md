@@ -222,6 +222,8 @@ sign out everywhere live there too.
 - Show amounts wherever groceries matter. Don't bury the pantry, editing, or filters.
 - Photos: ours or the user's only, never Mealime's. A catalog recipe is listed only once its
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
+  A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
+  purple ★ tip on the recipe page saying so.
 - Works at the largest text sizes: rows wrap or stack instead of breaking words; section headers
   stop pinning; menus and grids grow or drop to one column; nothing hides behind the tab bar.
 - Never show state by color alone.
