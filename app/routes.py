@@ -487,6 +487,7 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
         "start_date": plan["start_date"],
         "days": plan["days"],
         "status": plan["status"],
+        "created_at": plan["created_at"],
         "slots": slots,
         **json.loads(plan["suggestion_json"] or "{}"),
         "suggestion_note": json.loads(plan["suggestion_json"] or "{}").get("suggestion_note") if plan["status"] == "suggested" else None,

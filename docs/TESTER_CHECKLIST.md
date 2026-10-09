@@ -72,6 +72,7 @@ Find it under More, or "Improve your results" on the Plan screen.
 - [x] On a suggested plan, tap **Not for us**. A different plan appears (not a "You're set" screen).
 - [x] Tap a meal to swap it, then try **More options**. New choices appear, or a clear message says there are no more.
 - [x] The "Not for us" / "This plan works" buttons don't cover any meal names.
+- [ ] Tap **This plan works**: another plan appears ("Plan 2 of 3"). After the third approval you see "You're set." **Done for now** still ends early.
 - [x] Approve a plan. You see a completion screen.
 - [x] Keep rejecting until nothing is left. You get a helpful message, not a dead end. [received a message but it was uninteresting font and i didn't read or notice it right away so it seemed like a glitch]
 
@@ -127,7 +128,8 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 - [ ] ⋯ → **Grid view**: meals line up neatly in two columns, photos aligned. At the largest text sizes it shows as a list instead.
 - [ ] ⋯ menu: every option is fully readable and reachable, even at large text (scroll if needed).
 - [ ] ⋯ → **Save as draft**, then ⋯ → **Saved plans & history**: the draft is there and loads correctly.
-- [ ] In Saved plans & history, approved and declined suggestions show the right meal count, decision, and number of swaps.
+- [ ] In Saved plans & history, each row shows its name (or "Week of …"), dates, meal count, status, the first meals, and when it was saved. No swap counts.
+- [ ] Each draft and past plan has a visible delete (trash) button; empty Drafts and History each say what will appear there.
 - [ ] Nothing at the bottom of the screen is hidden behind the tab bar.
 
 

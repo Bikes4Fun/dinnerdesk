@@ -10,6 +10,9 @@ export function Icon({ name, size = 22 }) {
     strokeLinejoin: "round",
     "aria-hidden": true,
   };
+  if (name === "trash") {
+    return <svg {...common}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>;
+  }
   if (name === "calendar") {
     return <svg {...common}><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M7 3v4M17 3v4M3 10h18" /></svg>;
   }

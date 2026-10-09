@@ -54,18 +54,20 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Plan and suggestions
 
-- [ ] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
+- [ ] No obvious Done control when editing the plan.
+      `docs/suggestion meal plan to do/no easy done editing button.png`
+- [x] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
 - [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
       `docs/suggestion meal plan to do/accessiblity remove one meal cut off.png`
-- [ ] "Won't be suggested again" should be a purple ★ tip.
+- [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
 - [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
       should look the same whether meals were suggested or chosen.
       `docs/weekend prep to do/removed excess commentary but also removed the summary of why its a good plan.png`
-- [ ] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
+- [x] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
       means nothing to users. Clearer rows, accessible delete, empty states.
       `docs/suggestion meal plan to do/history 0 swaps is data for us the user doesn't care.png`
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`
@@ -82,7 +84,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/quick start to do/taste lab filters should fit on one screen from an iphone 16 with standard font size. do not remove options but do consider layout/formatting..png`
 - [ ] Meal names are cut at two lines when there's room for more.
       `docs/quick start to do/tastelab meal names don't need to cut off at two lines assuming they don't spill over the actual phone screen size.png`
-- [ ] Show more plans before "You're set".
+- [x] Show more plans before "You're set".
       `docs/quick start to do/tastelab should be showing more mealplan suggestions before youre set.png`
 
 ### Recipes

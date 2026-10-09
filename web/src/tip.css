@@ -1,0 +1,14 @@
+/* Tips: help text with a purple ★ on the pale aubergine tint (see Tip.jsx). */
+.tip {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #f1e7ef;
+  color: var(--brand, #4a1646);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.tip-star { flex: none; color: #7a3b73; }

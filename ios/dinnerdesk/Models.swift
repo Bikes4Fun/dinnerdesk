@@ -363,6 +363,8 @@ nonisolated struct SavedPlan: Decodable, Identifiable, Sendable {
   let status: String
   let decision: String?
   let changes: [SuggestionChange]?
+  /// When the plan was saved (ISO 8601). Older servers don't send it.
+  let createdAt: String?
 }
 nonisolated struct SuggestionChange: Decodable, Sendable { let from: Int; let to: Int; let at: String }
 nonisolated struct PendingSuggestion: Decodable, Sendable { let plan: Plan? }
