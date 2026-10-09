@@ -263,6 +263,7 @@ Roughly most useful first within each group. Not a roadmap.
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
 
 **Oct 7–8, 2026**
+- [x] Plan Edit mode has a visible Done in the header on iPhone (it was only in the ⋯ menu). #3
 - [x] Suggestions arrive as a proposal: review, swap (with search), approve or decline; keep your
       own picks; reopen a pending proposal. Suggestions row in Recipes.
 - [x] Taste Lab: "Not for us" shows a new plan; More options when swapping; None and Fish in

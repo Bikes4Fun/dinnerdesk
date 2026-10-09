@@ -99,6 +99,8 @@ This week's meals, scheduled on days or unscheduled. Grocery and prep follow thi
   faded, and moving it to another day keeps it cooked.
 - **Must:** Edit mode handles servings, scheduling, selecting several meals (mark cooked or
   remove), and 👍/👎 per meal. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
+- **Must:** While editing, a visible **Done** sits in the plan header beside ⋯ (iPhone and
+  website). Done leaves Edit mode and clears the selection; ⋯ → Finish editing does the same.
 - **Must:** save the plan as a draft without replacing it. Starting a new plan moves the live
   week to history; nothing is deleted. Saved plans can be deleted, except the active plan.
 - **Must not:** clone a catalog recipe because it was added to a day; blow away the rest of the

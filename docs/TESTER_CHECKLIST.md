@@ -112,6 +112,7 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 - [ ] Tap the circle on a photo to mark a meal cooked. It fades and moves down. Tap again to undo.
 - [ ] ⋯ → **Edit plan**: change servings, schedule a meal on a day, select several meals and mark cooked or remove them.
 - [ ] In Edit mode, 👍/👎 appear under each meal. Outside Edit mode they're hidden.
+- [ ] In Edit mode, **Done** shows at the top beside ⋯. Tapping it leaves Edit mode and clears any selected meals.
 - [ ] 👎 a meal, then make a new suggested plan. That meal is never suggested.
 - [ ] ⋯ → **Grid view**: meals line up neatly in two columns, photos aligned. At the largest text sizes it shows as a list instead.
 - [ ] ⋯ menu: every option is fully readable and reachable, even at large text (scroll if needed).
