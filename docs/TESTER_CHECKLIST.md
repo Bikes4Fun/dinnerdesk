@@ -14,16 +14,16 @@ Review these areas on both app and website:
 |---|---|
 | **Recipe detail** | Add/remove reflects actual plan membership, with brief confirmation. Check toolbar and bottom controls stay synchronized. On iPhone, ⋯ opens a scrolling options sheet. [tester note: this brief confirmation should pop up near the top, where the button is, not near the bottom, where the user isn't looking] |
 | **Recipe → Cook** | Dinnerdesk-rewritten instructions show a customization note using existing provenance. Five recipes received another wording pass; live instructions won’t change until catalog import. |
-| **Recipes search** | iPhone search field uses the cream palette. Confirm searching and filtering still work. |
+| **Recipes search** | iPhone search field uses the cream palette. Confirm searching and filtering still work.[tester note: far future todo feature, 'advanced search' where things like 'themes' come up. eg: chicken and rice, curries, new chef appropriate, special/date night, unusual] |
 | **Suggested-plan review** | One heading, less explanatory text, circular photo-corner swap buttons, adjacent decision buttons. Four meals adapt to available phone space. Check complete names, photo cropping, scrolling at large text, and reachable actions. |
 | **Declining suggestions** | Replaces the proposal without reloading the current plan/groceries. Failed replacement leaves **Try another suggestion**; declined proposals cannot be approved or modified. |
 | **Plan list/menu** | Full meal names, Schedule outside editing, preserved list-photo size, stacked accessibility layout. Removed redundant menu choices. Removal confirmation has singular/plural wording and balanced typography. |
-| **Taste Lab** | Removed duplicate embedded branding; full meal names and swap headings wrap. Exhausted results show clearer recovery controls. |
+| **Taste Lab** | Removed duplicate embedded branding; full meal names and swap headings wrap. Exhausted results show clearer recovery controls. [tester notes: taste lab only does one cycle of passes/plan suggestions before 'you're set'. the design and UI of tastelab and the meal suggestion system should be nearly identical except where over functionality is different. tastelab should have a 'save plan as draft' button for plans ppl see and like.] |
 | **Grocery / My kitchen** | Missing or failed ingredient photos leave no empty box. Usage heading fills available width. Long substitution names and controls stack when needed. |
 | **Weekend prep** | Consolidated completion storage and API endpoint. Check individual steps, whole tasks, refresh, and completion after regrouping. Updated API and app must ship together. |
 | **Navigation** | Selected tabs use bold labels, plus web underlining. Tapping the current tab returns to its main page and resets local navigation/search. |
 | **Settings → Filters** | Custom allergies/avoids use food search and explicit selections. Try “bell peppers” and “ground”; verify persistence, removal, and no unrelated results. |
-| **Account & security** | Email appears once, household name is editable, password reset sends email when tapped, and other members remain manageable. |
+| **Account & security** | Email appears once, household name is editable, password reset sends email when tapped, and other members remain manageable.[tester note: allow user to reset password in place if they have their current password. only require email reset if they do not have their current password.]|
 
 Check normal text, accessibility text, narrow screens, and VoiceOver. **199 tests and both builds pass; smaller-phone visual verification remains pending.** The preceding suggestion layout was visually verified on iPhone 17 Pro Max; the adaptive follow-up still needs smaller-phone inspection.
 
