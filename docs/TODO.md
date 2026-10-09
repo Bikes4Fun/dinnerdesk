@@ -49,7 +49,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       first). A skipped meal may come back; a liked or passed one shouldn't.
 - [ ] Prep check-off: two routes (PUT and PATCH `/prep/{id}/steps`) and two iPhone functions do
       the same job, and the old `prep_step_done` table is left over. Keep one of each.
-- [ ] Prep task names from real recipes are sometimes wrong: "Whisk garlic", "Prep off roots",
+- [x] Prep task names from real recipes are sometimes wrong: "Whisk garlic", "Prep off roots",
       "Grate on holes grater". *(Claude)*
 
 ### Plan and suggestions
