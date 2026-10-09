@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, photoSrc } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
+import { Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
 
@@ -222,20 +223,20 @@ export function Plan() {
                   <button type="button" className="meal-schedule" aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </button>
                   <div className="meal-servings">
-                    <button type="button" disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
+                    <button type="button" aria-label={`Decrease servings for ${slot.recipe_name}`} disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
                       <Icon name="minus" size={16} />
                     </button>
                     <span>{slot.servings} servings</span>
-                    <button type="button" disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
+                    <button type="button" aria-label={`Increase servings for ${slot.recipe_name}`} disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
                       <Icon name="plus" size={16} />
                     </button>
                   </div>
                 </div>
-                <span className="meal-thumbs">
+                <div className="meal-thumbs">
                   <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
-                  {slot.rating < 0 && <span className="muted">Won’t be suggested again</span>}
                   {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
-                </span>
+                </div>
+                {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
               </>}
             </div>
           </article>)}
