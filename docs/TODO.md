@@ -48,8 +48,9 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 ### Broken or urgent
 
-- [ ] Plan ⋯: remove "Review pending suggestions" and "Choose my own meals". They were added
+- [x] Plan ⋯: remove "Review pending suggestions" and "Choose my own meals". They were added
       without being asked for.
+      *Checked Oct 9: neither item is in the iPhone or web menu.*
 - [x] Settings filters and Taste Lab filters are two separate systems. With Settings almost
       empty, suggestions still failed ("No matching suggestions") because of Taste Lab's filters.
       Make them one system, and make Settings → What to eat match or exceed Taste Lab (allergies,
@@ -59,8 +60,9 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 - [ ] Raw error text on screen: "HTTP 405 Method Not Allowed" on This week. Errors should be in
       plain words, on the screen they belong to, with how to recover.
       `docs/suggestion meal plan to do/no easy done editing button.png`
-- [ ] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
+- [x] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
       `docs/recipes page to do/this meal is already in a plan.png`
+      *Checked Oct 9: it reads "Remove from this plan" when the meal is on the plan, iPhone and web.*
 - [x] Taste Lab keeps asking about meals already answered (cheesy broccoli and rice always comes
       first). A skipped meal may come back; a liked or passed one shouldn't.
 - [ ] Prep check-off: two routes (PUT and PATCH `/prep/{id}/steps`) and two iPhone functions do
@@ -70,13 +72,15 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 ### Plan and suggestions
 
-- [ ] No obvious Done control when editing the plan.
+- [x] No obvious Done control when editing the plan.
       `docs/suggestion meal plan to do/no easy done editing button.png`
+      *Checked Oct 9: a Done button shows in the top bar while editing.*
 - [x] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
-- [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
+- [x] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
       `docs/suggestion meal plan to do/accessiblity remove one meal cut off.png`
+      *Checked Oct 9: singular/plural fixed; the sheet scrolls and grows to full height at large text so Cancel stays reachable.*
 - [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
 - [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
@@ -94,12 +98,14 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 ### Taste Lab
 
-- [ ] Double header on every Taste Lab screen: the top bar says "Taste Lab" and a second
+- [x] Double header on every Taste Lab screen: the top bar says "Taste Lab" and a second
       "← Taste Lab" sits below it. `docs/quick start to do/Screenshot 2026-10-07 at 6.21.50 PM.png`
+      *Checked Oct 9: in the app (`chrome=app`) the page drops its own "Taste Lab" title.*
 - [ ] Filters should fit on one iPhone 16 screen at standard text, without dropping options.
       `docs/quick start to do/taste lab filters should fit on one screen from an iphone 16 with standard font size. do not remove options but do consider layout/formatting..png`
-- [ ] Meal names are cut at two lines when there's room for more.
+- [x] Meal names are cut at two lines when there's room for more.
       `docs/quick start to do/tastelab meal names don't need to cut off at two lines assuming they don't spill over the actual phone screen size.png`
+      *Checked Oct 9: only the ingredient line is clamped now; names wrap fully.*
 - [x] Show more plans before "You're set".
       `docs/quick start to do/tastelab should be showing more mealplan suggestions before youre set.png`
 
@@ -116,6 +122,8 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       stay smaller than item names at large text.
       `docs/groceries page to do/add a purple stary tip to the _pantry_ note and resize aisle terms to remain smaller than title.png`
 - [ ] Item page shows an empty box where the ingredient photo goes.
+      *Checked Oct 9: the code shows nothing when there's no photo. Photos only appear once
+      `GROCERY_PHOTO_DIR` is set on the server, so this is setup, not code.*
       `docs/groceries page to do/get images of individual foods.png`
 - [ ] "You'll use this in…" wraps too early at large text.
 
@@ -125,8 +133,9 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       (tab, arrow up/down).
       `docs/my kitchen to do/add to pantry search has two x_s and doesn't allow tab arrow down up select.png`
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.57.09 PM.png`
-- [ ] Substitutions: names break mid-word at large text ("coconu t oil").
+- [x] Substitutions: names break mid-word at large text ("coconu t oil").
       `docs/accessibility to do/access your subs formatting issues.png`
+      *Checked Oct 9: rows switch to a stacked layout when the names don't fit on one line.*
 
 ### Weekend prep
 
