@@ -128,3 +128,10 @@ def test_every_screen_offers_the_same_choices():
     assert quoted(block(ios, "static let diets", "\n")) == set(DIETS)
     assert quoted(block(ios, "static let allergens", "]\n")) & set(ALLERGENS) == set(ALLERGENS)
     assert quoted(block(ios, "static let avoids", "]\n")) == set(AVOIDS)
+
+
+def test_specific_food_selection_filters_only_that_ingredient():
+    assert not ok("Skillet", ["red bell pepper", "ground turkey"], avoids=["red bell pepper"])
+    assert ok("Skillet", ["green bell pepper", "ground turkey"], avoids=["red bell pepper"])
+    assert not ok("Chili", ["ground beef", "tomatoes"], avoids=["ground beef"])
+    assert ok("Chili", ["ground turkey", "tomatoes"], avoids=["ground beef"])

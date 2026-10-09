@@ -85,8 +85,8 @@ struct FiltersView: View {
   @State private var diets: Set<String> = ["omnivore"]
   @State private var allergens: Set<String> = []
   @State private var avoids: Set<String> = []
-  @State private var otherAllergens = ""
-  @State private var otherAvoids = ""
+  @State private var otherAllergens: [String] = []
+  @State private var otherAvoids: [String] = []
   @State private var time = "any"
   @State private var loaded = false
   @State private var error: String?
@@ -105,9 +105,9 @@ struct FiltersView: View {
       }
       .kitchenRows()
       KitchenSection("Allergies") {
-        CheckRow(label: "None", on: allergens.isEmpty && Self.words(otherAllergens).isEmpty) {
+        CheckRow(label: "None", on: allergens.isEmpty && otherAllergens.isEmpty) {
           allergens = []
-          otherAllergens = ""
+          otherAllergens = []
           save()
         }
         ForEach(Self.allergens, id: \.0) { item in
@@ -116,13 +116,18 @@ struct FiltersView: View {
             save()
           }
         }
-        OtherField(label: "Other allergies", text: $otherAllergens) { save() }
+        OtherField(label: "Other allergies", selected: $otherAllergens) {
+          let known = Self.allergens.map(\.0)
+          allergens.formUnion(otherAllergens.filter { known.contains($0) })
+          otherAllergens.removeAll { known.contains($0) }
+          save()
+        }
       }
       .kitchenRows()
       KitchenSection("Avoid") {
-        CheckRow(label: "None", on: avoids.isEmpty && Self.words(otherAvoids).isEmpty) {
+        CheckRow(label: "None", on: avoids.isEmpty && otherAvoids.isEmpty) {
           avoids = []
-          otherAvoids = ""
+          otherAvoids = []
           save()
         }
         ForEach(Self.avoids, id: \.self) { item in
@@ -130,7 +135,11 @@ struct FiltersView: View {
             toggleAvoid(item)
           }
         }
-        OtherField(label: "Other foods to avoid", text: $otherAvoids) { save() }
+        OtherField(label: "Other foods to avoid", selected: $otherAvoids) {
+          avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
+          otherAvoids.removeAll { Self.avoids.contains($0) }
+          save()
+        }
       }
       .kitchenRows()
       KitchenSection("Cook time") {
@@ -205,11 +214,11 @@ struct FiltersView: View {
       if let a = filters["allergens"] as? [String] {
         let known = Self.allergens.map(\.0)
         allergens = Set(a.filter { known.contains($0) })
-        otherAllergens = a.filter { !known.contains($0) }.joined(separator: ", ")
+        otherAllergens = a.filter { !known.contains($0) }
       }
       if let a = filters["avoids"] as? [String] {
         avoids = Set(a.filter { Self.avoids.contains($0) })
-        otherAvoids = a.filter { !Self.avoids.contains($0) }.joined(separator: ", ")
+        otherAvoids = a.filter { !Self.avoids.contains($0) }
       }
       if let t = filters["time"] as? String { time = t }
       loaded = true
@@ -223,8 +232,8 @@ struct FiltersView: View {
     guard loaded else { return }
     let body: [String: Any] = [
       "diets": Self.diets.filter { diets.contains($0) },
-      "allergens": Self.saved(allergens, known: Self.allergens.map(\.0), other: otherAllergens),
-      "avoids": Self.saved(avoids, known: Self.avoids, other: otherAvoids),
+      "allergens": Self.allergens.map(\.0).filter { allergens.contains($0) } + otherAllergens,
+      "avoids": Self.avoids.filter { avoids.contains($0) } + otherAvoids,
       "time": time,
     ]
     Task {
@@ -242,22 +251,60 @@ struct FiltersView: View {
 /// Comma-separated words that aren't in the list. Saves when you press Return or leave the field.
 private struct OtherField: View {
   let label: String
-  @Binding var text: String
+  @Binding var selected: [String]
   let onCommit: () -> Void
-  @FocusState private var focused: Bool
+  @State private var query = ""
+  @State private var matches: [String] = []
+  @State private var loading = false
+  @State private var error: String?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 4) {
+    VStack(alignment: .leading, spacing: 10) {
       Text(label).font(Theme.body).foregroundStyle(Theme.ink)
-      TextField("e.g. kale, anchovies", text: $text)
+      ForEach(selected, id: \.self) { name in
+        Button {
+          selected.removeAll { $0 == name }
+          onCommit()
+        } label: {
+          Label(name, systemImage: "xmark.circle")
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityLabel("Remove \(name)")
+      }
+      TextField("Search foods, e.g. bell peppers or ground", text: $query)
         .textInputAutocapitalization(.never)
         .autocorrectionDisabled()
-        .submitLabel(.done)
-        .focused($focused)
-        .onSubmit(onCommit)
-        .onChange(of: focused) { _, isFocused in if !isFocused { onCommit() } }
+        .accessibilityLabel("Search \(label.lowercased())")
+      if loading { ProgressView() }
+      if let error { Text(error).font(Theme.subtitle) }
+      ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
+        Button(name) {
+          selected.append(name)
+          query = ""
+          matches = []
+          onCommit()
+        }
+        .buttonStyle(.borderless)
+      }
+      if !loading && error == nil && !query.isEmpty && matches.isEmpty {
+        Text("No matching foods. Try another name.").font(Theme.subtitle)
+      }
     }
-    .accessibilityElement(children: .contain)
+    .task(id: query) {
+      matches = []
+      error = nil
+      guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { loading = false; return }
+      loading = true
+      do {
+        try await Task.sleep(for: .milliseconds(250))
+        let box: KitchenItemSearch = try await API.get("filter-items", query: ["q": query], reportErrors: false)
+        try Task.checkCancellation()
+        matches = box.items.map(\.name)
+        loading = false
+      } catch {
+        if !API.isCancellation(error) { self.error = "Couldn't search foods. Please try again."; loading = false }
+      }
+    }
   }
 }
 
@@ -284,14 +331,15 @@ private struct CheckRow: View {
 struct AccountView: View {
   @EnvironmentObject private var session: Session
   @State private var members: [HouseholdMember] = []
-  @State private var currentPassword = ""
-  @State private var newPassword = ""
+  @State private var householdName = ""
   @State private var inviteURL: URL?
   @State private var signingIn = false
   @State private var confirmEverywhere = false
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
+
+  private var otherMembers: [HouseholdMember] { members.filter { $0.email != session.status?.email } }
 
   private var signedIn: Bool { session.status?.authenticated == true }
 
@@ -306,21 +354,30 @@ struct AccountView: View {
 
       if signedIn {
         KitchenSection("Signed in") {
-          KitchenIconRow(title: session.status?.email ?? "", systemImage: "person.crop.circle")
+          Label(session.status?.email ?? "", systemImage: "person.crop.circle")
+            .font(Theme.body).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
         }
         .kitchenRows()
 
         KitchenSection("Password") {
-          SecureField("Current password", text: $currentPassword)
-            .textContentType(.password)
-          SecureField("New password (8+ characters)", text: $newPassword)
-            .textContentType(.newPassword)
-          Button("Change password") { Task { await changePassword() } }
-            .disabled(busy || currentPassword.isEmpty || newPassword.count < 8)
+          Button { Task { await resetPassword() } } label: {
+            Label("Reset password", systemImage: "key")
+          }
+          .disabled(busy)
+          Text("Email a reset link to your signed-in address.")
+            .font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
         .kitchenRows()
 
         KitchenSection("Household") {
+          TextField("Household name", text: $householdName)
+            .textContentType(.organizationName)
+            .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
+            .onSubmit { Task { await saveHouseholdName() } }
+          Button("Save household name") { Task { await saveHouseholdName() } }
+            .disabled(busy || householdName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+
           if let inviteURL {
             ShareLink(item: inviteURL) {
               Label("Share invite link", systemImage: "square.and.arrow.up")
@@ -333,21 +390,12 @@ struct AccountView: View {
             Button("Invite someone to this household") { Task { await invite() } }
               .disabled(busy)
           }
-          ForEach(members) { member in
-            HStack {
-              Text(member.email)
-              if member.email == session.status?.email {
-                Spacer()
-                Text("You").foregroundStyle(Theme.muted)
-              }
-            }
-            .deleteDisabled(member.email == session.status?.email)
+          ForEach(otherMembers) { member in
+            Text(member.email).fixedSize(horizontal: false, vertical: true)
           }
           .onDelete { offsets in
-            let doomed = offsets.map { members[$0] }
-            Task {
-              for member in doomed { await remove(member) }
-            }
+            let doomed = offsets.map { otherMembers[$0] }
+            Task { for member in doomed { await remove(member) } }
           }
         }
         .kitchenRows()
@@ -395,24 +443,36 @@ struct AccountView: View {
   private func loadMembers() async {
     guard signedIn else { return }
     do {
+      let household = try await KitchenAPI.json("household")
+      householdName = household["name"] as? String ?? ""
       members = try await KitchenAPI.members()
     } catch {
       self.error = KitchenAPI.message(error)
     }
   }
 
-  private func changePassword() async {
+  private func resetPassword() async {
+    guard let email = session.status?.email else { return }
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.changePassword(current: currentPassword, new: newPassword)
-      currentPassword = ""
-      newPassword = ""
-      message = "Password changed."
+      try await KitchenAPI.forgotPassword(email: email)
+      message = "Check your email for a password reset link."
       error = nil
-    } catch {
-      self.error = KitchenAPI.message(error)
-    }
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func saveHouseholdName() async {
+    let name = householdName.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty else { return }
+    busy = true
+    defer { busy = false }
+    do {
+      _ = try await KitchenAPI.json("household", method: "PUT", body: ["name": name])
+      householdName = name
+      message = "Household name saved."
+      error = nil
+    } catch { self.error = KitchenAPI.message(error) }
   }
 
   private func invite() async {

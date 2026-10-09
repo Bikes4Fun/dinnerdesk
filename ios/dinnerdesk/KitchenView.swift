@@ -120,12 +120,19 @@ struct SubstitutionsView: View {
           Text("None yet").foregroundStyle(Theme.muted)
         }
         ForEach(items) { item in
-          HStack(spacing: 10) {
-            Text(item.fromName).foregroundStyle(Theme.muted)
-            Image(systemName: "arrow.right")
-              .font(Theme.chipLabel)
-              .foregroundStyle(Theme.muted)
-            Text(item.toName).font(Theme.mealName).foregroundStyle(Theme.ink)
+          ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+              Text(item.fromName).foregroundStyle(Theme.muted).fixedSize()
+              Image(systemName: "arrow.right").foregroundStyle(Theme.muted)
+              Text(item.toName).font(Theme.mealName).foregroundStyle(Theme.ink).fixedSize()
+            }
+            VStack(alignment: .leading, spacing: 8) {
+              Text(item.fromName).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+              Label(item.toName, systemImage: "arrow.right")
+                .font(Theme.mealName).foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            }
           }
           .accessibilityElement(children: .combine)
           .accessibilityLabel("\(item.fromName) becomes \(item.toName)")

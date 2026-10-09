@@ -56,18 +56,18 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 - [ ] No obvious Done control when editing the plan.
       `docs/suggestion meal plan to do/no easy done editing button.png`
-- [ ] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
+- [x] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
 - [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
       `docs/suggestion meal plan to do/accessiblity remove one meal cut off.png`
-- [ ] "Won't be suggested again" should be a purple ★ tip.
+- [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
 - [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
       should look the same whether meals were suggested or chosen.
       `docs/weekend prep to do/removed excess commentary but also removed the summary of why its a good plan.png`
-- [ ] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
+- [x] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
       means nothing to users. Clearer rows, accessible delete, empty states.
       `docs/suggestion meal plan to do/history 0 swaps is data for us the user doesn't care.png`
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`
@@ -84,12 +84,12 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/quick start to do/taste lab filters should fit on one screen from an iphone 16 with standard font size. do not remove options but do consider layout/formatting..png`
 - [ ] Meal names are cut at two lines when there's room for more.
       `docs/quick start to do/tastelab meal names don't need to cut off at two lines assuming they don't spill over the actual phone screen size.png`
-- [ ] Show more plans before "You're set".
+- [x] Show more plans before "You're set".
       `docs/quick start to do/tastelab should be showing more mealplan suggestions before youre set.png`
 
 ### Recipes
 
-- [ ] Use "See all" or an arrow for section links, not both.
+- [x] Use "See all" or an arrow for section links, not both.
       `docs/recipes page to do/choose either see all or arrow not both.png`
 - [ ] Browse cards break names mid-word at large text. A fix is on main; check it on a fresh
       build. Same screenshot as above.
@@ -258,11 +258,16 @@ Roughly most useful first within each group. Not a roadmap.
 
 ---
 
+## Far future
+
+- [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature.
+
 ## Done (recent)
 
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
 
 **Oct 7–8, 2026**
+- [x] Plan Edit mode has a visible Done in the header on iPhone (it was only in the ⋯ menu). #3
 - [x] Suggestions arrive as a proposal: review, swap (with search), approve or decline; keep your
       own picks; reopen a pending proposal. Suggestions row in Recipes.
 - [x] Taste Lab: "Not for us" shows a new plan; More options when swapping; None and Fish in
@@ -273,9 +278,16 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
 - [x] Grocery: share or email the list; show/hide completed from the list; simpler Add item;
       clearer menu names. "You'll use this in" shows only meals on this plan; substitutions keep
       the item open.
-- [x] Cook-mode timers; "Uses pantry" filter on iPhone; recipe categories (groundwork).
+- [x] "Uses pantry" filter on iPhone; recipe categories (groundwork).
 - [x] Large text: ⋯ menus grow and scroll; plan grid falls back to a list; section headers stop
       pinning and keep side margins; Family portions, Aisle order, store removal, grocery rows,
       recipe cards, ingredient row lines; consistent cream background.
 - [x] Thumbs on the plan only in Edit mode; one summary line instead of commentary under every
       meal.
+
+
+**October 9, 2026 — annotated screenshot fixes (visual verification pending)**
+- [x] Custom allergies/avoids offer explicit ingredient search selections, preserving saved names.
+- [x] Recipes search uses the app's warm surface color.
+- [x] Removal confirmation has consistent typography and a compact standard-text sheet.
+- [x] Account & security uses a reset action, editable household name, and one signed-in identity.

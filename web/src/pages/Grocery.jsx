@@ -505,6 +505,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
   const [name, setName] = useState(item.name);
   const [substitute, setSubstitute] = useState("");
   const [qty, setQty] = useState(item.quantity || "");
+  const [failedPhoto, setFailedPhoto] = useState(null);
   useEffect(() => {
     setQty(item.quantity || "");
   }, [item.id, item.quantity]);
@@ -524,9 +525,11 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         <label className="grocery-amount-row" htmlFor="grocery-item-amount">Quantity
           <input id="grocery-item-amount" aria-label="Quantity" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => onPatch({ quantity: qty })} />
         </label>
-        <div className="ingredient-banner" aria-label={item.ingredient_photo_path ? undefined : "Ingredient photo space"}>
-          {item.ingredient_photo_path && <img src={photoSrc(item.ingredient_photo_path)} alt={item.name} onError={() => { throw new Error(`Ingredient photo failed: ${item.name}`); }} />}
-        </div>
+        {item.ingredient_photo_path && failedPhoto !== item.ingredient_photo_path && (
+          <div className="ingredient-banner">
+            <img src={photoSrc(item.ingredient_photo_path)} alt={item.name} onError={() => setFailedPhoto(item.ingredient_photo_path)} />
+          </div>
+        )}
         <label className="grocery-substitute-row">Substitute
           <input className="field" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
         </label>

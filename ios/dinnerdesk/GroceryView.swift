@@ -414,14 +414,17 @@ struct GroceryItemView: View {
                   .foregroundStyle(Theme.muted)
               }
 
-              if let path = line.ingredientPhotoPath {
-                RecipePhoto(
-                  path: path, large: true, bannerHeight: min(220, geometry.size.height * 0.25))
-              } else {
-                RoundedRectangle(cornerRadius: 16)
-                  .fill(Theme.surface)
-                  .frame(height: min(220, geometry.size.height * 0.25))
-                  .accessibilityLabel("Ingredient photo space")
+              if let url = API.photoURL(line.ingredientPhotoPath) {
+                AsyncImage(url: url) { phase in
+                  if let image = phase.image {
+                    image.resizable().scaledToFill()
+                      .frame(maxWidth: .infinity)
+                      .frame(height: min(220, geometry.size.height * 0.25))
+                      .clipped()
+                      .clipShape(RoundedRectangle(cornerRadius: 16))
+                      .accessibilityLabel("Photo of \(line.name)")
+                  }
+                }
               }
               ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
@@ -463,10 +466,11 @@ struct GroceryItemView: View {
               }
 
               Text("You'll use this in…")
-                .font(Theme.mealName)
+                .font(Theme.subtitle)
                 .foregroundStyle(Theme.ink)
-                .frame(width: geometry.size.width - 32, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
               if !line.usedIn.isEmpty {
                 ForEach(line.usedIn) { meal in
                   if let rid = meal.recipeId {
