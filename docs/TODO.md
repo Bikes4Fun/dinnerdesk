@@ -132,7 +132,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 - [ ] Decide the order. Notes so far: start by showing suggestions, then groceries; end with
       Taste Lab; explain the purple ★ tips and that they fade after the first few uses.
       `docs/quick start to do/quick start to do .txt`
-- [ ] Tour cards are blank below the text; each needs a picture of its screen.
+- [x] Tour cards are blank below the text; each needs a picture of its screen.
       `docs/quick start to do/need screenshot of recipes page.png`
 
 ### Checks before a release *(Codex)*

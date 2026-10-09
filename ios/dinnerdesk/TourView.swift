@@ -21,6 +21,7 @@ struct TourView: View {
   }
 
   @EnvironmentObject private var session: Session
+  @Environment(\.dynamicTypeSize) private var typeSize
   @State private var step: Step = .welcome
   @State private var diets: Set<String> = ["omnivore"]
   @State private var avoids: Set<String> = []
@@ -187,6 +188,13 @@ struct TourView: View {
               .font(Theme.body)
               .foregroundStyle(Theme.ink)
               .fixedSize(horizontal: false, vertical: true)
+            // A drawn picture of the screen fills the space under the text. At large text
+            // the words need the room, so it's left out.
+            if !typeSize.isAccessibilitySize {
+              TourScreenPicture(index: item.id)
+                .frame(minHeight: 160, maxHeight: 280)
+                .padding(.top, 4)
+            }
             Spacer(minLength: 0)
           }
           .padding(24)

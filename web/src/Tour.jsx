@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { go } from "./nav.js";
 import { AVOIDS, DIETS, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
+import { TourPicture } from "./TourPicture.jsx";
 
 const TIMES = [
   ["any", "Any time"],
@@ -162,6 +163,7 @@ export function Tour() {
             </p>
             <h2 id="tour-title">{howStep.title}</h2>
             <p className="help" data-tip={`tour.how.${how + 1}`}>{howStep.body}</p>
+            <TourPicture index={how} />
             {how + 1 < HOW.length ? (
               <button type="button" className="btn-primary block" onClick={() => setHow(how + 1)}>
                 Next
