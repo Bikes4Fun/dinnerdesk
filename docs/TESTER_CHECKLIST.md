@@ -1,331 +1,52 @@
 # Dinnerdesk tester checklist
 
-*Last updated: Oct 9, 2026 · Candidate: `merge_all_issues` at `f3a4ba6` (not deployed)*
+*Updated Oct 9, 2026 · Branch: `merge_all_issues` · Record the app/server version you actually test.*
 
-All changes are merged locally into `merge_all_issues`, including the recipe-instruction work and even-issue merge previously committed as `e544b45`, plus the Taste Lab more-plans merge at `f3a4ba6`. **Nothing is deployed yet.**
+**Daily: do only the five checks below (about 10 minutes).** Use one platform; alternate iPhone and website. After a relevant change, pick its extra checks. Before a release, cover both platforms. You do not need to repeat the whole checklist every day.
 
-## Focus for this build
+## Daily essentials
 
-**Latest change:** inline Cook timers are commented out on iPhone and web. Check tab switching responds promptly and steps remain complete. Timers are on the far-future feature list.
+- [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
+- [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.
+- [ ] **Suggestions preserve your plan:** request four meals and swap one. The current plan/groceries stay unchanged until approval. Approve and confirm the reviewed meals become the plan.
+- [ ] **Groceries match the plan:** amounts combine for shared ingredients. Removing one meal preserves ingredients still needed by another. Check an item and refresh; its check persists.
+- [ ] Filters still apply: inspect the suggested meals against your saved diet/allergies/avoids. Reopen the app/page and confirm the plan remains saved.
 
-Review these areas on both app and website:
+## Recent changes — pick only what changed
 
-| Where | Changes and what to check |
+| Area | Quick check |
 |---|---|
-| **Recipe detail** | Add/remove reflects actual plan membership, with brief confirmation. Check toolbar and bottom controls stay synchronized. On iPhone, ⋯ opens a scrolling options sheet. [tester note: this brief confirmation should pop up near the top, where the button is, not near the bottom, where the user isn't looking] |
-| **Recipe → Cook** | Dinnerdesk-rewritten instructions show a customization note using existing provenance. Five recipes received another wording pass; live instructions won’t change until catalog import. |
-| **Recipes search** | iPhone search field uses the cream palette. Confirm searching and filtering still work.[tester note: far future todo feature, 'advanced search' where things like 'themes' come up. eg: chicken and rice, curries, new chef appropriate, special/date night, unusual] |
-| **Suggested-plan review** | One heading, less explanatory text, circular photo-corner swap buttons, adjacent decision buttons. Four meals adapt to available phone space. Check complete names, photo cropping, scrolling at large text, and reachable actions. |
-| **Declining suggestions** | Replaces the proposal without reloading the current plan/groceries. Failed replacement leaves **Try another suggestion**; declined proposals cannot be approved or modified. |
-| **Plan list/menu** | Full meal names, Schedule outside editing, preserved list-photo size, stacked accessibility layout. Removed redundant menu choices. Removal confirmation has singular/plural wording and balanced typography. |
-| **Taste Lab** | Removed duplicate embedded branding; full meal names and swap headings wrap. Exhausted results show clearer recovery controls. [tester notes: taste lab only does one cycle of passes/plan suggestions before 'you're set'. the design and UI of tastelab and the meal suggestion system should be nearly identical except where over functionality is different. tastelab should have a 'save plan as draft' button for plans ppl see and like.] |
-| **Grocery / My kitchen** | Missing or failed ingredient photos leave no empty box. Usage heading fills available width. Long substitution names and controls stack when needed. |
-| **Weekend prep** | Consolidated completion storage and API endpoint. Check individual steps, whole tasks, refresh, and completion after regrouping. Updated API and app must ship together. |
-| **Navigation** | Selected tabs use bold labels, plus web underlining. Tapping the current tab returns to its main page and resets local navigation/search. |
-| **Settings → Filters** | Custom allergies/avoids use food search and explicit selections. Try “bell peppers” and “ground”; verify persistence, removal, and no unrelated results. |
-| **Account & security** | Email appears once, household name is editable, password reset sends email when tapped, and other members remain manageable.[tester note: allow user to reset password in place if they have their current password. only require email reset if they do not have their current password.]|
-
-Check normal text, accessibility text, narrow screens, and VoiceOver. **199 tests and both builds pass; smaller-phone visual verification remains pending.** The preceding suggestion layout was visually verified on iPhone 17 Pro Max; the adaptive follow-up still needs smaller-phone inspection.
-
-- On a Pro Max, regular iPhone, and smaller phone at standard text size, four suggestions should fit without scrolling, with complete meal names. At accessibility sizes, confirm scrolling reaches every action.
-- After importing the private revisions into a development database, check recipes 1021, 1030, 1048, 1051, and 1061 against their private backups: quantities, timings, and ingredient associations stay intact. A recipe without Dinnerdesk rewrite provenance must not claim Dinnerdesk customization.
-- For the latest Taste Lab merge, approve three plans in sequence; verify **Done for now** still ends early. Check saved-plan/history row details and visible delete buttons. Detailed checks follow below.
-
-Issues **#24, #38, and #40** remain proposals. The original **#2 HTTP 405 trigger** remains unresolved.
-
-*For the team: each section here matches a section of [`DESIGN.md`](DESIGN.md) → Features. When a feature changes, update both.*
-
-Thanks for testing. Work through the sections below, check off what works, and write down anything that doesn’t. Everything else is a regression check: it worked before, so confirm it still does.
-
-## Before you start
-
-- Use the iPhone app if you can. A smaller iPhone is best.
-- Do one pass at normal text size, then turn on **larger text** (Settings → Accessibility → Display & Text Size → Larger Text, slider near the top) and do it again. Many fixes in this build are for large text.
-- Have a few minutes to cook-plan for real. Real choices find more problems than random taps.
-
-
-
-## How to report a problem
-
-For each problem, note:
-
-1. Which section and step (e.g. "Plan 2.3").
-2. What you did, what you expected, and what happened instead.
-3. Your text size (normal or larger).
-4. A screenshot, if you can.
-
-"Confusing" is a valid report. You don't need to find a bug for it to be worth writing down.
-
----
-
-
-
-## 1. Getting started
-
-- [ ] Create an account with email and password.
-- [ ] The Quick start tour appears. You can **Skip** it easily, and it doesn't come back next time you open the app.
-- [ ] Replay the tour from More → Settings. It shows Recipes, This week, Grocery, and Weekend prep.
-- [ ] Sign out and use **Forgot password**. The email arrives and the link lets you set a new password.
-
-
-
-## 2. Taste Lab
-
-Find it under More, or "Improve your results" on the Plan screen.
-
-- [x] Set your diet, allergies, and things you avoid.
-- [x] Tap **None** under allergies or avoids. Anything you had selected clears.
-- [x] Choose **Fish** as something you avoid. Fish meals (salmon, tuna, cod…) stop appearing. Note: dishes with fish sauce count as fish too.
-- [x] Swipe through some meals: like some, pass on some.
-- [x] On a suggested plan, tap **Not for us**. A different plan appears (not a "You're set" screen).
-- [x] Tap a meal to swap it, then try **More options**. New choices appear, or a clear message says there are no more.
-- [x] The "Not for us" / "This plan works" buttons don't cover any meal names.
-- [ ] Tap **This plan works**: another plan appears ("Plan 2 of 3"). After the third approval you see "You're set." **Done for now** still ends early.
-- [x] Approve a plan. You see a completion screen.
-- [x] Keep rejecting until nothing is left. You get a helpful message, not a dead end. [received a message but it was uninteresting font and i didn't read or notice it right away so it seemed like a glitch]
-
-
-
-## 3. Suggested meal plans
-
-Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
-
-**Suggestions don't take over your plan**
-
-- [ ] Note what's on your plan and your grocery list.
-- [ ] Ask for suggestions. A "Review your suggestions" screen appears.
-- [ ] Your current plan and grocery list are unchanged until you approve.
-- [ ] The note at the top briefly says why these meals were picked (e.g. "2 you've cooked · 3 match your tastes · 4 use your pantry").
-
-**Swap one meal**
-
-- [ ] Tap **Swap meal**. A replacement picker opens without changing the plan.
-- [ ] Search by meal name or ingredient. Choices still respect Taste Lab filters and exclude meals already on this proposal.
-- [ ] Cancel the picker. No meal changes and no negative preference feedback is recorded.
-- [ ] Choose a replacement. Only that meal changes; the picker closes.
-- [ ] Attempt an unavailable replacement after the plan has changed. A readable error appears without changing the plan.
-- [ ] Swap the same spot several times. When options run out you get a helpful message.
-
-**Approve or decline**
-
-- [ ] Approve after a swap. The reviewed meals become your plan, and the grocery list updates to match.
-- [ ] Make another suggested plan and **Decline** it. Your current plan stays intact and a new proposal appears.
-- [ ] If nothing fits your filters, you're told what to change, not shown a success screen.
-
-**Keep your own picks**
-
-- [ ] Add 2–3 meals yourself from Recipes.
-- [ ] Ask for suggestions with **Keep my selected meals and fill the rest** turned on.
-- [ ] Your meals stay, marked "Your selection", and can't be swapped. Suggestions fill the rest.
-
-**Come back to it later**
-
-- [ ] Make a proposal, close it without deciding, then reopen the Plan screen. It is still available.
-- [ ] Close the app completely, reopen it, and review the proposal again.
-
-
-
-## 4. Your plan (This week)
-
-- [ ] Each meal shows a photo, name, and servings. Names are readable, not chopped mid-word.
-- [ ] Tap the circle on a photo to mark a meal cooked. It fades and moves down. Tap again to undo.
-- [ ] ⋯ → **Edit plan**: change servings, schedule a meal on a day, select several meals and mark cooked or remove them.
-- [ ] In Edit mode, 👍/👎 appear under each meal. Outside Edit mode they're hidden.
-- [ ] In Edit mode, **Done** shows at the top beside ⋯. Tapping it leaves Edit mode and clears any selected meals.
-- [ ] 👎 a meal, then make a new suggested plan. That meal is never suggested.
-- [ ] ⋯ → **Grid view**: meals line up neatly in two columns, photos aligned. At the largest text sizes it shows as a list instead.
-- [ ] ⋯ menu: every option is fully readable and reachable, even at large text (scroll if needed).
-- [ ] ⋯ → **Save as draft**, then ⋯ → **Saved plans & history**: the draft is there and loads correctly.
-- [ ] In Saved plans & history, each row shows its name (or "Week of …"), dates, meal count, status, the first meals, and when it was saved. No swap counts.
-- [ ] Each draft and past plan has a visible delete (trash) button; empty Drafts and History each say what will appear there.
-- [ ] Nothing at the bottom of the screen is hidden behind the tab bar.
-
-
-
-## 5. Recipes
-
-- [ ] A **Suggestions** row appears at the top. **See all** opens the full list.
-- [ ] At large text, section titles like "Your favorites" aren't cut off. If "See all" doesn't fit, the title itself becomes the link (with an arrow).
-- [ ] Search by recipe name or ingredient.
-- [ ] Heart a recipe. It shows in Your favorites. Mark one **To try**.
-- [ ] Hide a recipe. It disappears from browse, search, and suggestions. Unhide it from the hidden list.
-- [ ] Open a recipe. Change servings; ingredient amounts change to match.
-- [ ] Ingredient rows have thin lines between them, so it's clear which amount goes with which ingredient (especially at large text).
-- [ ] Open the steps. Each step is numbered, and amounts for that step appear under it.
-- [ ] **Edit** a recipe and save. Your change shows. **Restore** brings back the original.
-- [ ] **Add to this plan** from a recipe page. It's added and you stay on the recipe.
-- [ ] Open a recipe already on the current plan: the bottom button says “Remove from this plan”. On iPhone, the icon beside the heart is a minus and VoiceOver says “Remove from this plan”; Hide and To try still work in ⋯.
-- [ ] Add a recipe, leave and reopen it: both add controls offer Remove. Adding shows a brief “Added to this plan” popup; removing shows “Removed from this plan” and restores Add. Remove it from the plan and reopen: Add is available again. Tap Add rapidly: only one copy is added. Repeat on the website.
-- [ ] Open Cook on recipes mentioning durations (including “3–4 minutes”), switch back to Overview, and reopen Cook: no freeze or crash. Step text and ingredient amounts remain readable; no timer buttons appear on iPhone or website (timers deferred to the far future).
-- [ ] Search, then tap **Uses pantry**. Only recipes using things you have stay. (On iPhone this is new.)
-- [ ] At the largest text size, search results show one recipe per row and the browse rows' cards are wider, so names aren't broken mid-word.
-
-**What to eat filters** (More → Settings → What to eat, or the Quick start tour)
-- [ ] Diet: picking vegan, vegetarian, pescatarian or omnivore switches to it; you can't pick two. Gluten-free and dairy-free add on.
-- [ ] Choose **vegan**. Recipes with meat, fish, eggs or dairy disappear from Recipes, not just from suggestions. Peanut-butter or coconut-milk dishes still show.
-- [ ] Avoid **fish**. Salmon, tuna, cod and fish-sauce dishes disappear. Tap **None** and they come back.
-- [ ] Recipes you wrote yourself always show, whatever the filters.
-
-
-
-## 6. Grocery list
-
-- [ ] The list matches the meals on your plan. Each ingredient appears once, with amounts combined.
-- [ ] Items you have in your pantry are still listed and marked as owned.
-- [ ] Check items off. Add your own item (like "paper towels").
-- [ ] Open an item. "You'll use this in…" lists only meals that are actually on your current plan.
-- [ ] On an item, type a substitute and tap **Use this instead**. The screen stays open on the new item; you don't get kicked back to the list.
-- [x] Change an item's store and aisle. The choice is remembered.
-- [ ] Remove a meal from your plan. Its ingredients leave the grocery list. [what happens if the grocery is used by multiple recipes? does everything recalculate?]
-
-
-
-
-- [ ] Check some items off. At the bottom of the list, **Show N completed** brings them back and **Hide completed** hides them again. It matches ⋯ → Show completed items.
-- [ ] Pick a store whose items are all checked off. You see "Everything for … is checked off", not a blank screen.
-- [ ] Tap **+**. Type "sugar": one suggestion appears (sugar, not sugar snap peas). **Add** in the top bar always works, even at large text.
-- [ ] ⋯ → **Share list**. Messages, Mail and Notes are offered. The text lists only what's left to buy, grouped by aisle, for the store you picked. (Website: Share list and Email list.)
-- [ ] The ⋯ menu says **Show meals under each item** and **Edit stores & aisles**.
-- [ ] At the largest text size, each item's amount sits under its name.
-
-## 7. My kitchen (More → My kitchen)
-
-- [ ] **Family portions**: change the number. At large text, the − / + control moves to its own line instead of breaking the word "portions". [will the standard automatic recipe serving sizes change? what else does this do?]
-- [ ] **Pantry**: add an item, mark "Have this item", set an amount. The screen background matches the rest of the app (cream, not grey).
-- [ ] **Always checked off**: add salt or oil. It stays checked on the grocery list.
-- [ ] **Substitutions**: add one (e.g. vegetable oil → canola oil). The grocery list uses the new name. Delete it again.
-- [ ] **Stores & aisles**: tap a store to remove it. The store you tapped is the one offered for removal. The confirmation is easy to read.
-- [ ] Reorder and rename aisles. [reording is not necesary and could be removed if it notably simplifies things]
-- [ ] At large text, section headers scroll away normally instead of sticking and covering the screen.
-
-
-
-## 8. Weekend prep
-
-- [ ] With meals on your plan, Prep shows tasks named for the item or component, such as **Prep potatoes**, **Prep mashed potatoes**, **Grate mozzarella**, or **Make tzatziki**.
-- [ ] Two meals needing the same prep share one task, with each meal's instructions underneath and their quantities combined.
-- [ ] Repeated ingredient mentions within one task do not multiply quantities; broth, frozen peas, and eggs are not pulled into unrelated chopping tasks.
-- [ ] A closed task shows its name, involved meals, and partial progress. Expand it to see quantities and steps; collapse it to hide them.
-- [ ] Check one step: only that step changes, and folding stays as it was. Complete the last step: the whole task checks itself.
-- [ ] Uncheck one step: the task becomes incomplete. Check or uncheck the whole task: all its steps follow.
-- [ ] Refresh and reopen: checks persist. Rename a recipe or regroup its unchanged steps: their checks persist.
-- [ ] Add or rewrite a prep step: that step starts incomplete; unchanged steps keep their checks.
-- [ ] Suggested steps exclude cooking and serving. Explicitly tagged Prep steps still take priority.
-- [ ] Each step asks “Useful to do ahead?” with thumbs up/down, separate from completion; ratings persist after refresh.
-
-
-## 9. Account & household
-
-- [ ] Invite someone with the share sheet. (invite link works)
-- [ ] They join and see the same plan, grocery list, and pantry. (todo)
-- [ ] Remove them from Account & security. They lose access. (need to see generated invite links and be able to cancel them)
-- [ ] Change your password. (need to confirm new password matches. formatting is too bulky.)
-- [ ] Settings → Privacy reads clearly.
-
-
-
-## 10. Across the whole app
-
-- [ ] The tab you're on is obvious without relying on color alone. A filled-icon experiment was reverted, so report it if the accent color is the only difference. `docs/color only representation of current page.png`
-- [ ] Backgrounds look consistent (warm cream) from screen to screen.
-- [ ] At the largest text size, nothing important is cut off, overlapping, or unreachable.
-- [ ] Pull to refresh works on each tab.
-
-
-
-## 11. Website (optional, lower priority)
-
-- [ ] Sign in on the website. Your plan, grocery list, and pantry match the phone.
-- [ ] Make a suggested plan on the website: review, swap, approve, and decline work the same way.
-- [ ] Print the grocery list and the weekend prep list.
-
----
-
-
-
-## Not built yet (no need to report)
-
-- Nutrition, calories, and Apple Health
-- Liking or disliking whole categories (curry, Mexican, comfort food…)
-- Star ratings after cooking, importing recipes from a link
-- Moving a prep task to a different day
-- Android
-
-## Overall impressions
-
-- What did you like most?
-- What was most confusing?
-- Would you use this to plan a real week? What would stop you?
-
-
-
-## Merged planning and prep verification
-
-Candidate: merged `main` + `prep-grocery-recipes` · Oct 7, 2026 · deployment must be verified separately.
-
-- [ ] Replay Quick start on web and iOS: the first how-to step is “Fewer dinner decisions,” explaining personalized suggestions and optional browsing.
-
-- [ ] Verify the API and iOS app are deployed/built together. A stale server must show a readable compatibility message before generating a proposal.
-- [ ] On web and iPhone, an unavailable plan action shows retry/support guidance, with no HTTP code or raw JSON. For an iPhone 405, capture the rejected method/path and Allow header from the app console; test rating, servings, scheduling, marking cooked, and removal individually.
-- [ ] In normal and accessibility text sizes, review a proposal, open the swap picker, and expand a long prep task. Buttons remain reachable and titles do not overlap.
-- [ ] Saved plans can be deleted from the library; the active plan is protected and deleting history does not erase recommendation evidence.
-- [ ] Switch from a recipe detail or Taste Lab to another tab and back: the original tab shows its main screen.
-- [ ] Whole-plan refusal is a weaker preference signal than swapping a meal and approving the rest; resizing/cancelling records no dislike.
-
-Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `hits`, and `recipe_text` for the merged diet filter. Prep step requests use PUT and task JSON; startup preserves legacy per-step checks.
-
-## Private catalog migration
-
-- Approve, decline and swap suggestions; confirm household state persists after restart.
-- Configure external private catalog/photo paths locally; verify existing recipes, Taste Lab, templates and photos.
-- Confirm restarting the API does not import recipes or overwrite catalog rows.
-- Before Railway deployment, upload and verify the private asset package and configure both required paths.
-- Check Git contains no production recipes, food photos, credentials or database exports.
-
-## Even issue verification — Oct 8, 2026
-
-- [ ] #6: select one meal, then several. Remove confirmation uses meal/meals correctly on app and web. At maximum iPhone text size, Cancel and Remove remain reachable; Cancel changes nothing.
-
-- [ ] #8 (updated by Oct 9 review): proposal omits explanatory summary text on web/iPhone; swap and resize work. Approve: the current plan has no approval/swap-count commentary.
-
-- [ ] #10: walk embedded Taste Lab on iPhone and web through filters, swipe, suggested dinners, completion, and empty results. Taste Lab branding appears once; step headings and Back work. Standalone Taste Lab retains its title.
-
-- [ ] #12: long Taste Lab suggested meal names and swap headings show in full at normal and larger text on app/web. Scroll to reach decisions; words do not split unnecessarily.
-
-- [ ] #14: exhaust Taste Lab plans. A prominent recovery panel explains what happened, offers Edit filters, and stays readable at large text. Saved allergies/passes remain intact.
-
-- [ ] #16: tap recipe ⋯ repeatedly at normal/maximum text size. The options sheet stays open until dismissed; To try and Hide work, and all options are reachable.
-
-- [ ] #18: open grocery items with a photo, without one, and with a failed photo URL. Only a usable ingredient photo occupies space on app/web; other fields remain available.
-
-- [ ] #20: inspect long substitution names at maximum iPhone text size and web zoom/narrow width. Names wrap between words; the replacement and Remove action remain readable.
-
-- [ ] #22: with grayscale enabled, each selected tab remains identifiable by label weight (and underline on web); badges and labels remain within the bar.
-
-- [ ] #26: Plan ⋯ on app/web has neither Review pending suggestions nor Choose my own meals. New meal plan still requests suggestions; adding from Recipes still works.
-
-- [ ] #28: deploy updated API/app together. Check individual prep steps and whole tasks, refresh, rename/regroup unchanged steps, and confirm completion persists. Verify legacy check migration in a dedicated test database before deployment.
-
-- [ ] #30: use long meal names in Plan list view. Full names and Schedule fit without smaller photos. At maximum iPhone text size, rows stack and schedule remains reachable; grid/editing still work.
-
-- [ ] #32: decline several proposals. Review remains open, with no whole-page reload or grocery changes. Fail the replacement request: a readable error and Try another suggestion remain; retry does not decline twice.
-
-- [ ] #34: grocery item’s You’ll use this in heading uses the available width, stays smaller than the item title, and has no truncation/overlap at maximum text size or web zoom.
-
-- [ ] #36: open nested pages in each tab and tap that same tab. Its main page returns. Repeat with recipe search, Grocery item, More → Settings, and both standard/accessibility tab layouts. No household data is lost.
-
-
-## Annotated screenshot verification — October 9, 2026
-
-- [ ] Settings custom allergies/avoids: search “bell peppers” and select a specific color;
-      search “ground” and select turkey or beef. Typing alone saves nothing. Remove a
-      selected item, reopen, and verify choices persist on both app and website.
-- [ ] Search an unknown food: show no matching foods, rather than unrelated suggestions.
-      Existing custom filters remain visible and removable. A failed search has readable
-      retry guidance. Large text does not clip food names or controls.
-- [ ] Recipes search field uses the warm cream palette while search and filtering still work.
-- [ ] Remove one or several meals: title/body/button sizes look balanced. Standard text
-      uses a compact sheet; maximum text keeps Remove and Cancel reachable by scrolling.
-- [ ] Account & security: signed-in email appears once; household name saves and survives
-      reopening. Other household members remain visible/removable. Reset password sends
-      email only when tapped; it shows confirmation and preserves sign-in until reset.
+| **Suggestion layout** | Four meals fit on most phones at normal text size. Full names, circular swap icons, and adjacent decisions remain readable. At large text, scroll to every action. |
+| **Decline / retry** | Decline replaces only the proposal. A failed replacement offers **Try another suggestion**; a declined plan cannot be approved or edited. |
+| **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. |
+| **Taste Lab** | Like/pass, swap/More options, and reject work. Verify three approvals before “You’re set”; **Done for now** ends early. Empty results offer noticeable recovery. |
+| **Plan / drafts** | Full names, Schedule, Edit → Done, servings, cooked/undo, and removal confirmation work. Save/load a draft; history has readable details and delete buttons. Active plan is protected. |
+| **Filters** | Search “bell peppers” or “ground”; explicitly select a food, reopen, then remove it. Unknown searches show no unrelated results. **None** clears selections. |
+| **Grocery / kitchen** | Missing photos leave no empty box. Substitute an item without leaving its detail. Long names wrap; pantry, portions, stores/aisles, and completed-item controls persist. |
+| **Weekend prep** | Shared prep combines correctly. Expand/collapse; check a step and a whole task; refresh. Completion survives unchanged-step regrouping. |
+| **Navigation / account** | Selected tab is obvious without color; tapping it returns to its root. Email appears once, household name saves, and reset email sends only when tapped. |
+
+## Before a release — not daily
+
+- [ ] **Accessibility:** smaller phone, largest text, narrow web window, and VoiceOver. Check recipe, suggestion, Grocery, and Prep screens; no clipped names, overlap, or unreachable decisions.
+- [ ] **Account access:** sign-up/sign-in/out, password reset, invite/join/remove a household member. Removed members lose access; shared data matches across app and web.
+- [ ] **Recovery and persistence:** failed requests show readable retry guidance; pending proposals and saved edits survive restart. Verify search, share/print, and tour skip/replay.
+- [ ] **Deployment:** updated API/app ship together, prep completion migration is verified, and catalog/photo paths work. Startup must not overwrite catalog recipes. Revised private instructions need explicit import.
+
+## Tester feedback still open — not passing tests
+
+- Add/remove confirmation should appear near the tapped control, especially the top toolbar.
+- Taste Lab reportedly exits after one cycle: verify the three-plan flow. Align its design with suggestion review and consider **Save as draft** there.
+- Allow password changes with the current password; email reset when it is forgotten. Confirm new-password matching and simplify the form.
+- Show outstanding household invitations and allow cancellation.
+- Clarify how family portions affect recipe servings; consider removing aisle reordering if it simplifies the app.
+- Recovery after exhausting Taste Lab results needs to be noticeable.
+- Far-future search ideas: themes such as chicken/rice, curry, beginner-friendly, date night, or unusual meals.
+
+**Pending:** original #2 HTTP 405 trigger; smaller-phone visual verification. #24, #38, and #40 are proposals. Inline timers are deferred to the far future. Unbuilt features are tracked in [TODO](TODO.md), not daily tests.
+
+## Report a problem
+
+Give **screen + action + expected/actual result**, platform/build, text size, and a screenshot if useful. Confusing wording or awkward layout counts as a problem.
+
+[Archived detailed checklist and original tester notes](archive/TESTER_CHECKLIST_2026-10-09.md) — reference only, not a daily assignment.
