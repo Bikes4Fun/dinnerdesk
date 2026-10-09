@@ -357,6 +357,8 @@ export function Recipe({ id }) {
                 </>
               )}
               {tab === "cook" && (
+                <>
+                {recipe.instructions_customized && <p className="muted">Instructions customized by Dinnerdesk</p>}
                 <ol className="steps">
                   {cookSteps.map((s, i) => (
                     <li key={i}>
@@ -378,6 +380,7 @@ export function Recipe({ id }) {
                     </li>
                   ))}
                 </ol>
+                </>
               )}
             </>
           )}

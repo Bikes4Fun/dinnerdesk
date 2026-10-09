@@ -602,44 +602,69 @@ private struct SuggestedPlanReview: View {
   @State private var busy = false
   var body: some View {
     NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text("Review your suggestions").font(Theme.title)
-          Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
-            Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
-          }
-          Text("Your current plan stays in place until you approve.").font(Theme.subtitle).foregroundStyle(Theme.muted)
-          if let note = store.proposal?.suggestionNote, !note.isEmpty {
-            Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.action) }
-          if let error = store.proposalError {
-            ErrorBanner(message: error)
-            Button("Dismiss error") { store.proposalError = nil }
-          }
-          LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 20) {
-            ForEach(store.proposal?.slots ?? []) { slot in
-              VStack(alignment: .leading, spacing: 8) {
-                Color.clear.aspectRatio(1, contentMode: .fit).overlay {
-                  NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
-                }.clipShape(RoundedRectangle(cornerRadius: 14))
-                Text(slot.recipeName).font(Theme.mealName).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
-                if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-                if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
-                  Button { swapping = slot } label: { Label("Swap meal", systemImage: "arrow.left.arrow.right") }
-                } else { Text("Your selection").font(Theme.subtitle) }
+      GeometryReader { geometry in
+        ScrollView {
+          VStack(alignment: .leading, spacing: 12) {
+            Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
+              Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
+            }
+            if let error = store.proposalError {
+              ErrorBanner(message: error)
+              Button("Dismiss error") { store.proposalError = nil }
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
+              ForEach(store.proposal?.slots ?? []) { slot in
+                VStack(alignment: .leading, spacing: 6) {
+                  Color.clear.frame(height: photoHeight(in: geometry.size))
+                    .overlay {
+                      NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
+                    }.clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(alignment: .topTrailing) {
+                      if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
+                        Button { swapping = slot } label: {
+                          Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(Theme.action).frame(width: 44, height: 44)
+                            .background(Theme.surface, in: Circle())
+                        }.buttonStyle(.plain).foregroundStyle(Theme.accent)
+                          .accessibilityLabel("Swap meal: \(slot.recipeName)").padding(6)
+                      }
+                    }
+                  Text(slot.recipeName).font(Theme.mealName)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                  if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
+                  if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true {
+                    Text("Your selection").font(Theme.subtitle)
+                  }
+                }
               }
             }
-          }
-          Button("Approve plan") { run { await store.reviewProposal("approve") } }.buttonStyle(.borderedProminent)
-          Button("Decline and suggest another plan") { run { await store.reviewProposal("decline") } }
-        }.padding().disabled(busy)
-      }.background(Theme.bg).navigationTitle("Suggested plan").navigationBarTitleDisplayMode(.inline)
+            ViewThatFits(in: .horizontal) {
+              HStack(spacing: 12) { reviewActions }
+              VStack(alignment: .leading, spacing: 12) { reviewActions }
+            }
+            NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.subtitle) }
+          }.padding().disabled(busy)
+        }
+      }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }
         .sheet(item: $swapping) { slot in ProposalSwapPicker(slot: slot) }
         .onDisappear { store.proposalError = nil }
+    }.tint(Theme.accent)
+  }
+  @ViewBuilder private var reviewActions: some View {
+    Button("Approve plan") { run { await store.reviewProposal("approve") } }
+      .buttonStyle(.borderedProminent).fixedSize(horizontal: true, vertical: false)
+    Button("Suggest another") { run { await store.reviewProposal("decline") } }
+      .fixedSize(horizontal: true, vertical: false)
+      .accessibilityLabel("Decline and suggest another plan")
+  }
+  private func photoHeight(in size: CGSize) -> CGFloat {
+    let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2
+    if store.proposal?.slots.count == 4 && textSize <= .large && size.height >= 650 {
+      return min(width, max(100, (size.height - 420) / 2))
     }
+    return width
   }
   private func run(_ work: @escaping () async -> Void) {
     busy = true

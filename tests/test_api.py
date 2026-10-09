@@ -150,6 +150,9 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
             db,
             {
                 "slug": "soup",
+                "instructions_source": "dinnerdesk",
+                "instructions_copied_from_third_party": False,
+                "instructions_rewritten_from": "fictional-source",
                 "name": "Published soup",
                 "servings": 6,
                 "cooking_minutes": 30,
@@ -170,6 +173,7 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
         assert catalog["name"] == "Published soup"
         assert catalog["photo_path"] == "food/soup.jpg"
         shown = client.get("/api/recipes/1").json()
+        assert shown["instructions_customized"] is True
         assert shown["id"] == 1
         assert shown["name"] == "Kitchen soup"
         assert shown["edited"] is True

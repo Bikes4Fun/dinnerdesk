@@ -1,6 +1,6 @@
 # Dinnerdesk tester checklist
 
-*Last updated: Oct 9, 2026 · Candidate: `merge_all_issues` with annotated screenshot fixes (not deployed)*
+*Last updated: Oct 9, 2026 · Candidate: `codex/recipe-instruction-rewrites` with instruction attribution and compact suggestion review (not deployed)*
 
 *For the team: each section here matches a section of [`DESIGN.md`](DESIGN.md) → Features. When a feature changes, update both.*
 
@@ -8,14 +8,13 @@ Thanks for testing. Work through the sections in order; each one builds on the l
 
 ## Focus for this build
 
-These changed most recently, so check them first and most carefully:
+*Verified locally: iPhone 17 Pro Max simulator with the four screenshot meals fits without scrolling; iOS/web builds and 20 targeted tests passed. Not deployed.*
 
-- **Weekend prep (section 8):** rebuilt. The same prep from several meals is now one task ("Prep potatoes" for two meals), you can check off each item, and closing a task really hides its details.
-- **Diet and avoid filters (section 5):** they now hide recipes in Recipes, not just in suggestions. Pick one of omnivore / pescatarian / vegetarian / vegan. Fish and "None" are in the avoid list.
-- **Grocery (section 6):** share or email the list, show/hide completed items from the bottom of the list, a simpler Add item sheet, clearer menu names.
-- **Recipes (section 5):** timers on Cook steps, and a "Uses pantry" filter on iPhone.
-- **Suggested plans (section 3):** review, swap, approve or decline a proposal; keep your own picks.
-- **Larger text (sections 5, 6, 7, 10):** grocery rows, recipe cards, icon rows like "Aisle order", and section headers.
+- On a Pro Max at standard text size, review four suggestions: all four names, photos, swap controls, and approval actions should fit without scrolling. Verify long recipe names remain complete.
+- On a smaller phone and with accessibility text, scroll through all meals and confirm the decision actions remain reachable; they stack when needed.
+- Swap using a photo-corner icon; with VoiceOver, confirm it identifies the meal. Approve or suggest another and confirm the existing behavior.
+- Open Cook on iPhone and web for a Dinnerdesk rewrite: the customization note appears above the steps. A recipe without rewrite provenance must not claim Dinnerdesk customization.
+- After importing the private revisions into a development database, check recipes 1021, 1030, 1048, 1051, and 1061 against their private backups: quantities, timings, and ingredient associations stay intact.
 
 Everything else is a regression check: it worked before, so confirm it still does.
 

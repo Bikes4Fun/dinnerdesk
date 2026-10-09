@@ -119,10 +119,12 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   let tags: [String]
   var ingredients: [IngredientLine]
   var instructions: [InstructionStep]
+  let instructionsCustomized: Bool
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath
     case favorited, toTry, hidden, catalog, tags, ingredients, instructions
+    case instructionsCustomized
   }
 
   init(from decoder: Decoder) throws {
@@ -139,6 +141,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([IngredientLine].self, forKey: .ingredients)
     instructions = try c.decode([InstructionStep].self, forKey: .instructions)
+    instructionsCustomized = try c.decodeIfPresent(Bool.self, forKey: .instructionsCustomized) ?? false
   }
 
   var prettyTags: String {

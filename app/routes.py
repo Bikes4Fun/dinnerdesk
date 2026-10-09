@@ -383,6 +383,7 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         cookware = json.loads(row["cookware_json"] or "[]")
     except json.JSONDecodeError:
         raise
+    provenance = json.loads(row["provenance_json"] or "{}")
     out = {
         "id": rid,
         "household_id": row["household_id"],
@@ -392,6 +393,11 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "cooking_minutes": row["cooking_minutes"],
         "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
         "source_url": row["source_url"],
+        "instructions_customized": bool(
+            provenance.get("instructions_customized")
+            or (provenance.get("instructions_source") == "dinnerdesk"
+                and provenance.get("instructions_copied_from_third_party") is False)
+        ),
         "parent_recipe_id": row["parent_recipe_id"],
         "ingredients": ings,
         "instructions": instructions,

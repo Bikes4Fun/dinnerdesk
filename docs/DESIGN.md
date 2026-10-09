@@ -367,3 +367,9 @@ ingredient words remain readable at accessibility sizes.
   and lets the household name be edited. Other household members remain manageable;
   the current user's duplicate member row is omitted. Reset email is sent only on tapping
   the action, never just by visiting the screen.
+
+### Recipe instruction attribution and suggestion review (Oct 9)
+
+Recipes with explicit customization metadata, or existing Dinnerdesk-authored rewrite provenance, show “Instructions customized by Dinnerdesk” above Cook steps on iPhone and web. The importer retains the original rewrite source. This editorial label does not indicate kitchen testing. Private recipe revisions and original backups stay outside Git; publishing them requires the explicit catalog import.
+
+Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. Four meals at standard text sizes use smaller photos on tall iPhones; small screens, additional meals, and larger text scroll. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.

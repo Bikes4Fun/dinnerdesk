@@ -518,6 +518,10 @@ struct RecipeDetailView: View {
               }
             } else {
               Text("Steps").font(Theme.title)
+              if recipe.instructionsCustomized {
+                Text("Instructions customized by Dinnerdesk")
+                  .font(Theme.subtitle).foregroundStyle(Theme.muted)
+              }
               ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
                 CookStepRow(index: i, step: step) {
                   Task { await togglePrep(at: i) }

@@ -95,6 +95,11 @@ def _provenance_json(data: dict) -> str:
     return json.dumps(
         {
             "instructions_source": data.get("instructions_source") or "",
+            "instructions_customized": bool(data.get("instructions_customized")) or (
+                data.get("instructions_source") == "dinnerdesk"
+                and data.get("instructions_copied_from_third_party") is False
+            ),
+            "instructions_rewritten_from": data.get("instructions_rewritten_from") or "",
             "instructions_copied_from_third_party": bool(
                 data.get("instructions_copied_from_third_party")
             ),
