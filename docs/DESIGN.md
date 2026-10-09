@@ -233,6 +233,8 @@ sign out everywhere live there too.
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
   A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
   purple ★ tip on the recipe page saying so.
+  A photo taken for a different recipe (its entry's `recipe_id` isn't this recipe's archive id,
+  or `"shared_photo": true` with no `recipe_id`) gets a ★ tip saying it's from a similar recipe.
 - Works at the largest text sizes: rows wrap or stack instead of breaking words; section headers
   stop pinning; menus and grids grow or drop to one column; nothing hides behind the tab bar.
 - Never show state by color alone.

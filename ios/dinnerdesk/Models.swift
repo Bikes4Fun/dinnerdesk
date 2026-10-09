@@ -114,6 +114,8 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   let photoPath: String?
   /// The photo was made with AI; the recipe page says so (#33).
   let photoAI: Bool
+  /// The photo was taken for a similar recipe; the recipe page says so (#33).
+  let photoShared: Bool
   var favorited: Bool
   var toTry: Bool
   var hidden: Bool
@@ -128,7 +130,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   }
 
   enum CodingKeys: String, CodingKey {
-    case id, name, servings, cookingMinutes, photoPath, photoAi
+    case id, name, servings, cookingMinutes, photoPath, photoAi, photoShared
     case favorited, toTry, hidden, catalog, tags, ingredients, instructions
     case instructionsSource, instructionsCopiedFromThirdParty
   }
@@ -141,6 +143,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     cookingMinutes = try c.decodeIfPresent(Int.self, forKey: .cookingMinutes)
     photoPath = try c.decodeIfPresent(String.self, forKey: .photoPath)
     photoAI = try c.decodeIfPresent(Bool.self, forKey: .photoAi) ?? false
+    photoShared = try c.decodeIfPresent(Bool.self, forKey: .photoShared) ?? false
     favorited = try c.decode(Bool.self, forKey: .favorited)
     toTry = try c.decode(Bool.self, forKey: .toTry)
     hidden = try c.decode(Bool.self, forKey: .hidden)
