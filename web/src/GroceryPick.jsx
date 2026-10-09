@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
+import { onListKeys } from "./listKeys.js";
 
 export function GroceryPick({
   value,
@@ -50,12 +51,13 @@ export function GroceryPick({
   const show = q.length > 0 && (items.length > 0 || custom || err);
 
   return (
-    <div className="grocery-pick">
+    <div className="grocery-pick" onKeyDown={(e) => onListKeys(e, ".grocery-pick-hit")}>
       <input
         className={inputClass}
         value={value}
         autoFocus={autoFocus}
         placeholder={placeholder}
+        aria-label={placeholder.replace(/…$/, "")}
         autoComplete="off"
         onChange={(e) => onChange(e.target.value)}
       />
