@@ -89,8 +89,9 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 
 **Approve or decline**
 
-- [ ] Approve after a swap. The reviewed meals become your plan, and the grocery list updates to match.
-- [ ] Make another suggested plan and **Decline** it. Your current plan stays intact and a new proposal appears.
+- [ ] The review looks like Taste Lab's suggested dinners: photo cards with a coral swap badge, and **Not for us** / **This plan works** at the bottom.
+- [ ] Tap **This plan works** after a swap. The reviewed meals become your plan, and the grocery list updates to match.
+- [ ] Make another suggested plan and tap **Not for us**. Your current plan stays intact and a new proposal appears.
 - [ ] If nothing fits your filters, you're told what to change, not shown a success screen.
 
 **Keep your own picks**

@@ -73,7 +73,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`
 - [ ] Plan list view: room for a Schedule button and more of the recipe name, without shrinking
       the photo.
-- [ ] Suggested plans should look like Taste Lab's suggested plans.
+- [x] Suggested plans should look like Taste Lab's suggested plans.
 - [ ] Declining a suggested plan shouldn't reload the whole page.
 
 ### Taste Lab

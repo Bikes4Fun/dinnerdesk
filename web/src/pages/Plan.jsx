@@ -124,23 +124,35 @@ export function Plan() {
     <div className="scroll pad">
       {err && <p role="alert" className="banner err">{err}</p>}
       {message && <p role="status">{message}</p>}
-      {proposal && <section className="saved-plans">
-        <h2>Review your suggestions</h2>
-        <label>Meals <select value={proposal.slots.length} disabled={busy} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
+      {proposal && <section className="suggested-plan" aria-labelledby="suggested-title">
+        {/* Same design as Taste Lab's "Suggested dinners" (#31): photo cards with a swap badge
+            (tap a card to swap it) and "Not for us" / "This plan works" docked at the bottom. */}
+        <h2 id="suggested-title">Suggested dinners</h2>
+        <p className="muted">{proposal.slots.length === 1 ? "One dinner" : `${proposal.slots.length} dinners`} that fit. Tap a meal to swap it. Your plan and groceries stay in place until you approve.</p>
+        <label className="sp-count">Meals <select value={proposal.slots.length} disabled={busy} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>
-        <p>Your plan and groceries stay in place until you approve.</p>
-        <button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
-        <div className="plan-meal-grid">
-        {proposal.slots.map((s) => <div key={s.id} className="plan-meal grid">
-          {s.photo_path && <img src={photoSrc(s.photo_path)} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12 }} />}
-          <div><strong>{s.recipe_name}</strong><br />
-            {proposal.suggested_recipe_ids?.includes(s.recipe_id) ? <button disabled={busy} onClick={() => { setSwapping(s); setSwapQuery(""); setSwapOptions([]); }}>Swap meal</button> : <span>Your selection</span>}
-          </div>
-        </div>)}
+        <div className="sp-grid">
+        {proposal.slots.map((s) => {
+          const swappable = proposal.suggested_recipe_ids?.includes(s.recipe_id);
+          const open = () => (swappable ? (setSwapping(s), setSwapQuery(""), setSwapOptions([])) : go(`/recipes/${s.recipe_id}`));
+          return <button key={s.id} type="button" className="sp-card" disabled={busy} aria-label={swappable ? `Swap ${s.recipe_name}` : `Open ${s.recipe_name}`} onClick={open}>
+            <span className="sp-photo">
+              {s.photo_path ? <img src={photoSrc(s.photo_path)} alt="" /> : <span className="sp-ph" />}
+              {swappable && <span className="sp-swap" aria-hidden="true">⇄</span>}
+            </span>
+            <span className="sp-body">
+              <strong>{s.recipe_name}</strong>
+              <span className="muted">{[s.cooking_minutes ? `${s.cooking_minutes} min` : null, swappable ? null : "Your pick"].filter(Boolean).join(" · ")}</span>
+            </span>
+          </button>;
+        })}
         </div>
-        <button disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>
-        <button disabled={busy} onClick={() => act(async () => { await api.decideSuggestion(proposal.id, "decline"); setProposal(null); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids.length)); })}>Decline and suggest another plan</button>
+        <button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
+        <div className="sp-dock">
+          <button type="button" className="sp-no" disabled={busy} onClick={() => act(async () => { await api.decideSuggestion(proposal.id, "decline"); setProposal(null); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids.length)); })}><Icon name="thumbs-down" size={18} /> Not for us</button>
+          <button type="button" className="sp-yes" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}><Icon name="thumbs-up" size={18} /> This plan works</button>
+        </div>
       </section>}
       {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
       {saved && <section className="saved-plans">

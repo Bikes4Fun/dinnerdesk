@@ -568,49 +568,152 @@ func dayTitle(_ start: String, _ index: Int) -> String {
   return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
 }
 
+/// Review a suggested plan. Same design as Taste Lab's "Suggested dinners" (#31): photo cards
+/// with a coral swap badge (tap a card to swap it), and two buttons docked at the bottom,
+/// "Not for us" and "This plan works". Your current plan stays until you approve.
 private struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var swapping: PlanSlot?
   @State private var busy = false
+
+  private static let coral = Color(hex: 0xFA7E5A)
+  private static let coralTint = Color(hex: 0xFDE6DD)
+  private static let coralTintInk = Color(hex: 0x8A3A22)
+
+  private var slots: [PlanSlot] { store.proposal?.slots ?? [] }
+  private var suggested: Set<Int> { Set(store.proposal?.suggestedRecipeIds ?? []) }
+
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text("Review your suggestions").font(Theme.title)
-          Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
-            Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
+        VStack(alignment: .leading, spacing: 14) {
+          Text("\(slots.count == 1 ? "One dinner" : "\(slots.count) dinners") that fit. Tap a meal to swap it. Your current plan stays until you approve.")
+            .font(Theme.subtitle)
+            .foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
+          Stepper(
+            value: Binding(
+              get: { store.proposal?.slots.count ?? 4 },
+              set: { count in run { await store.resizeProposal(count) } }),
+            in: max(1, slots.count - suggested.count)...14
+          ) {
+            Text("\(slots.count) meals").font(Theme.mealName)
           }
-          Text("Your current plan stays in place until you approve.").font(Theme.subtitle).foregroundStyle(Theme.muted)
-          NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.action) }
           if let error = store.proposalError {
             ErrorBanner(message: error)
             Button("Dismiss error") { store.proposalError = nil }
           }
-          LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 20) {
-            ForEach(store.proposal?.slots ?? []) { slot in
-              VStack(alignment: .leading, spacing: 8) {
-                Color.clear.aspectRatio(1, contentMode: .fit).overlay {
-                  NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
-                }.clipShape(RoundedRectangle(cornerRadius: 14))
-                Text(slot.recipeName).font(Theme.mealName).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
-                if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-                if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
-                  Button { swapping = slot } label: { Label("Swap meal", systemImage: "arrow.left.arrow.right") }
-                } else { Text("Your selection").font(Theme.subtitle) }
-              }
-            }
+          LazyVGrid(
+            columns: Array(
+              repeating: GridItem(.flexible(), spacing: 8, alignment: .top),
+              count: textSize.isAccessibilitySize ? 1 : 2),
+            alignment: .leading, spacing: 8
+          ) {
+            ForEach(slots) { slot in card(slot) }
           }
-          Button("Approve plan") { run { await store.reviewProposal("approve") } }.buttonStyle(.borderedProminent)
-          Button("Decline and suggest another plan") { run { await store.reviewProposal("decline") } }
-        }.padding().disabled(busy)
-      }.background(Theme.bg).navigationTitle("Suggested plan").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }
-        .sheet(item: $swapping) { slot in ProposalSwapPicker(slot: slot) }
-        .onDisappear { store.proposalError = nil }
+          NavigationLink { TasteLabView(swipe: true) } label: {
+            Text("Improve suggestions").font(Theme.action).foregroundStyle(Theme.accent)
+              .frame(maxWidth: .infinity, minHeight: 44)
+          }
+        }
+        .padding()
+        .disabled(busy)
+      }
+      .background(Theme.bg)
+      .safeAreaInset(edge: .bottom) { dock }
+      .navigationTitle("Suggested dinners")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) {
+          Button("Close") { store.proposalError = nil; dismiss() }
+        }
+      }
+      .sheet(item: $swapping) { slot in ProposalSwapPicker(slot: slot) }
+      .onDisappear { store.proposalError = nil }
     }
   }
+
+  /// A suggested meal swaps when tapped; one you chose yourself opens its recipe.
+  @ViewBuilder private func card(_ slot: PlanSlot) -> some View {
+    let swappable = suggested.contains(slot.recipeId)
+    if swappable {
+      Button { swapping = slot } label: { cardBody(slot, swappable: true) }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Swap \(slot.recipeName)")
+    } else {
+      NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { cardBody(slot, swappable: false) }
+        .buttonStyle(.plain)
+    }
+  }
+
+  private func cardBody(_ slot: PlanSlot, swappable: Bool) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      Color.clear.aspectRatio(4 / 3, contentMode: .fit)
+        .overlay { RecipePhoto(path: slot.photoPath, fill: true) }
+        .clipped()
+        .overlay(alignment: .topTrailing) {
+          if swappable {
+            Image(systemName: "arrow.left.arrow.right")
+              .font(.system(size: 16, weight: .bold))
+              .foregroundStyle(Theme.ink)
+              .frame(width: 40, height: 40)
+              .background(Self.coral, in: Circle())
+              .padding(8)
+              .accessibilityHidden(true)
+          }
+        }
+      VStack(alignment: .leading, spacing: 4) {
+        Text(slot.recipeName).font(Theme.recipeCardName).foregroundStyle(Theme.ink)
+          .lineLimit(3).multilineTextAlignment(.leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
+        Text([slot.cookingMinutes.map { "\($0) min" }, swappable ? nil : "Your pick"]
+          .compactMap { $0 }.joined(separator: " · "))
+          .font(Theme.subtitle).foregroundStyle(Theme.muted)
+      }
+      .padding(10)
+    }
+    .background(Theme.surface)
+    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.line))
+  }
+
+  private var dock: some View {
+    let buttons = Group {
+      Button { run { await store.reviewProposal("decline") } } label: {
+        Label("Not for us", systemImage: "hand.thumbsdown")
+          .font(Theme.action)
+          .frame(maxWidth: .infinity, minHeight: 50)
+          .foregroundStyle(Self.coralTintInk)
+          .background(Self.coralTint, in: RoundedRectangle(cornerRadius: 14))
+          .overlay(RoundedRectangle(cornerRadius: 14).stroke(Self.coral, lineWidth: 2))
+      }
+      .accessibilityHint("Suggests a different plan")
+      Button { run { await store.reviewProposal("approve") } } label: {
+        Label("This plan works", systemImage: "hand.thumbsup")
+          .font(Theme.action)
+          .frame(maxWidth: .infinity, minHeight: 50)
+          .foregroundStyle(Theme.bg)
+          .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+      }
+      .accessibilityHint("Makes this your plan")
+    }
+    .buttonStyle(.plain)
+    return Group {
+      if textSize.isAccessibilitySize {
+        VStack(spacing: 8) { buttons }
+      } else {
+        HStack(spacing: 10) { buttons }
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 10)
+    .background(Theme.bg)
+    .overlay(alignment: .top) { Rectangle().fill(Theme.line).frame(height: 1) }
+    .disabled(busy)
+  }
+
   private func run(_ work: @escaping () async -> Void) {
     busy = true
     Task { await work(); busy = false }
