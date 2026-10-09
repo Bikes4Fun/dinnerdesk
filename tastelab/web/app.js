@@ -1138,7 +1138,7 @@ const macros = (r) => {
   };
 
   const boot = () => {
-    Promise.all([fetch("/api/catalog"), fetch("/api/taste")])
+    Promise.all([fetch("/api/catalog"), fetch(`/api/taste?anon=${encodeURIComponent(state.anonId)}`)])
       .then(async ([catalogRes, tasteRes]) => {
         if (!catalogRes.ok) throw new Error(`Couldn't load meals (HTTP ${catalogRes.status})`);
         if (!tasteRes.ok) throw new Error(`Couldn't load your taste (HTTP ${tasteRes.status})`);
