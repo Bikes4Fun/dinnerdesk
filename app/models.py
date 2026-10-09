@@ -165,6 +165,16 @@ class PrepStepFeedbackPut(BaseModel):
     rating: int = Field(ge=-1, le=1)
 
 
+# Why a prep item isn't worth doing ahead (#21). Logged with the 👎 for review.
+PREP_REASONS = ("day_of", "kept_badly", "too_small", "prep_differently", "not_prep")
+
+
+class PrepTaskFeedbackPut(BaseModel):
+    """👍/👎 on a whole prep item (every meal's step in it), with an optional reason for a 👎."""
+    rating: int = Field(ge=-1, le=1)
+    reason: str = Field(default="", pattern="^(|day_of|kept_badly|too_small|prep_differently|not_prep)$")
+
+
 class SubmissionCreate(BaseModel):
     kind: str = Field(pattern="^(photo|suggestion|review)$")
     body: str = Field(default="", max_length=2000)

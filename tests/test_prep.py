@@ -232,3 +232,27 @@ def test_one_sentence_naming_several_ingredients_does_not_bleed():
     assert set(by_title) == {'Prep onion', 'Prep bell pepper', 'Prep celery'}
     assert by_title['Prep onion']['quantities'] == ['1 onion']
     assert by_title['Prep bell pepper']['quantities'] == ['2 bell pepper']
+
+
+# #21: Weekend prep is grouped by what the food is.
+
+def test_tasks_get_a_section_and_an_item_name():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Dinner',
+        'ingredients': [{'name': 'onion', 'quantity': '1'}, {'name': 'garlic', 'quantity': '4 cloves'},
+                        {'name': 'turkey cutlets', 'quantity': '1 lb'}, {'name': 'mozzarella', 'quantity': '1 cup'},
+                        {'name': 'canned chickpeas', 'quantity': '2 cans'}],
+        'instructions': [
+            {'text': 'Dice the onion.'}, {'text': 'Mince the garlic.'},
+            {'text': 'Marinate the turkey cutlets overnight.'}, {'text': 'Grate the mozzarella.'},
+            {'text': 'Rinse the chickpeas.'}, {'text': 'For the dressing, whisk oil and vinegar.'},
+        ]}])
+    by = {t['title']: (t['section'], t['item'], t['action']) for t in tasks}
+    assert by['Prep onion'] == ('veg', 'Onion', '')
+    assert by['Prep garlic'] == ('herbs', 'Garlic', '')
+    assert by['Marinate turkey cutlets'] == ('protein', 'Turkey cutlets', 'Marinate')
+    assert by['Grate mozzarella'] == ('cheese', 'Mozzarella', 'Grate')
+    assert by['Prep canned chickpeas'][0] == 'protein'
+    assert by['Make dressing'][0] == 'sauce'
+    beans = prep_from_slots([{'recipe_id': 2, 'recipe_name': 'Salmon',
+        'ingredients': [{'name': 'green beans', 'quantity': '1 lb'}], 'instructions': [{'text': 'Trim the green beans.'}]}])
+    assert beans[0]['section'] == 'veg'

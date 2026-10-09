@@ -37,6 +37,7 @@ from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, s
 from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
+    PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
     SuggestionSwap,
@@ -1883,9 +1884,9 @@ def list_prep(
     with transaction(db):
         _refresh_prep(db, plan_id, household_id)
     feedback = {
-        (int(r["recipe_id"]), r["step_key"]): int(r["rating"])
+        (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "")
         for r in db.execute(
-            "SELECT recipe_id, step_key, rating FROM prep_step_feedback WHERE household_id = ?",
+            "SELECT recipe_id, step_key, rating, reason FROM prep_step_feedback WHERE household_id = ?",
             (household_id,),
         )
     }
@@ -1895,11 +1896,19 @@ def list_prep(
         (plan_id,),
     ):
         details = json.loads(r["details_json"])
+        votes = []
         for meal in details.get("meals") or []:
             for step in meal.get("steps") or []:
-                step["rating"] = feedback.get((int(meal["id"]), step["key"]), 0)
+                rating, reason = feedback.get((int(meal["id"]), step["key"]), (0, ""))
+                step["rating"] = rating
                 step["done"] = bool(r["done"]) or f"{meal['id']}:{step['key']}" in json.loads(r["completed_steps_json"])
-        tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]), **details})
+                votes.append((rating, reason))
+        # The item's own 👍/👎: what every step in it says, or nothing when they disagree.
+        rating = votes[0][0] if votes and all(v[0] == votes[0][0] for v in votes) else 0
+        reason = next((why for value, why in votes if value == rating and why), "") if rating < 0 else ""
+        tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
+                      "rating": rating, "reason": reason, "section": "other", "item": r["title"],
+                      "action": "", **details})
     return {"tasks": tasks}
 
 
@@ -1947,6 +1956,41 @@ def put_prep_feedback(
                 (household_id, body.recipe_id, body.key),
             )
     return {"ok": True, "rating": body.rating}
+
+
+@router.put("/prep/{task_id}/feedback")
+def put_prep_task_feedback(
+    task_id: int,
+    body: PrepTaskFeedbackPut,
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+):
+    """👍/👎 on a whole prep item: the same vote, and reason, for every meal's step in it.
+    Logged for review (GET /dev/prep-feedback); it doesn't change what Prep shows."""
+    with transaction(db):
+        row = _owned_prep_task(db, task_id, household_id)
+        details = json.loads(row["details_json"] or "{}")
+        reason = body.reason if body.rating < 0 else ""
+        for meal in details.get("meals") or []:
+            for step in meal.get("steps") or []:
+                if body.rating:
+                    db.execute(
+                        """INSERT INTO prep_step_feedback
+                           (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
+                             step_text = excluded.step_text, category = excluded.category,
+                             auto = excluded.auto, rating = excluded.rating, reason = excluded.reason,
+                             updated_at = excluded.updated_at""",
+                        (household_id, int(meal["id"]), step["key"], step.get("text") or "", row["title"],
+                         1 if step.get("auto", True) else 0, body.rating, reason, now()),
+                    )
+                else:
+                    db.execute(
+                        "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ?",
+                        (household_id, int(meal["id"]), step["key"]),
+                    )
+    return {"ok": True, "rating": body.rating, "reason": reason}
 
 
 @router.patch("/prep/{task_id}")
@@ -2065,6 +2109,7 @@ def get_prep_feedback(_admin=AdminDep, db: PgConnection = DbDep):
             "step": r["step_text"],
             "picked_by": "app" if r["auto"] else "recipe tag",
             "rating": r["rating"],
+            "reason": r["reason"] or "",
             "updated_at": r["updated_at"],
         }
         for r in db.execute(

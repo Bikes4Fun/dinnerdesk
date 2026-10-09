@@ -201,10 +201,19 @@ all week."
 - **Must:** group by what's being prepped across meals ("Prep potatoes" for two meals), or by a
   step's heading ("Make the tzatziki: …" → "Make tzatziki"). A dressing with no name stays with
   its own meal.
-- **Must:** each meal's step is its own checkable item. Checking a task checks all its items; the
-  task is done when every item is. A closed task shows its name, which meals it's for, and
-  progress; amounts and steps show when it's opened.
-- **Must:** each step can be rated "Useful to do ahead?" (👍/👎), saved for review only.
+- **Must:** the screen is grouped into sections by what the food is: Vegetables; Aromatics, herbs
+  & citrus; Protein; Cheese & dairy; Sauces & dressings; More prep. One row per item however many
+  meals use it ("Bell peppers · 2 bell peppers · For Chickpea Salad, Turkey & Potatoes"); never
+  one row per meal. Sections collapse with an arrow and remember it.
+- **Must:** a progress ring (done of total) and one bar per section at the top; tapping a bar
+  jumps to that section.
+- **Must:** check-off works like the grocery list: a done item leaves its section; "Show
+  completed" brings done items back, faded, at the bottom of their section. Checking an item
+  shows a bar with Undo and "Worth prepping ahead next time?" 👍/👎.
+- **Must:** every item has 👍/👎 whether it's checked or not. 👎 asks why: better done day-of,
+  didn't keep well, too small to bother, prep it differently, not a prep step. Votes and reasons
+  are saved for review only (GET /dev/prep-feedback); they don't change what Prep shows yet.
+  Tapping an item's name shows each meal's step and a link to the recipe.
 - **Must not:** include last week's meals, leftovers, or "wash your hands"-type steps.
 - **Bug if:** a recipe not on this plan appears; tagging Prep copies the recipe or edits the
   catalog.

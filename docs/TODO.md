@@ -114,9 +114,8 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Weekend prep
 
-- [ ] Redesign the Prep screen ("this design is awful"). Needs your direction first. Your
-      screenshot shows the old "Chop vegetables & herbs" grouping, so check against a restarted
-      server too. `docs/weekend prep to do/this design is awful.png`
+- [x] Redesign the Prep screen ("this design is awful"): sections by food type, ring + section
+      bars, collapsible sections, grocery-style check-off, 👍/👎 with reasons on every item. #21
 
 ### Whole app
 
@@ -154,7 +153,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       Dijon Pork Chops (quick). Still to decide: who gets it (the guest household, new accounts,
       or both), whether it's labeled "Sample week" until they make their own plan, and whether
       pork counts as the red meat (or swap the zucchini boats for tuna penne).
-- [ ] **Prep screen redesign** (see Weekend prep above).
+- [x] **Prep screen redesign** (see Weekend prep above).
 
 ---
 

@@ -266,6 +266,32 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   let quantities: [String]
   /// True when the app picked these steps (no step in the recipe was tagged Prep).
   let auto: Bool?
+  /// Weekend prep section (#21): veg, herbs, protein, cheese, sauce or other.
+  let section: String?
+  /// What's being prepped ("Onion"), and the verb when it isn't plain prep ("Grate").
+  let item: String?
+  let action: String?
+  /// 👍/👎 on the whole item (1, -1, 0) and why a 👎 (a PrepReason id, or "").
+  var rating: Int?
+  var reason: String?
+
+  var name: String { (item?.isEmpty == false ? item : nil) ?? title }
+}
+
+/// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.
+enum PrepReason: String, CaseIterable, Identifiable, Sendable {
+  case dayOf = "day_of", keptBadly = "kept_badly", tooSmall = "too_small"
+  case prepDifferently = "prep_differently", notPrep = "not_prep"
+  var id: String { rawValue }
+  var label: String {
+    switch self {
+    case .dayOf: return "Better done day-of"
+    case .keptBadly: return "Didn't keep well"
+    case .tooSmall: return "Too small to bother"
+    case .prepDifferently: return "Prep it differently"
+    case .notPrep: return "Not a prep step"
+    }
+  }
 }
 
 nonisolated struct PrepMeal: Decodable, Identifiable, Sendable {

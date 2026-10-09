@@ -303,6 +303,56 @@ def _whiskable(ing: dict) -> bool:
     return bool(heads & {"egg", "cream", "yogurt", "milk", "buttermilk", "mayonnaise", "mayo"})
 
 
+# Sections of the Weekend prep screen (#21), in screen order. Grouped by what the food is,
+# so one ingredient is one row no matter how many meals use it.
+SECTIONS = [
+    ("veg", "Vegetables"),
+    ("herbs", "Aromatics, herbs & citrus"),
+    ("protein", "Protein"),
+    ("cheese", "Cheese & dairy"),
+    ("sauce", "Sauces & dressings"),
+    ("other", "More prep"),
+]
+AROMATICS = {"garlic", "ginger", "shallot", "scallion", "leek", "chive", "lemon", "lime", "orange",
+             "zest", "parsley", "cilantro", "basil", "dill", "mint", "thyme", "rosemary", "oregano",
+             "sage", "tarragon", "jalapeno", "jalapeño", "chili", "chile", "lemongrass", "herb"}
+MORE_PROTEINS = PROTEINS | {"chickpea", "bean", "lentil", "egg", "tempeh", "fish", "thigh",
+                            "breast", "cutlet", "chop", "fillet", "meatball", "ham", "bacon"}
+CHEESES = {"cheese", "parmesan", "mozzarella", "cheddar", "feta", "ricotta", "yogurt", "yoghurt",
+           "cream", "butter", "milk"}
+VERB_WORDS = ("Prep ", "Grate ", "Whisk ", "Marinate ")
+
+
+def _section(kind: str, title: str, quantities: list[str]) -> str:
+    if kind in ("sauce", "mix") or NAMED.search(title) or re.search(
+            r"\b(sauce|dressing|vinaigrette|glaze|marinade|mix)\b", title, re.I):
+        return "sauce"
+    if kind == "marinate":
+        return "protein"
+    words = set(_words(title + " " + " ".join(quantities)))
+    protein = words & MORE_PROTEINS
+    if {"green", "string", "wax", "snap"} & words:
+        protein -= {"bean"}  # green beans are a vegetable
+    if protein:
+        return "protein"
+    if kind == "grate" and words & CHEESES or words & (CHEESES - {"cream", "butter", "milk"}):
+        return "cheese"
+    if words & AROMATICS:
+        return "herbs"
+    if kind in ("chop", "grate", "component"):
+        return "veg"
+    return "other"
+
+
+def _item(title: str) -> tuple[str, str]:
+    """("Onion", "") for "Prep onion"; ("Mozzarella", "Grate") for "Grate mozzarella"."""
+    for verb in VERB_WORDS:
+        if title.startswith(verb):
+            rest = title[len(verb):].strip()
+            return rest[:1].upper() + rest[1:], "" if verb == "Prep " else verb.strip()
+    return title, ""
+
+
 def prep_from_slots(slots: list[dict]) -> list[dict]:
     groups: dict[str, dict] = {}
     seen = set()
@@ -329,6 +379,7 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
             for group, title, item_text, only in items:
                 task = groups.setdefault(group, {
                     'title': title, 'notes': '', 'recipe_id': rid, 'auto': auto, 'recipe_ids': [],
+                    '_kind': ('mix' if ':mix:' in group else group.split(':', 1)[0]) if auto else 'tagged',
                     'step_index': i, 'steps': [], 'meals': [], 'quantities': [], '_ingredients': {},
                     '_counted': set()})
                 task['auto'] = task['auto'] and auto
@@ -356,5 +407,7 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                               for name, amounts in task.pop('_ingredients').items()]
         task['recipe_ids'].sort()
         task['notes'] = '\n\n'.join(task.pop('steps'))
+        task['section'] = _section(task.pop('_kind'), task['title'], task['quantities'])
+        task['item'], task['action'] = _item(task['title'])
     # Work shared by several meals first; otherwise keep recipe order.
     return sorted(groups.values(), key=lambda t: -len(t['meals']))
