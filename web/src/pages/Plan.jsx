@@ -2,8 +2,42 @@ import { useEffect, useState } from "react";
 import { api, photoSrc } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
+import { Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
+
+const shortDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+const inHistory = (p) => (p.status !== "draft" && p.status !== "active") || Boolean(p.decision);
+
+/** The plan's own name, or the week it starts when it's still called "This week". */
+function planHeading(p) {
+  const title = (p.title || "").trim();
+  if (title && title !== "This week") return title;
+  return `Week of ${shortDay(new Date(`${p.start_date}T12:00:00`))}`;
+}
+
+function planStatus(p) {
+  if (p.decision === "approve") return "Approved";
+  if (p.decision === "decline") return "Declined";
+  return { draft: null, active: "Current plan", suggested: "Waiting for review" }[p.status] ?? (p.status ? p.status[0].toUpperCase() + p.status.slice(1) : null);
+}
+
+/** One saved plan: name, dates, meal count and status, the first meals, and when it was saved. */
+function SavedPlanSummary({ plan: p }) {
+  const start = new Date(`${p.start_date}T12:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + Math.max(p.days || 1, 1) - 1);
+  const names = p.slots.map((s) => s.recipe_name);
+  const meals = names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3} more` : "");
+  const saved = p.created_at ? new Date(p.created_at) : null;
+  return <span className="saved-summary">
+    <strong>{planHeading(p)}</strong>
+    <span>{[`${shortDay(start)} – ${shortDay(end)}`, `${names.length} ${names.length === 1 ? "meal" : "meals"}`, planStatus(p)].filter(Boolean).join(" · ")}</span>
+    {meals && <span className="muted">{meals}</span>}
+    {saved && !Number.isNaN(saved.getTime()) && <span className="muted">Saved {saved.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>}
+  </span>;
+}
 
 function slotDate(plan, index) {
   const date = new Date(`${plan.start_date}T12:00:00`);
@@ -22,7 +56,6 @@ export function Plan() {
   const [swapError, setSwapError] = useState("");
   const [swapLoading, setSwapLoading] = useState(false);
   const [proposal, setProposal] = useState(null);
-  const [keepCurrent, setKeepCurrent] = useState(false);
   const [plan, setPlan] = useState(null);
   const [editing, setEditing] = useState(false);
   const [grid, setGrid] = useState(false);
@@ -33,7 +66,6 @@ export function Plan() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const [making, setMaking] = useState(null);
   const [suggested, setSuggested] = useState(false);
 
   useEffect(() => {
@@ -76,17 +108,21 @@ export function Plan() {
   async function newPlan(source, mealCount) {
     const body = {};
     if (source != null) body.source_plan_id = source;
-    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = keepCurrent; }
+    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = false; }
     const created = await api.createPlan(body);
     if (created.status === "suggested") setProposal(created);
     else setPlan(created);
     setSuggested(Boolean(created.suggestion_note));
-    if (created.suggestion_note) setMessage(created.suggestion_note);
-    setSaved(null); setSelected(new Set()); setPlacing(null); setMaking(null); await week.load();
+
+    if (!mealCount) { setSaved(null); setSelected(new Set()); setPlacing(null); await week.load(); }
   }
   function toggleSelection(id) {
     setSelected((current) => { const next = new Set(current); next.has(id) ? next.delete(id) : next.add(id); return next; });
   }
+  function deleteSaved(p) {
+    if (window.confirm(`Delete ${planHeading(p)}?`)) act(async () => { await api.deletePlan(p.id); setSaved(saved.filter((other) => other.id !== p.id)); });
+  }
+
   function schedule(slot) {
     setPlacing(slot);
     const today = new Date();
@@ -116,7 +152,6 @@ export function Plan() {
             }}>Save as draft</button>
             <button type="button" disabled={busy} onClick={() => act(async () => setSaved((await api.plans()).plans))}>View drafts</button>
             <button type="button" disabled={busy} onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); act(() => newPlan(undefined, 4)); }}>New meal plan</button>
-            <button type="button" disabled={busy} onClick={() => setMaking("how")}>Choose my own meals</button>
           </div>
         </details>
       </div>
@@ -124,39 +159,52 @@ export function Plan() {
     <div className="scroll pad">
       {err && <p role="alert" className="banner err">{err}</p>}
       {message && <p role="status">{message}</p>}
-      {proposal && <section className="saved-plans">
-        <h2>Review your suggestions</h2>
-        <label>Meals <select value={proposal.slots.length} disabled={busy} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
+      {proposal && <section className="suggested-plan" aria-labelledby="suggested-title">
+        <h2 id="suggested-title">Review your suggestions</h2>
+        <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>
-        <p>Your plan and groceries stay in place until you approve.</p>
-        <button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
-        <div className="plan-meal-grid">
-        {proposal.slots.map((s) => <div key={s.id} className="plan-meal grid">
+        <p hidden data-tip="plan.proposal-keeps-current">Your current plan stays in place until you approve.</p>
+        <div className="sp-grid">
+        {proposal.slots.map((s) => <div key={s.id} className="proposal-meal sp-card">
+          <div className="proposal-photo">
           {s.photo_path && <img src={photoSrc(s.photo_path)} alt="" style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 12 }} />}
-          <div><strong>{s.recipe_name}</strong><br />
-            {proposal.suggested_recipe_ids?.includes(s.recipe_id) ? <button disabled={busy} onClick={() => { setSwapping(s); setSwapQuery(""); setSwapOptions([]); }}>Swap meal</button> : <span>Your selection</span>}
+            {proposal.suggested_recipe_ids?.includes(s.recipe_id) && <button className="proposal-swap" aria-label={`Swap meal: ${s.recipe_name}`} disabled={busy || proposal.status !== "suggested"} onClick={() => { setSwapping(s); setSwapQuery(""); setSwapOptions([]); }}>⟳</button>}
+          </div>
+          <div className="sp-body">
+            <strong>{s.recipe_name}</strong>
+            {s.cooking_minutes && <span className="muted">{s.cooking_minutes} min</span>}
+            {!proposal.suggested_recipe_ids?.includes(s.recipe_id) && <span>Your selection</span>}
           </div>
         </div>)}
         </div>
-        <button disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>
-        <button disabled={busy} onClick={() => act(async () => { await api.decideSuggestion(proposal.id, "decline"); setProposal(null); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids.length)); })}>Decline and suggest another plan</button>
+        <div className="proposal-actions sp-dock">
+        {proposal.status === "suggested" && <button className="sp-yes" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>}
+        <button className="sp-no" disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.slots.length)); })} aria-label={proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}>{proposal.status === "suggested" ? "Suggest another" : "Try another suggestion"}</button>
+        </div>
+        <button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
       </section>}
       {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
       {saved && <section className="saved-plans">
         <h2>Drafts</h2>
-        {!saved.some((p) => p.status === "draft") && <p>No saved drafts yet.</p>}
-        {saved.filter((p) => p.status === "draft").map((p) => <button key={p.id} type="button" className="list-link" disabled={busy} onClick={() => act(() => newPlan(p.id))}>{p.title} · {p.slots.length} meals</button>)}
-        {saved.filter((p) => p.status !== "active").map((p) => <button key={`delete-${p.id}`} disabled={busy} onClick={() => { if (window.confirm(`Delete ${p.title}?`)) act(async () => { await api.deletePlan(p.id); setSaved(saved.filter((other) => other.id !== p.id)); }); }}>Delete {p.title}</button>)}
+        {!saved.some((p) => p.status === "draft") && <p className="muted">No drafts yet. Use ⋯ → Save as draft to keep a plan for later.</p>}
+        {saved.filter((p) => p.status === "draft").map((p) => <div key={p.id} className="saved-row">
+          <button type="button" className="saved-row-main" disabled={busy} onClick={() => act(() => newPlan(p.id))}><SavedPlanSummary plan={p} /></button>
+          <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>
+        </div>)}
         <h2>Plan history</h2>
-        {saved.filter((p) => p.status !== "draft" && p.status !== "active" || p.decision).map((p) => <details key={p.id}><summary>{p.title} · {p.start_date} · {p.decision || p.status} · {p.changes?.length || 0} swaps</summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>)}
+        {!saved.some(inHistory) && <p className="muted">No past plans yet. Plans you approve or finish show up here.</p>}
+        {saved.filter(inHistory).map((p) => <div key={p.id} className="saved-row">
+          <details className="saved-row-main"><summary><SavedPlanSummary plan={p} /></summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>
+          {p.status !== "active" && <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>}
+        </div>)}
         <button type="button" className="text-link" onClick={() => setSaved(null)}>Close saved plans</button>
       </section>}
       {editing && plan.slots.length > 0 && <div className="plan-bulk">
         <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? "Deselect all" : "Select all"}</button>
         <span>{selected.size} selected</span>
         <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected))}>Mark cooked</button>
-        <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} meals?`)) act(removeSelected); }}>Remove</button>
+        <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
       </div>}
       {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
       {groups.map((day) => <section key={day}>
@@ -172,27 +220,30 @@ export function Plan() {
             </div>
             <div className="meal-copy">
               <button type="button" className={`meal-title${slot.cooked ? " plan-completed" : ""}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}><strong>{slot.recipe_name}</strong></button>
-              {!editing && <span className="muted">{slot.servings} servings</span>}
+              {!editing && <>
+                <span className="muted">{slot.servings} servings</span>
+                {!grid && <button type="button" className="meal-schedule" disabled={busy} aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</button>}
+              </>}
         
               {editing && <>
                 <div className="meal-edit-controls">
                   <button type="button" className="meal-schedule" aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </button>
                   <div className="meal-servings">
-                    <button type="button" disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
+                    <button type="button" aria-label={`Decrease servings for ${slot.recipe_name}`} disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
                       <Icon name="minus" size={16} />
                     </button>
                     <span>{slot.servings} servings</span>
-                    <button type="button" disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
+                    <button type="button" aria-label={`Increase servings for ${slot.recipe_name}`} disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
                       <Icon name="plus" size={16} />
                     </button>
                   </div>
                 </div>
-                <span className="meal-thumbs">
+                <div className="meal-thumbs">
                   <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
-                  {slot.rating < 0 && <span className="muted">Won’t be suggested again</span>}
                   {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
-                </span>
+                </div>
+                {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
               </>}
             </div>
           </article>)}
@@ -207,16 +258,6 @@ export function Plan() {
       {swapError && <p role="alert">{swapError}</p>}
       {swapLoading ? <p>Loading…</p> : swapOptions.length === 0 ? <p>No matching meals. Try another search or loosen Settings → Filters.</p> : swapOptions.map((option) => <button key={option.id} className="list-link" disabled={busy} onClick={() => act(async () => { setProposal(await api.swapSuggestion(proposal.id, swapping.id, option.id)); setSwapping(null); })}>{option.name}{option.cooking_minutes ? ` · ${option.cooking_minutes} min` : ""}</button>)}
       <button onClick={() => setSwapping(null)}>Cancel</button>
-    </section></div>}
-    {making && <div className="sheet-backdrop" role="presentation"><section className="schedule-sheet" role="dialog" aria-modal="true" aria-labelledby="new-plan-title">
-      {making === "how" && <>
-        <h2 id="new-plan-title">New meal plan</h2>
-        <p>Choose your own meals or start with four suggestions.</p>
-        {!!plan.slots.length && <label><input type="checkbox" checked={keepCurrent} onChange={(e) => setKeepCurrent(e.target.checked)} />Keep my selected meals</label>}
-        <button type="button" className="btn-secondary block" disabled={busy} onClick={() => act(() => newPlan())}>I'll choose the meals</button>
-        <button type="button" className="btn-primary block" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}>Suggest 4 meals</button>
-        <button type="button" onClick={() => setMaking(null)}>Cancel</button>
-      </>}
     </section></div>}
     {placing && <div className="sheet-backdrop" role="presentation"><section className="schedule-sheet" role="dialog" aria-modal="true" aria-labelledby="schedule-title">
       <h2 id="schedule-title">Schedule {placing.recipe_name}</h2>

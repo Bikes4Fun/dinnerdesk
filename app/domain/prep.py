@@ -20,7 +20,9 @@ COOK_WORDS = re.compile(
     r"\b(heat|preheat|oven|bake[sd]?|baking|roast|broil|grill|sauté|saute|fry|fried|sear|simmer|boil|"
     r"cook|cooking|cooked|skillet|pan|pot|wok|microwave|toast|melt|warm|reheat|serve|serving|plate|"
     r"garnish|assemble|transfer|return|stir in|toss|top with|drizzle|sprinkle|spoon over|flip|"
-    r"steam|poach|blend until hot|air fryer|slow cooker|instant pot)\b",
+    r"steam|poach|blend until hot|air fryer|slow cooker|instant pot|saucepan|sauce pan|stovetop|stove|"
+    r"thicken|thickens|thickened|bring to a|bring it to a|reduce by|reduce until|caramelize|"
+    r"medium heat|low heat|high heat)\b",
     re.I,
 )
 # Cut produce that browns or goes soggy is better done fresh.
@@ -66,6 +68,11 @@ FILLER = {
 # A protein's first word is what recipes call it ("the chicken"), not "breasts".
 PROTEINS = {"chicken", "beef", "pork", "turkey", "salmon", "shrimp", "steak", "lamb", "sausage",
             "tofu", "cod", "tilapia", "tuna"}
+
+# A head word that names two different groceries, told apart by the word before it:
+# "black pepper" (seasoning) vs "bell pepper" (vegetable). A seasoning one only matches when
+# the text says it in full, so "dice the pepper" means the bell pepper (#29).
+SEASONING_QUALIFIERS = {"pepper": {"black", "white", "cayenne", "ground"}}
 
 SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z])|\n+")
 
@@ -121,13 +128,38 @@ def _ingredient_heads(name: str) -> tuple[str, set[str]]:
     return main.strip(), heads
 
 
+def _qualifier(words: list[str], head: str) -> str | None:
+    """The word right before `head` ("black" in "ground black pepper")."""
+    if head in words:
+        i = words.index(head)
+        return words[i - 1] if i > 0 else None
+    return None
+
+
 def mentioned(text: str, ingredients: list[dict]) -> list[dict]:
     """Ingredients this text actually names, in recipe order. Matches the item, not filler words."""
-    found = set(_words(text))
+    text_words = _words(text)
+    found = set(text_words)
     out = []
     for ing in ingredients:
-        _, heads = _ingredient_heads(ing.get("name") or "")
-        if heads and heads & found:
+        name = ing.get("name") or ""
+        _, heads = _ingredient_heads(name)
+        hit = heads & found
+        if not hit:
+            continue
+        for head in list(hit):
+            seasoning = SEASONING_QUALIFIERS.get(head)
+            if not seasoning:
+                continue
+            mine = _qualifier(_words(name.split(",")[0]), head)
+            said = _qualifier(text_words, head)
+            if mine in seasoning:
+                ok = said == mine  # "black pepper" only when the text says "black pepper"
+            else:
+                ok = said not in seasoning  # "bell pepper" unless the text says "black pepper"
+            if not ok:
+                hit.discard(head)
+        if hit:
             out.append(ing)
     return out
 
@@ -136,10 +168,18 @@ PREP_VERB = re.compile(
     r"\b(?:chop|dice|mince|slice|peel|trim|cut|halve|quarter|grate|shred|zest|rinse|wash|"
     r"marinate|cube|core|seed)\b(?:,?\s+(?:and\s+)?(?:chop|dice|mince|slice|peel|cut|cube|rinse|wash))*",
     re.I)
-OBJECT_END = re.compile(r"[,.;:]|\s(?:into|in|and|then|to|for|with|until|so)\s", re.I)
+# Where the thing being prepped ends: "grate the cheese | on the large holes of a box grater".
+OBJECT_END = re.compile(
+    r"[,.;:]|\s(?:into|in|and|then|to|for|with|until|so|on|onto|using|over|through|at|by|if)\s", re.I)
 NOT_OBJECT = {"the", "a", "an", "all", "about", "of", "some", "half", "them", "it", "each",
               "cup", "cups", "tbsp", "tsp", "oz", "lb", "lbs", "clove", "cloves", "inch",
-              "piece", "pieces", "finely", "roughly", "thinly", "large", "small"}
+              "piece", "pieces", "finely", "roughly", "thinly", "large", "small",
+              "off", "up", "away", "out", "down", "any", "your"}
+# "Trim the roots off the scallions", "seeds from the peppers": the part named first is not
+# the grocery; the thing after of/from/off is.
+PART_OF = re.compile(
+    r"\b(?:roots?|ends?|stems?|tops?|leaves|skins?|peels?|seeds?|ribs?|cores?|pits?|rinds?|fat)\s+"
+    r"(?:of|from|off)\s+(.+)$", re.I)
 
 
 def _object_of(text: str) -> str | None:
@@ -147,6 +187,9 @@ def _object_of(text: str) -> str | None:
     # The last verb with something after it: "Wash, peel and large dice the potatoes".
     for m in reversed(list(PREP_VERB.finditer(text))):
         rest = " " + text[m.end():] + " "
+        part = PART_OF.search(rest)
+        if part:
+            rest = " " + part.group(1) + " "
         cut = OBJECT_END.search(rest)
         phrase = rest[: cut.start()] if cut else rest
         words = [w for w in re.findall(r"[a-z]+", phrase.lower()) if w not in NOT_OBJECT]
@@ -189,8 +232,16 @@ def _sentences(text: str) -> list[str]:
     return parts or [text.strip()]
 
 
-def _auto_items(text: str, ingredients: list[dict], meal_id, recipe_name: str = "") -> list[tuple[str, str, str]]:
-    """(group key, title, sentence text) for each make-ahead sentence of an untagged step."""
+def _names(hits: list[dict]) -> str:
+    shown = [_ingredient_heads(h["name"])[0].lower() for h in hits[:3]]
+    return shown[0] if len(shown) == 1 else ", ".join(shown[:-1]) + " & " + shown[-1]
+
+
+def _auto_items(
+    text: str, ingredients: list[dict], meal_id, recipe_name: str = ""
+) -> list[tuple[str, str, str, list[str] | None]]:
+    """(group key, title, sentence text, ingredient names it covers) for each make-ahead sentence
+    of an untagged step. Names None means every ingredient the sentence mentions."""
     heading = _heading(text)
     body = text.split(":", 1)[1] if heading else text
     items: list[tuple[str, str, str]] = []
@@ -198,7 +249,7 @@ def _auto_items(text: str, ingredients: list[dict], meal_id, recipe_name: str = 
         kind = _kind(sentence)
         component = component_title(sentence, recipe_name)
         if component and not (COOK_WORDS.search(sentence) or FRESH_ONLY.search(sentence) or SKIP_WORDS.search(sentence)):
-            items.append(("component:" + component.casefold(), component, sentence))
+            items.append(("component:" + component.casefold(), component, sentence, None))
             continue
         if not kind:
             continue
@@ -206,6 +257,8 @@ def _auto_items(text: str, ingredients: list[dict], meal_id, recipe_name: str = 
         if heading and (named or kind in ("sauce", "marinate")):
             title = heading if not named else f"Make {named.group(1).lower()}"
             key = "component:" + " ".join(_words(named.group(1) if named else heading))
+            items.append((key, title, sentence, None))
+            continue
         elif named:
             title = f"Make {named.group(1).lower()}"
             key = "component:" + " ".join(_words(named.group(1)))
@@ -215,7 +268,20 @@ def _auto_items(text: str, ingredients: list[dict], meal_id, recipe_name: str = 
             if kind in ("sauce", "marinate") and generic:
                 # An unnamed "dressing" is this meal's own; don't merge it with another meal's.
                 word = generic.group(1).lower()
-                items.append((f"component:{meal_id}:{word}", f"Make {word}", sentence))
+                items.append((f"component:{meal_id}:{word}", f"Make {word}", sentence, None))
+                continue
+            if kind == "sauce" and len(hits) != 1 or kind == "sauce" and not _whiskable(hits[0]):
+                # "Whisk the oil, vinegar and garlic" is this meal's own mix, not "Whisk garlic".
+                title = f"Mix {_names(hits)}" if len(hits) > 1 else "Make sauce"
+                items.append((f"component:{meal_id}:mix:{step_key(sentence)}", title, sentence, None))
+                continue
+            if kind in ("chop", "grate") and len(hits) > 1:
+                # "Dice the onion, pepper and celery": each ingredient is its own task, with only
+                # its own amount, so one sentence doesn't pile every amount onto the first item.
+                for hit in hits:
+                    display, heads = _ingredient_heads(hit["name"])
+                    key = f"{kind}:{' '.join(sorted(heads))}"
+                    items.append((key, f"{VERB[kind]} {display.lower()}", sentence, [hit["name"]]))
                 continue
             if hits:
                 display, heads = _ingredient_heads(hits[0]["name"])
@@ -227,8 +293,64 @@ def _auto_items(text: str, ingredients: list[dict], meal_id, recipe_name: str = 
                     continue
                 key = f"{kind}:{' '.join(_words(thing))}"
             title = f"{VERB[kind]} {thing}"
-        items.append((key, title, sentence))
+        items.append((key, title, sentence, None))
     return items
+
+
+def _whiskable(ing: dict) -> bool:
+    """Something you'd whisk on its own (eggs, cream, yogurt), not an aromatic like garlic."""
+    _, heads = _ingredient_heads(ing.get("name") or "")
+    return bool(heads & {"egg", "cream", "yogurt", "milk", "buttermilk", "mayonnaise", "mayo"})
+
+
+# Sections of the Weekend prep screen (#21), in screen order. Grouped by what the food is,
+# so one ingredient is one row no matter how many meals use it.
+SECTIONS = [
+    ("veg", "Vegetables"),
+    ("herbs", "Aromatics, herbs & citrus"),
+    ("protein", "Protein"),
+    ("cheese", "Cheese & dairy"),
+    ("sauce", "Sauces & dressings"),
+    ("other", "More prep"),
+]
+AROMATICS = {"garlic", "ginger", "shallot", "scallion", "leek", "chive", "lemon", "lime", "orange",
+             "zest", "parsley", "cilantro", "basil", "dill", "mint", "thyme", "rosemary", "oregano",
+             "sage", "tarragon", "jalapeno", "jalapeño", "chili", "chile", "lemongrass", "herb"}
+MORE_PROTEINS = PROTEINS | {"chickpea", "bean", "lentil", "egg", "tempeh", "fish", "thigh",
+                            "breast", "cutlet", "chop", "fillet", "meatball", "ham", "bacon"}
+CHEESES = {"cheese", "parmesan", "mozzarella", "cheddar", "feta", "ricotta", "yogurt", "yoghurt",
+           "cream", "butter", "milk"}
+VERB_WORDS = ("Prep ", "Grate ", "Whisk ", "Marinate ")
+
+
+def _section(kind: str, title: str, quantities: list[str]) -> str:
+    if kind in ("sauce", "mix") or NAMED.search(title) or re.search(
+            r"\b(sauce|dressing|vinaigrette|glaze|marinade|mix)\b", title, re.I):
+        return "sauce"
+    if kind == "marinate":
+        return "protein"
+    words = set(_words(title + " " + " ".join(quantities)))
+    protein = words & MORE_PROTEINS
+    if {"green", "string", "wax", "snap"} & words:
+        protein -= {"bean"}  # green beans are a vegetable
+    if protein:
+        return "protein"
+    if kind == "grate" and words & CHEESES or words & (CHEESES - {"cream", "butter", "milk"}):
+        return "cheese"
+    if words & AROMATICS:
+        return "herbs"
+    if kind in ("chop", "grate", "component"):
+        return "veg"
+    return "other"
+
+
+def _item(title: str) -> tuple[str, str]:
+    """("Onion", "") for "Prep onion"; ("Mozzarella", "Grate") for "Grate mozzarella"."""
+    for verb in VERB_WORDS:
+        if title.startswith(verb):
+            rest = title[len(verb):].strip()
+            return rest[:1].upper() + rest[1:], "" if verb == "Prep " else verb.strip()
+    return title, ""
 
 
 def prep_from_slots(slots: list[dict]) -> list[dict]:
@@ -249,14 +371,15 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                 if not step.get('prep'):
                     continue
                 title = component_title(text, name) or _tagged_title(text)
-                items = [(re.sub(r'\s+', ' ', title).casefold(), title, text)]
+                items = [(re.sub(r'\s+', ' ', title).casefold(), title, text, None)]
                 auto = False
             else:
                 items = _auto_items(text, ingredients, rid, name)
                 auto = True
-            for group, title, item_text in items:
+            for group, title, item_text, only in items:
                 task = groups.setdefault(group, {
                     'title': title, 'notes': '', 'recipe_id': rid, 'auto': auto, 'recipe_ids': [],
+                    '_kind': ('mix' if ':mix:' in group else group.split(':', 1)[0]) if auto else 'tagged',
                     'step_index': i, 'steps': [], 'meals': [], 'quantities': [], '_ingredients': {},
                     '_counted': set()})
                 task['auto'] = task['auto'] and auto
@@ -272,6 +395,8 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                 meal['instructions'].append(item_text)
                 meal['steps'].append({'key': step_key(item_text), 'text': item_text, 'auto': auto})
                 for ing in mentioned(item_text, ingredients):
+                    if only is not None and ing['name'] not in only:
+                        continue
                     # Once per meal: two sentences about the same potatoes are still one amount.
                     if ing.get('quantity') and (rid, ing['name']) not in task['_counted']:
                         task['_counted'].add((rid, ing['name']))
@@ -282,5 +407,7 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                               for name, amounts in task.pop('_ingredients').items()]
         task['recipe_ids'].sort()
         task['notes'] = '\n\n'.join(task.pop('steps'))
+        task['section'] = _section(task.pop('_kind'), task['title'], task['quantities'])
+        task['item'], task['action'] = _item(task['title'])
     # Work shared by several meals first; otherwise keep recipe order.
     return sorted(groups.values(), key=lambda t: -len(t['meals']))

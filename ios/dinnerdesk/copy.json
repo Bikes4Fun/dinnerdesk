@@ -16,9 +16,11 @@
   "tour.how.4.title": "Weekend prep",
   "tour.how.4": "Steps tagged Prep show up here. Chop and batch once; cook fresh later in the week.",
   "plan.empty": "Nothing selected yet. Add meals from Recipes.",
+  "plan.disliked": "Won’t be suggested again.",
   "prep.about": "Built from this plan’s meals. Chop and batch now; cook fresh later in the week.",
   "prep.empty": "No prep yet. Add meals on Plan.",
   "grocery.empty": "Add meals on Plan and they show up here.",
+  "grocery.pantry": "In your pantry, so it starts checked off",
   "grocery.stores": "Add or remove stores and assign each grocery item.",
   "grocery.aisles": "Set aisle numbers and order, then put each grocery item in an aisle.",
   "kitchen.pantry": "What you already have.",
@@ -30,6 +32,7 @@
   "kitchen.store-per-item": "Your choice applies to every grocery list from now on.",
   "kitchen.aisle-order": "Drag aisles into the order you walk the store. Your grocery list follows this order.",
   "kitchen.templates": "Pick a format. Recipe bodies live in the cookbook.",
+  "recipes.ai-photo": "This photo was made with AI. It shows the kind of dish, not this exact recipe.",
   "recipe-editor.steps": "`- ` starts a bullet. Amounts for this step are the list under the instruction on Cook. Empty amounts is fine.",
   "ingredient-review.merge": "Check only the names that mean the same grocery item."
 }

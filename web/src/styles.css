@@ -1449,7 +1449,8 @@ img { display: block; max-width: 100%; }
 .meal-edit-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .meal-edit-controls .meal-schedule { min-height: 44px; margin: 0; gap: 4px; }
 .meal-edit-controls .meal-servings { min-height: 44px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); gap: 2px; }
-.meal-edit-controls .meal-servings button { width: 28px; min-height: 44px; padding: 0; }
+.meal-edit-controls .meal-servings button { min-width: 44px; min-height: 44px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.meal-edit-controls .meal-servings span { text-align: center; }
 
 .plan-meal-list .meal-photo-wrap { flex: 0 0 72px; }
 
@@ -1477,3 +1478,58 @@ img { display: block; max-width: 100%; }
 .step-timer.is-running { font-variant-numeric: tabular-nums; cursor: default; color: var(--ink, inherit); }
 .step-timer.is-done { background: var(--accent); color: #fff; }
 .step-timer.is-done .text-link { color: #fff; }
+
+/* Pantry note under a grocery item: a tip (purple ★ on the aubergine tint). */
+.g-tip { display: flex; width: fit-content; align-items: baseline; gap: 4px; margin-top: 2px; padding: 2px 8px; border-radius: 999px; background: #f1e7ef; color: var(--brand); font-size: 0.78rem; }
+.g-tip-star { color: #7a3b73; }
+.substitution-row { flex-wrap: wrap; gap: 0.75rem; }
+.substitution-row strong { min-width: 0; flex: 1 1 16rem; overflow-wrap: normal; word-break: normal; }
+.substitution-row button { flex-shrink: 0; }
+
+.proposal-photo { position: relative; }
+.proposal-swap { position: absolute; top: 6px; right: 6px; border-radius: 50%; width: 44px; height: 44px; padding: 0; font-size: 24px; background: var(--surface, #fffdf9); }
+.proposal-meal { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.proposal-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+
+.nav-link.is-on { font-weight: 800; }
+.tabbar .nav-link.is-on { text-decoration: underline; text-underline-offset: 0.25em; text-decoration-thickness: 2px; }
+
+.plan-meal-list .meal-title strong { display: block; -webkit-line-clamp: unset; line-clamp: unset; overflow: visible; overflow-wrap: normal; word-break: normal; }
+.plan-meal-list .meal-schedule { margin-top: 0.5rem; max-width: 100%; white-space: normal; }
+
+.grocery-editor > .block-label { align-self: stretch; width: 100%; box-sizing: border-box; overflow-wrap: normal; word-break: normal; }
+
+/* Saved plans and history rows (Plan ⋯ → View drafts) */
+.saved-row { display: flex; align-items: flex-start; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.saved-row-main { flex: 1; min-width: 0; text-align: left; }
+.saved-row-main > summary { cursor: pointer; list-style-position: outside; }
+.saved-summary { display: inline-flex; flex-direction: column; gap: 2px; vertical-align: top; }
+.saved-summary .muted { font-size: 0.9rem; }
+.saved-row-delete { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent); border-radius: 10px; }
+.saved-row-delete:hover { background: var(--coral-tint); }
+
+/* Suggested plan review: same design as Taste Lab's "Suggested dinners" (#31). */
+.suggested-plan { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.suggested-plan h2 { margin: 0; }
+.suggested-plan > .muted { margin: 0; }
+.sp-count { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.sp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sp-card { display: flex; flex-direction: column; min-width: 0; padding: 0; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.sp-card:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.sp-photo { position: relative; display: block; }
+.sp-photo img, .sp-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
+.sp-swap { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--coral); color: var(--brand); font-weight: 700; font-size: 1.1rem; }
+.sp-body { display: flex; flex-direction: column; gap: 4px; padding: 10px; }
+.sp-body strong { color: var(--brand); font-size: 0.95rem; line-height: 1.25; overflow-wrap: anywhere; }
+.sp-body .muted { font-size: 0.8rem; }
+.sp-dock { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 0 calc(10px + var(--safe-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
+.sp-dock button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; border-radius: 14px; font-weight: 700; }
+.sp-no { background: var(--coral-tint); color: #8a3a22; border: 2px solid var(--coral); }
+.sp-yes { background: var(--brand); color: var(--bg); }
+@media (max-width: 360px) { .sp-grid, .sp-dock { grid-template-columns: minmax(0, 1fr); } }
+
+/* Keep newer review requirements while sharing Taste Lab card styling. */
+.suggested-plan .proposal-swap { background: var(--coral); color: var(--brand); }
+.suggested-plan .sp-body strong { overflow-wrap: normal; word-break: normal; }
+
+.ai-photo-tip { margin: 8px 0 12px; }

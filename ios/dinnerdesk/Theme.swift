@@ -49,6 +49,9 @@ enum Theme {
   static let chipLabel = Font.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline)
   static let subtitle = Font.custom("DMSans-Regular", size: 13, relativeTo: .footnote)
   static let count = Font.custom("DMSans-Medium", size: 13, relativeTo: .footnote)
+  /// Small all-caps section headers (aisles, days, settings groups). Scales with footnote text,
+  /// so it stays smaller than row titles at every text size.
+  static let sectionHeader = Font.custom("DMSans-Bold", size: 14, relativeTo: .footnote)
 
   static func registerFonts() {
     let fonts = [
@@ -113,11 +116,21 @@ enum Theme {
     UIBarButtonItem.appearance().setTitleTextAttributes([.font: buttonFont], for: .normal)
     UIBarButtonItem.appearance().setTitleTextAttributes([.font: buttonFont], for: .highlighted)
     let bar = UITabBarAppearance()
-    bar.configureWithOpaqueBackground()
-    bar.backgroundColor = UIColor(surface)
-    bar.shadowColor = UIColor(line)
-    let tabFont = scaledFont("DMSans-Medium", size: 10, style: .caption2)
-    let badgeFont = scaledFont("DMSans-Medium", size: 13, style: .footnote)
+    // iOS 26 draws the selected tab as a glass pill. On top of our opaque bar, and with
+    // labels and badges that grew with Dynamic Type, the pill spilled past the bar and
+    // clipped the Grocery badge (#23). Use the system bar there, like the navigation bar.
+    if #available(iOS 26, *) {
+      bar.configureWithDefaultBackground()
+    } else {
+      bar.configureWithOpaqueBackground()
+      bar.backgroundColor = UIColor(surface)
+      bar.shadowColor = UIColor(line)
+    }
+    // Tab labels and badges keep a fixed size, like the system's: at large text, a long
+    // press shows the enlarged label (Large Content Viewer) instead of the bar growing.
+    let tabFont = UIFont(name: "DMSans-Medium", size: 10) ?? .systemFont(ofSize: 10, weight: .medium)
+    let selectedTabFont = UIFont(name: "DMSans-Bold", size: 10) ?? .systemFont(ofSize: 10, weight: .bold)
+    let badgeFont = UIFont(name: "DMSans-Medium", size: 12) ?? .systemFont(ofSize: 12, weight: .medium)
     for item in [
       bar.stackedLayoutAppearance, bar.inlineLayoutAppearance, bar.compactInlineLayoutAppearance,
     ] {
@@ -127,7 +140,7 @@ enum Theme {
       item.selected.badgeTextAttributes = [.font: badgeFont]
       item.normal.iconColor = UIColor(muted)
       item.normal.titleTextAttributes = [.font: tabFont, .foregroundColor: UIColor(muted)]
-      item.selected.titleTextAttributes = [.font: tabFont, .foregroundColor: UIColor(accent)]
+      item.selected.titleTextAttributes = [.font: selectedTabFont, .foregroundColor: UIColor(accent)]
     }
     UITabBar.appearance().standardAppearance = bar
     UITabBar.appearance().scrollEdgeAppearance = bar

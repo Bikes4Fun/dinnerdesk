@@ -17,9 +17,25 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ## Inbox
 
+- Annotated screenshot review (Oct 9), branch `codex/annotated-screenshot-fixes`:
+  fixed automatic suggestion presentation at launch, photo growth above four meals,
+  replacement-picker styling, direct filter recovery links, and empty-plan action alignment.
+  Remaining screenshot work, after checking existing implementations:
+  - Compact Account & security; simplify household naming/invite layout.
+  - Add breathing room to Taste Lab's returning-user screen; reconcile its cards/actions
+    with the preferred earlier simple suggestion layout.
+  - Verify generic ingredient photo configuration (the private gallery already has garlic).
+  - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
+  - Make family portions the default when browsing recipes and adding new meals.
+  - Verify tab switching resets the destination root, including Grocery ingredient details.
+  - Move edit selection to the right and arrange Schedule/votes/servings into compact rows.
+  - Decide whether Build from scratch opens Recipes or creates an empty plan.
+  Sources: annotated PNGs in `docs/`, `my kitchen to do/`, `groceries page to do/`, and
+  `suggestion meal plan to do/`. Keep these private screenshots out of Git.
+
 - [ ] Taste Lab: when everything is rejected, the recovery message is easy to miss (plain font,
       looked like a glitch). Make it stand out. *(from your tester checklist notes)*
-- [ ] Use a purple ★ tip to tell users when a recipe photo is AI-generated (and, once
+- [x] Use a purple ★ tip to tell users when a recipe photo is AI-generated (and, once
       `shared_photo` exists, when it's borrowed from a similar recipe). Needs a way to mark
       AI photos in `data/recipe_photos.json`, e.g. `"ai_generated": true`.
 - [ ] Recipe ⋯ menu only flashes when tapped; may be large text only.
@@ -45,35 +61,35 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/suggestion meal plan to do/no easy done editing button.png`
 - [ ] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
       `docs/recipes page to do/this meal is already in a plan.png`
-- [ ] Taste Lab keeps asking about meals already answered (cheesy broccoli and rice always comes
+- [x] Taste Lab keeps asking about meals already answered (cheesy broccoli and rice always comes
       first). A skipped meal may come back; a liked or passed one shouldn't.
 - [ ] Prep check-off: two routes (PUT and PATCH `/prep/{id}/steps`) and two iPhone functions do
       the same job, and the old `prep_step_done` table is left over. Keep one of each.
-- [ ] Prep task names from real recipes are sometimes wrong: "Whisk garlic", "Prep off roots",
+- [x] Prep task names from real recipes are sometimes wrong: "Whisk garlic", "Prep off roots",
       "Grate on holes grater". *(Claude)*
 
 ### Plan and suggestions
 
 - [ ] No obvious Done control when editing the plan.
       `docs/suggestion meal plan to do/no easy done editing button.png`
-- [ ] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
+- [x] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
 - [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
       `docs/suggestion meal plan to do/accessiblity remove one meal cut off.png`
-- [ ] "Won't be suggested again" should be a purple ★ tip.
+- [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
 - [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
       should look the same whether meals were suggested or chosen.
       `docs/weekend prep to do/removed excess commentary but also removed the summary of why its a good plan.png`
-- [ ] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
+- [x] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
       means nothing to users. Clearer rows, accessible delete, empty states.
       `docs/suggestion meal plan to do/history 0 swaps is data for us the user doesn't care.png`
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`
 - [ ] Plan list view: room for a Schedule button and more of the recipe name, without shrinking
       the photo.
-- [ ] Suggested plans should look like Taste Lab's suggested plans.
+- [x] Suggested plans should look like Taste Lab's suggested plans.
 - [ ] Declining a suggested plan shouldn't reload the whole page.
 
 ### Taste Lab
@@ -84,19 +100,19 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/quick start to do/taste lab filters should fit on one screen from an iphone 16 with standard font size. do not remove options but do consider layout/formatting..png`
 - [ ] Meal names are cut at two lines when there's room for more.
       `docs/quick start to do/tastelab meal names don't need to cut off at two lines assuming they don't spill over the actual phone screen size.png`
-- [ ] Show more plans before "You're set".
+- [x] Show more plans before "You're set".
       `docs/quick start to do/tastelab should be showing more mealplan suggestions before youre set.png`
 
 ### Recipes
 
-- [ ] Use "See all" or an arrow for section links, not both.
+- [x] Use "See all" or an arrow for section links, not both.
       `docs/recipes page to do/choose either see all or arrow not both.png`
 - [ ] Browse cards break names mid-word at large text. A fix is on main; check it on a fresh
       build. Same screenshot as above.
 
 ### Grocery
 
-- [ ] The "Pantry" note under an item should be a purple ★ tip. Aisle headers (PANTRY) should
+- [x] The "Pantry" note under an item should be a purple ★ tip. Aisle headers (PANTRY) should
       stay smaller than item names at large text.
       `docs/groceries page to do/add a purple stary tip to the _pantry_ note and resize aisle terms to remain smaller than title.png`
 - [ ] Item page shows an empty box where the ingredient photo goes.
@@ -105,7 +121,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### My kitchen
 
-- [ ] Add-to-pantry search has two X buttons, and the keyboard can't move through results
+- [x] Add-to-pantry search has two X buttons, and the keyboard can't move through results
       (tab, arrow up/down).
       `docs/my kitchen to do/add to pantry search has two x_s and doesn't allow tab arrow down up select.png`
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.57.09 PM.png`
@@ -114,15 +130,14 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Weekend prep
 
-- [ ] Redesign the Prep screen ("this design is awful"). Needs your direction first. Your
-      screenshot shows the old "Chop vegetables & herbs" grouping, so check against a restarted
-      server too. `docs/weekend prep to do/this design is awful.png`
+- [x] Redesign the Prep screen ("this design is awful"): sections by food type, ring + section
+      bars, collapsible sections, grocery-style check-off, 👍/👎 with reasons on every item. #21
 
 ### Whole app
 
 - [ ] The current tab is shown by color only (the filled-icon fix was reverted).
       `docs/accessibility to do/color only representation of current page.png`
-- [ ] The selected-tab highlight spills past the tab bar and clips the Grocery badge.
+- [x] The selected-tab highlight spills past the tab bar and clips the Grocery badge.
       `docs/accessibility to do/bottom nav highlight overlow when selected.png`
 - [ ] Large-text pass on Pantry, the recipe page, Cook, Prep, and Settings (needs a device).
 - [ ] Opening a tab again should show that tab's main page.
@@ -132,7 +147,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 - [ ] Decide the order. Notes so far: start by showing suggestions, then groceries; end with
       Taste Lab; explain the purple ★ tips and that they fade after the first few uses.
       `docs/quick start to do/quick start to do .txt`
-- [ ] Tour cards are blank below the text; each needs a picture of its screen.
+- [x] Tour cards are blank below the text; each needs a picture of its screen.
       `docs/quick start to do/need screenshot of recipes page.png`
 
 ### Checks before a release *(Codex)*
@@ -154,7 +169,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       Dijon Pork Chops (quick). Still to decide: who gets it (the guest household, new accounts,
       or both), whether it's labeled "Sample week" until they make their own plan, and whether
       pork counts as the red meat (or swap the zucchini boats for tuna penne).
-- [ ] **Prep screen redesign** (see Weekend prep above).
+- [x] **Prep screen redesign** (see Weekend prep above).
 
 ---
 
@@ -258,11 +273,16 @@ Roughly most useful first within each group. Not a roadmap.
 
 ---
 
+## Far future
+
+- [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature.
+
 ## Done (recent)
 
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
 
 **Oct 7–8, 2026**
+- [x] Plan Edit mode has a visible Done in the header on iPhone (it was only in the ⋯ menu). #3
 - [x] Suggestions arrive as a proposal: review, swap (with search), approve or decline; keep your
       own picks; reopen a pending proposal. Suggestions row in Recipes.
 - [x] Taste Lab: "Not for us" shows a new plan; More options when swapping; None and Fish in
@@ -273,9 +293,16 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
 - [x] Grocery: share or email the list; show/hide completed from the list; simpler Add item;
       clearer menu names. "You'll use this in" shows only meals on this plan; substitutions keep
       the item open.
-- [x] Cook-mode timers; "Uses pantry" filter on iPhone; recipe categories (groundwork).
+- [x] "Uses pantry" filter on iPhone; recipe categories (groundwork).
 - [x] Large text: ⋯ menus grow and scroll; plan grid falls back to a list; section headers stop
       pinning and keep side margins; Family portions, Aisle order, store removal, grocery rows,
       recipe cards, ingredient row lines; consistent cream background.
 - [x] Thumbs on the plan only in Edit mode; one summary line instead of commentary under every
       meal.
+
+
+**October 9, 2026 — annotated screenshot fixes (visual verification pending)**
+- [x] Custom allergies/avoids offer explicit ingredient search selections, preserving saved names.
+- [x] Recipes search uses the app's warm surface color.
+- [x] Removal confirmation has consistent typography and a compact standard-text sheet.
+- [x] Account & security uses a reset action, editable household name, and one signed-in identity.

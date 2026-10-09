@@ -5,6 +5,8 @@ import Foundation
 final class Store: ObservableObject {
   @Published var proposalError: String?
   @Published var proposal: Plan?
+  // Loading a saved proposal must not interrupt launch or pull-to-refresh.
+  @Published var showingProposal = false
   @Published var plan: Plan?
   @Published var recipes: [RecipeSummary] = []
   @Published var grocery: [GroceryLine] = []
@@ -450,13 +452,6 @@ final class Store: ObservableObject {
     }
   }
 
-  func completePrepStep(taskId: Int, mealId: Int, step: PrepStep) async {
-    do {
-      let _: Ok = try await API.send("prep/\(taskId)/steps", method: "PATCH", body: ["recipe_id": mealId, "key": step.key, "done": !(step.done ?? false)])
-      await loadPrep()
-    } catch { fail(error) }
-  }
-
   func togglePrep(_ task: PrepTask) async {
     let next = !task.done
     if let i = prepTasks.firstIndex(where: { $0.id == task.id }) {
@@ -545,6 +540,25 @@ final class Store: ObservableObject {
       )
     } catch {
       setLocalStepRating(taskId: taskId, mealId: mealId, key: step.key, before)
+      fail(error)
+    }
+  }
+
+  /// 👍/👎 on a whole prep item, with an optional reason for a 👎. Logged for review.
+  func ratePrepTask(_ taskId: Int, _ rating: Int, reason: String = "") async {
+    guard let i = prepTasks.firstIndex(where: { $0.id == taskId }) else { return }
+    let before = (prepTasks[i].rating, prepTasks[i].reason)
+    let why = rating < 0 ? reason : ""
+    prepTasks[i].rating = rating
+    prepTasks[i].reason = why
+    do {
+      let _: Ok = try await API.send(
+        "prep/\(taskId)/feedback", method: "PUT", body: ["rating": rating, "reason": why])
+    } catch {
+      if let i = prepTasks.firstIndex(where: { $0.id == taskId }) {
+        prepTasks[i].rating = before.0
+        prepTasks[i].reason = before.1
+      }
       fail(error)
     }
   }
@@ -700,10 +714,22 @@ extension Store {
     proposalError = nil
     do {
       let reviewed: Plan = try await API.send("plans/\(proposal.id)/decision/\(decision)", method: "POST", body: [:])
-      self.proposal = nil
-      if decision == "approve" { plan = reviewed; await loadGrocery() }
-      else { await newPlan(meals: max(1, proposal.suggestedRecipeIds?.count ?? proposal.slots.count), keepCurrent: proposal.slots.count > (proposal.suggestedRecipeIds?.count ?? proposal.slots.count)) }
+      if decision == "approve" { showingProposal = false; self.proposal = nil; plan = reviewed; await loadGrocery() }
+      else {
+        self.proposal = reviewed
+        await replaceDeclinedProposal()
+      }
     } catch { proposalError = error.localizedDescription }
+  }
+
+  func replaceDeclinedProposal() async {
+    guard let proposal else { return }
+    let count = max(1, proposal.slots.count)
+    let keep = proposal.slots.count > (proposal.suggestedRecipeIds?.count ?? proposal.slots.count)
+    if !(await newPlan(meals: count, keepCurrent: keep)) {
+      proposalError = error ?? "Couldn't find another plan. Try again or adjust Settings → Filters."
+      error = nil
+    }
   }
 
   func resizeProposal(_ count: Int) async {
@@ -749,8 +775,8 @@ extension Store {
         }
         proposalError = nil
         proposal = created
-      } else { plan = created }
-      await loadGrocery()
+        showingProposal = true
+      } else { plan = created; await loadGrocery() }
       error = nil
       return true
     } catch {

@@ -176,3 +176,83 @@ def test_unnamed_dressings_stay_with_their_own_meal():
         {'recipe_id': 2, 'recipe_name': 'Salad B', 'instructions': [{'text': 'For the dressing, whisk tahini and lemon.'}]},
     ])
     assert [t['recipe_ids'] for t in tasks] == [[1], [2]]
+
+
+# #29: prep task names from real recipes.
+
+def test_whisking_several_things_is_a_mix_not_whisk_garlic():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Bowls',
+        'ingredients': [{'name': 'olive oil'}, {'name': 'red wine vinegar'}, {'name': 'garlic', 'quantity': '1 clove'}],
+        'instructions': [{'text': 'Whisk together the olive oil, vinegar and garlic.'}]}])
+    assert [t['title'] for t in tasks] == ['Mix olive oil, red wine vinegar & garlic']
+    only_garlic = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Bowls',
+        'ingredients': [{'name': 'garlic'}], 'instructions': [{'text': 'Whisk in the garlic.'}]}])
+    assert [t['title'] for t in only_garlic] == ['Make sauce']  # garlic going into a sauce
+
+
+def test_whisking_eggs_keeps_its_name():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Frittata',
+        'ingredients': [{'name': 'eggs', 'quantity': '6'}], 'instructions': [{'text': 'Whisk the eggs.'}]}])
+    assert [t['title'] for t in tasks] == ['Whisk eggs']
+
+
+def test_trimming_roots_names_the_vegetable_not_off_roots():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Stir fry',
+        'instructions': [{'text': 'Trim off the roots of the green onions.'}]}])
+    assert [t['title'] for t in tasks] == ['Prep green onions']
+
+
+def test_grating_on_a_grater_names_the_cheese():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Pasta',
+        'instructions': [{'text': 'Grate the parmesan on the small holes of a box grater.'}]}])
+    assert [t['title'] for t in tasks] == ['Grate parmesan']
+
+
+def test_a_sauce_that_needs_the_stove_is_not_prep():
+    from app.domain.prep import likely_prep
+    assert likely_prep('Whisk the sauce in a saucepan until it thickens.') is None
+    assert likely_prep('Combine the glaze ingredients and bring to a boil.') is None
+    assert likely_prep('Whisk the sauce over medium heat.') is None
+
+
+def test_black_pepper_and_bell_pepper_are_different_groceries():
+    from app.domain.prep import mentioned
+    ings = [{'name': 'ground black pepper'}, {'name': 'red bell peppers'}]
+    assert [i['name'] for i in mentioned('Dice the bell pepper.', ings)] == ['red bell peppers']
+    assert [i['name'] for i in mentioned('Dice the pepper.', ings)] == ['red bell peppers']
+    assert [i['name'] for i in mentioned('Season with black pepper.', ings)] == ['ground black pepper']
+
+
+def test_one_sentence_naming_several_ingredients_does_not_bleed():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Chili',
+        'ingredients': [{'name': 'onion', 'quantity': '1'}, {'name': 'bell pepper', 'quantity': '2'},
+                        {'name': 'celery', 'quantity': '3 stalks'}],
+        'instructions': [{'text': 'Dice the onion, bell pepper and celery.'}]}])
+    by_title = {t['title']: t for t in tasks}
+    assert set(by_title) == {'Prep onion', 'Prep bell pepper', 'Prep celery'}
+    assert by_title['Prep onion']['quantities'] == ['1 onion']
+    assert by_title['Prep bell pepper']['quantities'] == ['2 bell pepper']
+
+
+# #21: Weekend prep is grouped by what the food is.
+
+def test_tasks_get_a_section_and_an_item_name():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Dinner',
+        'ingredients': [{'name': 'onion', 'quantity': '1'}, {'name': 'garlic', 'quantity': '4 cloves'},
+                        {'name': 'turkey cutlets', 'quantity': '1 lb'}, {'name': 'mozzarella', 'quantity': '1 cup'},
+                        {'name': 'canned chickpeas', 'quantity': '2 cans'}],
+        'instructions': [
+            {'text': 'Dice the onion.'}, {'text': 'Mince the garlic.'},
+            {'text': 'Marinate the turkey cutlets overnight.'}, {'text': 'Grate the mozzarella.'},
+            {'text': 'Rinse the chickpeas.'}, {'text': 'For the dressing, whisk oil and vinegar.'},
+        ]}])
+    by = {t['title']: (t['section'], t['item'], t['action']) for t in tasks}
+    assert by['Prep onion'] == ('veg', 'Onion', '')
+    assert by['Prep garlic'] == ('herbs', 'Garlic', '')
+    assert by['Marinate turkey cutlets'] == ('protein', 'Turkey cutlets', 'Marinate')
+    assert by['Grate mozzarella'] == ('cheese', 'Mozzarella', 'Grate')
+    assert by['Prep canned chickpeas'][0] == 'protein'
+    assert by['Make dressing'][0] == 'sauce'
+    beans = prep_from_slots([{'recipe_id': 2, 'recipe_name': 'Salmon',
+        'ingredients': [{'name': 'green beans', 'quantity': '1 lb'}], 'instructions': [{'text': 'Trim the green beans.'}]}])
+    assert beans[0]['section'] == 'veg'

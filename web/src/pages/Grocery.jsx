@@ -478,7 +478,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
     note.push(line.used_by.map(shortMealName).filter(Boolean).join(" · "));
   }
   if (line.never_shop) note.push("Always checked off");
-  else if (line.from_pantry) note.push("on hand");
+
   return (
     <div
       className={`g-item${line.checked ? " is-done" : ""}${line.from_pantry ? " owned" : ""}${showEmoji ? " has-emo" : ""}${line.ingredient_photo_path ? " has-photo" : ""}`}
@@ -494,6 +494,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
       <button type="button" className="g-main" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
         <span className="g-name">{line.name}</span>
         {note.length > 0 && <span className="g-sub">{note.join(" · ")}</span>}
+        {line.from_pantry && !line.never_shop && <span className="g-tip" data-tip="grocery.pantry"><span className="g-tip-star" aria-hidden="true">★</span> In your pantry, so it starts checked off</span>}
       </button>
       <span className="g-qty">{line.quantity}</span>
     </div>
@@ -504,6 +505,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
   const [name, setName] = useState(item.name);
   const [substitute, setSubstitute] = useState("");
   const [qty, setQty] = useState(item.quantity || "");
+  const [failedPhoto, setFailedPhoto] = useState(null);
   useEffect(() => {
     setQty(item.quantity || "");
   }, [item.id, item.quantity]);
@@ -523,9 +525,11 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         <label className="grocery-amount-row" htmlFor="grocery-item-amount">Quantity
           <input id="grocery-item-amount" aria-label="Quantity" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => onPatch({ quantity: qty })} />
         </label>
-        <div className="ingredient-banner" aria-label={item.ingredient_photo_path ? undefined : "Ingredient photo space"}>
-          {item.ingredient_photo_path && <img src={photoSrc(item.ingredient_photo_path)} alt={item.name} onError={() => { throw new Error(`Ingredient photo failed: ${item.name}`); }} />}
-        </div>
+        {item.ingredient_photo_path && failedPhoto !== item.ingredient_photo_path && (
+          <div className="ingredient-banner">
+            <img src={photoSrc(item.ingredient_photo_path)} alt={item.name} onError={() => setFailedPhoto(item.ingredient_photo_path)} />
+          </div>
+        )}
         <label className="grocery-substitute-row">Substitute
           <input className="field" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
         </label>

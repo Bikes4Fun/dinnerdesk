@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { GroceryPick } from "../GroceryPick.jsx";
+import { onListKeys } from "../listKeys.js";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 
@@ -13,7 +14,7 @@ function Back({ to = "/kitchen" }) {
 
 function CheckRow({ name, checked, onToggle }) {
   return (
-    <button type="button" className="p-check" onClick={onToggle}>
+    <button type="button" className="p-check" role="checkbox" aria-checked={checked} onClick={onToggle}>
       <span className={`box${checked ? " is-on" : ""}`}>{checked ? "✓" : ""}</span>
       <span className="g-name">{name}</span>
     </button>
@@ -238,7 +239,7 @@ function PantryAdd() {
           New
         </button>
       </header>
-      <div className="scroll pad">
+      <div className="scroll pad" onKeyDown={(e) => { if (e.target.closest(".add-line")) return; onListKeys(e, ".p-check", ".field-input"); }}>
         {err && <p className="banner err">{err}</p>}
         <p className="help" data-tip="kitchen.pantry-add">Check what you have. Saves as you go.</p>
         {adding && (
@@ -258,6 +259,8 @@ function PantryAdd() {
         <input
           className="field-input"
           placeholder="Search items…"
+          aria-label="Search items"
+          autoComplete="off"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -404,7 +407,7 @@ function Overrides() {
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
         {items.map((it) => (
-          <div key={it.id} className="have-row">
+          <div key={it.id} className="have-row substitution-row">
             <strong>
               {it.from_name} → {it.to_name}
             </strong>

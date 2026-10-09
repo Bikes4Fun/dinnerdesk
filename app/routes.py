@@ -16,7 +16,7 @@ from app.deps import AdminDep, DbDep, HhDep
 from fractions import Fraction
 
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
-from app.domain.recipe_photos import usable_photo
+from app.domain.recipe_photos import usable_photo, photo_is_ai
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
     collect_flagged_recipes,
@@ -37,10 +37,10 @@ from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, s
 from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
+    PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
     SuggestionSwap,
-    PrepStepCompletion,
     PlacementPut,
     DevNotesPut,
     FavoritePut,
@@ -383,6 +383,7 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         cookware = json.loads(row["cookware_json"] or "[]")
     except json.JSONDecodeError:
         raise
+    provenance = json.loads(row["provenance_json"] or "{}")
     out = {
         "id": rid,
         "household_id": row["household_id"],
@@ -391,7 +392,10 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "servings": row["servings"],
         "cooking_minutes": row["cooking_minutes"],
         "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
+        "photo_ai": photo_is_ai(usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])),
         "source_url": row["source_url"],
+        "instructions_source": provenance.get("instructions_source"),
+        "instructions_copied_from_third_party": provenance.get("instructions_copied_from_third_party"),
         "parent_recipe_id": row["parent_recipe_id"],
         "ingredients": ings,
         "instructions": instructions,
@@ -485,8 +489,10 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
         "start_date": plan["start_date"],
         "days": plan["days"],
         "status": plan["status"],
+        "created_at": plan["created_at"],
         "slots": slots,
         **json.loads(plan["suggestion_json"] or "{}"),
+        "suggestion_note": json.loads(plan["suggestion_json"] or "{}").get("suggestion_note") if plan["status"] == "suggested" else None,
     }
 
 
@@ -1570,6 +1576,30 @@ def get_pantry_catalog(db: PgConnection = DbDep, household_id: int = HhDep):
     return {"items": items}
 
 
+@router.get("/filter-items")
+def list_filter_items(
+    q: str = "",
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+):
+    """Select specific ingredients for custom allergies/avoids, without invented matches."""
+    words = search_tokens(q)
+    if not words:
+        return {"items": []}
+    names = set(_grocery_name_pool(db, household_id))
+    names.update(row["canonical_name"] for row in db.execute(
+        """SELECT DISTINCT i.canonical_name FROM ingredients i
+           JOIN recipe_ingredients ri ON ri.ingredient_id = i.id
+           JOIN recipes r ON r.id = ri.recipe_id
+           WHERE r.household_id IS NULL OR r.household_id = ?""", (household_id,)))
+    hits, _ = search_grocery_names(sorted(names), q, limit=len(names) or 1)
+    # Every query word must match; plural queries also find singular ingredient names.
+    def matches(name):
+        hay = search_tokens(name)
+        return all(any(part.startswith(word) or part.startswith(word[:-1] if len(word) > 3 and word.endswith("s") else word) for part in hay) for word in words)
+    return {"items": [{"name": name} for name in hits if matches(name)][:40]}
+
+
 @router.get("/grocery-items")
 def list_grocery_items(
     q: str = "",
@@ -1813,20 +1843,18 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
                       "instructions": recipe["instructions"],
                       "ingredients": [{**ing, "quantity": scale_quantity(ing["quantity"], factor)} for ing in recipe["ingredients"]]})
     existing = {(r["title"], r["linked_slots_json"]): r for r in db.execute("SELECT * FROM prep_tasks WHERE plan_id = ?", (plan_id,))}
-    completed = {f"{recipe_id}:{key}" for recipe_id, key in _prep_checked(db, plan_id)}
+    completed = set()
     for row in existing.values():
         details = json.loads(row["details_json"])
         if row["done"]:
             completed.update(f"{m['id']}:{s['key']}" for m in details.get("meals", []) for s in m.get("steps", []))
         completed.update(json.loads(row["completed_steps_json"]))
     retained = set()
-    current_keys = set()
     # Completion follows recipe and step identity, even when tasks regroup.
     for index, task in enumerate(prep_from_slots(slots)):
         linked = json.dumps(task["recipe_ids"])
         details = json.dumps({"meals": task["meals"], "quantities": task["quantities"], "auto": task["auto"]})
         keys = {f"{m['id']}:{s['key']}" for m in task["meals"] for s in m["steps"]}
-        current_keys.update(keys)
         progress = json.dumps(sorted(completed & keys))
         done = int(bool(keys) and keys <= completed)
         old = existing.get((task["title"], linked))
@@ -1839,10 +1867,6 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
     for old in existing.values():
         if old["id"] not in retained:
             db.execute("DELETE FROM prep_tasks WHERE id = ?", (old["id"],))
-    # Retire checks for steps removed or rewritten, matching the JSON state.
-    for recipe_id, key in _prep_checked(db, plan_id):
-        if f"{recipe_id}:{key}" not in current_keys:
-            _set_prep_item(db, plan_id, recipe_id, key, False)
 
 
 @router.get("/plans/{plan_id}/prep")
@@ -1860,9 +1884,9 @@ def list_prep(
     with transaction(db):
         _refresh_prep(db, plan_id, household_id)
     feedback = {
-        (int(r["recipe_id"]), r["step_key"]): int(r["rating"])
+        (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "")
         for r in db.execute(
-            "SELECT recipe_id, step_key, rating FROM prep_step_feedback WHERE household_id = ?",
+            "SELECT recipe_id, step_key, rating, reason FROM prep_step_feedback WHERE household_id = ?",
             (household_id,),
         )
     }
@@ -1872,19 +1896,20 @@ def list_prep(
         (plan_id,),
     ):
         details = json.loads(r["details_json"])
+        votes = []
         for meal in details.get("meals") or []:
             for step in meal.get("steps") or []:
-                step["rating"] = feedback.get((int(meal["id"]), step["key"]), 0)
+                rating, reason = feedback.get((int(meal["id"]), step["key"]), (0, ""))
+                step["rating"] = rating
                 step["done"] = bool(r["done"]) or f"{meal['id']}:{step['key']}" in json.loads(r["completed_steps_json"])
-        tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]), **details})
+                votes.append((rating, reason))
+        # The item's own 👍/👎: what every step in it says, or nothing when they disagree.
+        rating = votes[0][0] if votes and all(v[0] == votes[0][0] for v in votes) else 0
+        reason = next((why for value, why in votes if value == rating and why), "") if rating < 0 else ""
+        tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
+                      "rating": rating, "reason": reason, "section": "other", "item": r["title"],
+                      "action": "", **details})
     return {"tasks": tasks}
-
-
-def _prep_checked(db: PgConnection, plan_id: int) -> set[tuple[int, str]]:
-    return {
-        (int(r["recipe_id"]), r["step_key"])
-        for r in db.execute("SELECT recipe_id, step_key FROM prep_step_done WHERE plan_id = ?", (plan_id,))
-    }
 
 
 def _prep_items(details: dict) -> list[tuple[int, str]]:
@@ -1933,6 +1958,41 @@ def put_prep_feedback(
     return {"ok": True, "rating": body.rating}
 
 
+@router.put("/prep/{task_id}/feedback")
+def put_prep_task_feedback(
+    task_id: int,
+    body: PrepTaskFeedbackPut,
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+):
+    """👍/👎 on a whole prep item: the same vote, and reason, for every meal's step in it.
+    Logged for review (GET /dev/prep-feedback); it doesn't change what Prep shows."""
+    with transaction(db):
+        row = _owned_prep_task(db, task_id, household_id)
+        details = json.loads(row["details_json"] or "{}")
+        reason = body.reason if body.rating < 0 else ""
+        for meal in details.get("meals") or []:
+            for step in meal.get("steps") or []:
+                if body.rating:
+                    db.execute(
+                        """INSERT INTO prep_step_feedback
+                           (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
+                             step_text = excluded.step_text, category = excluded.category,
+                             auto = excluded.auto, rating = excluded.rating, reason = excluded.reason,
+                             updated_at = excluded.updated_at""",
+                        (household_id, int(meal["id"]), step["key"], step.get("text") or "", row["title"],
+                         1 if step.get("auto", True) else 0, body.rating, reason, now()),
+                    )
+                else:
+                    db.execute(
+                        "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ?",
+                        (household_id, int(meal["id"]), step["key"]),
+                    )
+    return {"ok": True, "rating": body.rating, "reason": reason}
+
+
 @router.patch("/prep/{task_id}")
 def patch_prep(
     task_id: int,
@@ -1947,24 +2007,6 @@ def patch_prep(
         db.execute(
             "UPDATE prep_tasks SET done = ?, completed_steps_json = ? WHERE id = ?",
             (int(body.done), json.dumps(keys if body.done else []), task_id),
-        )
-        # Checking the task checks every item in it; unchecking clears them.
-        for recipe_id, key in _prep_items(details):
-            _set_prep_item(db, row["plan_id"], recipe_id, key, body.done)
-    return {"ok": True}
-
-
-def _set_prep_item(db: PgConnection, plan_id: int, recipe_id: int, key: str, done: bool) -> None:
-    if done:
-        db.execute(
-            """INSERT INTO prep_step_done (plan_id, recipe_id, step_key) VALUES (?, ?, ?)
-               ON CONFLICT (plan_id, recipe_id, step_key) DO NOTHING""",
-            (plan_id, recipe_id, key),
-        )
-    else:
-        db.execute(
-            "DELETE FROM prep_step_done WHERE plan_id = ? AND recipe_id = ? AND step_key = ?",
-            (plan_id, recipe_id, key),
         )
 
 
@@ -1988,7 +2030,6 @@ def put_prep_step(
             completed.add(key)
         else:
             completed.discard(key)
-        _set_prep_item(db, row["plan_id"], body.recipe_id, body.key, body.done)
         done = bool(keys) and completed == keys
         db.execute("UPDATE prep_tasks SET done = ?, completed_steps_json = ? WHERE id = ?", (int(done), json.dumps(sorted(completed)), task_id))
     return {"ok": True, "done": done}
@@ -2068,6 +2109,7 @@ def get_prep_feedback(_admin=AdminDep, db: PgConnection = DbDep):
             "step": r["step_text"],
             "picked_by": "app" if r["auto"] else "recipe tag",
             "rating": r["rating"],
+            "reason": r["reason"] or "",
             "updated_at": r["updated_at"],
         }
         for r in db.execute(
@@ -2500,7 +2542,7 @@ def decide_suggestion(plan_id: int, decision: str, db: PgConnection = DbDep, hou
         stored = db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
         meta = json.loads(stored["suggestion_json"])
         meta["decision"] = decision
-        meta["suggestion_note"] = f"{len(plan['slots'])} meals · {'Approved' if decision == 'approve' else 'Declined'} · {len(meta['changes'])} swaps"
+        meta["suggestion_note"] = None
         meta["reviewed_at"] = now()
         meta["feedback"] += [{"recipe_id": str(s["recipe_id"]), "liked": decision == "approve"} for s in plan["slots"] if s["recipe_id"] in meta["suggested_recipe_ids"]]
         if decision == "approve":
@@ -2593,7 +2635,10 @@ def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = D
         meta = json.loads(row["suggestion_json"])
         meta["suggested_recipe_ids"] = suggested
         meta.setdefault("count_changes", []).append({"from": len(plan["slots"]), "to": body.meal_count, "at": now()})
-        meta["suggestion_note"] = f"{body.meal_count} meals. Swap any suggestion before approving."
+        reasons = meta.setdefault("suggestion_reasons", {})
+        if delta > 0:
+            reasons.update({str(meal["id"]): meal.get("reasons", []) for meal in added})
+        meta["suggestion_note"] = _proposal_note(reasons, suggested)
         db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), plan_id))
     return _plan_out(db, plan_id, household_id)
 
@@ -2637,9 +2682,3 @@ def suggestion_swap_options(plan_id: int, slot_id: int, q: str = "", db: PgConne
         if len(options) == 50:
             break
     return {"recipes": options}
-
-
-@router.patch("/prep/{task_id}/steps")
-def complete_prep_step(task_id: int, body: PrepStepCompletion, db: PgConnection = DbDep, household_id: int = HhDep):
-    # Both client versions share one completion implementation.
-    return put_prep_step(task_id, body, db, household_id)

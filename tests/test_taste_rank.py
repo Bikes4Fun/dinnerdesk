@@ -159,6 +159,20 @@ def test_public_taste_uses_latest_filters_and_a_later_pass():
     assert public_taste([], signed_in=False)["profile"] is None
 
 
+def test_public_taste_gives_a_guest_their_own_answers():
+    """#27: a guest's earlier likes and passes come back so Taste Lab doesn't ask again."""
+    from app.taste_lab import public_taste
+
+    body = public_taste(
+        [snap("anon:x", [{"recipe_id": "4664", "liked": True}, {"recipe_id": "768", "liked": False}])],
+        signed_in=False,
+    )
+    assert body["signed_in"] is False
+    assert body["profile"] is None
+    assert body["votes"] == [{"recipe_id": "768", "liked": False}, {"recipe_id": "4664", "liked": True}]
+    assert (body["likes"], body["passes"]) == (1, 1)
+
+
 def test_favorites_when_taste_lab_is_empty():
     recipes = [
         meal(1, "New", ["shrimp", "lime"]),

@@ -21,6 +21,8 @@ from app.domain.recipe_photos import usable_photo
 TASTE_SERVER = ROOT / "tastelab" / "server.py"
 SKIP = {"incomplete", "side", "sauce", "dressing", "meal_component"}
 ARCHIVE_ID = re.compile(r"/(\d+)/?$")
+# The random id a guest's browser keeps for Taste Lab (crypto.randomUUID or similar).
+ANON_ID = re.compile(r"[A-Za-z0-9-]{8,64}")
 # Shared stand-in photos. usable_photo can still return one; don't put it on the wrong dish.
 GENERIC_PHOTOS = frozenset({
     "food/pasta-tomato.jpg",
@@ -152,11 +154,24 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
     With `filters` (the household's Settings → Filters) the profile is those filters, so Taste
     Lab and Settings edit one thing. Without it, the latest Taste Lab profile is shown.
     """
-    if not signed_in:
+    if not signed_in and not snapshots:
         return {"signed_in": False, "profile": None, "likes": 0, "passes": 0, "votes": []}
     from app.domain.taste_rank import learn
 
     taste = learn(snapshots, [])
+    votes = [{"recipe_id": rid, "liked": False} for rid in sorted(taste.passed)]
+    votes.extend({"recipe_id": rid, "liked": True} for rid in sorted(taste.liked))
+    votes.extend({"recipe_id": rid, "liked": True, "plan": True} for rid in sorted(taste.plan_liked))
+    if not signed_in:
+        # A guest's own earlier answers (same browser), so Taste Lab doesn't ask again (#27).
+        # No profile: guests' filters stay in the page.
+        return {
+            "signed_in": False,
+            "profile": None,
+            "likes": len(taste.liked) + len(taste.plan_liked),
+            "passes": len(taste.passed),
+            "votes": votes,
+        }
     profile = {"diets": ["omnivore"], "allergens": [], "dislikes": []}
     if filters is not None:
         clean = clean_filters(filters)
@@ -169,9 +184,6 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
                 "allergens": [str(item).strip().lower() for item in (prof.get("allergens") or []) if str(item).strip()],
                 "dislikes": [str(item).strip().lower() for item in (prof.get("dislikes") or []) if str(item).strip()],
             }
-    votes = [{"recipe_id": rid, "liked": False} for rid in sorted(taste.passed)]
-    votes.extend({"recipe_id": rid, "liked": True} for rid in sorted(taste.liked))
-    votes.extend({"recipe_id": rid, "liked": True, "plan": True} for rid in sorted(taste.plan_liked))
     return {
         "signed_in": True,
         "profile": profile,
@@ -219,9 +231,34 @@ def household_filters(db: PgConnection, household_id: int) -> dict:
 def my_taste(request: Request, db: PgConnection = DbDep):
     row = session_info(db, request.cookies.get(SESSION_COOKIE))
     if not row:
-        return public_taste([], signed_in=False)
+        anon = (request.query_params.get("anon") or "").strip()
+        return public_taste(snapshots_for_anon(anon) if ANON_ID.fullmatch(anon) else [], signed_in=False)
     filters = household_filters(db, int(row["household_id"])) if row["household_id"] else None
     return public_taste(snapshots_for_accounts([str(row["user_id"])]), signed_in=True, filters=filters)
+
+
+def snapshots_for_anon(anon_id: str) -> list[dict]:
+    """A guest's own snapshots, by the random id their browser keeps. Only people not linked
+    to an account: once someone signs in, their answers come with the account instead."""
+    with taste().db() as con:
+        rows = con.execute(
+            """SELECT e.body
+               FROM taste_events e
+               JOIN taste_sessions s ON s.id = e.session_id
+               JOIN taste_people p ON p.id = s.person_id
+               WHERE e.kind = 'snapshot' AND p.anon_id = ? AND p.account_id IS NULL
+               ORDER BY e.id""",
+            (anon_id,),
+        ).fetchall()
+    out = []
+    for row in rows:
+        raw = row["body"]
+        body = json.loads(raw) if isinstance(raw, str) else raw
+        if isinstance(body, dict):
+            saved = dict(body)
+            saved["account_id"] = f"anon:{anon_id}"
+            out.append(saved)
+    return out
 
 
 def snapshots_for_accounts(account_ids: list[str]) -> list[dict]:

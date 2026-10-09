@@ -112,6 +112,8 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   let servings: Int?
   let cookingMinutes: Int?
   let photoPath: String?
+  /// The photo was made with AI; the recipe page says so (#33).
+  let photoAI: Bool
   var favorited: Bool
   var toTry: Bool
   var hidden: Bool
@@ -119,10 +121,16 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   let tags: [String]
   var ingredients: [IngredientLine]
   var instructions: [InstructionStep]
+  let instructionsSource: String?
+  let instructionsCopiedFromThirdParty: Bool?
+  var instructionsCustomized: Bool {
+    instructionsSource == "dinnerdesk" && instructionsCopiedFromThirdParty == false
+  }
 
   enum CodingKeys: String, CodingKey {
-    case id, name, servings, cookingMinutes, photoPath
+    case id, name, servings, cookingMinutes, photoPath, photoAi
     case favorited, toTry, hidden, catalog, tags, ingredients, instructions
+    case instructionsSource, instructionsCopiedFromThirdParty
   }
 
   init(from decoder: Decoder) throws {
@@ -132,6 +140,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     servings = try c.decodeIfPresent(Int.self, forKey: .servings)
     cookingMinutes = try c.decodeIfPresent(Int.self, forKey: .cookingMinutes)
     photoPath = try c.decodeIfPresent(String.self, forKey: .photoPath)
+    photoAI = try c.decodeIfPresent(Bool.self, forKey: .photoAi) ?? false
     favorited = try c.decode(Bool.self, forKey: .favorited)
     toTry = try c.decode(Bool.self, forKey: .toTry)
     hidden = try c.decode(Bool.self, forKey: .hidden)
@@ -139,6 +148,8 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([IngredientLine].self, forKey: .ingredients)
     instructions = try c.decode([InstructionStep].self, forKey: .instructions)
+    instructionsSource = try c.decodeIfPresent(String.self, forKey: .instructionsSource)
+    instructionsCopiedFromThirdParty = try c.decodeIfPresent(Bool.self, forKey: .instructionsCopiedFromThirdParty)
   }
 
   var prettyTags: String {
@@ -255,6 +266,32 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   let quantities: [String]
   /// True when the app picked these steps (no step in the recipe was tagged Prep).
   let auto: Bool?
+  /// Weekend prep section (#21): veg, herbs, protein, cheese, sauce or other.
+  let section: String?
+  /// What's being prepped ("Onion"), and the verb when it isn't plain prep ("Grate").
+  let item: String?
+  let action: String?
+  /// 👍/👎 on the whole item (1, -1, 0) and why a 👎 (a PrepReason id, or "").
+  var rating: Int?
+  var reason: String?
+
+  var name: String { (item?.isEmpty == false ? item : nil) ?? title }
+}
+
+/// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.
+enum PrepReason: String, CaseIterable, Identifiable, Sendable {
+  case dayOf = "day_of", keptBadly = "kept_badly", tooSmall = "too_small"
+  case prepDifferently = "prep_differently", notPrep = "not_prep"
+  var id: String { rawValue }
+  var label: String {
+    switch self {
+    case .dayOf: return "Better done day-of"
+    case .keptBadly: return "Didn't keep well"
+    case .tooSmall: return "Too small to bother"
+    case .prepDifferently: return "Prep it differently"
+    case .notPrep: return "Not a prep step"
+    }
+  }
 }
 
 nonisolated struct PrepMeal: Decodable, Identifiable, Sendable {
@@ -355,6 +392,8 @@ nonisolated struct SavedPlan: Decodable, Identifiable, Sendable {
   let status: String
   let decision: String?
   let changes: [SuggestionChange]?
+  /// When the plan was saved (ISO 8601). Older servers don't send it.
+  let createdAt: String?
 }
 nonisolated struct SuggestionChange: Decodable, Sendable { let from: Int; let to: Int; let at: String }
 nonisolated struct PendingSuggestion: Decodable, Sendable { let plan: Plan? }

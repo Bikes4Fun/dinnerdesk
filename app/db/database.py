@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import json
 import re
 from contextlib import contextmanager
 from pathlib import Path
@@ -185,10 +186,29 @@ def _add_column(conn, table: str, name: str, spec: str) -> None:
     conn.execute(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {name} {spec}")
 
 
+def migrate_prep_completion(conn) -> None:
+    """Fold legacy step checks into task JSON before retiring the duplicate table."""
+    if not conn.execute("SELECT to_regclass('prep_step_done') AS name").fetchone()["name"]:
+        return
+    legacy: dict[int, set[str]] = {}
+    for row in conn.execute("SELECT plan_id, recipe_id, step_key FROM prep_step_done"):
+        legacy.setdefault(row["plan_id"], set()).add(f"{row['recipe_id']}:{row['step_key']}")
+    for task in conn.execute("SELECT * FROM prep_tasks"):
+        details = json.loads(task["details_json"])
+        keys = {f"{meal['id']}:{step['key']}" for meal in details.get("meals", []) for step in meal.get("steps", [])}
+        completed = (set(json.loads(task["completed_steps_json"])) | legacy.get(task["plan_id"], set())) & keys
+        if task["done"]:
+            completed = keys
+        conn.execute("UPDATE prep_tasks SET done = ?, completed_steps_json = ? WHERE id = ?",
+                     (int(bool(keys) and completed == keys), json.dumps(sorted(completed)), task["id"]))
+    conn.execute("DROP TABLE prep_step_done")
+
+
 def init_db(conn) -> None:
     conn.executescript(SCHEMA_PATH.read_text())
     _add_column(conn, "prep_tasks", "completed_steps_json", "TEXT NOT NULL DEFAULT '[]'")
     _add_column(conn, "prep_tasks", "details_json", "TEXT NOT NULL DEFAULT '{}'")
+    _add_column(conn, "prep_step_feedback", "reason", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "plans", "hidden", "INTEGER NOT NULL DEFAULT 0")
     _add_column(conn, "plans", "suggestion_json", "TEXT NOT NULL DEFAULT '{}'")
     _add_column(conn, "plans", "status", "TEXT NOT NULL DEFAULT 'active'")
@@ -202,6 +222,7 @@ def init_db(conn) -> None:
     _add_column(conn, "users", "failed_attempts", "INTEGER NOT NULL DEFAULT 0")
     _add_column(conn, "users", "locked_until", "TEXT")
     _add_column(conn, "prep_step_feedback", "category", "TEXT NOT NULL DEFAULT ''")
+    migrate_prep_completion(conn)
     from app.db.seed import apply_seeds
 
     apply_seeds(conn)

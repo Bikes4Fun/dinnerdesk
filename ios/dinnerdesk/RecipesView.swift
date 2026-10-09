@@ -82,7 +82,11 @@ struct RecipesView: View {
         .background(Theme.bg)
         if searchOpen {
           TextField("Search recipes or ingredients", text: $query)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(Theme.body)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
             .onChange(of: query) { _, q in
@@ -173,6 +177,15 @@ struct RecipesView: View {
     browseSection("All recipes", rows: rows(for: .all), seeAll: .all, empty: "No recipes")
   }
 
+  private func seeAllButton(_ title: String, _ kind: RecipeListKind) -> some View {
+    Button("See all") { list = kind }
+      .font(Theme.action)
+      .foregroundStyle(Theme.accent)
+      .frame(minHeight: 44)
+      .contentShape(Rectangle())
+      .accessibilityLabel("See all \(title)")
+  }
+
   private func browseSection(
     _ title: String, rows: [RecipeSummary], seeAll: RecipeListKind, empty: String? = nil
   ) -> some View {
@@ -183,8 +196,8 @@ struct RecipesView: View {
             .font(Theme.title)
             .foregroundStyle(Theme.ink)
         } else {
-          // "See all" sits beside the title when both fit on one line. At large text the
-          // title itself becomes the link, with a chevron, so the title never gets cut off.
+          // One link style everywhere: "See all" (no chevron). It sits beside the title when
+          // both fit on one line; at large text it moves under the title, which wraps.
           ViewThatFits(in: .horizontal) {
             HStack {
               Text(title)
@@ -192,24 +205,16 @@ struct RecipesView: View {
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
               Spacer()
-              Button("See all") { list = seeAll }
-                .font(Theme.action)
-                .foregroundStyle(Theme.accent)
+              seeAllButton(title, seeAll)
             }
-            Button { list = seeAll } label: {
-              HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(title)
-                  .font(Theme.title)
-                  .foregroundStyle(Theme.ink)
-                  .multilineTextAlignment(.leading)
-                Image(systemName: "chevron.right")
-                  .font(Theme.action)
-                  .foregroundStyle(Theme.accent)
-              }
-              .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(title)
+                .font(Theme.title)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+              seeAllButton(title, seeAll)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(title), see all")
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
         }
       }
@@ -449,7 +454,10 @@ struct RecipeDetailView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var recipe: RecipeDetail?
   @State private var error: String?
-  @State private var added = false
+  private var added: Bool { store.onWeek(id) }
+  @State private var adding = false
+  @State private var planNotice: String?
+  @State private var showingMenu = false
   @State private var tab: RecipePageTab = .overview
   @State private var nameExpanded = false
   @State private var draftServings: Int?
@@ -474,6 +482,9 @@ struct RecipeDetailView: View {
 
             if tab == .overview {
               RecipePhoto(path: recipe.photoPath, large: true)
+              if recipe.photoAI && recipe.photoPath != nil {
+                StarTip(id: "recipes.ai-photo")
+              }
             }
 
             // Long names at large text sizes pushed everything else off screen.
@@ -511,6 +522,10 @@ struct RecipeDetailView: View {
               }
             } else {
               Text("Steps").font(Theme.title)
+              if recipe.instructionsCustomized {
+                Text("Instructions customized by Dinnerdesk")
+                  .font(Theme.subtitle).foregroundStyle(Theme.muted)
+              }
               ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
                 CookStepRow(index: i, step: step) {
                   Task { await togglePrep(at: i) }
@@ -521,12 +536,12 @@ struct RecipeDetailView: View {
             Button {
               Task { await addToWeek() }
             } label: {
-              Text(added ? "Added to this plan" : "Add to this plan")
+              Text(added ? "Remove from this plan" : "Add to this plan")
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
-            .disabled(added)
+            .disabled(adding)
           }
           .padding()
         }
@@ -537,41 +552,62 @@ struct RecipeDetailView: View {
         ProgressView()
       }
     }
+    .overlay(alignment: .bottom) {
+      if let planNotice {
+        Text(planNotice)
+          .font(Theme.body)
+          .padding()
+          .background(Theme.bg, in: Capsule())
+          .shadow(radius: 4)
+          .padding(.bottom, 16)
+          .allowsHitTesting(false)
+      }
+    }
+    .task(id: planNotice) {
+      guard planNotice != nil else { return }
+      do { try await Task.sleep(for: .seconds(2)) } catch { return }
+      planNotice = nil
+    }
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       if let recipe {
         ToolbarItem(placement: .topBarTrailing) {
           HStack {
             Button {
+              Task { await addToWeek() }
+            } label: {
+              Image(systemName: added ? "minus.circle.fill" : "plus.circle.fill")
+            }
+            .disabled(adding)
+            .accessibilityLabel(added ? "Remove from this plan" : "Add to this plan")
+            .accessibilityValue(adding ? "Adding" : added ? "Added" : "Not added")
+            Button {
               Task { await favorite(recipe) }
             } label: {
               Image(systemName: recipe.favorited ? "heart.fill" : "heart")
                 .foregroundStyle(recipe.favorited ? Theme.accent : Theme.muted)
             }
-            Menu {
-              Button(added ? "Added to this plan" : "Add to this plan") {
-                Task { await addToWeek() }
-              }
-              Button(recipe.toTry ? "Remove from To try" : "To try") {
-                Task { await tryLater(recipe) }
-              }
-              Button(
-                recipe.hidden ? "Unhide recipe" : "Hide recipe",
-                role: recipe.hidden ? .none : .destructive
-              ) {
-                Task { await hide(on: !recipe.hidden) }
-              }
-              .disabled(added)
-              .accessibilityLabel("Add or remove recipe from meal plan")
-              .accessibilityValue(added ? "Added" : "Not added")
-            } label: {
+            Button { showingMenu = true } label: {
               Image(systemName: "ellipsis.circle")
-                .padding(4)
-                .contentShape(Circle())
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
             }
+            .accessibilityLabel("Recipe options")
           }
         }
       }
+    }
+    .menuSheet(isPresented: $showingMenu) {
+      if let recipe {
+        [
+          MenuSheetItem(title: recipe.toTry ? "Remove from To try" : "To try", systemImage: "bookmark") {
+            Task { await tryLater(recipe) }
+          },
+          MenuSheetItem(title: recipe.hidden ? "Unhide recipe" : "Hide recipe", systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
+            Task { await hide(on: !recipe.hidden) }
+          }
+        ]
+      } else { [] }
     }
     .task {
       do {
@@ -678,8 +714,17 @@ struct RecipeDetailView: View {
   }
 
   private func addToWeek() async {
-    await store.addToWeek(recipeId: id, servings: mealServings)
-    added = store.error == nil
+    guard !adding else { return }
+    let removing = added
+    error = nil
+    planNotice = nil
+    adding = true
+    defer { adding = false }
+    if removing { await store.removeFromWeek(recipeId: id) }
+    else { await store.addToWeek(recipeId: id, servings: mealServings) }
+    if added != removing {
+      planNotice = removing ? "Removed from this plan" : "Added to this plan"
+    } else { error = store.error }
   }
 
   private func togglePrep(at index: Int) async {
@@ -725,7 +770,8 @@ private struct CookStepRow: View {
       }
       stepBody
         .frame(maxWidth: .infinity, alignment: .leading)
-      StepTimers(text: step.displayText)
+      // Far-future feature: keep duration parsing/countdowns out of Cook rendering.
+      // StepTimers(text: step.displayText)
       if let ings = step.ings, !ings.isEmpty {
         VStack(alignment: .leading, spacing: 2) {
           ForEach(amountLines(ings), id: \.self) { line in

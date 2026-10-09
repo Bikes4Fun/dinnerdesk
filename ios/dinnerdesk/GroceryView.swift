@@ -313,6 +313,9 @@ struct GroceryRow: View {
             if !note.isEmpty {
               Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
+            if line.fromPantry && !line.neverShop {
+              pantryTip
+            }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
           if !typeSize.isAccessibilitySize, !line.quantity.isEmpty {
@@ -337,10 +340,22 @@ struct GroceryRow: View {
     if store.showMeals && !line.usedBy.isEmpty {
       parts.append(line.usedBy.map(shortMealName).filter { !$0.isEmpty }.joined(separator: " · "))
     }
-    if line.fromPantry {
-      parts.append("Pantry")
-    }
     return parts.joined(separator: " · ")
+  }
+
+  /// The pantry note is a tip (purple ★ on the aubergine tint), not plain grey text.
+  private var pantryTip: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 4) {
+      Image(systemName: "star.fill").font(Theme.subtitle)
+        .foregroundStyle(Color(hex: 0x7A3B73))
+        .accessibilityHidden(true)
+      Text(Copy.text("grocery.pantry")).font(Theme.subtitle).foregroundStyle(Theme.ink)
+    }
+    .padding(.horizontal, 8)
+    .padding(.vertical, 3)
+    .background(Theme.aubergineTint, in: Capsule())
+    .accessibilityElement(children: .combine)
+    .accessibilityIdentifier("tip.grocery.pantry")
   }
 }
 
@@ -399,14 +414,17 @@ struct GroceryItemView: View {
                   .foregroundStyle(Theme.muted)
               }
 
-              if let path = line.ingredientPhotoPath {
-                RecipePhoto(
-                  path: path, large: true, bannerHeight: min(220, geometry.size.height * 0.25))
-              } else {
-                RoundedRectangle(cornerRadius: 16)
-                  .fill(Theme.surface)
-                  .frame(height: min(220, geometry.size.height * 0.25))
-                  .accessibilityLabel("Ingredient photo space")
+              if let url = API.photoURL(line.ingredientPhotoPath) {
+                AsyncImage(url: url) { phase in
+                  if let image = phase.image {
+                    image.resizable().scaledToFill()
+                      .frame(maxWidth: .infinity)
+                      .frame(height: min(220, geometry.size.height * 0.25))
+                      .clipped()
+                      .clipShape(RoundedRectangle(cornerRadius: 16))
+                      .accessibilityLabel("Photo of \(line.name)")
+                  }
+                }
               }
               ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
@@ -448,10 +466,11 @@ struct GroceryItemView: View {
               }
 
               Text("You'll use this in…")
-                .font(Theme.mealName)
+                .font(Theme.subtitle)
                 .foregroundStyle(Theme.ink)
-                .frame(width: geometry.size.width - 32, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
               if !line.usedIn.isEmpty {
                 ForEach(line.usedIn) { meal in
                   if let rid = meal.recipeId {
