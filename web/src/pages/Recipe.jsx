@@ -328,6 +328,7 @@ export function Recipe({ id }) {
                 <>
                   {recipe.photo_path && <img className="hero" src={photoSrc(recipe.photo_path)} alt="" />}
                   {recipe.photo_path && recipe.photo_ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
+                  {recipe.photo_path && !recipe.photo_ai && recipe.photo_shared && <Tip id="recipes.shared-photo" className="ai-photo-tip">This photo is from a similar recipe, so it may not match this one exactly.</Tip>}
                   <ServingsMeta />
                   {recipe.tags.length > 0 && (
                     <p className="muted">{recipe.tags.map((t) => t.replaceAll("_", " ")).join(" · ")}</p>

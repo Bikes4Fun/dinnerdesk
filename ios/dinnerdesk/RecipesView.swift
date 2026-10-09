@@ -484,6 +484,8 @@ struct RecipeDetailView: View {
               RecipePhoto(path: recipe.photoPath, large: true)
               if recipe.photoAI && recipe.photoPath != nil {
                 StarTip(id: "recipes.ai-photo")
+              } else if recipe.photoShared && recipe.photoPath != nil {
+                StarTip(id: "recipes.shared-photo")
               }
             }
 
