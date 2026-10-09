@@ -14,7 +14,6 @@ struct PlanView: View {
   @State private var savingDraft = false
   @State private var draftTitle = ""
   @State private var removing = false
-  @State private var makingPlan = false
   /// Width of the plan list after its padding. One photo size is chosen from this.
   @State private var totalRowWidth: CGFloat = 350
 
@@ -179,8 +178,7 @@ struct PlanView: View {
       }
       .sheet(item: $picking) { slot in ScheduleMealSheet(slot: slot) }
       .sheet(isPresented: $drafts) { SavedPlansView() }
-      .sheet(isPresented: $makingPlan) { NewPlanSheet() }
-      .sheet(isPresented: Binding(get: { store.proposal != nil && !makingPlan }, set: { if !$0 { store.proposal = nil } })) {
+      .sheet(isPresented: Binding(get: { store.proposal != nil }, set: { if !$0 { store.proposal = nil } })) {
         SuggestedPlanReview()
       }
       .refreshable { await store.loadAll() }
@@ -205,57 +203,9 @@ struct PlanView: View {
     }
   }
 
-  /// One photo size for every list row. Grows to 200 only when every title fits on two
-  /// lines beside that photo. Otherwise the widest 16-character opening in the plan
-  /// pulls every photo down together, never above the 160 ideal. At 70 the photo
-  /// stops shrinking and the title may show fewer than 16 characters.
+  /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.
   private func calculateGlobalPhotoWidth(for plan: Plan, availableWidth: CGFloat) -> CGFloat {
-    let minPhoto: CGFloat = 70
-    let ideal: CGFloat = 160
-    let maxPhoto: CGFloat = 200
-    let gap: CGFloat = 8 + (editing ? 40 : 0)
-    let font = mealTitleFont()
-    let names = plan.slots.map(\.recipeName)
-    guard !names.isEmpty else { return ideal }
-
-    func textTrack(photo: CGFloat) -> CGFloat { availableWidth - gap - photo }
-
-    let roomAtMax = textTrack(photo: maxPhoto)
-    if roomAtMax > 0, names.allSatisfy({ fits($0, width: roomAtMax, lines: 2, font: font) }) {
-      return maxPhoto
-    }
-
-    let floor = names.map { widthForTwoLines(String($0.prefix(16)), font: font) }.max() ?? 0
-    return min(ideal, max(minPhoto, availableWidth - gap - floor))
-  }
-
-  /// DM Sans Semibold 17, the same face as Theme.mealName, scaled for the current text size.
-  private func mealTitleFont() -> UIFont {
-    let base = UIFont(name: "DMSans-SemiBold", size: 17) ?? .systemFont(ofSize: 17, weight: .semibold)
-    return UIFontMetrics(forTextStyle: .body).scaledFont(for: base)
-  }
-
-  private func fits(_ text: String, width: CGFloat, lines: Int, font: UIFont) -> Bool {
-    guard width > 1, !text.isEmpty else { return text.isEmpty }
-    let rect = (text as NSString).boundingRect(
-      with: CGSize(width: width, height: .greatestFiniteMagnitude),
-      options: [.usesLineFragmentOrigin, .usesFontLeading],
-      attributes: [.font: font],
-      context: nil
-    )
-    return ceil(rect.height) <= font.lineHeight * CGFloat(lines) + 1
-  }
-
-  private func widthForTwoLines(_ text: String, font: UIFont) -> CGFloat {
-    if text.isEmpty { return 0 }
-    let single = ceil((text as NSString).size(withAttributes: [.font: font]).width)
-    var low: CGFloat = 0
-    var high = max(single, 1)
-    for _ in 0..<18 {
-      let mid = (low + high) / 2
-      if fits(text, width: mid, lines: 2, font: font) { high = mid } else { low = mid }
-    }
-    return ceil(high)
+    160
   }
 
   private func meal(_ slot: PlanSlot, plan: Plan, grid: Bool, photoWidth: CGFloat) -> some View {
@@ -269,6 +219,16 @@ struct PlanView: View {
           }
           if editing { editControls(slot, plan: plan) }
         }
+      } else if typeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 12) {
+          HStack(alignment: .top) {
+            if editing { selectionButton(slot) }
+            photo(slot, side: photoWidth)
+          }
+          title(slot, plan: plan)
+          if editing { editControls(slot, plan: plan) }
+          else { scheduleButton(slot, plan: plan) }
+        }
       } else {
         HStack(alignment: .top, spacing: 8) {
           if editing { selectionButton(slot) }
@@ -276,6 +236,7 @@ struct PlanView: View {
           VStack(alignment: .leading, spacing: 8) {
             title(slot, plan: plan)
             if editing { editControls(slot, plan: plan) }
+            else { scheduleButton(slot, plan: plan) }
           }
         }
       }
@@ -384,7 +345,7 @@ struct PlanView: View {
     } label: {
       VStack(alignment: .leading, spacing: 4) {
         Text(slot.recipeName).font(Theme.mealName).foregroundStyle(Theme.ink)
-          .multilineTextAlignment(.leading).lineLimit(2).truncationMode(.tail)
+          .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
         if !editing {
           Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
@@ -424,40 +385,6 @@ struct PlanView: View {
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: 12))
-  }
-}
-
-private struct NewPlanSheet: View {
-  @EnvironmentObject private var store: Store
-  @Environment(\.dismiss) private var dismiss
-  @State private var keepCurrent = false
-  @State private var saving = false
-
-  var body: some View {
-    NavigationStack {
-      VStack(alignment: .leading, spacing: 16) {
-        Text("Choose your own meals or start with four suggestions.")
-        if !(store.plan?.slots.isEmpty ?? true) { Toggle("Keep my selected meals", isOn: $keepCurrent) }
-        Button("Suggest 4 meals") { go(meals: 4) }.buttonStyle(.borderedProminent).disabled(saving)
-        Button("I'll choose the meals") { go(meals: nil) }.disabled(saving)
-        if let error = store.error { ErrorBanner(message: error) }
-      }
-      .padding()
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-      .background(Theme.bg)
-      .navigationTitle("New meal plan")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-    }
-    .tint(Theme.accent)
-  }
-
-  private func go(meals: Int?) {
-    saving = true
-    Task {
-      if await store.newPlan(meals: meals, keepCurrent: keepCurrent) { dismiss() }
-      saving = false
-    }
   }
 }
 
@@ -612,6 +539,7 @@ private struct SuggestedPlanReview: View {
             Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
               Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
             }
+            .disabled(store.proposal?.status != "suggested")
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             if let error = store.proposalError {
               ErrorBanner(message: error)
@@ -631,6 +559,7 @@ private struct SuggestedPlanReview: View {
                             .font(Theme.action).frame(width: 44, height: 44)
                             .background(Theme.surface, in: Circle())
                         }.buttonStyle(.plain).foregroundStyle(Theme.accent)
+                          .disabled(store.proposal?.status != "suggested")
                           .accessibilityLabel("Swap meal: \(slot.recipeName)").padding(6)
                       }
                     }
@@ -665,11 +594,16 @@ private struct SuggestedPlanReview: View {
     }.tint(Theme.accent)
   }
   @ViewBuilder private var reviewActions: some View {
-    Button("Approve plan") { run { await store.reviewProposal("approve") } }
-      .buttonStyle(.borderedProminent).fixedSize(horizontal: true, vertical: false)
-    Button("Suggest another") { run { await store.reviewProposal("decline") } }
-      .fixedSize(horizontal: true, vertical: false)
-      .accessibilityLabel("Decline and suggest another plan")
+    if store.proposal?.status == "suggested" {
+      Button("Approve plan") { run { await store.reviewProposal("approve") } }
+        .buttonStyle(.borderedProminent).fixedSize(horizontal: true, vertical: false)
+      Button("Suggest another") { run { await store.reviewProposal("decline") } }
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("Decline and suggest another plan")
+    } else {
+      Button("Try another suggestion") { run { await store.replaceDeclinedProposal() } }
+        .fixedSize(horizontal: true, vertical: false)
+    }
   }
   private func photoHeight(in size: CGSize) -> CGFloat {
     let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2

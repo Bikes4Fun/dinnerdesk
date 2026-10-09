@@ -67,8 +67,8 @@ review, not a new plan.
 - **Must:** the current plan and grocery list stay unchanged until the proposal is approved.
   Approving makes it the plan and rebuilds groceries. Declining keeps the current plan and offers
   another proposal.
-- **Must:** one short line at the top explains the picks (for example "2 you've cooked ·
-  3 match your tastes · 4 use your pantry"). No reason under every meal.
+- **Must:** review keeps headings and controls compact; explanatory suggestion text is
+  omitted from the visible review (updated October 9).
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
   exclude meals already on the proposal. Cancelling the picker changes nothing and records no
   dislike.
@@ -319,7 +319,7 @@ HealthKit for nutrition sync.
 - Native iOS and the website both ship; iOS is SwiftUI.
 - Accounts ship; a shared guest household remains when sign-in isn't required.
 - Suggestions are a proposal to approve, never an automatic replacement of the plan.
-- A suggested plan is explained by one summary line, not a reason under every meal.
+- Suggestion review prioritizes meal choices and decisions; explanatory copy is saved for tips.
 - Diets and avoids are hard filters everywhere (Recipes and suggestions).
 - Prep check marks follow the meal and step, so they survive regrouping.
 - Template rules are still open: families are JSON lists of recipes, not a slot generator.
@@ -330,8 +330,8 @@ HealthKit for nutrition sync.
 Plan removal confirms the selected meal count with singular/plural wording. On iPhone,
 accessibility text sizes open a full-height, scrolling confirmation with reachable Cancel.
 
-Suggested-plan review displays one short explanation for the selected meals, updated after
-swaps and resizing. Approved plans omit suggestion commentary and internal decision/swap counts.
+Suggested-plan review omits explanation text following the October 9 layout review.
+Approved plans also omit suggestion commentary and internal decision/swap counts.
 
 Embedded Taste Lab uses the host screen’s Taste Lab title and suppresses repeated branding;
 inner headings still name the current step and Back still navigates within Taste Lab.
@@ -373,3 +373,28 @@ ingredient words remain readable at accessibility sizes.
 Recipes with existing Dinnerdesk-authored rewrite provenance, show “Instructions customized by Dinnerdesk” above Cook steps on iPhone and web. The importer retains the original rewrite source. This editorial label does not indicate kitchen testing. Private recipe revisions and original backups stay outside Git; publishing them requires the explicit catalog import.
 
 Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. Four meals use available screen height and measured caption/control heights to size photos across iPhones at non-accessibility text sizes. Very short screens, additional meals, and accessibility text can scroll. Clients derive the visible note directly from existing `instructions_source` and `instructions_copied_from_third_party` provenance; there is no additional customization flag in the catalog or API. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.
+
+Selected tabs use bold labels on iPhone and bold underlined labels on web, with aria-current
+on web links. Selection remains visible without relying on accent color.
+
+Plan ⋯ omits Review pending suggestions and Choose my own meals. New meal plan requests
+four suggestions; Recipes remains the entry point for adding individual meals.
+
+Prep completion uses PUT /prep/{id}/steps and task JSON as its sole store. Startup migrates
+legacy per-step checks into task JSON before dropping the old table; completion follows
+step identities when tasks regroup. Deploy API and app together: the duplicate PATCH step
+endpoint is retired.
+
+Plan list rows show full wrapping titles and a Schedule button outside editing. iPhone
+photos retain their 160-point size; accessibility sizes stack the title/controls below the
+photo rather than shrinking it. Web list thumbnails retain their existing dimensions.
+
+Declining replaces the proposal in place: the review stays open and current plan/groceries
+are not reloaded. A failed replacement leaves a retry action; the declined plan cannot be
+approved or modified again.
+
+The grocery “You’ll use this in…” heading uses the full content width and a secondary
+heading font, wrapping naturally only when needed at large text sizes.
+
+Tapping the selected tab again returns to its main page and resets local navigation/search
+state. On web, primary navigation remounts the destination screen without reloading the page.

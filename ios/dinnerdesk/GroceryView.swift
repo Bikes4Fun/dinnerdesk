@@ -451,10 +451,11 @@ struct GroceryItemView: View {
               }
 
               Text("You'll use this in…")
-                .font(Theme.mealName)
+                .font(Theme.subtitle)
                 .foregroundStyle(Theme.ink)
-                .frame(width: geometry.size.width - 32, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityAddTraits(.isHeader)
               if !line.usedIn.isEmpty {
                 ForEach(line.usedIn) { meal in
                   if let rid = meal.recipeId {

@@ -40,7 +40,6 @@ from app.models import (
     PlanCreate,
     SuggestionResize,
     SuggestionSwap,
-    PrepStepCompletion,
     PlacementPut,
     DevNotesPut,
     FavoritePut,
@@ -1841,20 +1840,18 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
                       "instructions": recipe["instructions"],
                       "ingredients": [{**ing, "quantity": scale_quantity(ing["quantity"], factor)} for ing in recipe["ingredients"]]})
     existing = {(r["title"], r["linked_slots_json"]): r for r in db.execute("SELECT * FROM prep_tasks WHERE plan_id = ?", (plan_id,))}
-    completed = {f"{recipe_id}:{key}" for recipe_id, key in _prep_checked(db, plan_id)}
+    completed = set()
     for row in existing.values():
         details = json.loads(row["details_json"])
         if row["done"]:
             completed.update(f"{m['id']}:{s['key']}" for m in details.get("meals", []) for s in m.get("steps", []))
         completed.update(json.loads(row["completed_steps_json"]))
     retained = set()
-    current_keys = set()
     # Completion follows recipe and step identity, even when tasks regroup.
     for index, task in enumerate(prep_from_slots(slots)):
         linked = json.dumps(task["recipe_ids"])
         details = json.dumps({"meals": task["meals"], "quantities": task["quantities"], "auto": task["auto"]})
         keys = {f"{m['id']}:{s['key']}" for m in task["meals"] for s in m["steps"]}
-        current_keys.update(keys)
         progress = json.dumps(sorted(completed & keys))
         done = int(bool(keys) and keys <= completed)
         old = existing.get((task["title"], linked))
@@ -1867,10 +1864,6 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
     for old in existing.values():
         if old["id"] not in retained:
             db.execute("DELETE FROM prep_tasks WHERE id = ?", (old["id"],))
-    # Retire checks for steps removed or rewritten, matching the JSON state.
-    for recipe_id, key in _prep_checked(db, plan_id):
-        if f"{recipe_id}:{key}" not in current_keys:
-            _set_prep_item(db, plan_id, recipe_id, key, False)
 
 
 @router.get("/plans/{plan_id}/prep")
@@ -1906,13 +1899,6 @@ def list_prep(
                 step["done"] = bool(r["done"]) or f"{meal['id']}:{step['key']}" in json.loads(r["completed_steps_json"])
         tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]), **details})
     return {"tasks": tasks}
-
-
-def _prep_checked(db: PgConnection, plan_id: int) -> set[tuple[int, str]]:
-    return {
-        (int(r["recipe_id"]), r["step_key"])
-        for r in db.execute("SELECT recipe_id, step_key FROM prep_step_done WHERE plan_id = ?", (plan_id,))
-    }
 
 
 def _prep_items(details: dict) -> list[tuple[int, str]]:
@@ -1976,24 +1962,6 @@ def patch_prep(
             "UPDATE prep_tasks SET done = ?, completed_steps_json = ? WHERE id = ?",
             (int(body.done), json.dumps(keys if body.done else []), task_id),
         )
-        # Checking the task checks every item in it; unchecking clears them.
-        for recipe_id, key in _prep_items(details):
-            _set_prep_item(db, row["plan_id"], recipe_id, key, body.done)
-    return {"ok": True}
-
-
-def _set_prep_item(db: PgConnection, plan_id: int, recipe_id: int, key: str, done: bool) -> None:
-    if done:
-        db.execute(
-            """INSERT INTO prep_step_done (plan_id, recipe_id, step_key) VALUES (?, ?, ?)
-               ON CONFLICT (plan_id, recipe_id, step_key) DO NOTHING""",
-            (plan_id, recipe_id, key),
-        )
-    else:
-        db.execute(
-            "DELETE FROM prep_step_done WHERE plan_id = ? AND recipe_id = ? AND step_key = ?",
-            (plan_id, recipe_id, key),
-        )
 
 
 @router.put("/prep/{task_id}/steps")
@@ -2016,7 +1984,6 @@ def put_prep_step(
             completed.add(key)
         else:
             completed.discard(key)
-        _set_prep_item(db, row["plan_id"], body.recipe_id, body.key, body.done)
         done = bool(keys) and completed == keys
         db.execute("UPDATE prep_tasks SET done = ?, completed_steps_json = ? WHERE id = ?", (int(done), json.dumps(sorted(completed)), task_id))
     return {"ok": True, "done": done}
@@ -2668,9 +2635,3 @@ def suggestion_swap_options(plan_id: int, slot_id: int, q: str = "", db: PgConne
         if len(options) == 50:
             break
     return {"recipes": options}
-
-
-@router.patch("/prep/{task_id}/steps")
-def complete_prep_step(task_id: int, body: PrepStepCompletion, db: PgConnection = DbDep, household_id: int = HhDep):
-    # Both client versions share one completion implementation.
-    return put_prep_step(task_id, body, db, household_id)

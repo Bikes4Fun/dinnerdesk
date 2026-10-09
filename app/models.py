@@ -193,9 +193,3 @@ class SuggestionResize(BaseModel):
 
 class SuggestionSwap(BaseModel):
     recipe_id: int | None = Field(default=None, gt=0)
-
-
-class PrepStepCompletion(BaseModel):
-    recipe_id: int = Field(gt=0)
-    key: str = Field(min_length=1, max_length=40)
-    done: bool
