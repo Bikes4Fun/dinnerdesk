@@ -658,7 +658,8 @@ func dayTitle(_ start: String, _ index: Int) -> String {
   return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
 }
 
-/// Taste Lab card styling with adaptive photos, explicit swap controls, and compact decisions.
+/// Review a suggested plan in the app's own plain style (not Taste Lab's cards): a landscape
+/// photo, the name, cook time, and a "Swap meal" button under each suggested meal.
 private struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
@@ -685,39 +686,32 @@ private struct SuggestedPlanReview: View {
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
               ForEach(store.proposal?.slots ?? []) { slot in
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 8) {
                   Color.clear.frame(height: photoHeight(in: geometry.size))
                     .overlay {
                       NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
-                    }.clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(alignment: .topTrailing) {
-                      if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
-                        Button { swapping = slot } label: {
-                          Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(Theme.action).frame(width: 44, height: 44)
-                            .background(Color(hex: 0xFA7E5A), in: Circle())
-                        }.buttonStyle(.plain).foregroundStyle(Theme.ink)
-                          .disabled(store.proposal?.status != "suggested")
-                          .accessibilityLabel("Swap meal: \(slot.recipeName)").padding(6)
-                      }
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
                   VStack(alignment: .leading, spacing: 6) {
-                    Text(slot.recipeName).font(Theme.mealName)
+                    Text(slot.recipeName).font(Theme.mealName).foregroundStyle(Theme.ink)
                       .fixedSize(horizontal: false, vertical: true)
                       .frame(maxWidth: .infinity, alignment: .leading)
                     if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-                    if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true {
-                      Text("Your selection").font(Theme.subtitle)
+                    if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
+                      Button { swapping = slot } label: {
+                        Label("Swap meal", systemImage: "arrow.left.arrow.right").font(Theme.action)
+                          .frame(minHeight: 44, alignment: .leading)
+                      }
+                      .disabled(store.proposal?.status != "suggested")
+                      .accessibilityLabel("Swap meal: \(slot.recipeName)")
+                    } else {
+                      Text("Your selection").font(Theme.subtitle).foregroundStyle(Theme.muted)
                     }
                   }
-                  .padding(10)
                   .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
                     captionHeights[slot.id] = $0
                   }
                 }
-                .background(Theme.surface)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line))
               }
             }
             ViewThatFits(in: .horizontal) {
@@ -748,16 +742,19 @@ private struct SuggestedPlanReview: View {
         .fixedSize(horizontal: true, vertical: false)
     }
   }
+  /// Photos are landscape rectangles: 4:3 at most, shorter when that lets four meals and the
+  /// buttons fit on one screen. Never square.
   private func photoHeight(in size: CGSize) -> CGFloat {
     let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2
+    let rectangle = width * 3 / 4
     if let slots = store.proposal?.slots, slots.count >= 4, !textSize.isAccessibilitySize {
       let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
       let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
       // Padding, stack/grid gaps, and the gap between each photo and caption.
-      let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 92
-      return min(width, max(96, (size.height - reserved) / 2))
+      let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 76
+      return min(rectangle, max(96, (size.height - reserved) / 2))
     }
-    return width
+    return rectangle
   }
   private func run(_ work: @escaping () async -> Void) {
     busy = true
