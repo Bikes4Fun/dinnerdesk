@@ -54,8 +54,6 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Plan and suggestions
 
-- [ ] No obvious Done control when editing the plan.
-      `docs/suggestion meal plan to do/no easy done editing button.png`
 - [ ] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
@@ -263,6 +261,7 @@ Roughly most useful first within each group. Not a roadmap.
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
 
 **Oct 7–8, 2026**
+- [x] Plan Edit mode has a visible Done in the header on iPhone (it was only in the ⋯ menu). #3
 - [x] Suggestions arrive as a proposal: review, swap (with search), approve or decline; keep your
       own picks; reopen a pending proposal. Suggestions row in Recipes.
 - [x] Taste Lab: "Not for us" shows a new plan; More options when swapping; None and Fish in

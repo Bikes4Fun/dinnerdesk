@@ -30,11 +30,22 @@ struct PlanView: View {
 
             Spacer()
 
+            // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
+            if editing {
+              Button("Done") { setEditing(false) }
+                .font(Theme.action)
+                .foregroundStyle(Theme.accent)
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+                .accessibilityLabel("Done editing plan")
+            }
+
             Button {
               menu = true
             } label: {
               Image(systemName: "ellipsis")
                 .font(.title3)
+                .frame(minWidth: 44, minHeight: 44)
             }
             .accessibilityLabel("Plan menu")
           }
@@ -139,8 +150,7 @@ struct PlanView: View {
       .menuSheet(isPresented: $menu) {
         [
           MenuSheetItem(title: editing ? "Finish editing" : "Edit plan", systemImage: editing ? "checkmark.circle" : "pencil") {
-            editing.toggle()
-            if !editing { selected = [] }
+            setEditing(!editing)
           },
           MenuSheetItem(title: "Mark all cooked", systemImage: "checkmark.circle") {
             Task { await store.markAllCooked() }
@@ -175,6 +185,12 @@ struct PlanView: View {
       }
       .refreshable { await store.loadAll() }
     }
+  }
+
+  /// Turns Edit mode on or off. Leaving it clears any meal selection.
+  private func setEditing(_ on: Bool) {
+    editing = on
+    if !on { selected = [] }
   }
 
   private func groups(_ plan: Plan) -> [(key: Int, slots: [PlanSlot])] {
