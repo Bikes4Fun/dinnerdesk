@@ -30,6 +30,7 @@
   "kitchen.store-per-item": "Your choice applies to every grocery list from now on.",
   "kitchen.aisle-order": "Drag aisles into the order you walk the store. Your grocery list follows this order.",
   "kitchen.templates": "Pick a format. Recipe bodies live in the cookbook.",
+  "recipes.ai-photo": "This photo was made with AI. It shows the kind of dish, not this exact recipe.",
   "recipe-editor.steps": "`- ` starts a bullet. Amounts for this step are the list under the instruction on Cook. Empty amounts is fine.",
   "ingredient-review.merge": "Check only the names that mean the same grocery item."
 }

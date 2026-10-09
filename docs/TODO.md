@@ -19,7 +19,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 - [ ] Taste Lab: when everything is rejected, the recovery message is easy to miss (plain font,
       looked like a glitch). Make it stand out. *(from your tester checklist notes)*
-- [ ] Use a purple ★ tip to tell users when a recipe photo is AI-generated (and, once
+- [x] Use a purple ★ tip to tell users when a recipe photo is AI-generated (and, once
       `shared_photo` exists, when it's borrowed from a similar recipe). Needs a way to mark
       AI photos in `data/recipe_photos.json`, e.g. `"ai_generated": true`.
 - [ ] Recipe ⋯ menu only flashes when tapped; may be large text only.

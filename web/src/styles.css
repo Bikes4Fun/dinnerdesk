@@ -1477,3 +1477,5 @@ img { display: block; max-width: 100%; }
 .step-timer.is-running { font-variant-numeric: tabular-nums; cursor: default; color: var(--ink, inherit); }
 .step-timer.is-done { background: var(--accent); color: #fff; }
 .step-timer.is-done .text-link { color: #fff; }
+
+.ai-photo-tip { margin: 8px 0 12px; }
