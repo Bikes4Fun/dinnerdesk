@@ -1,33 +1,39 @@
 # Dinnerdesk tester checklist
 
-*Last updated: Oct 9, 2026 · Candidate: `codex/recipe-instruction-rewrites` with even-issue fixes, instruction attribution, and compact suggestion review (not deployed)*
+*Last updated: Oct 9, 2026 · Candidate: `merge_all_issues` at `f3a4ba6` (not deployed)*
 
-*For the team: each section here matches a section of [`DESIGN.md`](DESIGN.md) → Features. When a feature changes, update both.*
-
-Thanks for testing. Work through the sections in order; each one builds on the last. Check off what works, and write down anything that doesn't.
+All changes are merged locally into `merge_all_issues`, including the recipe-instruction work and even-issue merge previously committed as `e544b45`, plus the Taste Lab more-plans merge at `f3a4ba6`. **Nothing is deployed yet.**
 
 ## Focus for this build
 
-*The preceding layout was visually verified on iPhone 17 Pro Max. The adaptive follow-up measures captions and controls on every phone; smaller-phone visual verification remains pending because simulators repeatedly shut down during startup. Merged-branch validation: 199 Python tests, iPhone simulator build, and web production build pass. Not deployed.*
+Review these areas on both app and website:
 
-- On a Pro Max, regular iPhone, and smaller phone at standard text size, review four suggestions: all four names, photos, swap controls, and approval actions should fit without scrolling. Verify long recipe names remain complete.
-- On a smaller phone and with accessibility text, scroll through all meals and confirm the decision actions remain reachable; they stack when needed.
-- Swap using a photo-corner icon; with VoiceOver, confirm it identifies the meal. Approve or suggest another and confirm the existing behavior.
-- Open Cook on iPhone and web for a Dinnerdesk rewrite: the customization note appears above the steps. A recipe without rewrite provenance must not claim Dinnerdesk customization.
-- After importing the private revisions into a development database, check recipes 1021, 1030, 1048, 1051, and 1061 against their private backups: quantities, timings, and ingredient associations stay intact.
+| Where | Changes and what to check |
+|---|---|
+| **Recipe detail** | Add/remove reflects actual plan membership, with brief confirmation. Check toolbar and bottom controls stay synchronized. On iPhone, ⋯ opens a scrolling options sheet. |
+| **Recipe → Cook** | Dinnerdesk-rewritten instructions show a customization note using existing provenance. Five recipes received another wording pass; live instructions won’t change until catalog import. |
+| **Recipes search** | iPhone search field uses the cream palette. Confirm searching and filtering still work. |
+| **Suggested-plan review** | One heading, less explanatory text, circular photo-corner swap buttons, adjacent decision buttons. Four meals adapt to available phone space. Check complete names, photo cropping, scrolling at large text, and reachable actions. |
+| **Declining suggestions** | Replaces the proposal without reloading the current plan/groceries. Failed replacement leaves **Try another suggestion**; declined proposals cannot be approved or modified. |
+| **Plan list/menu** | Full meal names, Schedule outside editing, preserved list-photo size, stacked accessibility layout. Removed redundant menu choices. Removal confirmation has singular/plural wording and balanced typography. |
+| **Taste Lab** | Removed duplicate embedded branding; full meal names and swap headings wrap. Exhausted results show clearer recovery controls. |
+| **Grocery / My kitchen** | Missing or failed ingredient photos leave no empty box. Usage heading fills available width. Long substitution names and controls stack when needed. |
+| **Weekend prep** | Consolidated completion storage and API endpoint. Check individual steps, whole tasks, refresh, and completion after regrouping. Updated API and app must ship together. |
+| **Navigation** | Selected tabs use bold labels, plus web underlining. Tapping the current tab returns to its main page and resets local navigation/search. |
+| **Settings → Filters** | Custom allergies/avoids use food search and explicit selections. Try “bell peppers” and “ground”; verify persistence, removal, and no unrelated results. |
+| **Account & security** | Email appears once, household name is editable, password reset sends email when tapped, and other members remain manageable. |
 
-These changed most recently, so check them first:
+Check normal text, accessibility text, narrow screens, and VoiceOver. **199 tests and both builds pass; smaller-phone visual verification remains pending.** The preceding suggestion layout was visually verified on iPhone 17 Pro Max; the adaptive follow-up still needs smaller-phone inspection.
 
-- **Recipe plan controls:** brief Added/Removed confirmation, then the opposite action; recipe options use a scrolling sheet on iPhone.
-- **Plan:** singular removal confirmation, full meal names with unchanged photo size, Schedule outside editing, compact review controls, and declining replaces only the proposal.
-- **Taste Lab:** duplicate branding removed in embedded completion, full meal names, and prominent recovery when results run out.
-- **Grocery / My kitchen:** no empty ingredient photo box, usage heading fills available width, and substitutions stack when needed.
-- **Navigation:** selected labels have a non-color cue; tapping the current tab returns to its root.
-- **Prep:** one PUT step endpoint and one completion store, with tested migration of existing checks. Updated API and app must ship together.
+- On a Pro Max, regular iPhone, and smaller phone at standard text size, four suggestions should fit without scrolling, with complete meal names. At accessibility sizes, confirm scrolling reaches every action.
+- After importing the private revisions into a development database, check recipes 1021, 1030, 1048, 1051, and 1061 against their private backups: quantities, timings, and ingredient associations stay intact. A recipe without Dinnerdesk rewrite provenance must not claim Dinnerdesk customization.
+- For the latest Taste Lab merge, approve three plans in sequence; verify **Done for now** still ends early. Check saved-plan/history row details and visible delete buttons. Detailed checks follow below.
 
-The tour order, category preference behavior, and More grouping remain proposals awaiting product choices. Detailed checks are under **Even issue verification — Oct 8, 2026** below.
+Issues **#24, #38, and #40** remain proposals. The original **#2 HTTP 405 trigger** remains unresolved.
 
-Everything else is a regression check: it worked before, so confirm it still does.
+*For the team: each section here matches a section of [`DESIGN.md`](DESIGN.md) → Features. When a feature changes, update both.*
+
+Thanks for testing. Work through the sections below, check off what works, and write down anything that doesn’t. Everything else is a regression check: it worked before, so confirm it still does.
 
 ## Before you start
 
