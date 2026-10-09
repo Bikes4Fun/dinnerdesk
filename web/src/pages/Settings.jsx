@@ -57,6 +57,7 @@ export function Settings() {
         </Link>
         <Link href="/settings/social">Social</Link>
         <Link href="/settings/newsletter">Email newsletter</Link>
+        <Link href="/support">Help &amp; support</Link>
         <Link href="/privacy">Privacy</Link>
         <a className="list-link" href="https://x.com/DinnerDesk" target="_blank" rel="noopener noreferrer">
           Twitter

@@ -64,6 +64,11 @@ export function Privacy() {
           There is no delete-account button yet. Remove other people from your household in Account &amp; security.
           To delete an account and that household’s kitchen, ask the person who runs this Dinnerdesk.
         </p>
+
+        <h2>Questions</h2>
+        <p>
+          See <a className="text-link" href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help &amp; support</a> to contact us.
+        </p>
       </div>
     </section>
     </div>
