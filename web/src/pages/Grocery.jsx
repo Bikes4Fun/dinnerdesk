@@ -478,7 +478,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
     note.push(line.used_by.map(shortMealName).filter(Boolean).join(" · "));
   }
   if (line.never_shop) note.push("Always checked off");
-  else if (line.from_pantry) note.push("on hand");
+
   return (
     <div
       className={`g-item${line.checked ? " is-done" : ""}${line.from_pantry ? " owned" : ""}${showEmoji ? " has-emo" : ""}${line.ingredient_photo_path ? " has-photo" : ""}`}
@@ -494,6 +494,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
       <button type="button" className="g-main" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
         <span className="g-name">{line.name}</span>
         {note.length > 0 && <span className="g-sub">{note.join(" · ")}</span>}
+        {line.from_pantry && !line.never_shop && <span className="g-tip" data-tip="grocery.pantry"><span className="g-tip-star" aria-hidden="true">★</span> In your pantry, so it starts checked off</span>}
       </button>
       <span className="g-qty">{line.quantity}</span>
     </div>

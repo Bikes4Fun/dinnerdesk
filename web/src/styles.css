@@ -1479,6 +1479,9 @@ img { display: block; max-width: 100%; }
 .step-timer.is-done { background: var(--accent); color: #fff; }
 .step-timer.is-done .text-link { color: #fff; }
 
+/* Pantry note under a grocery item: a tip (purple ★ on the aubergine tint). */
+.g-tip { display: flex; width: fit-content; align-items: baseline; gap: 4px; margin-top: 2px; padding: 2px 8px; border-radius: 999px; background: #f1e7ef; color: var(--brand); font-size: 0.78rem; }
+.g-tip-star { color: #7a3b73; }
 .substitution-row { flex-wrap: wrap; gap: 0.75rem; }
 .substitution-row strong { min-width: 0; flex: 1 1 16rem; overflow-wrap: normal; word-break: normal; }
 .substitution-row button { flex-shrink: 0; }

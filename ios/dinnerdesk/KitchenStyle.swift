@@ -65,7 +65,7 @@ struct KitchenHeader: View {
 
   var body: some View {
     Text(text.uppercased())
-      .font(Theme.title)
+      .font(Theme.sectionHeader)
       .tracking(0.8)
       .foregroundStyle(Theme.muted.opacity(0.85))
       .textCase(nil)
