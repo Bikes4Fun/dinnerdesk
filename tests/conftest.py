@@ -30,5 +30,9 @@ def isolated_database(request, monkeypatch):
         monkeypatch.setenv('DATABASE_URL', url)
         monkeypatch.setenv('DATABASE_SCHEMA', schema)
         monkeypatch.setenv('DINNERDESK_IMPORT_CATALOG', '0')
+        # Taste Lab initializes its tables once per cached module. Each test uses a
+        # fresh schema, so the module must initialize against that schema as well.
+        import app.taste_lab
+        monkeypatch.setattr(app.taste_lab, '_mod', None)
         yield
         admin.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))

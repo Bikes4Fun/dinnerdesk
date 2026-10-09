@@ -31,7 +31,16 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const detail = data && data.detail;
     const usable = typeof detail === "string" && !detail.trim().startsWith("<");
-    const err = new Error(usable ? detail : res.statusText || "Request failed");
+    const messages = {
+      401: "Please sign in again to continue.",
+      403: "You don't have access to this action.",
+      404: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
+      405: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
+    };
+    const message = messages[res.status] || (res.status >= 500
+      ? "The server couldn't complete this action. Please try again shortly."
+      : usable ? detail : "Couldn't complete this action. Please try again.");
+    const err = new Error(message);
     err.status = res.status;
     err.body = data;
     throw err;
@@ -40,6 +49,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  filterItems: (q) => req(`/api/filter-items?${new URLSearchParams({ q })}`),
   recipes: (params = {}) => {
     const q = new URLSearchParams();
     if (params.q) q.set("q", params.q);
@@ -62,7 +72,6 @@ export const api = {
   resizeSuggestion: (id, count) => req(`/api/plans/${id}/resize`, { method: "POST", body: JSON.stringify({ meal_count: count }) }),
   swapOptions: (id, slot, q = "") => req(`/api/plans/${id}/swap-options/${slot}?${new URLSearchParams({ q })}`),
   swapSuggestion: (id, slot, recipeId) => req(`/api/plans/${id}/swap/${slot}`, { method: "POST", body: JSON.stringify(recipeId ? { recipe_id: recipeId } : {}) }),
-  completePrepStep: (id, body) => req(`/api/prep/${id}/steps`, { method: "PATCH", body: JSON.stringify(body) }),
   deletePlan: (id) => req(`/api/plans/${id}`, { method: "DELETE" }),
   createPlan: (body) => req("/api/plans", { method: "POST", body: JSON.stringify(body) }),
   putSlots: (planId, slots) =>

@@ -10,8 +10,8 @@ struct StepTime: Identifiable, Hashable {
 
   private static let amount = #"(?:\d+(?:\.\d+)?(?:\s+\d/\d)?|\d/\d|\d*[½¼¾⅓⅔]|an?|one)"#
   private static let pattern = try! NSRegularExpression(
-    pattern: #"(?<![\w.])("# + amount + #")(?:\s*(?:-|–|to)\s*"# + amount
-      + #")?\s*(?:more\s+)?(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b"#,
+    pattern: #"(?<![\w.])("# + amount + #")(?:\s*(?:-|–|to)\s*("# + amount
+      + #"))?\s*(?:more\s+)?(seconds?|secs?|minutes?|mins?|hours?|hrs?)\b"#,
     options: [.caseInsensitive])
 
   static func find(in text: String) -> [StepTime] {

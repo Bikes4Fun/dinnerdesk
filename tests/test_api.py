@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -144,12 +145,16 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
     from app.db.catalog import upsert_catalog_recipe
 
     with _client(tmp_path) as client:
+        assert client.get("/api/recipes/1").json()["instructions_source"] is None
         client.patch("/api/recipes/1", json={"in_place": True, "name": "Kitchen soup"})
         db = connect()
         result = upsert_catalog_recipe(
             db,
             {
                 "slug": "soup",
+                "instructions_source": "dinnerdesk",
+                "instructions_copied_from_third_party": False,
+                "instructions_rewritten_from": "fictional-source",
                 "name": "Published soup",
                 "servings": 6,
                 "cooking_minutes": 30,
@@ -163,13 +168,19 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
         overlays = db.execute(
             "SELECT COUNT(*) AS c FROM household_recipe_edits WHERE recipe_id = 1"
         ).fetchone()["c"]
-        catalog = db.execute("SELECT name, photo_path FROM recipes WHERE id = 1").fetchone()
+        catalog = db.execute("SELECT name, photo_path, provenance_json FROM recipes WHERE id = 1").fetchone()
         db.close()
         assert result == "update"
         assert overlays == 1
         assert catalog["name"] == "Published soup"
         assert catalog["photo_path"] == "food/soup.jpg"
+        provenance = json.loads(catalog["provenance_json"])
+        assert "instructions_customized" not in provenance
+        assert provenance["instructions_rewritten_from"] == "fictional-source"
         shown = client.get("/api/recipes/1").json()
+        assert shown["instructions_source"] == "dinnerdesk"
+        assert shown["instructions_copied_from_third_party"] is False
+        assert "instructions_customized" not in shown
         assert shown["id"] == 1
         assert shown["name"] == "Kitchen soup"
         assert shown["edited"] is True
@@ -982,16 +993,16 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         steps = task["meals"][0]["steps"]
-        response = client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
+        response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
         partial = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert partial["id"] == task["id"] and partial["done"] is False
         assert [s["done"] for s in partial["meals"][0]["steps"]] == [True, False]
-        assert client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
+        assert client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
         client.patch(f"/api/prep/{task['id']}", json={"done": True})
         complete = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert complete["done"] and all(s["done"] for s in complete["meals"][0]["steps"])
-        client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": False})
+        client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": False})
         reopened = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert reopened["done"] is False
         assert [s["done"] for s in reopened["meals"][0]["steps"]] == [False, True]
@@ -1019,7 +1030,7 @@ def test_prep_progress_survives_regrouping_but_changed_steps_reset(tmp_path):
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         first = task["meals"][0]["steps"][0]
-        client.patch(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
+        client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
         client.patch(f"/api/recipes/{recipe['id']}", json={"name": "Chicken with mashed potatoes"})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
         potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
@@ -1062,7 +1073,7 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
         assert bad.status_code == 404
 
 
-def test_prep_put_and_patch_share_progress_and_preserve_legacy_checks(tmp_path):
+def test_prep_json_progress_and_legacy_migration(tmp_path):
     import json
     with _client(tmp_path) as client:
         recipe = client.post("/api/recipes", json={"name": "Onion prep", "servings": 4, "instructions": [{"text": "Dice onions."}, {"text": "Mince onions."}]}).json()
@@ -1079,15 +1090,22 @@ def test_prep_put_and_patch_share_progress_and_preserve_legacy_checks(tmp_path):
         assert client.put(f"/api/prep/{task['id']}/steps", json=payload).json()["done"] is True
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["done"] is True
         payload["done"] = False
-        assert client.patch(f"/api/prep/{task['id']}/steps", json=payload).json()["done"] is False
+        assert client.put(f"/api/prep/{task['id']}/steps", json=payload).json()["done"] is False
         refreshed = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert [s["done"] for s in refreshed["meals"][0]["steps"]] == [True, False]
         # Simulate completion persisted by the other branch's per-step table.
         db = connect()
         db.execute("UPDATE prep_tasks SET done = 0, completed_steps_json = '[]' WHERE id = ?", (task["id"],))
+        db.execute("CREATE TABLE prep_step_done (plan_id INTEGER, recipe_id INTEGER, step_key TEXT)")
         db.execute("INSERT INTO prep_step_done (plan_id, recipe_id, step_key) VALUES (?, ?, ?)", (plan["id"], recipe["id"], second["key"]))
         db.commit()
         db.close()
+        from app.db.database import migrate_prep_completion
+        with connect() as db:
+            migrate_prep_completion(db)
+            migrate_prep_completion(db)  # safe to run again
+            assert db.execute("SELECT to_regclass('prep_step_done') AS name").fetchone()["name"] is None
+            db.commit()
         refreshed = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert [s["done"] for s in refreshed["meals"][0]["steps"]] == [False, True]
         payload["key"] = second["key"]
@@ -1151,3 +1169,27 @@ def test_settings_and_taste_lab_share_one_filter_system(tmp_path, monkeypatch):
         assert client.get("/api/household").json()["prefs"]["filters"]["allergens"] == ["sesame"]
         response = client.get("/api/suggestions/recipes")
         assert 2 not in response.json()["recipe_ids"]
+
+
+def test_filter_food_search_selects_specific_ingredients(tmp_path):
+    with _client(tmp_path) as client:
+        created = client.post("/api/recipes", json={
+            "name": "Pepper skillet", "servings": 4,
+            "ingredients": [{"name": name, "quantity": "1"} for name in
+                            ["red bell pepper", "green bell pepper", "yellow bell pepper", "ground turkey", "ground beef"]],
+            "instructions": [{"text": "Cook the skillet."}],
+        })
+        assert created.status_code == 200
+        peppers = client.get("/api/filter-items", params={"q": "bell peppers"}).json()["items"]
+        assert any("red" in item["name"] for item in peppers)
+        assert any("green" in item["name"] for item in peppers)
+        assert any("yellow" in item["name"] for item in peppers)
+        ground = client.get("/api/filter-items", params={"q": "ground"}).json()["items"]
+        assert any("turkey" in item["name"] for item in ground)
+        assert any("beef" in item["name"] for item in ground)
+        assert client.get("/api/filter-items", params={"q": "not-a-real-food-xyz"}).json()["items"] == []
+        assert client.get("/api/filter-items").json()["items"] == []
+        selected = peppers[0]["name"]
+        saved = client.put("/api/household", json={"prefs": {"filters": {"allergens": [selected]}}}).json()
+        assert selected in saved["prefs"]["filters"]["allergens"]
+        assert selected in client.get("/api/household").json()["prefs"]["filters"]["allergens"]

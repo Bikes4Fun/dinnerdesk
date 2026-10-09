@@ -404,7 +404,7 @@ function Overrides() {
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
         {items.map((it) => (
-          <div key={it.id} className="have-row">
+          <div key={it.id} className="have-row substitution-row">
             <strong>
               {it.from_name} → {it.to_name}
             </strong>

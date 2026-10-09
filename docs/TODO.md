@@ -89,7 +89,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ### Recipes
 
-- [ ] Use "See all" or an arrow for section links, not both.
+- [x] Use "See all" or an arrow for section links, not both.
       `docs/recipes page to do/choose either see all or arrow not both.png`
 - [ ] Browse cards break names mid-word at large text. A fix is on main; check it on a fresh
       build. Same screenshot as above.
@@ -258,6 +258,10 @@ Roughly most useful first within each group. Not a roadmap.
 
 ---
 
+## Far future
+
+- [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature.
+
 ## Done (recent)
 
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
@@ -274,9 +278,16 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
 - [x] Grocery: share or email the list; show/hide completed from the list; simpler Add item;
       clearer menu names. "You'll use this in" shows only meals on this plan; substitutions keep
       the item open.
-- [x] Cook-mode timers; "Uses pantry" filter on iPhone; recipe categories (groundwork).
+- [x] "Uses pantry" filter on iPhone; recipe categories (groundwork).
 - [x] Large text: ⋯ menus grow and scroll; plan grid falls back to a list; section headers stop
       pinning and keep side margins; Family portions, Aisle order, store removal, grocery rows,
       recipe cards, ingredient row lines; consistent cream background.
 - [x] Thumbs on the plan only in Edit mode; one summary line instead of commentary under every
       meal.
+
+
+**October 9, 2026 — annotated screenshot fixes (visual verification pending)**
+- [x] Custom allergies/avoids offer explicit ingredient search selections, preserving saved names.
+- [x] Recipes search uses the app's warm surface color.
+- [x] Removal confirmation has consistent typography and a compact standard-text sheet.
+- [x] Account & security uses a reset action, editable household name, and one signed-in identity.

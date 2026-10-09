@@ -14,7 +14,6 @@ struct PlanView: View {
   @State private var savingDraft = false
   @State private var draftTitle = ""
   @State private var removing = false
-  @State private var makingPlan = false
   /// Width of the plan list after its padding. One photo size is chosen from this.
   @State private var totalRowWidth: CGFloat = 350
 
@@ -54,7 +53,7 @@ struct PlanView: View {
           if let error = store.error { ErrorBanner(message: error) }
           if let plan = store.plan {
             let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
-            if let note = plan.suggestionNote, !note.isEmpty {
+            if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
               VStack(alignment: .leading, spacing: 8) {
                 Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
                 NavigationLink {
@@ -69,9 +68,19 @@ struct PlanView: View {
               }
             }
             if plan.slots.isEmpty {
-              EmptyState(
-                title: "Nothing on this plan", message: "Add meals from Recipes.",
-                systemImage: "calendar")
+              VStack {
+                EmptyState(
+                  title: "Nothing on this plan",
+                  message: "Get suggestions for your next meals.",
+                  systemImage: "calendar")
+                Button {
+                  Task { await store.newPlan(meals: 4) }
+                } label: {
+                  Label("New meal plan", systemImage: "sparkles")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.accent)
+              }
             }
             if editing && !plan.slots.isEmpty {
               // Side by side when it fits; stacked at large text so no word breaks mid-way.
@@ -163,15 +172,14 @@ struct PlanView: View {
         Button("Cancel", role: .cancel) {}
       }
       .sheet(isPresented: $removing) {
-        RemovalConfirmation(title: "Remove \(selected.count) meals?", message: "These meals will be removed from your plan.", actionTitle: "Remove meals") {
+        RemovalConfirmation(title: "Remove \(selected.count) \(selected.count == 1 ? "meal" : "meals")?", message: "Selected meals will be removed from your plan.", actionTitle: selected.count == 1 ? "Remove meal" : "Remove meals") {
           await store.removeSlots(ids: selected)
           selected = []
         }
       }
       .sheet(item: $picking) { slot in ScheduleMealSheet(slot: slot) }
       .sheet(isPresented: $drafts) { SavedPlansView() }
-      .sheet(isPresented: $makingPlan) { NewPlanSheet() }
-      .sheet(isPresented: Binding(get: { store.proposal != nil && !makingPlan }, set: { if !$0 { store.proposal = nil } })) {
+      .sheet(isPresented: Binding(get: { store.proposal != nil }, set: { if !$0 { store.proposal = nil } })) {
         SuggestedPlanReview()
       }
       .refreshable { await store.loadAll() }
@@ -196,57 +204,9 @@ struct PlanView: View {
     }
   }
 
-  /// One photo size for every list row. Grows to 200 only when every title fits on two
-  /// lines beside that photo. Otherwise the widest 16-character opening in the plan
-  /// pulls every photo down together, never above the 160 ideal. At 70 the photo
-  /// stops shrinking and the title may show fewer than 16 characters.
+  /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.
   private func calculateGlobalPhotoWidth(for plan: Plan, availableWidth: CGFloat) -> CGFloat {
-    let minPhoto: CGFloat = 70
-    let ideal: CGFloat = 160
-    let maxPhoto: CGFloat = 200
-    let gap: CGFloat = 8 + (editing ? 40 : 0)
-    let font = mealTitleFont()
-    let names = plan.slots.map(\.recipeName)
-    guard !names.isEmpty else { return ideal }
-
-    func textTrack(photo: CGFloat) -> CGFloat { availableWidth - gap - photo }
-
-    let roomAtMax = textTrack(photo: maxPhoto)
-    if roomAtMax > 0, names.allSatisfy({ fits($0, width: roomAtMax, lines: 2, font: font) }) {
-      return maxPhoto
-    }
-
-    let floor = names.map { widthForTwoLines(String($0.prefix(16)), font: font) }.max() ?? 0
-    return min(ideal, max(minPhoto, availableWidth - gap - floor))
-  }
-
-  /// DM Sans Semibold 17, the same face as Theme.mealName, scaled for the current text size.
-  private func mealTitleFont() -> UIFont {
-    let base = UIFont(name: "DMSans-SemiBold", size: 17) ?? .systemFont(ofSize: 17, weight: .semibold)
-    return UIFontMetrics(forTextStyle: .body).scaledFont(for: base)
-  }
-
-  private func fits(_ text: String, width: CGFloat, lines: Int, font: UIFont) -> Bool {
-    guard width > 1, !text.isEmpty else { return text.isEmpty }
-    let rect = (text as NSString).boundingRect(
-      with: CGSize(width: width, height: .greatestFiniteMagnitude),
-      options: [.usesLineFragmentOrigin, .usesFontLeading],
-      attributes: [.font: font],
-      context: nil
-    )
-    return ceil(rect.height) <= font.lineHeight * CGFloat(lines) + 1
-  }
-
-  private func widthForTwoLines(_ text: String, font: UIFont) -> CGFloat {
-    if text.isEmpty { return 0 }
-    let single = ceil((text as NSString).size(withAttributes: [.font: font]).width)
-    var low: CGFloat = 0
-    var high = max(single, 1)
-    for _ in 0..<18 {
-      let mid = (low + high) / 2
-      if fits(text, width: mid, lines: 2, font: font) { high = mid } else { low = mid }
-    }
-    return ceil(high)
+    160
   }
 
   private func meal(_ slot: PlanSlot, plan: Plan, grid: Bool, photoWidth: CGFloat) -> some View {
@@ -260,6 +220,16 @@ struct PlanView: View {
           }
           if editing { editControls(slot, plan: plan) }
         }
+      } else if typeSize.isAccessibilitySize {
+        VStack(alignment: .leading, spacing: 12) {
+          HStack(alignment: .top) {
+            if editing { selectionButton(slot) }
+            photo(slot, side: photoWidth)
+          }
+          title(slot, plan: plan)
+          if editing { editControls(slot, plan: plan) }
+          else { scheduleButton(slot, plan: plan) }
+        }
       } else {
         HStack(alignment: .top, spacing: 8) {
           if editing { selectionButton(slot) }
@@ -267,6 +237,7 @@ struct PlanView: View {
           VStack(alignment: .leading, spacing: 8) {
             title(slot, plan: plan)
             if editing { editControls(slot, plan: plan) }
+            else { scheduleButton(slot, plan: plan) }
           }
         }
       }
@@ -414,7 +385,7 @@ struct PlanView: View {
     } label: {
       VStack(alignment: .leading, spacing: 4) {
         Text(slot.recipeName).font(Theme.mealName).foregroundStyle(Theme.ink)
-          .multilineTextAlignment(.leading).lineLimit(2).truncationMode(.tail)
+          .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
         if !editing {
           Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
@@ -454,40 +425,6 @@ struct PlanView: View {
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: 12))
-  }
-}
-
-private struct NewPlanSheet: View {
-  @EnvironmentObject private var store: Store
-  @Environment(\.dismiss) private var dismiss
-  @State private var keepCurrent = false
-  @State private var saving = false
-
-  var body: some View {
-    NavigationStack {
-      VStack(alignment: .leading, spacing: 16) {
-        Text("Choose your own meals or start with four suggestions.")
-        if !(store.plan?.slots.isEmpty ?? true) { Toggle("Keep my selected meals", isOn: $keepCurrent) }
-        Button("Suggest 4 meals") { go(meals: 4) }.buttonStyle(.borderedProminent).disabled(saving)
-        Button("I'll choose the meals") { go(meals: nil) }.disabled(saving)
-        if let error = store.error { ErrorBanner(message: error) }
-      }
-      .padding()
-      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-      .background(Theme.bg)
-      .navigationTitle("New meal plan")
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-    }
-    .tint(Theme.accent)
-  }
-
-  private func go(meals: Int?) {
-    saving = true
-    Task {
-      if await store.newPlan(meals: meals, keepCurrent: keepCurrent) { dismiss() }
-      saving = false
-    }
   }
 }
 
@@ -717,42 +654,94 @@ private struct SuggestedPlanReview: View {
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var swapping: PlanSlot?
   @State private var busy = false
+  @State private var captionHeights: [Int: CGFloat] = [:]
+  @State private var headerHeight: CGFloat = 40
+  @State private var actionsHeight: CGFloat = 44
+  @State private var improveHeight: CGFloat = 20
   var body: some View {
     NavigationStack {
-      ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
-          Text("Review your suggestions").font(Theme.title)
-          Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
-            Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
-          }
-          Text("Your current plan stays in place until you approve.").font(Theme.subtitle).foregroundStyle(Theme.muted)
-          NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.action) }
-          if let error = store.proposalError {
-            ErrorBanner(message: error)
-            Button("Dismiss error") { store.proposalError = nil }
-          }
-          LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 20) {
-            ForEach(store.proposal?.slots ?? []) { slot in
-              VStack(alignment: .leading, spacing: 8) {
-                Color.clear.aspectRatio(1, contentMode: .fit).overlay {
-                  NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
-                }.clipShape(RoundedRectangle(cornerRadius: 14))
-                Text(slot.recipeName).font(Theme.mealName).lineLimit(3).frame(maxWidth: .infinity, alignment: .leading)
-                if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-                if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
-                  Button { swapping = slot } label: { Label("Swap meal", systemImage: "arrow.left.arrow.right") }
-                } else { Text("Your selection").font(Theme.subtitle) }
+      GeometryReader { geometry in
+        ScrollView {
+          VStack(alignment: .leading, spacing: 12) {
+            Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
+              Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
+            }
+            .disabled(store.proposal?.status != "suggested")
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+            if let error = store.proposalError {
+              ErrorBanner(message: error)
+              Button("Dismiss error") { store.proposalError = nil }
+            }
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
+              ForEach(store.proposal?.slots ?? []) { slot in
+                VStack(alignment: .leading, spacing: 6) {
+                  Color.clear.frame(height: photoHeight(in: geometry.size))
+                    .overlay {
+                      NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
+                    }.clipShape(RoundedRectangle(cornerRadius: 14))
+                    .overlay(alignment: .topTrailing) {
+                      if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
+                        Button { swapping = slot } label: {
+                          Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(Theme.action).frame(width: 44, height: 44)
+                            .background(Theme.surface, in: Circle())
+                        }.buttonStyle(.plain).foregroundStyle(Theme.accent)
+                          .disabled(store.proposal?.status != "suggested")
+                          .accessibilityLabel("Swap meal: \(slot.recipeName)").padding(6)
+                      }
+                    }
+                  VStack(alignment: .leading, spacing: 6) {
+                    Text(slot.recipeName).font(Theme.mealName)
+                      .fixedSize(horizontal: false, vertical: true)
+                      .frame(maxWidth: .infinity, alignment: .leading)
+                    if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
+                    if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true {
+                      Text("Your selection").font(Theme.subtitle)
+                    }
+                  }
+                  .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                    captionHeights[slot.id] = $0
+                  }
+                }
               }
             }
-          }
-          Button("Approve plan") { run { await store.reviewProposal("approve") } }.buttonStyle(.borderedProminent)
-          Button("Decline and suggest another plan") { run { await store.reviewProposal("decline") } }
-        }.padding().disabled(busy)
-      }.background(Theme.bg).navigationTitle("Suggested plan").navigationBarTitleDisplayMode(.inline)
+            ViewThatFits(in: .horizontal) {
+              HStack(spacing: 12) { reviewActions }
+              VStack(alignment: .leading, spacing: 12) { reviewActions }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionsHeight = $0 }
+            NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.subtitle) }
+              .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { improveHeight = $0 }
+          }.padding().disabled(busy)
+        }
+      }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }
         .sheet(item: $swapping) { slot in ProposalSwapPicker(slot: slot) }
         .onDisappear { store.proposalError = nil }
+    }.tint(Theme.accent)
+  }
+  @ViewBuilder private var reviewActions: some View {
+    if store.proposal?.status == "suggested" {
+      Button("Approve plan") { run { await store.reviewProposal("approve") } }
+        .buttonStyle(.borderedProminent).fixedSize(horizontal: true, vertical: false)
+      Button("Suggest another") { run { await store.reviewProposal("decline") } }
+        .fixedSize(horizontal: true, vertical: false)
+        .accessibilityLabel("Decline and suggest another plan")
+    } else {
+      Button("Try another suggestion") { run { await store.replaceDeclinedProposal() } }
+        .fixedSize(horizontal: true, vertical: false)
     }
+  }
+  private func photoHeight(in size: CGSize) -> CGFloat {
+    let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2
+    if let slots = store.proposal?.slots, slots.count == 4, !textSize.isAccessibilitySize {
+      let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
+      let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
+      // Padding, stack/grid gaps, and the gap between each photo and caption.
+      let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 92
+      return min(width, max(96, (size.height - reserved) / 2))
+    }
+    return width
   }
   private func run(_ work: @escaping () async -> Void) {
     busy = true
@@ -767,18 +756,23 @@ private struct RemovalConfirmation: View {
   let action: () async -> Void
   @Environment(\.dismiss) private var dismiss
   @State private var busy = false
+  @State private var contentHeight: CGFloat = 280
+  @Environment(\.dynamicTypeSize) private var textSize
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
         Text(title).font(Theme.title).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-        Text(message).font(Theme.subtitle).multilineTextAlignment(.center)
-        Button(actionTitle, role: .destructive) {
+        Text(message).font(Theme.body).foregroundStyle(Theme.muted).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        Button(role: .destructive) {
           busy = true
           Task { await action(); dismiss() }
-        }.buttonStyle(.borderedProminent).tint(.red).frame(maxWidth: .infinity)
-        Button("Cancel") { dismiss() }.frame(maxWidth: .infinity, minHeight: 44)
-      }.padding(.horizontal, 6).padding(.vertical, 20).frame(maxWidth: .infinity).disabled(busy)
-    }.presentationDetents([.medium, .large]).presentationDragIndicator(.visible).presentationBackground(Theme.bg)
+        } label: {
+          Text(actionTitle).font(Theme.action).frame(maxWidth: .infinity, minHeight: 44)
+        }.buttonStyle(.borderedProminent).tint(.red)
+        Button("Cancel") { dismiss() }.font(Theme.action).frame(maxWidth: .infinity, minHeight: 44)
+      }.padding(.horizontal, 20).padding(.vertical, 20).frame(maxWidth: .infinity).disabled(busy)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 + 20 }
+    }.presentationDetents(textSize.isAccessibilitySize ? [.large] : [.height(contentHeight), .large]).presentationDragIndicator(.visible).presentationBackground(Theme.bg)
   }
 }
 

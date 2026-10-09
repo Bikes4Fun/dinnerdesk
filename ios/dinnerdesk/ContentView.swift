@@ -67,7 +67,11 @@ struct ContentView: View {
       // iOS 18+ cross-fades tab content. Keep switches immediate.
       .animation(nil, value: tab)
       .background {
-        InstantTabSwitch()
+        InstantTabSwitch {
+          navigationIDs[tab] = UUID()
+          store.error = nil
+          store.proposalError = nil
+        }
           .frame(width: 0, height: 0)
       }
       .environmentObject(store)
@@ -97,7 +101,9 @@ struct ContentView: View {
 
 /// Stops UITabBarController's cross-fade. SwiftUI's `.animation(nil)` does not reach it.
 private struct InstantTabSwitch: UIViewRepresentable {
+  let onReselect: () -> Void
   func makeUIView(context: Context) -> TabSwitchProbe {
+    context.coordinator.onReselect = onReselect
     let view = TabSwitchProbe()
     view.isHidden = true
     view.isUserInteractionEnabled = false
@@ -106,6 +112,7 @@ private struct InstantTabSwitch: UIViewRepresentable {
   }
 
   func updateUIView(_ uiView: TabSwitchProbe, context: Context) {
+    context.coordinator.onReselect = onReselect
     uiView.onWindow = { [weak uiView] in context.coordinator.install(from: uiView) }
     context.coordinator.install(from: uiView)
   }
@@ -113,12 +120,20 @@ private struct InstantTabSwitch: UIViewRepresentable {
   func makeCoordinator() -> Coordinator { Coordinator() }
 
   final class Coordinator: NSObject, UITabBarControllerDelegate {
+    var onReselect: (() -> Void)?
     private var next: (any UITabBarControllerDelegate)?
     private var nextObject: NSObject?
     private var checkingResponds = false
 
     func install(from view: UIView?) {
       guard let tabBar = view?.nearestTabBarController() else { return }
+      let appearance = tabBar.tabBar.standardAppearance.copy() as! UITabBarAppearance
+      for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
+        layout.normal.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 10, weight: .regular)
+        layout.selected.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 10, weight: .bold)
+      }
+      tabBar.tabBar.standardAppearance = appearance
+      tabBar.tabBar.scrollEdgeAppearance = appearance
       if tabBar.delegate === self { return }
       guard let existing = tabBar.delegate as? NSObject else { return }
       next = tabBar.delegate
@@ -130,7 +145,9 @@ private struct InstantTabSwitch: UIViewRepresentable {
       -> Bool
     {
       guard tabBarController.selectedTab !== tab else {
-        return next?.tabBarController?(tabBarController, shouldSelectTab: tab) ?? true
+        let allowed = next?.tabBarController?(tabBarController, shouldSelectTab: tab) ?? true
+        if allowed { onReselect?() }
+        return allowed
       }
       let allowed = next?.tabBarController?(tabBarController, shouldSelectTab: tab) ?? true
       guard allowed else { return false }
@@ -147,7 +164,9 @@ private struct InstantTabSwitch: UIViewRepresentable {
       shouldSelect viewController: UIViewController
     ) -> Bool {
       guard tabBarController.selectedViewController !== viewController else {
-        return next?.tabBarController?(tabBarController, shouldSelect: viewController) ?? true
+        let allowed = next?.tabBarController?(tabBarController, shouldSelect: viewController) ?? true
+        if allowed { onReselect?() }
+        return allowed
       }
       let allowed = next?.tabBarController?(tabBarController, shouldSelect: viewController) ?? true
       guard allowed else { return false }

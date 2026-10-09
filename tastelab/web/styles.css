@@ -482,11 +482,7 @@ button:focus-visible, .text-link:focus-visible {
   letter-spacing: 0;
   color: var(--ink);
   line-height: 1.25;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
+  overflow-wrap: normal;
 }
 .swap-list {
   display: grid;
@@ -529,13 +525,8 @@ button:focus-visible, .text-link:focus-visible {
   letter-spacing: 0;
   color: var(--ink);
   line-height: 1.25;
-  height: 2.5em;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  overflow-wrap: normal;
+  word-break: normal;
 }
 .meal p {
   margin: 0;
@@ -599,6 +590,10 @@ code { font-size: 0.86em; background: var(--soft); padding: 0.1rem 0.35rem; bord
 .swap-header .kicker { margin: 0; }
 .swap-actions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: stretch; }
 .swap-actions .btn { min-width: 0; min-height: 48px; padding: 0.75rem 0.5rem; }
+
+.recovery { padding: 1.25rem; border: 2px solid var(--aubergine); border-radius: 16px; background: var(--aubergine-tint); }
+.recovery h2 { margin: 0 0 0.75rem; color: var(--aubergine); }
+.recovery p { line-height: 1.5; }
 
 /* Filters screen: fits one iPhone 16 screen at standard text size (#11). */
 .shell.quiz .lead { margin-bottom: 0.55rem; }
