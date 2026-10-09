@@ -57,10 +57,6 @@ struct PlanView: View {
               Button("Choose meals") { store.error = nil; selectTab(.recipes) }
             }
           }
-          if store.proposal != nil && !store.showingProposal {
-            Button("Review saved suggestions") { store.showingProposal = true }
-              .font(Theme.action).frame(minHeight: 44)
-          }
           if let plan = store.plan {
             let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
             if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
