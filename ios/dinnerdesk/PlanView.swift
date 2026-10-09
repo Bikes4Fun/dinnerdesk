@@ -749,12 +749,16 @@ private struct SuggestedPlanReview: View {
     }
   }
   private func photoHeight(in size: CGSize) -> CGFloat {
-    let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2
+    // Geometry can briefly be zero during sheet presentation or tab resets.
+    let padding: CGFloat = textSize.isAccessibilitySize ? 32 : 44
+    guard size.width.isFinite, size.width > padding else { return 0 }
+    let width = (size.width - padding) / (textSize.isAccessibilitySize ? 1 : 2)
     if let slots = store.proposal?.slots, slots.count >= 4, !textSize.isAccessibilitySize {
       let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
       let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
       // Padding, stack/grid gaps, and the gap between each photo and caption.
       let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 92
+      guard size.height.isFinite, reserved.isFinite else { return width }
       return min(width, max(96, (size.height - reserved) / 2))
     }
     return width
