@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -144,6 +145,7 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
     from app.db.catalog import upsert_catalog_recipe
 
     with _client(tmp_path) as client:
+        assert client.get("/api/recipes/1").json()["instructions_source"] is None
         client.patch("/api/recipes/1", json={"in_place": True, "name": "Kitchen soup"})
         db = connect()
         result = upsert_catalog_recipe(
@@ -166,14 +168,19 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
         overlays = db.execute(
             "SELECT COUNT(*) AS c FROM household_recipe_edits WHERE recipe_id = 1"
         ).fetchone()["c"]
-        catalog = db.execute("SELECT name, photo_path FROM recipes WHERE id = 1").fetchone()
+        catalog = db.execute("SELECT name, photo_path, provenance_json FROM recipes WHERE id = 1").fetchone()
         db.close()
         assert result == "update"
         assert overlays == 1
         assert catalog["name"] == "Published soup"
         assert catalog["photo_path"] == "food/soup.jpg"
+        provenance = json.loads(catalog["provenance_json"])
+        assert "instructions_customized" not in provenance
+        assert provenance["instructions_rewritten_from"] == "fictional-source"
         shown = client.get("/api/recipes/1").json()
-        assert shown["instructions_customized"] is True
+        assert shown["instructions_source"] == "dinnerdesk"
+        assert shown["instructions_copied_from_third_party"] is False
+        assert "instructions_customized" not in shown
         assert shown["id"] == 1
         assert shown["name"] == "Kitchen soup"
         assert shown["edited"] is True

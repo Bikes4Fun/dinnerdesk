@@ -393,11 +393,8 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "cooking_minutes": row["cooking_minutes"],
         "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
         "source_url": row["source_url"],
-        "instructions_customized": bool(
-            provenance.get("instructions_customized")
-            or (provenance.get("instructions_source") == "dinnerdesk"
-                and provenance.get("instructions_copied_from_third_party") is False)
-        ),
+        "instructions_source": provenance.get("instructions_source"),
+        "instructions_copied_from_third_party": provenance.get("instructions_copied_from_third_party"),
         "parent_recipe_id": row["parent_recipe_id"],
         "ingredients": ings,
         "instructions": instructions,

@@ -358,7 +358,7 @@ export function Recipe({ id }) {
               )}
               {tab === "cook" && (
                 <>
-                {recipe.instructions_customized && <p className="muted">Instructions customized by Dinnerdesk</p>}
+                {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinnerdesk</p>}
                 <ol className="steps">
                   {cookSteps.map((s, i) => (
                     <li key={i}>

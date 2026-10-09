@@ -8,9 +8,9 @@ Thanks for testing. Work through the sections in order; each one builds on the l
 
 ## Focus for this build
 
-*Verified locally: iPhone 17 Pro Max simulator with the four screenshot meals fits without scrolling; iOS/web builds and 20 targeted tests passed. Not deployed.*
+*The preceding layout was visually verified on iPhone 17 Pro Max. The adaptive follow-up measures captions and controls on every phone; smaller-phone visual verification remains pending because simulators repeatedly shut down during startup. API provenance regression and web build pass. Not deployed.*
 
-- On a Pro Max at standard text size, review four suggestions: all four names, photos, swap controls, and approval actions should fit without scrolling. Verify long recipe names remain complete.
+- On a Pro Max, regular iPhone, and smaller phone at standard text size, review four suggestions: all four names, photos, swap controls, and approval actions should fit without scrolling. Verify long recipe names remain complete.
 - On a smaller phone and with accessibility text, scroll through all meals and confirm the decision actions remain reachable; they stack when needed.
 - Swap using a photo-corner icon; with VoiceOver, confirm it identifies the meal. Approve or suggest another and confirm the existing behavior.
 - Open Cook on iPhone and web for a Dinnerdesk rewrite: the customization note appears above the steps. A recipe without rewrite provenance must not claim Dinnerdesk customization.

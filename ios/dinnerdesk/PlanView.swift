@@ -600,6 +600,10 @@ private struct SuggestedPlanReview: View {
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var swapping: PlanSlot?
   @State private var busy = false
+  @State private var captionHeights: [Int: CGFloat] = [:]
+  @State private var headerHeight: CGFloat = 40
+  @State private var actionsHeight: CGFloat = 44
+  @State private var improveHeight: CGFloat = 20
   var body: some View {
     NavigationStack {
       GeometryReader { geometry in
@@ -608,6 +612,7 @@ private struct SuggestedPlanReview: View {
             Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
               Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             if let error = store.proposalError {
               ErrorBanner(message: error)
               Button("Dismiss error") { store.proposalError = nil }
@@ -629,12 +634,17 @@ private struct SuggestedPlanReview: View {
                           .accessibilityLabel("Swap meal: \(slot.recipeName)").padding(6)
                       }
                     }
-                  Text(slot.recipeName).font(Theme.mealName)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                  if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-                  if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true {
-                    Text("Your selection").font(Theme.subtitle)
+                  VStack(alignment: .leading, spacing: 6) {
+                    Text(slot.recipeName).font(Theme.mealName)
+                      .fixedSize(horizontal: false, vertical: true)
+                      .frame(maxWidth: .infinity, alignment: .leading)
+                    if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
+                    if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true {
+                      Text("Your selection").font(Theme.subtitle)
+                    }
+                  }
+                  .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
+                    captionHeights[slot.id] = $0
                   }
                 }
               }
@@ -643,7 +653,9 @@ private struct SuggestedPlanReview: View {
               HStack(spacing: 12) { reviewActions }
               VStack(alignment: .leading, spacing: 12) { reviewActions }
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionsHeight = $0 }
             NavigationLink { TasteLabView(swipe: true) } label: { Text("Improve suggestions").font(Theme.subtitle) }
+              .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { improveHeight = $0 }
           }.padding().disabled(busy)
         }
       }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
@@ -661,8 +673,12 @@ private struct SuggestedPlanReview: View {
   }
   private func photoHeight(in size: CGSize) -> CGFloat {
     let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2
-    if store.proposal?.slots.count == 4 && textSize <= .large && size.height >= 650 {
-      return min(width, max(100, (size.height - 420) / 2))
+    if let slots = store.proposal?.slots, slots.count == 4, !textSize.isAccessibilitySize {
+      let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
+      let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
+      // Padding, stack/grid gaps, and the gap between each photo and caption.
+      let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 92
+      return min(width, max(96, (size.height - reserved) / 2))
     }
     return width
   }
