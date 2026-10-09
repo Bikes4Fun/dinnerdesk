@@ -413,8 +413,12 @@ approved or modified again.
 The grocery “You’ll use this in…” heading uses the full content width and a secondary
 heading font, wrapping naturally only when needed at large text sizes.
 
-Tapping the selected tab again returns to its main page and resets local navigation/search
-state. On web, primary navigation remounts the destination screen without reloading the page.
+Selecting any primary tab returns to its main page and resets local navigation/search
+state, whether switching from another tab or tapping the selected tab again. On iPhone,
+reset the destination before selecting it; tab-bar taps and in-app tab links share this
+behavior. For example, Grocery → garlic → Plan → Grocery must show the grocery list.
+Saved data and the current meal plan remain intact. On web, primary navigation remounts
+the destination screen without reloading the page.
 
 Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, measured four-meal layout, circular swap controls, and declined-proposal retry state.
 

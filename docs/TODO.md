@@ -27,7 +27,8 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
   - Verify generic ingredient photo configuration (the private gallery already has garlic).
   - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
   - Make family portions the default when browsing recipes and adding new meals.
-  - Verify tab switching resets the destination root, including Grocery ingredient details.
+  - Issue #36 follow-up (`codex/issue-36-tab-return-root`): destination reset now runs for
+    every tab selection, including Grocery ingredient details. Verify across all tabs.
   - Move edit selection to the right and arrange Schedule/votes/servings into compact rows.
   - Decide whether Build from scratch opens Recipes or creates an empty plan.
   Sources: annotated PNGs in `docs/`, `my kitchen to do/`, `groceries page to do/`, and

@@ -19,7 +19,6 @@ extension EnvironmentValues {
 struct ContentView: View {
   @StateObject private var store = Store()
   @Environment(\.dynamicTypeSize) private var textSize
-  // @State private var planNavigationID = UUID()
   @State private var navigationIDs: [AppTab: UUID] = [:]
   @State private var tab: AppTab = .plan
 
@@ -37,7 +36,7 @@ struct ContentView: View {
 
   var body: some View {
     AuthGate {
-      TabView(selection: $tab) {
+      TabView(selection: Binding(get: { tab }, set: { showTab($0) })) {
         PlanView()
           .id(navigationIDs[.plan])
           .tabItem { Label("Plan", systemImage: "calendar") }
@@ -68,34 +67,33 @@ struct ContentView: View {
       .animation(nil, value: tab)
       .background {
         InstantTabSwitch {
-          navigationIDs[tab] = UUID()
-          store.error = nil
-          store.proposalError = nil
+          showTab(tab)
         }
           .frame(width: 0, height: 0)
       }
       .environmentObject(store)
       .environment(\.selectTab) { showTab($0) }
       .task { await store.loadAll() }
-       .onChange(of: tab) { previous, _ in
-        navigationIDs[previous] = UUID()
-        store.error = nil
-        store.proposalError = nil
-      }
       .onChange(of: scenePhase) { _, next in
         if next == .background {
           showTab(.plan)
         }
-        // planNavigationID = UUID(); navigationIDs[.plan] = planNavigationID }
       }
     }
   }
 
-  /// Same tab change as `tab =`, without the system cross-fade.
+  /// Reset the destination before showing it, including when the current tab is tapped.
+  /// Tab-bar taps and in-app links use the same transition so no detail can survive a return.
   private func showTab(_ next: AppTab) {
     var transaction = Transaction(animation: nil)
     transaction.disablesAnimations = true
-    withTransaction(transaction) { tab = next }
+    withTransaction(transaction) {
+      navigationIDs[next] = UUID()
+      store.error = nil
+      store.proposalError = nil
+      store.showingProposal = false
+      tab = next
+    }
   }
 }
 
