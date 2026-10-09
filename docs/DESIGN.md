@@ -241,6 +241,9 @@ sign out everywhere live there too.
   `<Tip id>` on the website: a purple ★ on the pale aubergine tint.
 - Don't add menu items, tabs, or other navigation without an explicit product decision.
 - Errors are in plain words, on the screen they belong to, and say how to recover.
+- An `/api` request no route takes gets JSON (404 `not_found`, or 405 `method_not_allowed` with
+  `allowed`) and a server log line naming the app build (`X-Dinnerdesk-App`), so a server/app
+  version mismatch can be found from the log.
   Unavailable actions offer retry/support guidance rather than HTTP codes or instructions
   for the user to update the server. iPhone logs rejected request methods and paths for
   diagnosis, without logging request bodies or query values.

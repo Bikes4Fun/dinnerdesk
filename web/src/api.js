@@ -11,6 +11,8 @@ async function request(path, options = {}) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      // Shows in the server log next to any request it couldn't take (#2).
+      "X-Dinnerdesk-App": import.meta.env?.VITE_BUILD ? `web ${import.meta.env.VITE_BUILD}` : "web",
       ...(options.headers || {}),
     },
   });

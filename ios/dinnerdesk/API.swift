@@ -3,6 +3,15 @@ import Foundation
 enum API {
   static let origin = URL(string: "https://dinnerdesk.computerscience.build")!
 
+  /// Sent as X-Dinnerdesk-App on every request so the server log shows which build sent a
+  /// request it couldn't take (#2): "ios 1.2 (34)".
+  static let appBuild: String = {
+    let info = Bundle.main.infoDictionary
+    let version = info?["CFBundleShortVersionString"] as? String ?? "?"
+    let build = info?["CFBundleVersion"] as? String ?? "?"
+    return "ios \(version) (\(build))"
+  }()
+
   static func photoURL(_ path: String?) -> URL? {
     guard let path, !path.isEmpty else { return nil }
     if path.hasPrefix("http") { return URL(string: path) }
@@ -12,7 +21,9 @@ enum API {
 
   static func get<T: Decodable>(_ path: String, query: [String: String] = [:], reportErrors: Bool = true) async throws -> T {
     do {
-      let (data, response) = try await URLSession.shared.data(from: url(path, query: query))
+      var request = URLRequest(url: url(path, query: query))
+      request.setValue(appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
+      let (data, response) = try await URLSession.shared.data(for: request)
       logRejectedRequest(response, method: "GET", path: path)
       try throwIfBad(response, data: data)
       return try decoder.decode(T.self, from: data)
@@ -43,6 +54,7 @@ enum API {
     var request = URLRequest(url: url(path))
     request.httpMethod = method
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue(appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
     request.httpBody = body
     do {
       let (data, response) = try await URLSession.shared.data(for: request)
