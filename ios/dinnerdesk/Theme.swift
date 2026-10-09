@@ -129,6 +129,7 @@ enum Theme {
     // Tab labels and badges keep a fixed size, like the system's: at large text, a long
     // press shows the enlarged label (Large Content Viewer) instead of the bar growing.
     let tabFont = UIFont(name: "DMSans-Medium", size: 10) ?? .systemFont(ofSize: 10, weight: .medium)
+    let selectedTabFont = UIFont(name: "DMSans-Bold", size: 10) ?? .systemFont(ofSize: 10, weight: .bold)
     let badgeFont = UIFont(name: "DMSans-Medium", size: 12) ?? .systemFont(ofSize: 12, weight: .medium)
     for item in [
       bar.stackedLayoutAppearance, bar.inlineLayoutAppearance, bar.compactInlineLayoutAppearance,
@@ -139,7 +140,7 @@ enum Theme {
       item.selected.badgeTextAttributes = [.font: badgeFont]
       item.normal.iconColor = UIColor(muted)
       item.normal.titleTextAttributes = [.font: tabFont, .foregroundColor: UIColor(muted)]
-      item.selected.titleTextAttributes = [.font: tabFont, .foregroundColor: UIColor(accent)]
+      item.selected.titleTextAttributes = [.font: selectedTabFont, .foregroundColor: UIColor(accent)]
     }
     UITabBar.appearance().standardAppearance = bar
     UITabBar.appearance().scrollEdgeAppearance = bar

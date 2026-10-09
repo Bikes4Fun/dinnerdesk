@@ -1,6 +1,6 @@
 # Dinnerdesk tester checklist
 
-*Updated Oct 9, 2026 · Branch: `merge_all_issues` · Record the app/server version you actually test.*
+*Updated Oct 9, 2026 · Branch: `merge_all_issues` · Odd-issue PRs #51–57 integrated; 209 tests and iPhone/web builds pass. Record the app/server version you actually test.*
 
 **Daily: do only the five checks below (about 10 minutes).** Use one platform; alternate iPhone and website. After a relevant change, pick its extra checks. Before a release, cover both platforms. You do not need to repeat the whole checklist every day.
 
@@ -16,15 +16,15 @@
 
 | Area | Quick check |
 |---|---|
-| **Suggestion layout** | Four meals fit on most phones at normal text size. Full names, circular swap icons, and adjacent decisions remain readable. At large text, scroll to every action. |
+| **Suggestion layout** | Taste Lab card styling is shared with suggestion review. Four meals fit on most phones at normal text size. Full names, circular swap icons, and adjacent decisions remain readable. At large text, scroll to every action. |
 | **Decline / retry** | Decline replaces only the proposal. A failed replacement offers **Try another suggestion**; a declined plan cannot be approved or edited. |
-| **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. |
-| **Taste Lab** | Like/pass, swap/More options, and reject work. Verify three approvals before “You’re set”; **Done for now** ends early. Empty results offer noticeable recovery. |
+| **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. AI-tagged photos show the purple-star attribution tip. |
+| **Taste Lab** | Like/pass, swap/More options, and reject work. Guest answers survive revisiting Taste Lab without repeating answered meals. Verify three approvals before “You’re set”; **Done for now** ends early. Empty results offer noticeable recovery. |
 | **Plan / drafts** | Full names, Schedule, Edit → Done, servings, cooked/undo, and removal confirmation work. Save/load a draft; history has readable details and delete buttons. Active plan is protected. |
-| **Filters** | Search “bell peppers” or “ground”; explicitly select a food, reopen, then remove it. Unknown searches show no unrelated results. **None** clears selections. |
+| **Filters** | Pantry search supports clear, keyboard arrows, and Return. Filter search: “bell peppers” or “ground”; explicitly select a food, reopen, then remove it. Unknown searches show no unrelated results. **None** clears selections. |
 | **Grocery / kitchen** | Missing photos leave no empty box. Substitute an item without leaving its detail. Long names wrap; pantry, portions, stores/aisles, and completed-item controls persist. |
 | **Weekend prep** | Shared prep combines correctly. Expand/collapse; check a step and a whole task; refresh. Completion survives unchanged-step regrouping. |
-| **Navigation / account** | Selected tab is obvious without color; tapping it returns to its root. Email appears once, household name saves, and reset email sends only when tapped. |
+| **Navigation / account** | Tour pictures appear below their text. The selected-tab highlight stays within the bar and selection is obvious without color; tapping it returns to its root. Email appears once, household name saves, and reset email sends only when tapped. |
 
 ## Before a release — not daily
 

@@ -406,3 +406,5 @@ Tapping the selected tab again returns to its main page and resets local navigat
 state. On web, primary navigation remounts the destination screen without reloading the page.
 
 Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, measured four-meal layout, circular swap controls, and declined-proposal retry state.
+
+Odd-issue integration (October 9): pantry search supports keyboard selection and a clear control; the tab highlight stays within the system bar while selected labels retain bold type. Quick-start tour steps include screen illustrations. Guest Taste Lab answers persist by browser identity. Prep task names derive from recipe content. AI photo metadata controls a purple-star tip independently of instruction provenance.
