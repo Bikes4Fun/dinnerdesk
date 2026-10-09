@@ -45,7 +45,7 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
       `docs/suggestion meal plan to do/no easy done editing button.png`
 - [ ] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
       `docs/recipes page to do/this meal is already in a plan.png`
-- [ ] Taste Lab keeps asking about meals already answered (cheesy broccoli and rice always comes
+- [x] Taste Lab keeps asking about meals already answered (cheesy broccoli and rice always comes
       first). A skipped meal may come back; a liked or passed one shouldn't.
 - [ ] Prep check-off: two routes (PUT and PATCH `/prep/{id}/steps`) and two iPhone functions do
       the same job, and the old `prep_step_done` table is left over. Keep one of each.
