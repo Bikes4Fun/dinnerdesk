@@ -19,6 +19,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "web" / "src"
 OPEN_TAG = re.compile(r'<(\w+)[^>]*\sdata-tip=(?:"([^"]+)"|\{`([^`]+)`\})[^>]*>')
+# <Tip id="area.name">text</Tip> (web/src/Tip.jsx)
+TIP_COMPONENT = re.compile(r'<Tip\s[^>]*\bid="([^"]+)"[^>]*>(.*?)</Tip>', re.S)
 
 
 def _text_after(src: str, start: int, tag: str) -> str:
@@ -34,6 +36,8 @@ def collect() -> list[dict]:
         src = path.read_text(encoding="utf-8")
         for m in OPEN_TAG.finditer(src):
             tag, plain, templ = m.group(1), m.group(2), m.group(3)
+            if tag == "p" and 'className={`tip' in src[m.start():m.end()]:
+                continue  # the Tip component itself, not a tip
             tips.append(
                 {
                     "id": plain or templ,
@@ -42,15 +46,24 @@ def collect() -> list[dict]:
                     "text": _text_after(src, m.end(), tag),
                 }
             )
-    native = ROOT / "dinnerdesk" / "dinnerdesk"
+        for m in TIP_COMPONENT.finditer(src):
+            tips.append(
+                {
+                    "id": m.group(1),
+                    "file": str(path.relative_to(ROOT)),
+                    "line": src.count("\n", 0, m.start()) + 1,
+                    "text": re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", m.group(2))).strip(),
+                }
+            )
+    native = ROOT / "ios" / "dinnerdesk"
     copy_path = native / "copy.json"
     if not copy_path.exists():
         copy_path = ROOT / "shared" / "copy.json"
     copy = json.loads(copy_path.read_text()) if copy_path.exists() else {}
     for path in sorted(native.glob("*.swift")):
         src = path.read_text()
-        for m in re.finditer(r'\.accessibilityIdentifier\("tip\.([^"\n]+)"\)', src):
-            key = m.group(1)
+        for m in re.finditer(r'\.accessibilityIdentifier\("tip\.([^"\n]+)"\)|StarTip\(id: "([^"\n]+)"\)', src):
+            key = m.group(1) or m.group(2)
             tips.append({"id": key, "file": str(path.relative_to(ROOT)),
                          "line": src.count("\n", 0, m.start()) + 1,
                          "text": copy.get(key, key)})

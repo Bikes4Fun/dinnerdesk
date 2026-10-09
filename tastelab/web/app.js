@@ -628,10 +628,12 @@ const macros = (r) => {
     </div>`;
   };
 
+  // Built to fit one iPhone 16 screen at standard text size (#11): flat sections instead of
+  // cards, tighter chips, and the button docked at the bottom. Every option stays.
   const renderQuiz = () => `
-    <div class="shell">
+    <div class="shell quiz">
       ${head("Filters", state.quizBack ? -1 : 1)}
-      <p class="lead">We’ll hide meals that don’t fit. Allergies and avoids stay out of suggestions.${state.signedIn ? " These are the same filters as Settings → Filters." : ""}</p>
+      <p class="lead">We’ll hide meals that don’t fit.${state.signedIn ? " Same filters as Settings." : ""}</p>
       ${banner()}
       <section class="panel">
         <h2 class="block first">Diet</h2>
@@ -647,7 +649,7 @@ const macros = (r) => {
         <div class="chips"><button type="button" class="chip ${!state.profile.dislikes.length && !state.profile.extraAvoid ? "is-on" : ""}" data-clear="dislikes">None</button>${chips(AVOIDS, state.profile.dislikes, "dislikes")}${otherChip("extraAvoid")}</div>
         ${otherField("extraAvoid")}
       </section>
-      <button type="button" class="btn primary" data-after-quiz>${state.quizBack ? "Save filters" : "Continue"}</button>
+      <div class="quiz-dock"><button type="button" class="btn primary" data-after-quiz>${state.quizBack ? "Save filters" : "Continue"}</button></div>
     </div>`;
 
   const renderRelax = () => {

@@ -56,18 +56,18 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 - [ ] No obvious Done control when editing the plan.
       `docs/suggestion meal plan to do/no easy done editing button.png`
-- [ ] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
+- [x] Edit mode at large text: "Select all / 0 selected" and "Mark cooked / Remove" break
       mid-word; "4 servin…" is cut off; − and + spill outside their box.
       `docs/accessibility to do/Screenshot 2026-10-07 at 7.45.56 PM.png`
 - [ ] Remove dialog says "Remove 1 meals?", and Cancel is cut off at the bottom.
       `docs/suggestion meal plan to do/accessiblity remove one meal cut off.png`
-- [ ] "Won't be suggested again" should be a purple ★ tip.
+- [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
 - [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
       should look the same whether meals were suggested or chosen.
       `docs/weekend prep to do/removed excess commentary but also removed the summary of why its a good plan.png`
-- [ ] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
+- [x] Saved plans and history: every row is "This week", dates repeat, and "History · 0 swaps"
       means nothing to users. Clearer rows, accessible delete, empty states.
       `docs/suggestion meal plan to do/history 0 swaps is data for us the user doesn't care.png`
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`
@@ -263,6 +263,7 @@ Roughly most useful first within each group. Not a roadmap.
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
 
 **Oct 7–8, 2026**
+- [x] Plan Edit mode has a visible Done in the header on iPhone (it was only in the ⋯ menu). #3
 - [x] Suggestions arrive as a proposal: review, swap (with search), approve or decline; keep your
       own picks; reopen a pending proposal. Suggestions row in Recipes.
 - [x] Taste Lab: "Not for us" shows a new plan; More options when swapping; None and Fish in
