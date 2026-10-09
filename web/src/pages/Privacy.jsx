@@ -61,8 +61,10 @@ export function Privacy() {
 
         <h2>Deleting data</h2>
         <p>
-          There is no delete-account button yet. Remove other people from your household in Account &amp; security.
-          To delete an account and that household’s kitchen, ask the person who runs this Dinnerdesk.
+          Delete your account any time from Account &amp; security. Your password is asked for first. If you are the
+          last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If
+          others are still in the household, it stays for them. You can also remove other people from Account &amp;
+          security.
         </p>
       </div>
     </section>

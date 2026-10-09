@@ -188,3 +188,57 @@ def test_invite_joins_same_household(tmp_path):
         )
         assert reused.status_code == 400
         assert reused.json()["detail"] == "invite_used"
+
+
+def test_delete_account_keeps_household_for_others_then_deletes_it(tmp_path):
+    owner = {"email": "owner@example.com", "password": "correct horse battery staple"}
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={**owner, "household_name": "The Martins"})
+        hid = client.get("/api/auth/me").json()["household_id"]
+        token = client.post("/api/household/invites").json()["token"]
+        client.post("/api/auth/logout")
+        client.post(
+            "/api/household/accept-invite",
+            json={"token": token, "email": "guest@example.com", "password": "guestguest"},
+        )
+
+        wrong = client.post("/api/auth/delete-account", json={"password": "nope"})
+        assert wrong.status_code == 400
+        assert wrong.json()["detail"] == "wrong_password"
+
+        # The invited member leaves; the household stays for the owner.
+        left = client.post("/api/auth/delete-account", json={"password": "guestguest"})
+        assert left.status_code == 200
+        assert left.json()["household_deleted"] is False
+        assert client.get("/api/auth/me").status_code == 401
+        assert client.post("/api/auth/login", json={"email": "guest@example.com", "password": "guestguest"}).status_code != 200
+
+        assert client.post("/api/auth/login", json=owner).status_code == 200
+        assert client.get("/api/auth/me").json()["household_id"] == hid
+        assert len(client.get("/api/household/members").json()["members"]) == 1
+
+        # The last member takes the household with them.
+        gone = client.post("/api/auth/delete-account", json={"password": owner["password"]})
+        assert gone.status_code == 200
+        assert gone.json()["household_deleted"] is True
+        assert client.post("/api/auth/login", json=owner).status_code != 200
+        client.post("/api/auth/signup", json={**owner, "household_name": "Again"})
+        assert client.get("/api/auth/me").status_code == 200
+
+
+def test_remove_member_who_joined_by_invite(tmp_path):
+    with _client(tmp_path) as client:
+        client.post(
+            "/api/auth/signup",
+            json={"email": "owner@example.com", "password": "correct horse battery staple", "household_name": "H"},
+        )
+        token = client.post("/api/household/invites").json()["token"]
+        client.post("/api/auth/logout")
+        client.post(
+            "/api/household/accept-invite",
+            json={"token": token, "email": "guest@example.com", "password": "guestguest"},
+        )
+        client.post("/api/auth/logout")
+        client.post("/api/auth/login", json={"email": "owner@example.com", "password": "correct horse battery staple"})
+        guest = [m for m in client.get("/api/household/members").json()["members"] if m["email"] == "guest@example.com"][0]
+        assert client.delete(f"/api/household/members/{guest['id']}").status_code == 200

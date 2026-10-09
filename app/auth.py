@@ -292,6 +292,69 @@ def list_members(conn: Any, household_id: int):
     ).fetchall()
 
 
+def _forget_user(conn: Any, user_id: int) -> None:
+    """Remove one person: their login, sessions, reset links and the invites they sent
+    (cascades), plus their Taste Lab answers. An invite they accepted keeps its row, without them."""
+    conn.execute("UPDATE household_invites SET used_by = NULL WHERE used_by = ?", (user_id,))
+    taste = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
+    if taste and taste["present"]:
+        account = str(user_id)
+        conn.execute(
+            """DELETE FROM taste_events WHERE session_id IN (
+                 SELECT s.id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id
+                 WHERE p.account_id = ?)""",
+            (account,),
+        )
+        conn.execute(
+            "DELETE FROM taste_sessions WHERE person_id IN (SELECT id FROM taste_people WHERE account_id = ?)",
+            (account,),
+        )
+        conn.execute("DELETE FROM taste_people WHERE account_id = ?", (account,))
+    conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+def _delete_household(conn: Any, household_id: int) -> None:
+    """Everything a household owns. Most tables cascade from households; plans, the pantry and
+    the household's own recipes don't, so they go first."""
+    own = "SELECT id FROM recipes WHERE household_id = ?"
+    # Another household's copy of one of these recipes keeps its copy, just not the link.
+    conn.execute(f"UPDATE recipes SET parent_recipe_id = NULL WHERE parent_recipe_id IN ({own}) AND "
+                 "(household_id IS NULL OR household_id <> ?)", (household_id, household_id))
+    conn.execute("DELETE FROM plans WHERE household_id = ?", (household_id,))  # slots, grocery, prep cascade
+    conn.execute(f"DELETE FROM plan_slots WHERE recipe_id IN ({own})", (household_id,))
+    conn.execute("DELETE FROM pantry_items WHERE household_id = ?", (household_id,))
+    conn.execute("UPDATE recipes SET parent_recipe_id = NULL WHERE household_id = ?", (household_id,))
+    conn.execute("DELETE FROM recipes WHERE household_id = ?", (household_id,))
+    conn.execute("DELETE FROM households WHERE id = ?", (household_id,))
+
+
+def delete_account(conn: Any, user_id: int, password: str) -> bool:
+    """Delete this account after checking its password (App Store guideline 5.1.1(v), #65).
+
+    The last member takes the household and its whole kitchen with them. If others remain, the
+    household stays theirs and only this person is removed. Returns True when the household
+    was deleted too.
+    """
+    row = conn.execute(
+        "SELECT household_id, password_hash FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    if not row or not verify_password(password or "", row["password_hash"]):
+        raise AuthError("wrong_password")
+    household_id = row["household_id"]
+    others = conn.execute(
+        "SELECT COUNT(*) AS n FROM users WHERE household_id = ? AND id <> ?", (household_id, user_id)
+    ).fetchone()["n"]
+    try:
+        _forget_user(conn, user_id)
+        if not others:
+            _delete_household(conn, household_id)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return not others
+
+
 def remove_member(conn: Any, household_id: int, target_user_id: int) -> None:
     members = list_members(conn, household_id)
     if len(members) <= 1:
@@ -302,7 +365,8 @@ def remove_member(conn: Any, household_id: int, target_user_id: int) -> None:
     ).fetchone()
     if not row:
         raise AuthError("not_found")
-    conn.execute("DELETE FROM users WHERE id = ?", (target_user_id,))
+    # An accepted invite points at this person and would block a plain delete.
+    _forget_user(conn, target_user_id)
     conn.commit()
 
 

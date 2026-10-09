@@ -10,6 +10,7 @@ from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
 from app.auth import finish_password_reset, start_password_reset
 from app.auth import create_invite as do_create_invite
+from app.auth import delete_account as do_delete_account
 from app.auth import invite_info as do_invite_info
 from app.auth import list_members as do_list_members
 from app.auth import login as do_login
@@ -39,6 +40,7 @@ ERROR_MESSAGES = {
     "not_found": "That member wasn't found.",
     "reset_invalid": "This reset link isn't valid or was already used. Ask for a new one.",
     "reset_expired": "This reset link has expired. Ask for a new one.",
+    "wrong_password": "That password isn't right.",
 }
 
 
@@ -65,6 +67,10 @@ class LoginBody(BaseModel):
 class ChangePasswordBody(BaseModel):
     current_password: str
     new_password: str
+
+
+class DeleteAccountBody(BaseModel):
+    password: str
 
 
 class AcceptInviteBody(BaseModel):
@@ -131,6 +137,18 @@ def logout_everywhere(response: Response, conn=DbDep, user_id=UserDep):
     do_logout_everywhere(conn, user_id)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True}
+
+
+@router.post("/auth/delete-account")
+def delete_account(body: DeleteAccountBody, response: Response, conn=DbDep, user_id=UserDep):
+    """Delete the signed-in account (#65). Asks for the password again so a borrowed, unlocked
+    phone can't do it. Signs out everywhere: every session belonged to the deleted account."""
+    try:
+        household_deleted = do_delete_account(conn, user_id, body.password)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    response.delete_cookie(SESSION_COOKIE, path="/")
+    return {"ok": True, "household_deleted": household_deleted}
 
 
 @router.get("/auth/status")
