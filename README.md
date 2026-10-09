@@ -9,7 +9,7 @@ viewing and testing. See [LICENSE](LICENSE) and [third-party notices](THIRD_PART
 | Doc | What it's for |
 |---|---|
 | [`docs/DESIGN.md`](docs/DESIGN.md) | How each feature works, screens, architecture, decisions |
-| [`docs/TODO.md`](docs/TODO.md) | Issues, fixes, ideas, open questions (the only checklist) |
+| [`docs/TODO.md`](docs/TODO.md) | Issues, fixes, ideas, open questions and proposals |
 | [`docs/TESTER_CHECKLIST.md`](docs/TESTER_CHECKLIST.md) | What testers try on each build |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | Privacy policy shown in the app |
 
@@ -48,7 +48,7 @@ missing columns. After pulling changes that touch `app/db/schema.sql`, restart t
 
 **Deploy:** Railway builds the website and starts the API without importing recipes.
 Before deploying this branch, upload private assets to persistent storage and set both required
-asset paths. See [catalog storage and migration](docs/CATALOG_STORAGE.md). PostgreSQL records
+asset paths. See [private catalog and deployment](#private-catalog-and-deployment). PostgreSQL records
 remain independent of Git. Catalog import is an explicit operator action: `python -m app.db.catalog`.
 
 ## Test
@@ -86,7 +86,7 @@ Database tests create and drop their own schema. They never fall back to `DATABA
 `data-tip="<area>.<name>"` attribute; `python3 scripts/list_tips.py` lists them all.
 
 **Screenshots and exports:** keep them in private `dd_support`, outside this code repository.
-See [repository organization](docs/REPOSITORY.md).
+See [private catalog and deployment](#private-catalog-and-deployment).
 
 ## Recipe archive
 
@@ -102,3 +102,62 @@ database. The following paths are relative to `DINNERDESK_CATALOG_DIR`, outside 
 
 The original archive came from [Mealime](https://www.mealime.com/recipes). The scraper isn't in
 this repo; respect Mealime's terms and scrape politely if it's used again.
+
+
+## Private catalog and deployment
+
+Keep real recipe JSON, photos, ingredient mappings, trained vectors, research, screenshots,
+and exports outside Git in the private sibling `dd_support` directory. The ignored legacy
+`data/`, `food/`, and `tastelab/data/` directories are not bundled demo content. PostgreSQL
+stores imported recipes and household state independently; moving local files does not alter
+its records. Use the environment settings in **Run** above for local catalog access.
+
+The original separation preserved 153 files under `../dd_support/catalog/dinnerdesk/`.
+Its `migration-manifest.json` records their paths and SHA-256 checksums. Keep a separate
+backup: ignoring files is not a backup. Earlier screenshot cleanup records remain under
+`dd_support/review/dinnerdesk/`.
+
+### Railway private storage
+
+Before deploying to a new environment:
+
+1. Back up PostgreSQL and private assets using the existing operational process.
+2. Upload private `data/` and `food/` to persistent storage outside the Git checkout and
+   verify checksums against the migration manifest. A local support copy is not available
+   to Railway.
+3. Set `DINNERDESK_CATALOG_DIR` and `FOOD_DIR` to the uploaded directories. Retain existing
+   database, authentication, mail, and `GROCERY_PHOTO_DIR` settings.
+4. Deploy after the private paths exist. Startup initializes the schema and starts the API;
+   it does not import recipes. Missing required asset directories fail configuration checks.
+5. Verify recipes, photos, Taste Lab, pantry, and household plans. Database photo filenames
+   resolve through the external photo directory and the `recipe_photos.json` allowlist.
+
+Catalog updates are deliberate operator actions: `python -m app.db.catalog` updates records
+by slug and commits to the configured database. The deprecated `DINNERDESK_IMPORT_CATALOG`
+startup setting is no longer used.
+
+**Recorded Railway setup, October 8, 2026:** the existing `weekplate-volume` mount at
+`/web/public/food/` was reused; the PostgreSQL volume was unchanged. The folder
+`dinnerdesk-catalog-2026-10-08` received 150 private catalog/photo files plus a SHA-256
+manifest. Downloading the upload again verified all 150 checksums. Settings were saved
+without triggering a deployment:
+
+```text
+DINNERDESK_CATALOG_DIR=/web/public/food/dinnerdesk-catalog-2026-10-08/data
+FOOD_DIR=/web/public/food/dinnerdesk-catalog-2026-10-08/food
+```
+
+These are historical setup records, not confirmation of current deployment state. Existing
+volume files and database records were not overwritten by that upload.
+
+### Repository maintenance
+
+The repository was recovered with a fresh history; it now has a configured GitHub remote.
+Ignoring private files does not remove them from older or separate public histories. Review
+any such history before publication. Keep `dd_support` private and backed up, review Python
+dependency locking before releases, and verify third-party asset permissions from records.
+Font licenses remain in their font directories and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Use the existing core documents for future updates: this README for setup and operations,
+`DESIGN.md` for implemented behavior, `TODO.md` for issues/proposals/research, and
+`TESTER_CHECKLIST.md` for concise testing. Keep the privacy policy and legal notices separate.

@@ -1,7 +1,6 @@
 # Dinnerdesk to-do
 
-The working list: issues, fixes, ideas, and open questions. This is the only file with
-checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
+The working list: issues, fixes, ideas, and open questions. Implementation checkboxes live here; tester checks live in `TESTER_CHECKLIST.md`. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 **How to use it**
 
@@ -214,7 +213,7 @@ Roughly most useful first within each group. Not a roadmap.
 
 **Grocery and prep**
 - [ ] Shop-my-list / online order hooks (Instacart, Walmart, Kroger, Amazon). Notes in
-      [`grocery-plan.md`](grocery-plan.md).
+      [grocery shopping research](#grocery-shopping-research).
 - [ ] Package-aligned scaling (prefer ½ / 1 / 2× retail packs) and a standard package-size table.
 - [ ] Cross-meal perishable planning ("night 3 finishes the bag"); expiry dates → cook-soon
       suggestions.
@@ -274,6 +273,79 @@ Roughly most useful first within each group. Not a roadmap.
 
 ---
 
+## Pending proposals
+
+These remain design choices, not implemented features.
+
+### Proposed quick start order — issue #24
+
+Awaiting the user's choice before changing the tour.
+
+After welcome and household filters, show:
+
+1. Suggestions: start with four meals matched to the household.
+2. Review and approve: swap meals; the current plan stays until approval.
+3. Grocery: combined amounts and pantry items.
+4. Weekend prep: prepare shared ingredients ahead.
+5. Recipes: browse and add your own meals; explain purple ★ help tips.
+6. Taste Lab: likes and passes improve future suggestions, with an optional entry button.
+
+Keep Skip available throughout, and offer Start planning as well as the optional Taste Lab
+entry at the end. Use the same order/copy on iPhone and web.
+
+The existing notes ask for tips to fade after the first few uses. No tip-visit tracking is
+currently implemented, so the tour must not promise automatic fading until that behavior
+is built. Screenshot content is tracked separately in issue #25.
+
+### Category preference proposal — issue #38
+
+Awaiting the user's choice before adding category preferences.
+
+Proposed behavior:
+
+- Dislike stops suggesting a category while leaving its recipes browsable.
+- Like boosts the category in suggestions; it does not guarantee a meal on every plan.
+- Neutral has no effect. Each category has one state: Like, Neutral, or Dislike.
+- Allergies and dietary filters always take priority over category likes.
+- If a recipe belongs to several categories, a dislike takes priority over a like.
+- Store choices in household preferences, shared by Settings and Taste Lab.
+- Do not add a new Recipes carousel until separately requested.
+
+Existing category labels for review: Curry & Indian; Mexican & Tex-Mex; Asian stir-fries &
+noodles; Italian & pasta; Mediterranean; Comfort classics; Healthy & light; Soups & stews.
+
+Alternative: disliked categories also disappear from browsing. This makes it harder to find
+an occasional exception and needs a clear explanation/reset control before implementing.
+
+Implementation after approval: add persisted tri-state choices, apply the ranker rules,
+share controls on app/web, and verify overlapping categories and allergy precedence with tests.
+
+### More navigation proposal — issue #40
+
+Awaiting the user's choice before reorganizing navigation.
+
+Keep these daily tools one tap from More:
+
+- Weekend prep
+- My kitchen (Family portions, Pantry, Always checked off, Substitutions, Stores & aisles)
+- Taste Lab
+- Hidden recipes
+
+Group separately:
+
+- Preferences & account: Settings (Filters, Account & security, Privacy).
+- Help & links: Quick start tour, Dinnerdesk on the web, Twitter.
+
+Use the same group labels/order on iPhone and web, and keep all existing destinations.
+No additional nested screen is needed. My kitchen remains one hub rather than spreading
+its five tools across More. Taste Lab remains one tap away.
+
+Review points: whether Hidden recipes belongs with daily tools or preferences; whether
+Twitter should remain in the app; whether Weekend prep still needs both its tab and More
+entry on phones that have space for the Prep tab.
+
+---
+
 ## Far future
 
 - [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature.
@@ -307,3 +379,82 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
 - [x] Recipes search uses the app's warm surface color.
 - [x] Removal confirmation has consistent typography and a compact standard-text sheet.
 - [x] Account & security uses a reset action, editable household name, and one signed-in identity.
+
+
+## Grocery shopping research
+
+Historical application/research notes; verify availability and requirements before acting.
+
+Track grocery conversions and earn commissions (Mealime-style). Register with the networks that run each retailer program. Related app goal: in-app shop-my-list in `TODO.md` → Ideas.
+
+Instacart Developer Platform ([IDP](https://company.instacart.com/business/developers)) can send users to Instacart checkout and pay affiliate commissions, but **new applications are closed** (no waitlist). Recheck that page later.
+
+### 1. Walmart Affiliate Program (via Impact.com)
+
+Walmart partner/creator tracking runs through Impact.
+
+- Applied for an **Impact.com publisher account** to access Walmart affiliate/API opportunities, but the application was **denied**.
+- Created a **Walmart Affiliate account/application**, but it is **not approved yet**.
+- Walmart approval may depend on having an approved Impact account, so this route is currently blocked/pending.
+- Sign-up pages: [Walmart Affiliate Program](https://www.walmart.com/affiliate-program) and [Impact.com](https://impact.com/).
+- Likely requirements: live domain, working prototype or wireframe, privacy policy (`PRIVACY.md`; also at `/privacy` in the app).
+- If/when Impact approval becomes available: search **Walmart Retail Campaign** in the marketplace and apply.
+
+### 2. Kroger Developer Account (direct API)
+
+Kroger lets you sign up and test catalog / link-building APIs immediately.
+
+- Sign up: [Kroger Developer Portal](https://developer.kroger.com/) (top right).
+- Dashboard → **My Apps** → **Create New App** for Client ID and Client Secret.
+- Use those credentials for product search in local development.
+
+### 3. Albertsons Companies Partner Program (CJ Affiliate)
+
+Albertsons (Safeway, Vons, Jewel-Osco, others) tracks affiliates through CJ.
+
+- Sign up for a publisher account at [CJ.com](https://www.cj.com/).
+- After the profile is verified: advertiser directory → **Albertsons Companies**.
+- Apply as a meal-planning app that sends high-intent grocery buyers to their sites.
+
+### Approval (app not fully live yet)
+
+Networks often want a public URL before approving an app.
+
+- Put up a one-page site (Carrd, Webflow, Squarespace): app name, logo, screenshots/mockups, brief description, privacy policy, and contact information. Use that as the website on applications.
+- Having a functional public prototype may improve approval chances compared with applying while the app is still mostly in development.
+- Application copy, e.g.: *We are building a utility meal-planning mobile application. We use an in-app WebView workflow to direct users to local grocery checkout screens to purchase recipe ingredients, generating high-volume, high-intent cart conversions for your retail banner.*
+
+
+## Even issue implementation record — October 8, 2026
+
+Historical record of the cumulative issue pass. These changes have since been integrated
+into `main`; the listed local feature branches were deleted after verifying their ancestry.
+The proposals remain unimplemented, and device/browser checks are in the tester checklist.
+
+| Issue | Branch | Result |
+|---|---|---|
+| #4 | `codex/issue-4-recipe-plan-state` | Actual plan membership; add/remove controls and brief confirmation |
+| #6 | `codex/issue-6-remove-dialog` | Singular/plural wording; full-height accessibility confirmation |
+| #8 | `codex/issue-8-suggestion-summary` | Review explanation; no internal commentary on active plans |
+| #10 | `codex/issue-10-taste-lab-header` | Suppress repeated Taste Lab branding when embedded |
+| #12 | `codex/issue-12-taste-lab-names` | Full suggested names and swap headings |
+| #14 | `codex/issue-14-taste-lab-recovery` | Prominent exhausted-results recovery panel |
+| #16 | `codex/issue-16-recipe-menu` | Shared scrolling iPhone recipe options sheet; device reproduction still needed |
+| #18 | `codex/issue-18-grocery-photo` | Omit missing/failed ingredient photo boxes; supplying photos remains an asset task |
+| #20 | `codex/issue-20-substitution-layout` | Stack substitution names when space is limited |
+| #22 | `codex/issue-22-selected-tab` | Bold selected labels; web underline and aria-current |
+| #24 | `codex/issue-24-tour-order` | [Tour order proposal](#proposed-quick-start-order--issue-24), pending choice |
+| #26 | `codex/issue-26-plan-menu` | Remove unrequested chooser menu and unused chooser code |
+| #28 | `codex/issue-28-prep-completion` | One PUT endpoint, one JSON store, legacy migration; updated API/app must ship together |
+| #30 | `codex/issue-30-plan-list-layout` | Full names and Schedule without shrinking photos |
+| #32 | `codex/issue-32-decline-in-place` | Retain review during replacement; failure supports retry |
+| #34 | `codex/issue-34-grocery-heading` | Full-width secondary usage heading |
+| #36 | `codex/issue-36-tab-reselection` | Same-tab selection returns to root |
+| #38 | `codex/issue-38-category-preferences` | [Category proposal](#category-preference-proposal--issue-38), pending choice |
+| #40 | `codex/issue-40-more-navigation` | [More grouping proposal](#more-navigation-proposal--issue-40), pending choice |
+
+At the time of that pass, 197 Python tests passed in a dedicated database, the unsigned
+simulator build and web production build passed, and Taste Lab JavaScript syntax checks
+passed. Test isolation resets Taste Lab's cached initializer between fresh schemas.
+These are historical results, not validation of the current build. Issue #2's original
+HTTP 405 trigger remains unresolved; request diagnostics are in place.

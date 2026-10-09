@@ -324,7 +324,7 @@ Routes live in `app/routes.py`, `app/auth_routes.py`, and `app/taste_lab.py`, al
 
 Build it ourselves by default, and prefer data tables we own (ingredients, nutrients, package
 sizes) over live calls. Outside services only when a feature needs one: USDA FoodData Central for
-nutrients, retailer programs for shop-my-list (notes in [`grocery-plan.md`](grocery-plan.md)),
+nutrients, retailer programs for shop-my-list (notes in [grocery shopping research](TODO.md#grocery-shopping-research)),
 HealthKit for nutrition sync.
 
 ---
@@ -339,8 +339,7 @@ HealthKit for nutrition sync.
 - Prep check marks follow the meal and step, so they survive regrouping.
 - Template rules are still open: families are JSON lists of recipes, not a slot generator.
 
-**Reference notes:** [`mealime.md`](mealime.md) (how Dinnerdesk compares to Mealime) ·
-[`grocery-plan.md`](grocery-plan.md) (grocery retailer programs) · [`PRIVACY.md`](PRIVACY.md).
+**Reference notes:** [grocery shopping research](TODO.md#grocery-shopping-research) (grocery retailer programs) · [`PRIVACY.md`](PRIVACY.md).
 
 Plan removal confirms the selected meal count with singular/plural wording. On iPhone,
 accessibility text sizes open a full-height, scrolling confirmation with reachable Cancel.
