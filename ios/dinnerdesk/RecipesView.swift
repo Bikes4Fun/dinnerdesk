@@ -177,6 +177,15 @@ struct RecipesView: View {
     browseSection("All recipes", rows: rows(for: .all), seeAll: .all, empty: "No recipes")
   }
 
+  private func seeAllButton(_ title: String, _ kind: RecipeListKind) -> some View {
+    Button("See all") { list = kind }
+      .font(Theme.action)
+      .foregroundStyle(Theme.accent)
+      .frame(minHeight: 44)
+      .contentShape(Rectangle())
+      .accessibilityLabel("See all \(title)")
+  }
+
   private func browseSection(
     _ title: String, rows: [RecipeSummary], seeAll: RecipeListKind, empty: String? = nil
   ) -> some View {
@@ -187,8 +196,8 @@ struct RecipesView: View {
             .font(Theme.title)
             .foregroundStyle(Theme.ink)
         } else {
-          // "See all" sits beside the title when both fit on one line. At large text the
-          // title itself becomes the link, with a chevron, so the title never gets cut off.
+          // One link style everywhere: "See all" (no chevron). It sits beside the title when
+          // both fit on one line; at large text it moves under the title, which wraps.
           ViewThatFits(in: .horizontal) {
             HStack {
               Text(title)
@@ -196,24 +205,16 @@ struct RecipesView: View {
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
               Spacer()
-              Button("See all") { list = seeAll }
-                .font(Theme.action)
-                .foregroundStyle(Theme.accent)
+              seeAllButton(title, seeAll)
             }
-            Button { list = seeAll } label: {
-              HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(title)
-                  .font(Theme.title)
-                  .foregroundStyle(Theme.ink)
-                  .multilineTextAlignment(.leading)
-                Image(systemName: "chevron.right")
-                  .font(Theme.action)
-                  .foregroundStyle(Theme.accent)
-              }
-              .frame(maxWidth: .infinity, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+              Text(title)
+                .font(Theme.title)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+              seeAllButton(title, seeAll)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(title), see all")
+            .frame(maxWidth: .infinity, alignment: .leading)
           }
         }
       }
