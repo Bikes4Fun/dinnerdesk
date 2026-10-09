@@ -654,19 +654,23 @@ private struct RemovalConfirmation: View {
   let action: () async -> Void
   @Environment(\.dismiss) private var dismiss
   @State private var busy = false
+  @State private var contentHeight: CGFloat = 280
   @Environment(\.dynamicTypeSize) private var textSize
   var body: some View {
     ScrollView {
       VStack(spacing: 16) {
         Text(title).font(Theme.title).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
-        Text(message).font(Theme.subtitle).multilineTextAlignment(.center)
-        Button(actionTitle, role: .destructive) {
+        Text(message).font(Theme.body).foregroundStyle(Theme.muted).multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+        Button(role: .destructive) {
           busy = true
           Task { await action(); dismiss() }
-        }.buttonStyle(.borderedProminent).tint(.red).frame(maxWidth: .infinity)
-        Button("Cancel") { dismiss() }.frame(maxWidth: .infinity, minHeight: 44)
+        } label: {
+          Text(actionTitle).font(Theme.action).frame(maxWidth: .infinity, minHeight: 44)
+        }.buttonStyle(.borderedProminent).tint(.red)
+        Button("Cancel") { dismiss() }.font(Theme.action).frame(maxWidth: .infinity, minHeight: 44)
       }.padding(.horizontal, 20).padding(.vertical, 20).frame(maxWidth: .infinity).disabled(busy)
-    }.presentationDetents(textSize.isAccessibilitySize ? [.large] : [.medium, .large]).presentationDragIndicator(.visible).presentationBackground(Theme.bg)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 + 20 }
+    }.presentationDetents(textSize.isAccessibilitySize ? [.large] : [.height(contentHeight), .large]).presentationDragIndicator(.visible).presentationBackground(Theme.bg)
   }
 }
 

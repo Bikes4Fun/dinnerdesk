@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
-import { ALLERGENS, AVOIDS, DIETS, cleanDiets, otherWords, splitOther, toggleAvoid, toggleDiet } from "../diet.js";
+import { ALLERGENS, AVOIDS, DIETS, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 
 function Back() {
   return (
@@ -100,27 +100,42 @@ const TIMES = [
 ];
 
 /** Chips for a list plus an Other box for words not on it. Saves the whole list. */
+function FoodFilterPicker({ label, selected, onAdd, onRemove }) {
+  const [query, setQuery] = useState("");
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    setMatches([]);
+    setError("");
+    setLoading(Boolean(query.trim()));
+    if (!query.trim()) return;
+    const timer = setTimeout(() => api.filterItems(query)
+      .then((box) => { if (active) setMatches(box.items.map((item) => item.name)); })
+      .catch(() => { if (active) setError("Couldn't search foods. Please try again."); })
+      .finally(() => { if (active) setLoading(false); }), 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [query]);
+  return <div className="filter-food-picker">
+    <div className="chip-row wrap">{selected.map((name) => <button type="button" className="chip is-on" key={name} aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>{name} ×</button>)}</div>
+    <label className="block-label">{label}<input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+    {loading && <p role="status">Searching…</p>}
+    {error && <p role="alert">{error}</p>}
+    <div className="filter-food-results">{matches.filter((name) => !selected.includes(name)).map((name) => <button type="button" className="list-link" key={name} onClick={() => { onAdd(name); setQuery(""); }}>{name}</button>)}</div>
+    {!loading && !error && query.trim() && !matches.length && <p role="status">No matching foods. Try another name.</p>}
+  </div>;
+}
+
 function ChoiceBlock({ label, items, saved, onChange, otherLabel }) {
   const custom = otherWords(saved, items);
-  const [other, setOther] = useState(custom.join(", "));
   const [open, setOpen] = useState(custom.length > 0);
-  const known = saved.filter((w) => !custom.includes(w));
-  useEffect(() => {
-    setOther(custom.join(", "));
-    if (custom.length) setOpen(true);
-    // Only when the saved words change, not on every keystroke.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [custom.join(",")]);
-  const commitOther = () => {
-    const words = splitOther(other).filter((w) => !items.some((k) => (Array.isArray(k) ? k[0] : k) === w));
-    const next = [...known, ...words];
-    if (next.join(",") !== saved.join(",")) onChange(next);
-  };
+  useEffect(() => { if (custom.length) setOpen(true); }, [custom.join("\u001f")]);
   return (
     <>
       <h3 className="block-label">{label}</h3>
       <div className="chip-row wrap">
-        <button type="button" className={`chip${saved.length ? "" : " is-on"}`} aria-pressed={!saved.length} onClick={() => { setOther(""); setOpen(false); onChange([]); }}>
+        <button type="button" className={`chip${saved.length ? "" : " is-on"}`} aria-pressed={!saved.length} onClick={() => { setOpen(false); onChange([]); }}>
           none
         </button>
         {items.map((item) => {
@@ -132,25 +147,12 @@ function ChoiceBlock({ label, items, saved, onChange, otherLabel }) {
             </button>
           );
         })}
-        <button type="button" className={`chip${open ? " is-on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <button type="button" className={`chip${open || custom.length ? " is-on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
           other…
         </button>
       </div>
-      {open && (
-        <>
-          <input
-            aria-label={otherLabel}
-            className="field"
-            type="text"
-            value={other}
-            placeholder="e.g. kale, anchovies"
-            onChange={(e) => setOther(e.target.value)}
-            onBlur={commitOther}
-            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-          />
-          <p className="help">Separate with commas.</p>
-        </>
-      )}
+      {open && <FoodFilterPicker label={otherLabel} selected={custom} onAdd={(name) => onChange([...new Set([...saved, name])])} onRemove={(name) => onChange(saved.filter((word) => word !== name))} />}
+
     </>
   );
 }
@@ -357,8 +359,7 @@ export function AccountSecurity() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [toast, setToast] = useState("");
-  const [current, setCurrent] = useState("");
-  const [next, setNext] = useState("");
+  const [householdName, setHouseholdName] = useState("");
   const [inviteLink, setInviteLink] = useState("");
 
   useEffect(() => {
@@ -370,24 +371,22 @@ export function AccountSecurity() {
 
   useEffect(() => {
     if (status && status.authenticated) {
+      api.household().then((household) => setHouseholdName(household.name)).catch((e) => setErr(e.message));
       api.householdMembers().then((r) => setMembers(r.members)).catch((e) => setErr(e.message));
     }
   }, [status]);
 
-  async function submitPasswordChange(e) {
+  async function saveHouseholdName(e) {
     e.preventDefault();
-    setErr("");
+    if (!householdName.trim()) return;
     setBusy(true);
+    setErr("");
     try {
-      await api.auth.changePassword({ current_password: current, new_password: next });
-      setCurrent("");
-      setNext("");
-      setToast("Password updated.");
-    } catch (e) {
-      setErr((e.body && e.body.message) || e.message);
-    } finally {
-      setBusy(false);
-    }
+      const household = await api.putHousehold({ name: householdName.trim() });
+      setHouseholdName(household.name);
+      setToast("Household name saved.");
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
   }
 
   async function emailResetLink() {
@@ -474,8 +473,13 @@ export function AccountSecurity() {
             <label className="block-label">Signed in as</label>
             <p>{status.email}</p>
 
+            <form onSubmit={saveHouseholdName}>
+              <label className="block-label" htmlFor="household-name">Household name</label>
+              <input className="field" id="household-name" value={householdName} maxLength={80} onChange={(e) => setHouseholdName(e.target.value)} required />
+              <button type="submit" className="btn-secondary block" disabled={busy || !householdName.trim()}>Save household name</button>
+            </form>
             <label className="block-label">Household members</label>
-            {members.map((m) => (
+            {members.filter((m) => m.email !== status.email).map((m) => (
               <div key={m.id} className="list-link">
                 <span>{m.email}</span>
                 {members.length > 1 && (
@@ -506,39 +510,10 @@ export function AccountSecurity() {
               </>
             )}
 
-            <form onSubmit={submitPasswordChange}>
-              <label className="block-label" htmlFor="current_password">
-                Current password
-              </label>
-              <input
-                id="current_password"
-                className="field"
-                type="password"
-                autoComplete="current-password"
-                value={current}
-                onChange={(e) => setCurrent(e.target.value)}
-                required
-              />
-              <label className="block-label" htmlFor="new_password">
-                New password
-              </label>
-              <input
-                id="new_password"
-                className="field"
-                type="password"
-                autoComplete="new-password"
-                minLength={8}
-                value={next}
-                onChange={(e) => setNext(e.target.value)}
-                required
-              />
-              <button type="submit" className="btn-secondary block" disabled={busy}>
-                {busy ? "Updating…" : "Update password"}
-              </button>
-            </form>
-            <button type="button" className="text-link" disabled={busy} onClick={emailResetLink}>
-              Forgot your current password? Email me a reset link
+            <button type="button" className="btn-secondary block" disabled={busy} onClick={emailResetLink}>
+              Reset password
             </button>
+            <p className="help">Email a reset link to your signed-in address.</p>
 
             <label className="block-label">Sessions</label>
             <button type="button" className="btn-secondary block" onClick={signOut}>

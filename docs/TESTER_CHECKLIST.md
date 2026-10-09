@@ -1,6 +1,6 @@
 # Dinnerdesk tester checklist
 
-*Last updated: Oct 7, 2026 · Build: merged `main` + `prep-grocery-recipes` (includes suggested-plan work)*
+*Last updated: Oct 9, 2026 · Candidate: `merge_all_issues` with annotated screenshot fixes (not deployed)*
 
 *For the team: each section here matches a section of [`DESIGN.md`](DESIGN.md) → Features. When a feature changes, update both.*
 
@@ -279,3 +279,19 @@ Compatibility: the ranker still exports `KEYS`, `DIET_BLOCKS`, `AVOID_ALIAS`, `h
 - [ ] #18: open grocery items with a photo, without one, and with a failed photo URL. Only a usable ingredient photo occupies space on app/web; other fields remain available.
 
 - [ ] #20: inspect long substitution names at maximum iPhone text size and web zoom/narrow width. Names wrap between words; the replacement and Remove action remain readable.
+
+
+## Annotated screenshot verification — October 9, 2026
+
+- [ ] Settings custom allergies/avoids: search “bell peppers” and select a specific color;
+      search “ground” and select turkey or beef. Typing alone saves nothing. Remove a
+      selected item, reopen, and verify choices persist on both app and website.
+- [ ] Search an unknown food: show no matching foods, rather than unrelated suggestions.
+      Existing custom filters remain visible and removable. A failed search has readable
+      retry guidance. Large text does not clip food names or controls.
+- [ ] Recipes search field uses the warm cream palette while search and filtering still work.
+- [ ] Remove one or several meals: title/body/button sizes look balanced. Standard text
+      uses a compact sheet; maximum text keeps Remove and Cancel reachable by scrolling.
+- [ ] Account & security: signed-in email appears once; household name saves and survives
+      reopening. Other household members remain visible/removable. Reset password sends
+      email only when tapped; it shows confirmation and preserves sign-in until reset.

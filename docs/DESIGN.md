@@ -350,3 +350,20 @@ no empty photo box. Individual food assets are supplied through GROCERY_PHOTO_DI
 
 Substitution names move to stacked rows when the horizontal layout cannot fit; full
 ingredient words remain readable at accessibility sizes.
+
+
+### Screenshot review — October 9, 2026
+
+- Custom allergies and avoids use ingredient search and explicit selected-food rows on
+  iPhone and web Settings. Search includes catalog foods and recipe ingredients belonging
+  to the shared catalog or this household; every query word must match. Typing alone does
+  not save a restriction. Existing custom choices remain removable, and selected food
+  names are stored intact, including commas, in the shared filters.
+- Recipes search uses the cream surface and line border rather than a system white field.
+- Meal-removal confirmation uses 20-point title, 17-point body/actions (scaled for Dynamic
+  Type), and a content-sized sheet at standard text sizes. Accessibility sizes retain the
+  scrolling full-height sheet. Cancel remains reachable.
+- Account & security shows the signed-in identity once, offers Reset password by email,
+  and lets the household name be edited. Other household members remain manageable;
+  the current user's duplicate member row is omitted. Reset email is sent only on tapping
+  the action, never just by visiting the screen.

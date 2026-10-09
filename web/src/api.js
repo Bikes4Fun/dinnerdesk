@@ -49,6 +49,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  filterItems: (q) => req(`/api/filter-items?${new URLSearchParams({ q })}`),
   recipes: (params = {}) => {
     const q = new URLSearchParams();
     if (params.q) q.set("q", params.q);

@@ -1571,6 +1571,30 @@ def get_pantry_catalog(db: PgConnection = DbDep, household_id: int = HhDep):
     return {"items": items}
 
 
+@router.get("/filter-items")
+def list_filter_items(
+    q: str = "",
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+):
+    """Select specific ingredients for custom allergies/avoids, without invented matches."""
+    words = search_tokens(q)
+    if not words:
+        return {"items": []}
+    names = set(_grocery_name_pool(db, household_id))
+    names.update(row["canonical_name"] for row in db.execute(
+        """SELECT DISTINCT i.canonical_name FROM ingredients i
+           JOIN recipe_ingredients ri ON ri.ingredient_id = i.id
+           JOIN recipes r ON r.id = ri.recipe_id
+           WHERE r.household_id IS NULL OR r.household_id = ?""", (household_id,)))
+    hits, _ = search_grocery_names(sorted(names), q, limit=len(names) or 1)
+    # Every query word must match; plural queries also find singular ingredient names.
+    def matches(name):
+        hay = search_tokens(name)
+        return all(any(part.startswith(word) or part.startswith(word[:-1] if len(word) > 3 and word.endswith("s") else word) for part in hay) for word in words)
+    return {"items": [{"name": name} for name in hits if matches(name)][:40]}
+
+
 @router.get("/grocery-items")
 def list_grocery_items(
     q: str = "",

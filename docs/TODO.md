@@ -278,3 +278,10 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
       recipe cards, ingredient row lines; consistent cream background.
 - [x] Thumbs on the plan only in Edit mode; one summary line instead of commentary under every
       meal.
+
+
+**October 9, 2026 — annotated screenshot fixes (visual verification pending)**
+- [x] Custom allergies/avoids offer explicit ingredient search selections, preserving saved names.
+- [x] Recipes search uses the app's warm surface color.
+- [x] Removal confirmation has consistent typography and a compact standard-text sheet.
+- [x] Account & security uses a reset action, editable household name, and one signed-in identity.

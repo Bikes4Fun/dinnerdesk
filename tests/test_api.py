@@ -1151,3 +1151,27 @@ def test_settings_and_taste_lab_share_one_filter_system(tmp_path, monkeypatch):
         assert client.get("/api/household").json()["prefs"]["filters"]["allergens"] == ["sesame"]
         response = client.get("/api/suggestions/recipes")
         assert 2 not in response.json()["recipe_ids"]
+
+
+def test_filter_food_search_selects_specific_ingredients(tmp_path):
+    with _client(tmp_path) as client:
+        created = client.post("/api/recipes", json={
+            "name": "Pepper skillet", "servings": 4,
+            "ingredients": [{"name": name, "quantity": "1"} for name in
+                            ["red bell pepper", "green bell pepper", "yellow bell pepper", "ground turkey", "ground beef"]],
+            "instructions": [{"text": "Cook the skillet."}],
+        })
+        assert created.status_code == 200
+        peppers = client.get("/api/filter-items", params={"q": "bell peppers"}).json()["items"]
+        assert any("red" in item["name"] for item in peppers)
+        assert any("green" in item["name"] for item in peppers)
+        assert any("yellow" in item["name"] for item in peppers)
+        ground = client.get("/api/filter-items", params={"q": "ground"}).json()["items"]
+        assert any("turkey" in item["name"] for item in ground)
+        assert any("beef" in item["name"] for item in ground)
+        assert client.get("/api/filter-items", params={"q": "not-a-real-food-xyz"}).json()["items"] == []
+        assert client.get("/api/filter-items").json()["items"] == []
+        selected = peppers[0]["name"]
+        saved = client.put("/api/household", json={"prefs": {"filters": {"allergens": [selected]}}}).json()
+        assert selected in saved["prefs"]["filters"]["allergens"]
+        assert selected in client.get("/api/household").json()["prefs"]["filters"]["allergens"]

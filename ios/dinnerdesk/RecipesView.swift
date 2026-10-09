@@ -82,7 +82,11 @@ struct RecipesView: View {
         .background(Theme.bg)
         if searchOpen {
           TextField("Search recipes or ingredients", text: $query)
-            .textFieldStyle(.roundedBorder)
+            .textFieldStyle(.plain)
+            .font(Theme.body)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
             .padding(.horizontal, 16)
             .padding(.bottom, 12)
             .onChange(of: query) { _, q in
