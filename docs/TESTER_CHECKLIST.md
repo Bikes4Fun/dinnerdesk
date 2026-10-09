@@ -10,7 +10,7 @@ Review these areas on both app and website:
 
 | Where | Changes and what to check |
 |---|---|
-| **Recipe detail** | Add/remove reflects actual plan membership, with brief confirmation. Check toolbar and bottom controls stay synchronized. On iPhone, ⋯ opens a scrolling options sheet. |
+| **Recipe detail** | Add/remove reflects actual plan membership, with brief confirmation. Check toolbar and bottom controls stay synchronized. On iPhone, ⋯ opens a scrolling options sheet. [tester note: this brief confirmation should pop up near the top, where the button is, not near the bottom, where the user isn't looking] |
 | **Recipe → Cook** | Dinnerdesk-rewritten instructions show a customization note using existing provenance. Five recipes received another wording pass; live instructions won’t change until catalog import. |
 | **Recipes search** | iPhone search field uses the cream palette. Confirm searching and filtering still work. |
 | **Suggested-plan review** | One heading, less explanatory text, circular photo-corner swap buttons, adjacent decision buttons. Four meals adapt to available phone space. Check complete names, photo cropping, scrolling at large text, and reachable actions. |
