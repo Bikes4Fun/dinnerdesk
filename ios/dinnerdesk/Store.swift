@@ -5,6 +5,8 @@ import Foundation
 final class Store: ObservableObject {
   @Published var proposalError: String?
   @Published var proposal: Plan?
+  // Loading a saved proposal must not interrupt launch or pull-to-refresh.
+  @Published var showingProposal = false
   @Published var plan: Plan?
   @Published var recipes: [RecipeSummary] = []
   @Published var grocery: [GroceryLine] = []
@@ -712,7 +714,7 @@ extension Store {
     proposalError = nil
     do {
       let reviewed: Plan = try await API.send("plans/\(proposal.id)/decision/\(decision)", method: "POST", body: [:])
-      if decision == "approve" { self.proposal = nil; plan = reviewed; await loadGrocery() }
+      if decision == "approve" { showingProposal = false; self.proposal = nil; plan = reviewed; await loadGrocery() }
       else {
         self.proposal = reviewed
         await replaceDeclinedProposal()
@@ -773,6 +775,7 @@ extension Store {
         }
         proposalError = nil
         proposal = created
+        showingProposal = true
       } else { plan = created; await loadGrocery() }
       error = nil
       return true

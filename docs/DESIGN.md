@@ -393,7 +393,9 @@ Selected tabs use bold labels on iPhone and bold underlined labels on web, with 
 on web links. Selection remains visible without relying on accent color.
 
 Plan ⋯ omits Review pending suggestions and Choose my own meals. New meal plan requests
-four suggestions; Recipes remains the entry point for adding individual meals.
+four suggestions; Recipes remains the entry point for adding individual meals. Loading a
+saved proposal must not open the review sheet automatically. A “Review saved suggestions”
+button on the main Plan screen opens it explicitly; closing review preserves the proposal.
 
 Prep completion uses PUT /prep/{id}/steps and task JSON as its sole store. Startup migrates
 legacy per-step checks into task JSON before dropping the old table; completion follows
@@ -415,5 +417,11 @@ Tapping the selected tab again returns to its main page and resets local navigat
 state. On web, primary navigation remounts the destination screen without reloading the page.
 
 Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, measured four-meal layout, circular swap controls, and declined-proposal retry state.
+
+Screenshot follow-up: adding a fifth or later suggested meal keeps the four-meal photo
+height calculation, with scrolling for extra rows. The replacement picker uses the cream
+page background, rounded photos, dark meal names, and a visible search field. Empty
+replacement results and filter-related plan errors link directly to Filters. Empty plans
+group New meal plan and Add meals together in the center.
 
 Odd-issue integration (October 9): pantry search supports keyboard selection and a clear control; the tab highlight stays within the system bar while selected labels retain bold type. Quick-start tour steps include screen illustrations. Guest Taste Lab answers persist by browser identity. Prep task names derive from recipe content. AI photo metadata controls a purple-star tip independently of instruction provenance.

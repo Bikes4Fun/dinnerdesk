@@ -16,7 +16,7 @@
 
 | Area | Quick check |
 |---|---|
-| **Suggestion layout** | Taste Lab card styling is shared with suggestion review. Four meals fit on most phones at normal text size. Full names, circular swap icons, and adjacent decisions remain readable. At large text, scroll to every action. |
+| **Suggestion layout** | **Restart with saved suggestions: Plan opens, not the review sheet.** Tap **Review saved suggestions** to resume. Change 4 → 6 meals: photos must not grow. Swap picker uses cream styling and searchable, full names; empty results link to Filters. Empty-plan actions sit together. Check four meals at normal text and reachable actions at large text. |
 | **Decline / retry** | Decline replaces only the proposal. A failed replacement offers **Try another suggestion**; a declined plan cannot be approved or edited. |
 | **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. AI-tagged photos show the purple-star attribution tip. |
 | **Taste Lab** | Like/pass, swap/More options, and reject work. Guest answers survive revisiting Taste Lab without repeating answered meals. Verify three approvals before “You’re set”; **Done for now** ends early. Empty results offer noticeable recovery. |

@@ -50,7 +50,17 @@ struct PlanView: View {
           }
           .padding(.bottom, 4)
 
-          if let error = store.error { ErrorBanner(message: error) }
+          if let error = store.error {
+            ErrorBanner(message: error)
+            if error.localizedCaseInsensitiveContains("filter") {
+              NavigationLink("Adjust filters") { FiltersView() }
+              Button("Choose meals") { store.error = nil; selectTab(.recipes) }
+            }
+          }
+          if store.proposal != nil && !store.showingProposal {
+            Button("Review saved suggestions") { store.showingProposal = true }
+              .font(Theme.action).frame(minHeight: 44)
+          }
           if let plan = store.plan {
             let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
             if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
@@ -80,7 +90,11 @@ struct PlanView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(Theme.accent)
+                Button { selectTab(.recipes) } label: {
+                  Label("Add meals", systemImage: "plus")
+                }.font(Theme.action).frame(minHeight: 44)
               }
+              .frame(maxWidth: .infinity)
             }
             if editing && !plan.slots.isEmpty {
               // Side by side when it fits; stacked at large text so no word breaks mid-way.
@@ -126,12 +140,12 @@ struct PlanView: View {
                 }
               }
             }
-            Button {
+            if !plan.slots.isEmpty { Button {
               selectTab(.recipes)
             } label: {
               Label("Add meals", systemImage: "plus")
             }
-            .font(Theme.mealName).padding(.vertical)
+            .font(Theme.mealName).padding(.vertical) }
           } else {
             ProgressView()
           }
@@ -179,7 +193,7 @@ struct PlanView: View {
       }
       .sheet(item: $picking) { slot in ScheduleMealSheet(slot: slot) }
       .sheet(isPresented: $drafts) { SavedPlansView() }
-      .sheet(isPresented: Binding(get: { store.proposal != nil }, set: { if !$0 { store.proposal = nil } })) {
+      .sheet(isPresented: $store.showingProposal) {
         SuggestedPlanReview()
       }
       .refreshable { await store.loadAll() }
@@ -740,7 +754,7 @@ private struct SuggestedPlanReview: View {
   }
   private func photoHeight(in size: CGSize) -> CGFloat {
     let width = textSize.isAccessibilitySize ? size.width - 32 : (size.width - 44) / 2
-    if let slots = store.proposal?.slots, slots.count == 4, !textSize.isAccessibilitySize {
+    if let slots = store.proposal?.slots, slots.count >= 4, !textSize.isAccessibilitySize {
       let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
       let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
       // Padding, stack/grid gaps, and the gap between each photo and caption.
@@ -795,11 +809,19 @@ private struct ProposalSwapPicker: View {
   @State private var error: String?
   var body: some View {
     NavigationStack {
-      List {
-        Text("Replace \(slot.recipeName)").font(Theme.subtitle)
+      ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+        Text("Replace \(slot.recipeName)").font(Theme.subtitle).foregroundStyle(Theme.muted)
+        TextField("Search meals or ingredients", text: $query)
+          .font(Theme.body).padding(12).background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+          .accessibilityLabel("Search replacement meals")
         if let error { ErrorBanner(message: error) }
         if loading { ProgressView() }
-        if !loading && options.isEmpty { Text("No matching meals. Try another search or loosen Settings → Filters.").font(Theme.body) }
+        if !loading && options.isEmpty && error == nil {
+          Text("No matching meals. Try another search or adjust your filters.").font(Theme.body)
+          NavigationLink("Adjust filters") { FiltersView() }
+        }
         ForEach(options) { option in
           Button {
             saving = true
@@ -811,16 +833,18 @@ private struct ProposalSwapPicker: View {
             }
           } label: {
             HStack(alignment: .top, spacing: 12) {
-              RecipePhoto(path: option.photoPath, fill: true).frame(width: 70, height: 70).clipped()
+              RecipePhoto(path: option.photoPath, fill: true).frame(width: 70, height: 70)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
               VStack(alignment: .leading, spacing: 6) {
                 Text(option.name).font(Theme.mealName).fixedSize(horizontal: false, vertical: true)
-                if let minutes = option.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle) }
+                if let minutes = option.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
               }
-            }
-          }.disabled(saving || loading)
+            }.frame(maxWidth: .infinity, alignment: .leading).foregroundStyle(Theme.ink)
+          }.buttonStyle(.plain).disabled(saving || loading)
+          Divider().overlay(Theme.line)
         }
-      }.navigationTitle("Choose a replacement").navigationBarTitleDisplayMode(.inline)
-        .searchable(text: $query, prompt: "Search meals or ingredients")
+        }.padding()
+      }.background(Theme.bg).navigationTitle("Choose a replacement").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         .task(id: query) {
           loading = true

@@ -17,6 +17,22 @@ checkboxes. How things are *supposed* to work is in [`DESIGN.md`](DESIGN.md).
 
 ## Inbox
 
+- Annotated screenshot review (Oct 9), branch `codex/annotated-screenshot-fixes`:
+  fixed automatic suggestion presentation at launch, photo growth above four meals,
+  replacement-picker styling, direct filter recovery links, and empty-plan action alignment.
+  Remaining screenshot work, after checking existing implementations:
+  - Compact Account & security; simplify household naming/invite layout.
+  - Add breathing room to Taste Lab's returning-user screen; reconcile its cards/actions
+    with the preferred earlier simple suggestion layout.
+  - Verify generic ingredient photo configuration (the private gallery already has garlic).
+  - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
+  - Make family portions the default when browsing recipes and adding new meals.
+  - Verify tab switching resets the destination root, including Grocery ingredient details.
+  - Move edit selection to the right and arrange Schedule/votes/servings into compact rows.
+  - Decide whether Build from scratch opens Recipes or creates an empty plan.
+  Sources: annotated PNGs in `docs/`, `my kitchen to do/`, `groceries page to do/`, and
+  `suggestion meal plan to do/`. Keep these private screenshots out of Git.
+
 - [ ] Taste Lab: when everything is rejected, the recovery message is easy to miss (plain font,
       looked like a glitch). Make it stand out. *(from your tester checklist notes)*
 - [x] Use a purple ★ tip to tell users when a recipe photo is AI-generated (and, once
