@@ -61,6 +61,7 @@ export const api = {
     return req(`/api/recipes${qs ? `?${qs}` : ""}`);
   },
   recipe: (id) => req(`/api/recipes/${id}`),
+  support: () => req("/api/support"),
   createRecipe: (body) => req("/api/recipes", { method: "POST", body: JSON.stringify(body) }),
   tags: () => req("/api/tags"),
   plan: () => req("/api/plans/current"),

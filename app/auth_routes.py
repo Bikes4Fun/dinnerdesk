@@ -133,6 +133,12 @@ def logout_everywhere(response: Response, conn=DbDep, user_id=UserDep):
     return {"ok": True}
 
 
+@router.get("/support")
+def support():
+    """Public contact details for the /support page. Set SUPPORT_EMAIL on the server."""
+    return {"email": (os.environ.get("SUPPORT_EMAIL") or "").strip()}
+
+
 @router.get("/auth/status")
 def status(request: Request, conn=DbDep):
     token = request.cookies.get(SESSION_COOKIE)
