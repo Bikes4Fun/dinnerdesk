@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS prep_step_feedback (
   category TEXT NOT NULL DEFAULT '',
   auto INTEGER NOT NULL DEFAULT 1,
   rating INTEGER NOT NULL CHECK (rating IN (-1, 1)),
+  reason TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL,
   PRIMARY KEY (household_id, recipe_id, step_key)
 );

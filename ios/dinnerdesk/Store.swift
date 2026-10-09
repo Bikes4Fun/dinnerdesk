@@ -542,6 +542,25 @@ final class Store: ObservableObject {
     }
   }
 
+  /// 👍/👎 on a whole prep item, with an optional reason for a 👎. Logged for review.
+  func ratePrepTask(_ taskId: Int, _ rating: Int, reason: String = "") async {
+    guard let i = prepTasks.firstIndex(where: { $0.id == taskId }) else { return }
+    let before = (prepTasks[i].rating, prepTasks[i].reason)
+    let why = rating < 0 ? reason : ""
+    prepTasks[i].rating = rating
+    prepTasks[i].reason = why
+    do {
+      let _: Ok = try await API.send(
+        "prep/\(taskId)/feedback", method: "PUT", body: ["rating": rating, "reason": why])
+    } catch {
+      if let i = prepTasks.firstIndex(where: { $0.id == taskId }) {
+        prepTasks[i].rating = before.0
+        prepTasks[i].reason = before.1
+      }
+      fail(error)
+    }
+  }
+
   private func setLocalStepRating(taskId: Int, mealId: Int, key: String, _ rating: Int) {
     guard let t = prepTasks.firstIndex(where: { $0.id == taskId }),
       let m = prepTasks[t].meals.firstIndex(where: { $0.id == mealId }),

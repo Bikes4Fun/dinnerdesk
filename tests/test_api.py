@@ -1006,6 +1006,14 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         reopened = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert reopened["done"] is False
         assert [s["done"] for s in reopened["meals"][0]["steps"]] == [False, True]
+        # #21: 👍/👎 with a reason on the whole item, shown back on the task.
+        assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "kept_badly"}).status_code == 200
+        voted = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        assert (voted["rating"], voted["reason"]) == (-1, "kept_badly")
+        assert voted["section"] and voted["item"]
+        assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "nope"}).status_code == 422
+        client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 0})
+        assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["rating"] == 0
 
 
 def test_searchable_swap_options_and_explicit_replacement(tmp_path, monkeypatch):

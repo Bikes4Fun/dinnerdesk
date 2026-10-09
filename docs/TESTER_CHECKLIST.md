@@ -23,7 +23,7 @@
 | **Plan / drafts** | Full names, Schedule, Edit → Done, servings, cooked/undo, and removal confirmation work. Save/load a draft; history has readable details and delete buttons. Active plan is protected. |
 | **Filters** | Pantry search supports clear, keyboard arrows, and Return. Filter search: “bell peppers” or “ground”; explicitly select a food, reopen, then remove it. Unknown searches show no unrelated results. **None** clears selections. |
 | **Grocery / kitchen** | Missing photos leave no empty box. Substitute an item without leaving its detail. Long names wrap; pantry, portions, stores/aisles, and completed-item controls persist. |
-| **Weekend prep** | Shared prep combines correctly. Expand/collapse; check a step and a whole task; refresh. Completion survives unchanged-step regrouping. |
+| **Weekend prep** | Items sit in food sections (Vegetables, Aromatics…, Protein, Sauces), one row per item even when several meals share it. Collapse and reopen a section with its arrow. Check an item: it leaves the list, the ring and its section bar move, and a bar offers Undo and 👍/👎 (👎 shows reasons). **Show completed** brings done items back faded. 👍/👎 on an unchecked item; 👎 asks why. Tap an item's name for each meal's step. Refresh: check-offs and votes stay. |
 | **Navigation / account** | Tour pictures appear below their text. The selected-tab highlight stays within the bar and selection is obvious without color; tapping it returns to its root. Email appears once, household name saves, and reset email sends only when tapped. |
 
 ## Before a release — not daily

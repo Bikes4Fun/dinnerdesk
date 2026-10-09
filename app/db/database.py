@@ -208,6 +208,7 @@ def init_db(conn) -> None:
     conn.executescript(SCHEMA_PATH.read_text())
     _add_column(conn, "prep_tasks", "completed_steps_json", "TEXT NOT NULL DEFAULT '[]'")
     _add_column(conn, "prep_tasks", "details_json", "TEXT NOT NULL DEFAULT '{}'")
+    _add_column(conn, "prep_step_feedback", "reason", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "plans", "hidden", "INTEGER NOT NULL DEFAULT 0")
     _add_column(conn, "plans", "suggestion_json", "TEXT NOT NULL DEFAULT '{}'")
     _add_column(conn, "plans", "status", "TEXT NOT NULL DEFAULT 'active'")
