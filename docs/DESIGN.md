@@ -150,10 +150,9 @@ with a matching VoiceOver label; the add action is beside the heart rather than 
 Hide and To try remain available for recipes on the plan.
 
 - **Must:** keep line breaks and `- ` bullets in a step; `Heading:` reads as a label. Show the
-  amounts for each step under it. Show a Prep chip on tagged steps. A step that mentions a time
-  ("simmer 10 minutes", "3–4 minutes") gets a timer, using the shorter time of a range.
-  The iPhone parser captures the first amount, optional range end, and unit separately;
-  duration-bearing steps must render without crashing when Cook opens.
+  amounts for each step under it. Show a Prep chip on tagged steps. Inline timers are disabled
+  on iPhone and web: opening Cook does not parse durations or create countdown controls.
+  Timer code is retained for a far-future revisit after performance and usability review.
 - **Must not:** write the catalog because Cook was opened or Prep was toggled.
 
 **Editing recipes.** Save edits in place for this kitchen (same id). Copy is opt-in. Restore is

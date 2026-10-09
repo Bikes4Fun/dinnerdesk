@@ -6,7 +6,8 @@ import { parseIngLine } from "../parseIngredient.js";
 import { asSlotIn, useWeek } from "../week.jsx";
 import { RecipeEditorFields, serializeSteps, stepsFromRecipe } from "../RecipeEditor.jsx";
 import { StepText, amountLines } from "../stepText.jsx";
-import { StepTimers } from "../StepTimers.jsx";
+// Far-future feature: inline recipe timers are disabled.
+// import { StepTimers } from "../StepTimers.jsx";
 
 function ingLines(recipe) {
   return (recipe.ingredients || [])
@@ -371,7 +372,7 @@ export function Recipe({ id }) {
                         Prep
                       </button>
                       <StepText text={s.text || s.step || ""} />
-                      <StepTimers text={s.text || s.step || ""} />
+                      {/* Far-future feature: <StepTimers text={s.text || s.step || ""} /> */}
                       {s.ings ? (
                         <div className="step-ings">
                           <StepText text={amountLines(s.ings)} />

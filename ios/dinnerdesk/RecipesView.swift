@@ -766,7 +766,8 @@ private struct CookStepRow: View {
       }
       stepBody
         .frame(maxWidth: .infinity, alignment: .leading)
-      StepTimers(text: step.displayText)
+      // Far-future feature: keep duration parsing/countdowns out of Cook rendering.
+      // StepTimers(text: step.displayText)
       if let ings = step.ings, !ings.isEmpty {
         VStack(alignment: .leading, spacing: 2) {
           ForEach(amountLines(ings), id: \.self) { line in

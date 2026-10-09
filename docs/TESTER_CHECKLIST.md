@@ -6,6 +6,8 @@ All changes are merged locally into `merge_all_issues`, including the recipe-ins
 
 ## Focus for this build
 
+**Latest change:** inline Cook timers are commented out on iPhone and web. Check tab switching responds promptly and steps remain complete. Timers are on the far-future feature list.
+
 Review these areas on both app and website:
 
 | Where | Changes and what to check |
@@ -154,8 +156,7 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 - [ ] **Add to this plan** from a recipe page. It's added and you stay on the recipe.
 - [ ] Open a recipe already on the current plan: the bottom button says “Remove from this plan”. On iPhone, the icon beside the heart is a minus and VoiceOver says “Remove from this plan”; Hide and To try still work in ⋯.
 - [ ] Add a recipe, leave and reopen it: both add controls offer Remove. Adding shows a brief “Added to this plan” popup; removing shows “Removed from this plan” and restores Add. Remove it from the plan and reopen: Add is available again. Tap Add rapidly: only one copy is added. Repeat on the website.
-- [ ] Open Cook on a recipe with timed steps, switch back to Overview, and reopen Cook: no freeze or crash. Check single durations, “3–4 minutes,” seconds, and fractional hours.
-- [ ] In Cook mode, a step that mentions a time ("simmer 10 minutes") has a timer button. Start it; it counts down and says "Time's up" at zero (with a buzz on iPhone). For a range like "3–4 minutes" it uses the shorter time.
+- [ ] Open Cook on recipes mentioning durations (including “3–4 minutes”), switch back to Overview, and reopen Cook: no freeze or crash. Step text and ingredient amounts remain readable; no timer buttons appear on iPhone or website (timers deferred to the far future).
 - [ ] Search, then tap **Uses pantry**. Only recipes using things you have stay. (On iPhone this is new.)
 - [ ] At the largest text size, search results show one recipe per row and the browse rows' cards are wider, so names aren't broken mid-word.
 

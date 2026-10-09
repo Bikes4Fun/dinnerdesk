@@ -258,6 +258,10 @@ Roughly most useful first within each group. Not a roadmap.
 
 ---
 
+## Far future
+
+- [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature.
+
 ## Done (recent)
 
 Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everything that ships.
@@ -274,7 +278,7 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
 - [x] Grocery: share or email the list; show/hide completed from the list; simpler Add item;
       clearer menu names. "You'll use this in" shows only meals on this plan; substitutions keep
       the item open.
-- [x] Cook-mode timers; "Uses pantry" filter on iPhone; recipe categories (groundwork).
+- [x] "Uses pantry" filter on iPhone; recipe categories (groundwork).
 - [x] Large text: ⋯ menus grow and scroll; plan grid falls back to a list; section headers stop
       pinning and keep side margins; Family portions, Aisle order, store removal, grocery rows,
       recipe cards, ingredient row lines; consistent cream background.
