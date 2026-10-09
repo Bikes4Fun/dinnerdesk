@@ -339,6 +339,7 @@ struct AccountView: View {
   @State private var inviteURL: URL?
   @State private var signingIn = false
   @State private var confirmEverywhere = false
+  @State private var deletingAccount = false
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
@@ -414,6 +415,17 @@ struct AccountView: View {
             .accessibilityIdentifier("tip.settings.sign-out-everywhere")
         }
         .kitchenRows()
+
+        Section {
+          Button("Delete account", role: .destructive) { deletingAccount = true }
+        } footer: {
+          Text(otherMembers.isEmpty
+            ? "Deletes your account and this household’s plans, pantry, grocery list and your own recipes. This can’t be undone."
+            : "Deletes your account. The household stays for the other members.")
+            .font(Theme.subtitle)
+            .foregroundStyle(Theme.muted)
+        }
+        .kitchenRows()
       } else {
         Section {
           Text(
@@ -436,6 +448,12 @@ struct AccountView: View {
     .sheet(isPresented: $signingIn, onDismiss: { Task { await loadMembers() } }) {
       AuthView(isSheet: true)
         .environmentObject(session)
+    }
+    .sheet(isPresented: $deletingAccount) {
+      DeleteAccountSheet(alone: otherMembers.isEmpty) {
+        deletingAccount = false
+        Task { await session.accountDeleted() }
+      }
     }
     .confirmationDialog(
       "Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
@@ -507,6 +525,58 @@ struct AccountView: View {
       self.error = KitchenAPI.message(error)
     }
     await session.signOut()
+  }
+}
+
+/// Password check before deleting the account (#65, App Store guideline 5.1.1(v)).
+private struct DeleteAccountSheet: View {
+  let alone: Bool
+  let onDeleted: () -> Void
+  @Environment(\.dismiss) private var dismiss
+  @State private var password = ""
+  @State private var busy = false
+  @State private var error: String?
+
+  var body: some View {
+    NavigationStack {
+      List {
+        if let error { ErrorBanner(message: error).kitchenBareRow() }
+        Section {
+          Text(alone
+            ? "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
+            : "This deletes your account and your sign-ins. The household and its plans stay for the other members.")
+            .font(Theme.body).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+          SecureField("Your password", text: $password)
+            .textContentType(.password)
+            .onSubmit { Task { await delete() } }
+        }
+        .kitchenRows()
+        Section {
+          Button("Delete account", role: .destructive) { Task { await delete() } }
+            .disabled(busy || password.isEmpty)
+        }
+        .kitchenRows()
+      }
+      .kitchenList()
+      .navigationTitle("Delete account")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+      }
+    }
+  }
+
+  private func delete() async {
+    guard !password.isEmpty, !busy else { return }
+    busy = true
+    defer { busy = false }
+    do {
+      try await KitchenAPI.deleteAccount(password: password)
+      onDeleted()
+    } catch {
+      self.error = KitchenAPI.message(error)
+    }
   }
 }
 
@@ -680,7 +750,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          There is no delete-account button yet. Remove other people from your household in Account & security. To delete an account and that household’s kitchen, ask the person who runs this Dinnerdesk.
+          Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
           """)
       }
       .font(Theme.body)

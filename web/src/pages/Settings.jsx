@@ -362,6 +362,8 @@ export function AccountSecurity() {
   const [toast, setToast] = useState("");
   const [householdName, setHouseholdName] = useState("");
   const [inviteLink, setInviteLink] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
 
   useEffect(() => {
     api.auth
@@ -447,7 +449,23 @@ export function AccountSecurity() {
     go("/login");
   }
 
+  async function deleteAccount(e) {
+    e.preventDefault();
+    if (!deletePassword) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await api.auth.deleteAccount({ password: deletePassword });
+      go("/login");
+    } catch (e) {
+      setErr((e.body && e.body.message) || e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!status) return null;
+  const alone = members.filter((m) => m.email !== status.email).length === 0;
 
   return (
     <section className="screen">
@@ -527,6 +545,30 @@ export function AccountSecurity() {
               Signs out every device using this account — use this if a phone or laptop was lost
               or you just changed your password and want to be sure.
             </p>
+
+            <label className="block-label">Delete account</label>
+            {!deleting ? (
+              <button type="button" className="btn-secondary block danger" onClick={() => setDeleting(true)}>
+                Delete account
+              </button>
+            ) : (
+              <form onSubmit={deleteAccount}>
+                <p className="help">
+                  {alone
+                    ? "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
+                    : "This deletes your account and your sign-ins. The household and its plans stay for the other members."}
+                </p>
+                <label className="block-label" htmlFor="delete-password">Your password</label>
+                <input className="field" id="delete-password" type="password" autoComplete="current-password"
+                  value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} required />
+                <button type="submit" className="btn-secondary block danger" disabled={busy || !deletePassword}>
+                  Delete my account
+                </button>
+                <button type="button" className="btn-secondary block" onClick={() => { setDeleting(false); setDeletePassword(""); }}>
+                  Cancel
+                </button>
+              </form>
+            )}
           </>
         )}
       </div>

@@ -59,6 +59,13 @@ final class Session: ObservableObject {
     tourChecked = false
     await refresh()
   }
+
+  /// After the server deleted the account its session is already gone, so skip logout.
+  func accountDeleted() async {
+    guest = false
+    tourChecked = false
+    await refresh()
+  }
 }
 
 /// Wrap the app's tabs in this: shows sign-in first when needed, then `content`.

@@ -32,4 +32,4 @@ The website loads fonts from Google Fonts. That request goes to Google.
 
 ## Deleting data
 
-There is no delete-account button yet. Remove other people from your household in Account & security. To delete an account and that household’s kitchen, ask the person who runs this Dinnerdesk.
+Delete your account any time from Account & security, on the website or in the iPhone app. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
