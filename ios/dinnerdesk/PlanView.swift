@@ -648,6 +648,7 @@ func dayTitle(_ start: String, _ index: Int) -> String {
   return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
 }
 
+/// Taste Lab card styling with adaptive photos, explicit swap controls, and compact decisions.
 private struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
@@ -684,8 +685,8 @@ private struct SuggestedPlanReview: View {
                         Button { swapping = slot } label: {
                           Image(systemName: "arrow.triangle.2.circlepath")
                             .font(Theme.action).frame(width: 44, height: 44)
-                            .background(Theme.surface, in: Circle())
-                        }.buttonStyle(.plain).foregroundStyle(Theme.accent)
+                            .background(Color(hex: 0xFA7E5A), in: Circle())
+                        }.buttonStyle(.plain).foregroundStyle(Theme.ink)
                           .disabled(store.proposal?.status != "suggested")
                           .accessibilityLabel("Swap meal: \(slot.recipeName)").padding(6)
                       }
@@ -699,10 +700,14 @@ private struct SuggestedPlanReview: View {
                       Text("Your selection").font(Theme.subtitle)
                     }
                   }
+                  .padding(10)
                   .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
                     captionHeights[slot.id] = $0
                   }
                 }
+                .background(Theme.surface)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line))
               }
             }
             ViewThatFits(in: .horizontal) {
@@ -723,8 +728,9 @@ private struct SuggestedPlanReview: View {
   @ViewBuilder private var reviewActions: some View {
     if store.proposal?.status == "suggested" {
       Button("Approve plan") { run { await store.reviewProposal("approve") } }
-        .buttonStyle(.borderedProminent).fixedSize(horizontal: true, vertical: false)
+        .buttonStyle(.borderedProminent).tint(Theme.ink).fixedSize(horizontal: true, vertical: false)
       Button("Suggest another") { run { await store.reviewProposal("decline") } }
+        .buttonStyle(.bordered).tint(Theme.accent)
         .fixedSize(horizontal: true, vertical: false)
         .accessibilityLabel("Decline and suggest another plan")
     } else {

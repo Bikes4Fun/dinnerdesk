@@ -402,3 +402,5 @@ heading font, wrapping naturally only when needed at large text sizes.
 
 Tapping the selected tab again returns to its main page and resets local navigation/search
 state. On web, primary navigation remounts the destination screen without reloading the page.
+
+Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, measured four-meal layout, circular swap controls, and declined-proposal retry state.
