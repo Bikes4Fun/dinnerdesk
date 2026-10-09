@@ -11,6 +11,7 @@ enum KitchenAPI {
   {
     var request = URLRequest(url: API.origin.appending(path: "api/\(path)"))
     request.httpMethod = method
+    request.setValue(API.appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
     if let body {
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       request.httpBody = try JSONSerialization.data(withJSONObject: body)

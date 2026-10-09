@@ -352,7 +352,7 @@ const macros = (r) => {
   const save = async () => {
     const response = await fetch("/api/sessions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Dinnerdesk-App": "tastelab" },
       body: JSON.stringify({
         anon_id: state.anonId,
         id: state.sessionId,
@@ -370,7 +370,7 @@ const macros = (r) => {
     if (!state.signedIn) return;
     const response = await fetch("/api/household", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Dinnerdesk-App": "tastelab" },
       body: JSON.stringify({
         prefs: {
           filters: { diets: [...state.profile.diets], allergens: allergenIds(), avoids: dislikeIds() },

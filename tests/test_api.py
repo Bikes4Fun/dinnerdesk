@@ -1201,3 +1201,20 @@ def test_filter_food_search_selects_specific_ingredients(tmp_path):
         saved = client.put("/api/household", json={"prefs": {"filters": {"allergens": [selected]}}}).json()
         assert selected in saved["prefs"]["filters"]["allergens"]
         assert selected in client.get("/api/household").json()["prefs"]["filters"]["allergens"]
+
+
+def test_unknown_api_requests_say_what_happened(tmp_path, caplog):
+    """#2: a request no route takes gets a clear JSON answer and a log line with the app build,
+    instead of the website catch-all turning it into a bare 405."""
+    import logging
+    client = _client(tmp_path)
+    with caplog.at_level(logging.WARNING, logger="dinnerdesk.api"):
+        missing = client.post("/api/no-such-route", headers={"X-Dinnerdesk-App": "ios 1.0 (7)"})
+        wrong = client.delete("/api/health")
+    assert missing.status_code == 404
+    assert missing.json() == {"error": "not_found", "detail": "route", "method": "POST", "path": "/api/no-such-route"}
+    assert wrong.status_code == 405
+    assert wrong.json()["allowed"] == ["GET"]
+    assert wrong.headers["allow"] == "GET"
+    assert "POST /api/no-such-route -> 404" in caplog.text and "ios 1.0 (7)" in caplog.text
+    assert client.get("/api/health").json() == {"ok": True}  # real routes still win

@@ -67,7 +67,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=list(DEV_ORIGINS),
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-Dinnerdesk-App"],
         allow_credentials=True,
     )
     app.include_router(router, prefix="/api")
@@ -101,6 +101,37 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     def health():
         return {"ok": True}
+
+    # Every /api request no route takes ends here (#2). Without this the website's GET catch-all
+    # below matched the path, so a POST/PUT/PATCH/DELETE to a missing route came back as a bare
+    # 405, and a method a route doesn't take was indistinguishable from a route that's gone.
+    # Registered after every API router, so real routes always win. Logged with the app build
+    # (X-Dinnerdesk-App) so a server/app version mismatch shows up in the server log.
+    api_log = logging.getLogger("dinnerdesk.api")
+
+    @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+                   include_in_schema=False)
+    def unknown_api(path: str, request: Request):
+        full = f"/api/{path}"
+        allowed = sorted({
+            method
+            for route in app.routes
+            if route.name != "unknown_api" and getattr(route, "methods", None)
+            and getattr(route, "path_regex", None) and route.path_regex.match(full)
+            for method in route.methods if method != "HEAD"
+        })
+        build = request.headers.get("x-dinnerdesk-app", "unknown")
+        status = 405 if allowed else 404
+        api_log.warning("Rejected API request: %s %s -> %s (allowed: %s; app: %s)",
+                        request.method, full, status, ",".join(allowed) or "none", build)
+        if allowed:
+            return JSONResponse(
+                {"error": "method_not_allowed", "detail": "route", "method": request.method,
+                 "path": full, "allowed": allowed},
+                status_code=405, headers={"Allow": ", ".join(allowed)})
+        return JSONResponse(
+            {"error": "not_found", "detail": "route", "method": request.method, "path": full},
+            status_code=404)
 
     @app.get("/food/{name}")
     def food_file(name: str):
