@@ -138,8 +138,7 @@ export function Prep() {
               </div>
               <p className="help" data-tip="prep.about">Built from this plan’s meals. Chop and batch now; cook fresh later in the week.</p>
             </div>
-            <nav className="pz-bars" aria-label="Jump to section"
-              style={{ gridTemplateColumns: sections.map((s) => `minmax(68px, ${s.all.length}fr)`).join(" ") }}>
+            <nav className="pz-bars" aria-label="Jump to section">
               {sections.map((s) => (
                 <a key={s.key} href={`#prep-${s.key}`} onClick={(e) => { e.preventDefault(); document.getElementById(`prep-${s.key}`)?.scrollIntoView({ block: "start" }); }}>
                   <span className="pz-bar"><span style={{ width: `${Math.round((100 * s.done) / s.all.length)}%` }} /></span>
