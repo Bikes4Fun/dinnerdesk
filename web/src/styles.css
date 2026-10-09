@@ -1509,15 +1509,23 @@ img { display: block; max-width: 100%; }
 .saved-row-delete:hover { background: var(--coral-tint); }
 
 /* Suggested plan review, in the app's own plain style (not Taste Lab's cards). Photos are
-   landscape rectangles, never squares. */
+   rounded landscape rectangles with a white swap button in the corner. */
 .suggested-plan { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .suggested-plan h2 { margin: 0; }
 .sp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
-.suggested-plan .proposal-photo { display: block; width: 100%; padding: 0; border-radius: 14px; overflow: hidden; }
-.suggested-plan .proposal-photo img, .proposal-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
+.suggested-plan .proposal-meal { gap: 4px; }
+.suggested-plan .proposal-photo { position: relative; margin-bottom: 4px; }
+.suggested-plan .proposal-open { display: block; width: 100%; padding: 0; border-radius: 14px; overflow: hidden; }
+.suggested-plan .proposal-open img, .proposal-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
+.suggested-plan .proposal-swap { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: var(--surface); color: var(--accent); font-size: 22px; font-weight: 700; box-shadow: 0 1px 4px rgba(46, 26, 44, 0.18); }
 .suggested-plan .proposal-meal strong { color: var(--ink); line-height: 1.25; overflow-wrap: normal; word-break: normal; }
 .suggested-plan .proposal-meal .muted { font-size: 0.85rem; }
-.suggested-plan .proposal-swap { position: static; width: auto; height: auto; min-height: 44px; padding: 0; border-radius: 0; background: none; font-size: 1rem; text-align: left; }
-@media (max-width: 360px) { .sp-grid { grid-template-columns: minmax(0, 1fr); } }
+.suggested-plan .proposal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 0; }
+.sp-approve, .sp-another { min-height: 50px; padding: 0 12px; border-radius: 14px; font-weight: 700; }
+.sp-approve { background: var(--brand); color: var(--bg); }
+.sp-another { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); }
+.proposal-actions > :only-child { grid-column: 1 / -1; }
+.sp-improve { align-self: center; min-height: 44px; }
+@media (max-width: 360px) { .sp-grid, .suggested-plan .proposal-actions { grid-template-columns: minmax(0, 1fr); } }
 
 .ai-photo-tip { margin: 8px 0 12px; }
