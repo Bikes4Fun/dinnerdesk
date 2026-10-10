@@ -433,8 +433,10 @@ step identities when tasks regroup. Deploy API and app together: the duplicate P
 endpoint is retired.
 
 Plan list rows show full wrapping titles and a Schedule button outside editing. iPhone
-photos retain their 160-point size; accessibility sizes stack the title/controls below the
-photo rather than shrinking it. Web list thumbnails retain their existing dimensions.
+normal list thumbnails are 96-point squares, with servings beside Schedule and compact row
+spacing so four meals and Add meals can fit at normal text size on iPhone 16. Editing and
+accessibility use 160-point squares; accessibility stacks titles/controls and allows scrolling.
+Web list thumbnails retain their existing dimensions.
 
 Declining replaces the proposal in place: the review stays open and current plan/groceries
 are not reloaded. A failed replacement leaves a retry action; the declined plan cannot be
