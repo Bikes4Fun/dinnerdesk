@@ -55,6 +55,10 @@ Swiping skips the guided quiz/plan sequence and ends after its meal batch; revie
 does not require swiping first. Filters remain editable in either activity. Both activities
 are offered as optional next steps after a session.
 
+The Taste Lab introduction separates its photo mosaic, heading, summary, activity buttons,
+and privacy note with generous vertical spacing. These intro rules do not change swipe
+cards or suggested-plan sizing. Small screens and larger text can scroll.
+
 - **Must:** "Not for us" shows another plan, not a dead end. Swapping a meal in a sample plan
   offers choices, with **More options**. "None" clears allergies or avoids. When nothing is left,
   say so clearly and suggest what to change.

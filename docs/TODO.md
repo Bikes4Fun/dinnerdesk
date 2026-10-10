@@ -21,8 +21,8 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
   replacement-picker styling, direct filter recovery links, and empty-plan action alignment.
   Remaining screenshot work, after checking existing implementations:
   - Compact Account & security; simplify household naming/invite layout.
-  - Add breathing room to Taste Lab's returning-user screen; reconcile its cards/actions
-    with the preferred earlier simple suggestion layout.
+  - Taste Lab returning-user spacing fixed on `codex/screenshot-tastelab-spacing`.
+    Reconcile its cards/actions with the preferred earlier simple suggestion layout.
   - Generic ingredient photos: private gallery has garlic, but the live
     `/grocery-food/garlic.jpg` URL returned 404 on Oct 9. Verify/upload the ingredient
     gallery and configure its persistent `GROCERY_PHOTO_DIR` before visual retesting.
