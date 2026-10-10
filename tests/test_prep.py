@@ -338,3 +338,14 @@ def test_a_step_marked_missing_is_listed_even_when_the_picker_skips_it():
     # Even a step with heat is listed when the household says it belongs in prep.
     pot = prep_from_slots([{**slot, 'added': ['Cook the onion in the pot until soft.']}])
     assert any(s['text'].startswith('Cook the onion') for t in pot for m in t['meals'] for s in m['steps'])
+
+
+def test_where_it_goes_next_does_not_end_the_cut():
+    """'Trim the cucumber, then cut it into dice and add it to the bowl' is still cucumber prep."""
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Salad',
+        'ingredients': [{'name': 'English cucumber', 'quantity': '1'}, {'name': 'tomatoes', 'quantity': '2'}],
+        'instructions': [{'text': 'Trim the cucumber ends, then cut it into medium dice and add it to the bowl.'},
+                         {'text': 'Rinse the tomatoes, pat them dry, and cut them into thin rounds.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert 'Trim and dice english cucumber' in titles
+    assert 'Rinse and cut tomatoes' in titles

@@ -402,7 +402,10 @@ PART_WORDS = {"root", "end", "stem", "top", "leave", "leaf", "skin", "peel", "se
 # florets", "pull off the leaves". A clause with only these stays on the item.
 SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chunk", "strip", "wedge",
                "round", "ring", "matchstick", "inch", "thin", "thick", "pull", "remove", "discard",
-               "separate", "aside", "reserve", "keep", "away", "rough", "fine", "even"}
+               "separate", "aside", "reserve", "keep", "away", "rough", "fine", "even",
+               # Where it goes next isn't another grocery: "dice it and add it to the bowl".
+               "add", "bowl", "dish", "plate", "board", "set", "later", "serving", "pat", "towel",
+               "paper", "stir", "put", "place"}
 
 
 def _verbs_for(text: str, item_words: set[str]) -> list[str]:
