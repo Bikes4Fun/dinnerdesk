@@ -21,6 +21,8 @@ export function Recipe({ id }) {
   const [recipe, setRecipe] = useState(null);
   const [tab, setTab] = useState("overview");
   const [editing, setEditing] = useState(false);
+  // Editing recipes is for Dinnerdesk admins only; the server refuses everyone else too.
+  const [admin, setAdmin] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const added = week?.weekIds?.has(Number(id)) ?? false;
@@ -42,6 +44,10 @@ export function Recipe({ id }) {
   }, [id]);
 
   useEffect(() => {
+    api.auth.status().then((s) => setAdmin(Boolean(s?.admin))).catch(() => setAdmin(false));
+  }, []);
+
+  useEffect(() => {
     if (!showMore) return undefined;
     function onDoc(e) {
       if (!moreRef.current?.contains(e.target)) setShowMore(false);
@@ -51,6 +57,7 @@ export function Recipe({ id }) {
   }, [showMore]);
 
   function startEdit() {
+    if (!admin) return;
     setName(recipe.name);
     setServings(recipe.servings);
     setMinutes(recipe.cooking_minutes == null ? "" : String(recipe.cooking_minutes));
@@ -262,7 +269,7 @@ export function Recipe({ id }) {
                   >
                     {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
                   </button>
-                  {recipe.catalog && recipe.edited ? (
+                  {admin && recipe.catalog && recipe.edited ? (
                     <button type="button" role="menuitem" onClick={restoreOriginal} disabled={busy}>
                       Restore original
                     </button>
@@ -280,9 +287,11 @@ export function Recipe({ id }) {
               {t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
-          <button type="button" className="tab-btn" onClick={startEdit}>
-            Edit
-          </button>
+          {admin && (
+            <button type="button" className="tab-btn" onClick={startEdit}>
+              Edit
+            </button>
+          )}
         </div>
       )}
       <div className="recipe-layout">
@@ -302,7 +311,7 @@ export function Recipe({ id }) {
         )}
         <div className="scroll pad recipe-body">
           {err && <p className="banner err">{err}</p>}
-          {editing ? (
+          {editing && admin ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
               <RecipeEditorFields
                 name={name}
@@ -342,6 +351,7 @@ export function Recipe({ id }) {
                       </li>
                     ))}
                   </ul>
+{admin && (<>
                   <label className="block-label" htmlFor="dev-notes">
                     Dev notes
                   </label>
@@ -358,6 +368,7 @@ export function Recipe({ id }) {
                       api.putDevNotes(recipe.id, text).then(setRecipe).catch((err) => setErr(err.message));
                     }}
                   />
+                  </>)}
                 </>
               )}
               {tab === "cook" && (
@@ -391,7 +402,7 @@ export function Recipe({ id }) {
         </div>
       </div>
       <footer className="dock">
-        {editing ? (
+        {editing && admin ? (
           <>
             <button type="submit" form="recipe-edit" className="btn-primary block" disabled={busy}>
               {busy ? "Saving…" : "Save"}

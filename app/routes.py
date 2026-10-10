@@ -729,6 +729,7 @@ def revert_recipe_edit(
     recipe_id: int,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -805,6 +806,7 @@ def put_dev_notes(
     body: DevNotesPut,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -859,6 +861,7 @@ def patch_recipe(
     body: RecipePatch,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
