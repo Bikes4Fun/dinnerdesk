@@ -254,6 +254,7 @@ h1.page {
 .btn.primary { background: var(--aubergine); color: var(--bg); }
 .btn.primary:hover { background: #5e2259; }
 .btn.primary:disabled { opacity: 0.4; }
+.entry-modes { display: grid; gap: 12px; margin: 16px 0; }
 .btn.ghost {
   background: var(--soft);
   color: var(--ink);

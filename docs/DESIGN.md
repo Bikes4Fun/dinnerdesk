@@ -49,8 +49,11 @@ filters as Settings) and one screen each for Recipes, This week, Grocery, and We
 
 ### 2. Taste Lab
 
-A short session that teaches the app what this household likes: set filters (diet, allergies,
-avoids), swipe meals, then judge sample meal plans.
+A short session that teaches the app what this household likes. Separate **Swipe meals**
+and **Suggest plans** choices let cooks use either activity independently on iPhone and web.
+Swiping skips the guided quiz/plan sequence and ends after its meal batch; reviewing plans
+does not require swiping first. Filters remain editable in either activity. Both activities
+are offered as optional next steps after a session.
 
 - **Must:** "Not for us" shows another plan, not a dead end. Swapping a meal in a sample plan
   offers choices, with **More options**. "None" clears allergies or avoids. When nothing is left,
