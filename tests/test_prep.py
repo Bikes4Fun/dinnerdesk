@@ -359,3 +359,15 @@ def test_a_bottled_sauce_is_not_making_a_sauce():
     titles = [t['title'] for t in tasks]
     assert titles.count('Make sauce') <= 1  # only the whisked one
     assert not any('patties' in t.lower() and 'sauce' in t.lower() for t in titles)
+
+
+def test_salt_and_pepper_is_not_the_bell_pepper_and_box_graters_are_tools():
+    ings = [{'name': 'eggs', 'quantity': '12'}, {'name': 'green bell peppers', 'quantity': '2'},
+            {'name': 'black pepper', 'quantity': '¼ tsp'}, {'name': 'salt', 'quantity': '½ tsp'},
+            {'name': 'English cucumber', 'quantity': '1'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Frittata', 'ingredients': ings, 'instructions': [
+        {'text': 'Whisk the eggs with the salt and pepper in a large bowl.'},
+        {'text': 'Trim the cucumber and grate it on the large holes of a box grater.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert not any('bell' in t for t in titles)
+    assert 'Trim and grate english cucumber' in titles

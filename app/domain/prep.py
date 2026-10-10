@@ -158,6 +158,8 @@ def _qualifier(words: list[str], head: str) -> str | None:
 
 def mentioned(text: str, ingredients: list[dict]) -> list[dict]:
     """Ingredients this text actually names, in recipe order. Matches the item, not filler words."""
+    # "salt and pepper" is the seasoning, never the bell pepper.
+    text = re.sub(r"\bsalt\s*(?:,|and|&)\s*pepper\b", "salt and black pepper", text, flags=re.I)
     text_words = _words(text)
     found = set(text_words)
     out = []
@@ -414,7 +416,9 @@ SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chun
                "add", "bowl", "dish", "plate", "board", "set", "later", "serving", "pat", "towel",
                "paper", "stir", "put", "place",
                # Which way it's cut: "quarter it the long way", "slice it crosswise".
-               "long", "way", "lengthwise", "crosswise", "across", "halves", "wise"}
+               "long", "way", "lengthwise", "crosswise", "across", "halves", "wise",
+               # The tool, not the food: "grate it on the large holes of a box grater".
+               "hole", "box", "grater", "peeler", "processor", "food", "knife", "spoon"}
 
 
 def _verbs_for(text: str, item_words: set[str]) -> list[str]:
