@@ -220,3 +220,13 @@ async function boot(search = "", count = 16, votes = []) {
     source = Path(__file__).resolve().parents[1] / "tastelab/web/app.js"
     result = subprocess.run([node, "-e", script, str(source)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_gluten_free_catches_buns_gnocchi_pita_and_other_pastas():
+    from app.domain.diet_filter import allowed, blocks_for
+    gf = blocks_for(["gluten-free"], [])
+    for ing in ["whole grain buns or rolls", "potato gnocchi", "whole grain pitas", "fettuccine pasta",
+                "rotini pasta", "hoisin sauce", "stir-fry sauce", "orzo"]:
+        assert not allowed("Dinner", [ing], gf), ing
+    # "bunch" is not a bun, and corn tortillas and rice stay gluten-free.
+    assert allowed("Tacos", ["1 small bunch cilantro", "small corn tortillas", "basmati rice"], gf)
