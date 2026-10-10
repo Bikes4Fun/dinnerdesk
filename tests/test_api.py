@@ -992,6 +992,8 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         plan = client.get("/api/plans/current").json()
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        # The Weekend prep sections need these from the server, not the "other" fallback.
+        assert task["section"] == "veg" and task["item"] == "Onions", (task["section"], task["item"])
         steps = task["meals"][0]["steps"]
         response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
@@ -1060,8 +1062,8 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
         client.put(f"/api/plans/{pid}/slots",
                    json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]})
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
-        assert set(tasks) == {"Prep onion", "Prep garlic"}
-        onion = tasks["Prep onion"]
+        assert set(tasks) == {"Dice onion", "Mince garlic"}
+        onion = tasks["Dice onion"]
         step = onion["meals"][0]["steps"][0]
         assert step["done"] is False and onion["done"] is False
 
@@ -1069,14 +1071,14 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
                              json={"recipe_id": 1, "key": step["key"], "done": True})
         assert checked.status_code == 200 and checked.json()["done"] is True
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
-        assert tasks["Prep onion"]["done"] is True
-        assert tasks["Prep onion"]["meals"][0]["steps"][0]["done"] is True
-        assert tasks["Prep garlic"]["done"] is False
+        assert tasks["Dice onion"]["done"] is True
+        assert tasks["Dice onion"]["meals"][0]["steps"][0]["done"] is True
+        assert tasks["Mince garlic"]["done"] is False
 
         # Unchecking the whole task clears its items.
         client.patch(f"/api/prep/{onion['id']}", json={"done": False})
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
-        assert tasks["Prep onion"]["meals"][0]["steps"][0]["done"] is False
+        assert tasks["Dice onion"]["meals"][0]["steps"][0]["done"] is False
 
         bad = client.put(f"/api/prep/{onion['id']}/steps", json={"recipe_id": 1, "key": "nope", "done": True})
         assert bad.status_code == 404
