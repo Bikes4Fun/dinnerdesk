@@ -140,9 +140,10 @@ html.in-frame .app {
 
 
 /* Give the introduction breathing room without stretching swipe or review screens. */
-.welcome .hero-mosaic { margin: 1rem 0 1.5rem; }
-.welcome h1.page { margin-bottom: 0.875rem; line-height: 1.2; }
-.welcome .entry-modes { margin: 1.25rem 0; }
+.welcome .hero-mosaic { margin: 1.25rem 0 2rem; }
+.welcome h1.page { margin: 0 0 1.25rem; line-height: 1.2; }
+.welcome .lead { margin: 0 0 1.75rem; }
+.welcome .entry-modes { gap: 1rem; margin: 1.75rem 0 1.5rem; }
 .welcome .legal { margin-top: 1.5rem; }
 
 .kicker {
