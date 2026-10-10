@@ -25,7 +25,8 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
     with the preferred earlier simple suggestion layout.
   - Verify generic ingredient photo configuration (the private gallery already has garlic).
   - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
-  - Make family portions the default when browsing recipes and adding new meals.
+  - Family portions default fixed on `codex/screenshot-family-portions`: recipe browsing,
+    new additions and suggestions use the saved value; explicit/existing servings stay intact.
   - Issue #36 follow-up (`codex/issue-36-tab-return-root`): destination reset now runs for
     every tab selection, including Grocery ingredient details. Verify across all tabs.
   - Move edit selection to the right and arrange Schedule/votes/servings into compact rows.

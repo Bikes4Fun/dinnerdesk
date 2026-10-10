@@ -44,7 +44,7 @@ export function WeekProvider({ children }) {
       ? current.slots.filter((s) => s.recipe_id !== recipe.id).map(asSlotIn)
       : [
           ...current.slots.map(asSlotIn),
-          { recipe_id: recipe.id, day_index: null, meal_type: "dinner", servings: recipe.servings },
+          { recipe_id: recipe.id, day_index: null, meal_type: "dinner" },
         ];
     const next = await api.putSlots(current.id, slots);
     setPlan(next);

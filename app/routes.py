@@ -956,6 +956,11 @@ def _meals_key(rows) -> list[tuple[int, int | None]]:
 def _default_slot_servings(
     db: PgConnection, household_id: int, recipe_id: int
 ) -> int:
+    household = db.execute("SELECT prefs_json FROM households WHERE id = ?", (household_id,)).fetchone()
+    prefs = json.loads((household["prefs_json"] if household else None) or "{}")
+    portions = prefs.get("family_portions")
+    if type(portions) is int and 1 <= portions <= 50:
+        return portions
     rec = db.execute("SELECT servings FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     edit = _recipe_edit(db, household_id, recipe_id)
     if edit and edit["servings"]:
