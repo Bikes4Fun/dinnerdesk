@@ -49,8 +49,11 @@ filters as Settings) and one screen each for Recipes, This week, Grocery, and We
 
 ### 2. Taste Lab
 
-A short session that teaches the app what this household likes: set filters (diet, allergies,
-avoids), swipe meals, then judge sample meal plans.
+A short session that teaches the app what this household likes. Separate **Swipe meals**
+and **Suggest plans** choices let cooks use either activity independently on iPhone and web.
+Swiping skips the guided quiz/plan sequence and ends after its meal batch; reviewing plans
+does not require swiping first. Filters remain editable in either activity. Both activities
+are offered as optional next steps after a session.
 
 - **Must:** "Not for us" shows another plan, not a dead end. Swapping a meal in a sample plan
   offers choices, with **More options**. "None" clears allergies or avoids. When nothing is left,
@@ -69,6 +72,10 @@ review, not a new plan.
   another proposal.
 - **Must:** review keeps headings and controls compact; explanatory suggestion text is
   omitted from the visible review (updated October 9).
+- **Must:** review uses the app's own plain style, not Taste Lab's bordered cards: a rounded
+  landscape photo (never square) with a white swap button in its corner, then the name and cook
+  time. Approve plan (filled) and Suggest another (outlined) are equal full-width buttons, with
+  Improve suggestions centered below.
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
   exclude meals already on the proposal. Cancelling the picker changes nothing and records no
   dislike.
@@ -233,6 +240,8 @@ sign out everywhere live there too.
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
   A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
   purple ★ tip on the recipe page saying so.
+  A photo taken for a different recipe (its entry's `recipe_id` isn't this recipe's archive id,
+  or `"shared_photo": true` with no `recipe_id`) gets a ★ tip saying it's from a similar recipe.
 - Works at the largest text sizes: rows wrap or stack instead of breaking words; section headers
   stop pinning; menus and grids grow or drop to one column; nothing hides behind the tab bar.
 - Never show state by color alone.
@@ -241,6 +250,9 @@ sign out everywhere live there too.
   `<Tip id>` on the website: a purple ★ on the pale aubergine tint.
 - Don't add menu items, tabs, or other navigation without an explicit product decision.
 - Errors are in plain words, on the screen they belong to, and say how to recover.
+- An `/api` request no route takes gets JSON (404 `not_found`, or 405 `method_not_allowed` with
+  `allowed`) and a server log line naming the app build (`X-Dinnerdesk-App`), so a server/app
+  version mismatch can be found from the log.
   Unavailable actions offer retry/support guidance rather than HTTP codes or instructions
   for the user to update the server. iPhone logs rejected request methods and paths for
   diagnosis, without logging request bodies or query values.

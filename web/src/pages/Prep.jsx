@@ -138,8 +138,7 @@ export function Prep() {
               </div>
               <p className="help" data-tip="prep.about">Built from this plan’s meals. Chop and batch now; cook fresh later in the week.</p>
             </div>
-            <nav className="pz-bars" aria-label="Jump to section"
-              style={{ gridTemplateColumns: sections.map((s) => `minmax(68px, ${s.all.length}fr)`).join(" ") }}>
+            <nav className="pz-bars" aria-label="Jump to section">
               {sections.map((s) => (
                 <a key={s.key} href={`#prep-${s.key}`} onClick={(e) => { e.preventDefault(); document.getElementById(`prep-${s.key}`)?.scrollIntoView({ block: "start" }); }}>
                   <span className="pz-bar"><span style={{ width: `${Math.round((100 * s.done) / s.all.length)}%` }} /></span>
@@ -218,7 +217,6 @@ export function Prep() {
 
 function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails }) {
   const sub = [t.action, ...(t.quantities || [])].filter(Boolean).join(" · ");
-  const meals = (t.meals || []).map((m) => m.name).join(", ");
   return (
     <li className={`pz-item${t.done ? " is-done" : ""}`}>
       <div className="pz-row">
@@ -229,7 +227,6 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
         <button type="button" className="pz-text" aria-expanded={details} onClick={onDetails}>
           <span className="pz-name">{t.item || t.title}</span>
           {sub && <span className="pz-sub">{sub}</span>}
-          {meals && <span className="pz-sub">For {meals}</span>}
         </button>
         <Thumbs size={18} rating={t.rating || 0} subject={`prepping ${t.item || t.title} ahead`} onRate={onRate} />
       </div>

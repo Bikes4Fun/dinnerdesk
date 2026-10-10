@@ -11,6 +11,8 @@ async function request(path, options = {}) {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      // Shows in the server log next to any request it couldn't take (#2).
+      "X-Dinnerdesk-App": import.meta.env?.VITE_BUILD ? `web ${import.meta.env.VITE_BUILD}` : "web",
       ...(options.headers || {}),
     },
   });
@@ -61,6 +63,7 @@ export const api = {
     return req(`/api/recipes${qs ? `?${qs}` : ""}`);
   },
   recipe: (id) => req(`/api/recipes/${id}`),
+  support: () => req("/api/support"),
   createRecipe: (body) => req("/api/recipes", { method: "POST", body: JSON.stringify(body) }),
   tags: () => req("/api/tags"),
   plan: () => req("/api/plans/current"),
@@ -159,6 +162,8 @@ export const api = {
       req("/api/auth/reset-password", { method: "POST", body: JSON.stringify(body) }),
     logout: () => req("/api/auth/logout", { method: "POST" }),
     logoutEverywhere: () => req("/api/auth/logout-everywhere", { method: "POST" }),
+    deleteAccount: (body) =>
+      req("/api/auth/delete-account", { method: "POST", body: JSON.stringify(body) }),
     changePassword: (body) =>
       req("/api/auth/change-password", { method: "POST", body: JSON.stringify(body) }),
   },

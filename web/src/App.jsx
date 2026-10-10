@@ -11,6 +11,7 @@ import { More } from "./pages/More.jsx";
 import { NewRecipe } from "./pages/NewRecipe.jsx";
 import { Plan } from "./pages/Plan.jsx";
 import { Privacy } from "./pages/Privacy.jsx";
+import { Support } from "./pages/Support.jsx";
 import { Prep } from "./pages/Prep.jsx";
 import { Recipe } from "./pages/Recipe.jsx";
 import { Recipes } from "./pages/Recipes.jsx";
@@ -25,6 +26,7 @@ function parsePath(pathname) {
   if (parts.length === 0) return { page: "plan" };
   if (parts[0] === "login") return { page: "login" };
   if (parts[0] === "privacy") return { page: "privacy" };
+  if (parts[0] === "support") return { page: "support" };
   if (parts[0] === "join" && parts[1]) return { page: "join", token: parts[1] };
   if (parts[0] === "reset" && parts[1]) return { page: "reset", token: parts[1] };
   if (parts[0] === "recipes" && parts[1] === "new") return { page: "new-recipe" };
@@ -178,6 +180,7 @@ export function App() {
   }, [admin, page]);
 
   if (page === "privacy") return <Privacy />;
+  if (page === "support") return <Support />;
 
   if (fatalError) return <main role="alert" className="screen pad"><h1>App stopped</h1><pre>{fatalError}</pre></main>;
 

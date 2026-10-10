@@ -11,6 +11,7 @@ enum KitchenAPI {
   {
     var request = URLRequest(url: API.origin.appending(path: "api/\(path)"))
     request.httpMethod = method
+    request.setValue(API.appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
     if let body {
       request.setValue("application/json", forHTTPHeaderField: "Content-Type")
       request.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -94,6 +95,11 @@ enum KitchenAPI {
 
   static func logoutEverywhere() async throws {
     let _: Ok = try await API.send("auth/logout-everywhere", method: "POST")
+  }
+
+  /// Deletes the signed-in account (#65). The last member's household and kitchen go with it.
+  static func deleteAccount(password: String) async throws {
+    let _: Ok = try await API.send("auth/delete-account", method: "POST", body: ["password": password])
   }
 
   static func changePassword(current: String, new: String) async throws {

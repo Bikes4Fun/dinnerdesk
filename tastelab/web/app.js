@@ -352,7 +352,7 @@ const macros = (r) => {
   const save = async () => {
     const response = await fetch("/api/sessions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Dinnerdesk-App": "tastelab" },
       body: JSON.stringify({
         anon_id: state.anonId,
         id: state.sessionId,
@@ -370,7 +370,7 @@ const macros = (r) => {
     if (!state.signedIn) return;
     const response = await fetch("/api/household", {
       method: "PUT",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "X-Dinnerdesk-App": "tastelab" },
       body: JSON.stringify({
         prefs: {
           filters: { diets: [...state.profile.diets], allergens: allergenIds(), avoids: dislikeIds() },
@@ -482,25 +482,8 @@ const macros = (r) => {
     render();
   };
 
-  const begin = () => {
-    const midSeed = state.phase === "seed" && state.deck.length > 0;
-    if (!state.didQuiz && midSeed && state.index < state.deck.length) {
-      state.screen = "swipe";
-      render();
-      return;
-    }
-    if (!state.didQuiz && midSeed && state.index >= state.deck.length) {
-      state.quizBack = null;
-      state.screen = "quiz";
-      render();
-      return;
-    }
-    if (state.didQuiz && counts().likes + counts().passes > 0) {
-      startFreeSwipes();
-      return;
-    }
-    startSeed();
-  };
+  // Entry links and the home button start a standalone swipe session.
+  const begin = () => startFreeSwipes();
 
   const startMore = () => {
     state.round = 0;
@@ -525,7 +508,8 @@ const macros = (r) => {
     bumpShown(state.deck);
     state.index = 0;
     if (!state.deck.length) {
-      showPlan();
+      state.screen = "empty";
+      render();
       return;
     }
     state.screen = "swipe";
@@ -547,7 +531,8 @@ const macros = (r) => {
           startMore();
           return;
         }
-        showPlan();
+        if (state.phase === "free") startFreeSwipes();
+        else showPlan();
         return;
       }
       state.screen = "swipe";
@@ -608,7 +593,7 @@ const macros = (r) => {
     const started = likes + passes > 0;
     const summary = started
       ? `${likes} liked · ${passes} passed. A pass won’t be suggested again.`
-      : "Like meals you’d cook. Pass the ones you wouldn’t. A few likes are enough to start.";
+      : "Swipe individual meals or review suggested dinner plans. Choose either to get started.";
     const legal = state.signedIn
       ? "Likes, passes, and filters are saved for your household and used to suggest meals."
       : "Sign in so likes and passes stay with your household. A guest kitchen is shared.";
@@ -620,7 +605,10 @@ const macros = (r) => {
       ${banner()}
       ${
         state.catalog.length
-          ? `<button type="button" class="btn primary" data-start>${started ? "Keep going" : "Start"}</button>`
+          ? `<div class="entry-modes">
+              <button type="button" class="btn primary" data-start>Swipe meals</button>
+              <button type="button" class="btn ghost" data-see-plan>Suggest plans</button>
+            </div>`
           : `<p class="lead">No meals with photos are ready to swipe yet.</p>`
       }
       <button type="button" class="text-link" data-edit-filters>Edit filters</button>
@@ -760,7 +748,7 @@ const macros = (r) => {
     const lead = n === 1 ? "One dinner that fits." : `${n} dinners that fit.`;
     return `
       <div class="shell wide">
-        ${head("Suggested dinners", state.phase === "free" ? -1 : 3, `Plan ${Math.min(state.round + 1, PLAN_ROUNDS)} of ${PLAN_ROUNDS}`)}
+        ${head("Suggested dinners", ["free", "plans"].includes(state.phase) ? -1 : 3, `Plan ${Math.min(state.round + 1, PLAN_ROUNDS)} of ${PLAN_ROUNDS}`)}
         <p class="lead">${lead} Tap a meal to swap it. Not for us drops these meals from suggestions.</p>
         ${banner()}
         <div class="plan-grid">${cards}</div>
@@ -786,22 +774,24 @@ const macros = (r) => {
         <p class="lead">${likes} liked · ${passes} passed. When you make a meal plan, suggestions follow this.</p>
       </div>
       ${banner()}
-      ${
-        state.sawPlan
-          ? `<button type="button" class="btn primary" data-keep-swiping>Keep swiping</button>`
-          : `<button type="button" class="btn primary" data-see-plan>See a suggested plan</button>`
-      }
+      <div class="entry-modes">
+        <button type="button" class="btn primary" data-keep-swiping>Keep swiping</button>
+        <button type="button" class="btn ghost" data-see-plan>Suggest plans</button>
+      </div>
       <button type="button" class="text-link" data-back>Done</button>
     </div>`;
   };
 
   const renderEmpty = () => `
     <div class="shell">
-      ${head("No meals match", -1)}
+      ${head(state.phase === "free" ? "No new meals to swipe" : "No meals match", -1)}
       ${banner()}
       <section class="recovery" role="status">
-        <h2>No more matching dinners</h2>
-        <p>You’ve reached the end of meals that fit your filters and passes. Edit your filters to look for more options, or return to Recipes to choose meals yourself.</p>
+        <h2>${state.phase === "free" ? "No new meals to swipe" : "No more matching dinners"}</h2>
+        <p>${state.phase === "free"
+          ? "You’ve reached the end of new meals that fit your filters. Review suggested plans or edit filters to find more meals."
+          : "You’ve reached the end of meals that fit your filters and passes. Edit your filters to look for more options, or return to Recipes to choose meals yourself."}</p>
+        ${state.phase === "free" ? `<button type="button" class="btn ghost" data-see-plan>Suggest plans</button>` : ""}
         <p>Your allergies and passed meals stay saved.</p>
         <button type="button" class="btn primary" data-edit-filters>Edit filters</button>
       </section>
@@ -907,7 +897,8 @@ const macros = (r) => {
         startMore();
         return;
       }
-      showPlan();
+      if (state.phase === "free") { state.screen = "done"; render(); }
+      else showPlan();
       return;
     }
     render();
@@ -1074,6 +1065,8 @@ const macros = (r) => {
       return;
     }
     if (t.hasAttribute("data-see-plan")) {
+      state.phase = "plans";
+      state.quizBack = null;
       state.round = 0;
       showPlan();
       return;

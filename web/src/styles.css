@@ -120,6 +120,7 @@ img { display: block; max-width: 100%; }
   padding: 0.75rem 1rem;
   border-radius: 12px;
 }
+.btn-secondary.danger { color: var(--heart); }
 .text-link { color: var(--accent); font-weight: 600; }
 .icon-btn {
   width: 36px;
@@ -1508,32 +1509,54 @@ img { display: block; max-width: 100%; }
 .saved-row-delete { flex: none; min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; color: var(--accent); border-radius: 10px; }
 .saved-row-delete:hover { background: var(--coral-tint); }
 
-/* Suggested plan review: same design as Taste Lab's "Suggested dinners" (#31). */
+/* Suggested plan review, in the app's own plain style (not Taste Lab's cards). Photos are
+   rounded landscape rectangles with a white swap button in the corner. */
 .suggested-plan { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .suggested-plan h2 { margin: 0; }
-.suggested-plan > .muted { margin: 0; }
-.sp-count { display: flex; align-items: center; gap: 8px; font-weight: 600; }
-.sp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.sp-card { display: flex; flex-direction: column; min-width: 0; padding: 0; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
-.sp-card:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
-.sp-photo { position: relative; display: block; }
-.sp-photo img, .sp-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
-.sp-swap { position: absolute; top: 8px; right: 8px; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--coral); color: var(--brand); font-weight: 700; font-size: 1.1rem; }
-.sp-body { display: flex; flex-direction: column; gap: 4px; padding: 10px; }
-.sp-body strong { color: var(--brand); font-size: 0.95rem; line-height: 1.25; overflow-wrap: anywhere; }
-.sp-body .muted { font-size: 0.8rem; }
-.sp-dock { position: sticky; bottom: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px 0 calc(10px + var(--safe-bottom)); background: var(--bg); border-top: 1px solid var(--line); }
-.sp-dock button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 50px; border-radius: 14px; font-weight: 700; }
-.sp-no { background: var(--coral-tint); color: #8a3a22; border: 2px solid var(--coral); }
-.sp-yes { background: var(--brand); color: var(--bg); }
-@media (max-width: 360px) { .sp-grid, .sp-dock { grid-template-columns: minmax(0, 1fr); } }
-
-/* Keep newer review requirements while sharing Taste Lab card styling. */
-.suggested-plan .proposal-swap { background: var(--coral); color: var(--brand); }
-.suggested-plan .sp-body strong { overflow-wrap: normal; word-break: normal; }
+.sp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+.suggested-plan .proposal-meal { gap: 4px; }
+.suggested-plan .proposal-photo { position: relative; margin-bottom: 4px; }
+.suggested-plan .proposal-open { display: block; width: 100%; padding: 0; border-radius: 14px; overflow: hidden; }
+.suggested-plan .proposal-open img, .proposal-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
+.suggested-plan .proposal-swap { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: var(--surface); color: var(--accent); font-size: 22px; font-weight: 700; box-shadow: 0 1px 4px rgba(46, 26, 44, 0.18); }
+.suggested-plan .proposal-meal strong { color: var(--ink); line-height: 1.25; overflow-wrap: normal; word-break: normal; }
+.suggested-plan .proposal-meal .muted { font-size: 0.85rem; }
+.suggested-plan .proposal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0 0; }
+.sp-approve, .sp-another { min-height: 50px; padding: 0 12px; border-radius: 14px; font-weight: 700; }
+.sp-approve { background: var(--brand); color: var(--bg); }
+.sp-another { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); }
+.proposal-actions > :only-child { grid-column: 1 / -1; }
+.sp-improve { align-self: center; min-height: 44px; }
+@media (max-width: 360px) { .sp-grid, .suggested-plan .proposal-actions { grid-template-columns: minmax(0, 1fr); } }
 
 .ai-photo-tip { margin: 8px 0 12px; }
 
 /* Settings → Filters: Taste Lab's filter chips (soft tint, aubergine when on). */
 .filter-chips { gap: 0.35rem; }
 .filter-chips .chip { min-height: 36px; padding: 0.45rem 0.7rem; line-height: 1.25; }
+/* Narrow screens and large browser text or zoom (#35). Wrapping is harmless when things fit, so
+   these apply everywhere; the media query covers what only makes sense when space is short.
+   22em is 352px at the default text size: phones zoomed past about 110%, or narrow windows. */
+.top { flex-wrap: wrap; }
+.tabs { flex-wrap: wrap; }
+.section-head { flex-wrap: wrap; gap: 0 0.75rem; }
+.section-head .text-link { white-space: nowrap; }
+.list-link { flex-wrap: wrap; gap: 0.15rem 1rem; }
+.list-link em { min-width: 0; overflow-wrap: anywhere; }
+.plan-menu summary { list-style: none; }
+.plan-menu summary::-webkit-details-marker { display: none; }
+@media (max-width: 22em) {
+  /* Back button and actions on the first row; the title gets the full width under them. */
+  .top.sub h1 { grid-column: 1 / -1; grid-row: 2; overflow-wrap: break-word; }
+  /* Grocery: the amount goes under the item name so the name keeps the width. */
+  .g-item .g-main { grid-column: -3 / -2; }
+  .g-item .g-qty { grid-column: -3 / -2; grid-row: 2; justify-self: start; white-space: normal; }
+}
+/* When space is short (zoomed in, or a small window), the whole screen scrolls, header
+   included, so a tall header can't squeeze the content to nothing. */
+@media (max-width: 22em), (max-height: 34em) {
+  .screen { overflow-y: auto; }
+  .screen > .scroll, .screen > .recipe-layout, .recipe-layout > .scroll { flex: none; min-height: auto; overflow: visible; }
+  /* A docked action bar would cover most of a short screen; it sits after the content instead. */
+  .dock { position: static; }
+}
