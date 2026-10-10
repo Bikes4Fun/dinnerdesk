@@ -826,6 +826,7 @@ private struct ProposalSwapPicker: View {
         if loading { ProgressView() }
         if !loading && options.isEmpty && error == nil {
           Text("No matching meals. Try another search or adjust your filters.").font(Theme.body)
+          // add a button to report an error if the user believes there SHOULD have been results
           NavigationLink("Adjust filters") { FiltersView() }
         }
         ForEach(options) { option in
