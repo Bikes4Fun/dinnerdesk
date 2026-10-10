@@ -332,6 +332,10 @@ Routes live in `app/routes.py`, `app/auth_routes.py`, and `app/taste_lab.py`, al
 `/api`. The interactive API docs are turned off on the server. Errors are JSON
 `{error, detail}`.
 
+Unknown API paths return 404; unsupported methods on known paths return 405 with the
+allowed methods. Diagnostics inspect included API routers as well as direct app routes,
+exclude the website fallback, and log the requesting app build without crashing.
+
 ### Outside services
 
 Build it ourselves by default, and prefer data tables we own (ingredients, nutrients, package
