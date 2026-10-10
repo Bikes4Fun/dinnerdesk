@@ -77,6 +77,15 @@ def test_only_admins_can_edit_recipes(tmp_path):
         assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
+def test_only_admins_can_edit_recipes(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch("/api/recipes/1", json={"name": "Hacked soup"}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"as_copy": True, "name": "Copy"}).status_code == 403
+        assert client.put("/api/recipes/1/dev-notes", json={"text": "hi"}).status_code == 403
+        assert client.delete("/api/recipes/1/edit").status_code == 403
+        assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
+
+
 def test_household_cannot_see_other_household_pantry(tmp_path):
     with _client(tmp_path) as client:
         res = client.get("/api/pantry")
