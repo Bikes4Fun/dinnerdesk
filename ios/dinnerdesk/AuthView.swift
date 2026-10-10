@@ -38,7 +38,7 @@ final class Session: ObservableObject {
 
   func refresh() async {
     do {
-      status = try await KitchenAPI.status()
+      status = try await AuthAPI.status()
       loadError = nil
       if status?.authenticated == true { guest = false }
     } catch {
@@ -51,7 +51,7 @@ final class Session: ObservableObject {
   }
 
   func signOut() async {
-    do { try await KitchenAPI.logout() } catch {
+    do { try await AuthAPI.logout() } catch {
       loadError = KitchenAPI.message(error)
       return
     }
@@ -275,10 +275,10 @@ struct AuthView: View {
     let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
     do {
       if mode == .signIn {
-        try await KitchenAPI.login(email: cleanEmail, password: password)
+        try await AuthAPI.login(email: cleanEmail, password: password)
       } else {
         let name = householdName.trimmingCharacters(in: .whitespacesAndNewlines)
-        try await KitchenAPI.signup(
+        try await AuthAPI.signup(
           email: cleanEmail,
           password: password,
           householdName: name.isEmpty ? "My household" : name
@@ -371,7 +371,7 @@ struct ForgotPasswordView: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.forgotPassword(
+      try await AuthAPI.forgotPassword(
         email: email.trimmingCharacters(in: .whitespacesAndNewlines))
       sent = true
       error = nil

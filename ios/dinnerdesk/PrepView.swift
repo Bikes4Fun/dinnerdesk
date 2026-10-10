@@ -161,8 +161,8 @@ struct PrepView: View {
         Spacer(minLength: 0)
       }
       .foregroundStyle(Theme.accent)
-      .padding(14)
-      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+      .padding(12)
+      .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
       .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4])))
       .contentShape(Rectangle())
     }
