@@ -151,8 +151,9 @@ def test_tastelab_independent_entry_modes():
 const fs = require("node:fs"), vm = require("node:vm"), assert = require("node:assert/strict");
 const source = fs.readFileSync(process.argv[1], "utf8");
 const flush = async () => { for (let i=0; i<4; i++) await new Promise(setImmediate); };
-async function boot(search = "", count = 16) {
+async function boot(search = "", count = 16, votes = []) {
   const handlers = {}, saves = [];
+  let failSave = false;
   const app = { innerHTML: "", addEventListener: (kind, fn) => handlers[kind] = fn, querySelector: () => null };
   const window = { addEventListener() {} }; window.self = window.top = window;
   const recipes = Array.from({length: count}, (_, i) => ({id: i+1, name: `Dinner ${i+1}`, photo: "/photo.jpg", ingredients: ["rice"]}));
@@ -161,19 +162,20 @@ async function boot(search = "", count = 16) {
     document: {getElementById: () => app, documentElement: {classList: {add() {}}}},
     localStorage: {getItem: () => null, setItem() {}}, crypto: {randomUUID: () => "test"},
     fetch: async (url, options) => {
+      if (url === "/api/sessions" && failSave) { failSave = false; return {ok: false, status: 503}; }
       if (url === "/api/sessions") saves.push(JSON.parse(options.body).body);
-      return {ok: true, json: async () => url === "/api/catalog" ? {recipes} : {votes: []}};
+      return {ok: true, json: async () => url === "/api/catalog" ? {recipes} : {votes}};
     }
   });
   await flush();
-  const click = async (attr, value = "") => {
+  const click = async (attr, value = "", extra = {}) => {
     assert.ok(app.innerHTML.includes(attr), `Missing control ${attr}`);
     const key = attr.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-    const control = {dataset: {[key]: value}, hasAttribute: a => a === attr};
+    const control = {dataset: {[key]: value, ...extra}, hasAttribute: a => a === attr};
     handlers.click({target: {closest: () => control}});
     await flush();
   };
-  return {app, saves, click};
+  return {app, saves, click, failNextSave: () => { failSave = true; }};
 }
 (async () => {
   const swipe = await boot();
@@ -198,6 +200,20 @@ async function boot(search = "", count = 16) {
   await exhausted.click("data-swipe", "1"); await exhausted.click("data-keep-swiping");
   assert.match(exhausted.app.innerHTML, /No new meals to swipe/);
   await exhausted.click("data-see-plan"); assert.match(exhausted.app.innerHTML, /class="plan-grid"/);
+  const history = await boot("", 16, [{recipe_id: "1", liked: false}, {recipe_id: "2", liked: true, plan: true}]);
+  await history.click("data-history");
+  assert.match(history.app.innerHTML, /Dinner 1/); assert.doesNotMatch(history.app.innerHTML, /Dinner 2/);
+  await history.click("data-history-vote", "1", {liked: "1"});
+  assert.equal(history.saves.at(-1).swipes.find(v => v.recipe_id === "1").liked, true);
+  history.failNextSave();
+  await history.click("data-history-vote", "1", {liked: "0"});
+  assert.match(history.app.innerHTML, /Couldn't save/);
+  assert.match(history.app.innerHTML, /data-liked="1" aria-pressed="true"/);
+  await history.click("data-history-vote", "1", {liked: "0"});
+  assert.equal(history.saves.at(-1).swipes.filter(v => v.recipe_id === "1").length, 1);
+  assert.equal(history.saves.at(-1).swipes.find(v => v.recipe_id === "1").liked, false);
+  await history.click("data-back"); assert.match(history.app.innerHTML, /Pick up where/);
+  const noHistory = await boot(); await noHistory.click("data-history"); assert.match(noHistory.app.innerHTML, /No swiped meals yet/);
   const empty = await boot("", 0); assert.doesNotMatch(empty.app.innerHTML, /data-start/);
 })().catch(error => { console.error(error); process.exitCode = 1; });
 '''

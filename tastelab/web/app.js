@@ -56,6 +56,8 @@
     deck: [],
     index: 0,
     swipes: [],
+    swipeHistory: new Map(),
+    historyBack: "welcome",
     plan: [],
     marks: {},
     swapFrom: null,
@@ -565,6 +567,7 @@ const macros = (r) => {
   };
 
   const goBack = async () => {
+    if (state.screen === "history") { state.screen = state.historyBack; render(); return; }
     if (state.swapFrom) {
       closeSwapSheet();
       return;
@@ -613,7 +616,7 @@ const macros = (r) => {
             </div>`
           : `<p class="lead">No meals with photos are ready to swipe yet.</p>`
       }
-      <button type="button" class="text-link" data-edit-filters>Edit filters</button>
+      <div class="history-links"><button type="button" class="text-link" data-edit-filters>Edit filters</button><button type="button" class="text-link" data-history>Swipe history</button></div>
       <p class="legal">${esc(legal)}</p>
     </div>`;
   };
@@ -695,7 +698,7 @@ const macros = (r) => {
           <button type="button" class="circle no" data-swipe="0" aria-label="Pass">${icon("x")}</button>
           <button type="button" class="circle yes" data-swipe="1" aria-label="Like">${icon("heart")}</button>
         </div>
-        <button type="button" class="text-link" data-edit-filters>Edit filters</button>
+        <div class="history-links"><button type="button" class="text-link" data-edit-filters>Edit filters</button><button type="button" class="text-link" data-history>Swipe history</button></div>
         ${state.phase === "seed" ? "" : `<button type="button" class="text-link" data-finish>Done for now</button>`}
       </div>`;
   };
@@ -759,7 +762,7 @@ const macros = (r) => {
             <button type="button" class="btn bad" data-verdict="down">${icon("down")}<span>Not for us</span></button>
             <button type="button" class="btn ok" data-verdict="up">${icon("up")}<span>This plan works</span></button>
           </div>
-          <button type="button" class="text-link" data-edit-filters>Edit filters</button>
+          <div class="history-links"><button type="button" class="text-link" data-edit-filters>Edit filters</button><button type="button" class="text-link" data-history>Swipe history</button></div>
           <button type="button" class="text-link" data-finish>Done for now</button>
         </div>
         ${swapSheet()}
@@ -808,10 +811,38 @@ const macros = (r) => {
 
   const renderLoading = () => `<div class="shell"><p class="lead">Loading meals…</p></div>`;
 
+  const renderHistory = () => {
+    const votes = [...state.swipeHistory.values()].reverse();
+    return `<div class="shell">${head("Swipe history", -1)}${banner()}
+      <p class="lead">Change your likes and passes to improve future suggestions.</p>
+      ${votes.length ? `<div class="history-list">${votes.map(vote => {
+        const recipe = byId(vote.recipe_id);
+        const name = recipe?.name || vote.name || "Recipe no longer available";
+        return `<div class="history-row">${photo(recipe?.photo, name)}<div class="history-info"><strong>${esc(name)}</strong>
+          <div class="history-votes"><button type="button" class="chip ${vote.liked ? "is-on" : ""}" data-history-vote="${esc(vote.recipe_id)}" data-liked="1" aria-pressed="${vote.liked}" aria-label="Like ${esc(name)}">👍 Like</button>
+          <button type="button" class="chip ${!vote.liked ? "is-on" : ""}" data-history-vote="${esc(vote.recipe_id)}" data-liked="0" aria-pressed="${!vote.liked}" aria-label="Pass ${esc(name)}">👎 Pass</button></div></div></div>`;
+      }).join("")}</div>` : `<p class="lead">No swiped meals yet. Swipe meals to start your history.</p>`}
+    </div>`;
+  };
+
+  const changeHistoryVote = async (id, liked) => {
+    const old = state.swipeHistory.get(id);
+    if (!old || old.liked === liked) return;
+    const previous = state.swipes;
+    const updated = {...old, liked};
+    state.swipes = [...previous.filter(v => v.recipe_id !== id), updated];
+    try { await save(); } catch (error) { state.swipes = previous; throw error; }
+    state.swipeHistory.set(id, updated);
+    state.planDown.delete(id);
+    remember(id, liked);
+    render();
+  };
+
   const render = () => {
     const view = {
       loading: renderLoading,
       welcome: renderWelcome,
+      history: renderHistory,
       quiz: renderQuiz,
       relax: renderRelax,
       swipe: renderSwipe,
@@ -886,6 +917,7 @@ const macros = (r) => {
       render();
       return;
     }
+    state.swipeHistory.set(rid(rec), {recipe_id: rid(rec), name: rec.name, liked});
     remember(rid(rec), liked);
     state.busy = false;
     if (state.index >= state.deck.length) {
@@ -928,9 +960,13 @@ const macros = (r) => {
 
   app.addEventListener("click", (e) => {
     const t = e.target.closest(
-      "[data-more-swaps],[data-clear],[data-back],[data-start],[data-toggle],[data-other],[data-after-quiz],[data-after-relax],[data-drop-diet],[data-drop-dislike],[data-edit-filters],[data-swipe],[data-verdict],[data-open-swap],[data-choose],[data-save-swap],[data-swap-back],[data-keep-swiping],[data-see-plan],[data-finish],[data-retry]"
+      "[data-history],[data-history-vote],[data-more-swaps],[data-clear],[data-back],[data-start],[data-toggle],[data-other],[data-after-quiz],[data-after-relax],[data-drop-diet],[data-drop-dislike],[data-edit-filters],[data-swipe],[data-verdict],[data-open-swap],[data-choose],[data-save-swap],[data-swap-back],[data-keep-swiping],[data-see-plan],[data-finish],[data-retry]"
     );
     if (!t || state.busy) return;
+    if (t.hasAttribute("data-history")) {
+      state.historyBack = state.screen; state.screen = "history"; state.error = ""; render(); return;
+    }
+    if (t.dataset.historyVote) { run(() => changeHistoryVote(t.dataset.historyVote, t.dataset.liked === "1")); return; }
     if (t.hasAttribute("data-back")) {
       run(goBack);
       return;
@@ -1141,6 +1177,7 @@ const macros = (r) => {
     for (const vote of data.votes || []) {
       const id = String(vote.recipe_id || "");
       if (!id) continue;
+      if (!vote.plan) state.swipeHistory.set(id, {recipe_id: id, liked: Boolean(vote.liked)});
       state.prior.add(id);
       if (vote.liked) state.priorLikes.add(id);
     }
