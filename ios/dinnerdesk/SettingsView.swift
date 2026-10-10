@@ -33,11 +33,6 @@ struct SettingsView: View {
         }
         .accessibilityHint("Opens the support page in Safari")
 
-          NavigationLink {
-            SettingsView()
-          } label: {
-            ThemeIconRow(title: "Settings", systemImage: "gearshape")
-          }
           if let url = URL(string: "https://dinnerdesk.computerscience.build") {
             Link(destination: url) {
               ThemeIconRow(title: "\(Copy.appName) on the web", systemImage: "safari")
