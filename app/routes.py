@@ -2008,6 +2008,7 @@ def patch_prep(
             "UPDATE prep_tasks SET done = ?, completed_steps_json = ? WHERE id = ?",
             (int(body.done), json.dumps(keys if body.done else []), task_id),
         )
+    return {"ok": True}
 
 
 @router.put("/prep/{task_id}/steps")

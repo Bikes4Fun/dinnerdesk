@@ -999,7 +999,8 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert partial["id"] == task["id"] and partial["done"] is False
         assert [s["done"] for s in partial["meals"][0]["steps"]] == [True, False]
         assert client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
-        client.patch(f"/api/prep/{task['id']}", json={"done": True})
+        # The iPhone app decodes this body; an empty reply showed its full-screen error.
+        assert client.patch(f"/api/prep/{task['id']}", json={"done": True}).json() == {"ok": True}
         complete = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert complete["done"] and all(s["done"] for s in complete["meals"][0]["steps"])
         client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": False})
