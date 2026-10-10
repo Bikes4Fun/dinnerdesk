@@ -200,7 +200,6 @@ struct PrepView: View {
 
   private func row(_ task: PrepTask) -> some View {
     let sub = ([task.action ?? ""] + task.quantities).filter { !$0.isEmpty }.joined(separator: " · ")
-    let meals = task.meals.map(\.name).joined(separator: ", ")
     return VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 10) {
         Button {
@@ -225,7 +224,6 @@ struct PrepView: View {
             Text(task.name).font(Theme.mealName).foregroundStyle(Theme.ink)
               .strikethrough(task.done)
             if !sub.isEmpty { Text(sub).font(Theme.subtitle).foregroundStyle(Theme.muted) }
-            if !meals.isEmpty { Text("For \(meals)").font(Theme.subtitle).foregroundStyle(Theme.muted) }
           }
           .multilineTextAlignment(.leading)
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -265,8 +263,11 @@ struct PrepView: View {
           VStack(alignment: .leading, spacing: 8) {
             ForEach(task.meals) { meal in
               VStack(alignment: .leading, spacing: 4) {
-                NavigationLink(meal.name) { RecipeDetailView(id: meal.id) }
-                  .font(Theme.action).foregroundStyle(Theme.accent)
+                NavigationLink { RecipeDetailView(id: meal.id) } label: {
+                  Text(meal.name).font(Theme.action).foregroundStyle(Theme.accent)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 ForEach(Array(((meal.steps ?? []).map(\.text).nilIfEmpty ?? meal.instructions).enumerated()), id: \.offset) { _, text in
                   Text(text).font(Theme.body).foregroundStyle(Theme.ink)
                     .fixedSize(horizontal: false, vertical: true)

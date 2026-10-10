@@ -69,6 +69,10 @@ review, not a new plan.
   another proposal.
 - **Must:** review keeps headings and controls compact; explanatory suggestion text is
   omitted from the visible review (updated October 9).
+- **Must:** review uses the app's own plain style, not Taste Lab's bordered cards: a rounded
+  landscape photo (never square) with a white swap button in its corner, then the name and cook
+  time. Approve plan (filled) and Suggest another (outlined) are equal full-width buttons, with
+  Improve suggestions centered below.
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
   exclude meals already on the proposal. Cancelling the picker changes nothing and records no
   dislike.
