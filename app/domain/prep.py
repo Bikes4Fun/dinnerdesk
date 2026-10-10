@@ -412,7 +412,9 @@ SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chun
                "separate", "aside", "reserve", "keep", "away", "rough", "fine", "even",
                # Where it goes next isn't another grocery: "dice it and add it to the bowl".
                "add", "bowl", "dish", "plate", "board", "set", "later", "serving", "pat", "towel",
-               "paper", "stir", "put", "place"}
+               "paper", "stir", "put", "place",
+               # Which way it's cut: "quarter it the long way", "slice it crosswise".
+               "long", "way", "lengthwise", "crosswise", "across", "halves", "wise"}
 
 
 def _verbs_for(text: str, item_words: set[str]) -> list[str]:
