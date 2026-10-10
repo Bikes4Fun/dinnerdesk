@@ -461,6 +461,8 @@ struct RecipeDetailView: View {
   @State private var tab: RecipePageTab = .overview
   @State private var nameExpanded = false
   @State private var draftServings: Int?
+  /// Tagging steps as Prep edits the recipe, which only Dinnerdesk admins may do.
+  @State private var admin = false
 
   private var mealServings: Int {
     if let slot = store.plan?.slots.first(where: { $0.recipeId == id }) {
@@ -529,9 +531,7 @@ struct RecipeDetailView: View {
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
               }
               ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
-                CookStepRow(index: i, step: step) {
-                  Task { await togglePrep(at: i) }
-                }
+                CookStepRow(index: i, step: step, onPrep: admin ? { Task { await togglePrep(at: i) } } : nil)
               }
             }
 
@@ -618,6 +618,7 @@ struct RecipeDetailView: View {
         self.error = error.localizedDescription
       }
     }
+    .task { admin = (try? await KitchenAPI.status())?.admin == true }
   }
 
   private func ingredientLine(_ ing: IngredientLine, recipe: RecipeDetail) -> some View {
@@ -753,13 +754,14 @@ struct RecipeDetailView: View {
 private struct CookStepRow: View {
   let index: Int
   let step: InstructionStep
-  let onPrep: () -> Void
+  /// Only set for admins; everyone else just sees the step.
+  let onPrep: (() -> Void)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 8) {
         Text("\(index + 1).").foregroundStyle(Theme.accent)
-        Button(action: onPrep) {
+        if let onPrep { Button(action: onPrep) {
           Text("Prep")
             .font(Theme.chipLabel)
             .padding(.horizontal, 8)
@@ -768,7 +770,7 @@ private struct CookStepRow: View {
             .foregroundStyle((step.prep ?? false) ? Color.white : Theme.muted)
             .clipShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain) }
       }
       stepBody
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -52,10 +52,24 @@ def _seed(path: Path) -> None:
     db.close()
 
 
-def _client(tmp_path: Path) -> TestClient:
+def _client(tmp_path: Path, admin: bool = True) -> TestClient:
+    """Test client for the guest household. Recipe editing is admin-only, so by default these
+    tests act as an admin; pass admin=False to check what everyone else gets."""
     _seed(tmp_path)
     app = create_app()
+    if admin:
+        from app.deps import require_admin
+        app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
     return TestClient(app)
+
+
+def test_only_admins_can_edit_recipes(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch("/api/recipes/1", json={"name": "Hacked soup"}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"as_copy": True, "name": "Copy"}).status_code == 403
+        assert client.put("/api/recipes/1/dev-notes", json={"text": "hi"}).status_code == 403
+        assert client.delete("/api/recipes/1/edit").status_code == 403
+        assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
 def test_household_cannot_see_other_household_pantry(tmp_path):
