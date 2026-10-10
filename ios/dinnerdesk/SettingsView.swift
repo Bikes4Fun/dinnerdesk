@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import UIKit
 
 /// Settings: food filters, account & household, Taste Lab. Push it from a NavigationStack (More tab).
 struct SettingsView: View {
@@ -97,6 +98,10 @@ struct FiltersView: View {
 
   @State private var otherAllergenOpen = false
   @State private var otherAvoidOpen = false
+  /// "Saving…" then "Saved" after each change (#85), so a tap never looks like it did nothing.
+  enum SaveState { case idle, saving, saved }
+  @State private var saveState = SaveState.idle
+  @State private var saveCount = 0
 
   static let dietLabels = [
     "omnivore": "Omnivore", "pescatarian": "Pescatarian", "vegetarian": "Vegetarian", "vegan": "Vegan",
@@ -183,6 +188,22 @@ struct FiltersView: View {
     .background(Theme.bg)
     .navigationTitle("Filters")
     .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Group {
+          switch saveState {
+          case .idle: EmptyView()
+          case .saving:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Saving…") }
+          case .saved:
+            Label("Saved", systemImage: "checkmark").labelStyle(.titleAndIcon)
+          }
+        }
+        .font(Theme.count).foregroundStyle(Theme.muted)
+        .animation(.easeInOut(duration: 0.2), value: saveState)
+        .accessibilityElement(children: .combine)
+      }
+    }
     .task { await load() }
   }
 
@@ -286,12 +307,23 @@ struct FiltersView: View {
       "avoids": Self.avoids.filter { avoids.contains($0) } + otherAvoids,
       "time": time,
     ]
+    saveCount += 1
+    let mine = saveCount
+    saveState = .saving
     Task {
       do {
         try await KitchenAPI.savePrefs(["filters": body])
+        error = nil
+        if mine == saveCount {
+          saveState = .saved
+          UIAccessibility.post(notification: .announcement, argument: "Filters saved")
+        }
         // Recipes follow the filters, so refresh the list behind this screen.
         await store.searchRecipes("")
+        try? await Task.sleep(for: .seconds(2))
+        if mine == saveCount, saveState == .saved { saveState = .idle }
       } catch {
+        if mine == saveCount { saveState = .idle }
         self.error = KitchenAPI.message(error)
       }
     }
@@ -320,17 +352,17 @@ private struct OtherField: View {
         .accessibilityLabel("Search \(label.lowercased())")
       if loading { ProgressView() }
       if let error { Text(error).font(Theme.subtitle) }
-      ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
-        Button {
-          selected.append(name)
-          query = ""
-          matches = []
-          onCommit()
-        } label: {
-          Label(name, systemImage: "plus").font(Theme.body).foregroundStyle(Theme.ink)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+      // Matches as chips (#85): tap one to add it; it moves up with the other picked chips.
+      KitchenFlow(spacing: 6) {
+        ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
+          FilterChip(label: "+ \(name)", on: false) {
+            selected.append(name)
+            query = ""
+            matches = []
+            onCommit()
+          }
+          .accessibilityLabel("Add \(name)")
         }
-        .buttonStyle(.plain)
       }
       if !loading && error == nil && !query.isEmpty && matches.isEmpty {
         Text("No matching foods. Try another name.").font(Theme.subtitle)
@@ -523,7 +555,7 @@ struct AccountView: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.forgotPassword(email: email)
+      try await AuthAPI.forgotPassword(email: email)
       message = "Check your email for a password reset link."
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
@@ -565,7 +597,7 @@ struct AccountView: View {
 
   private func signOutEverywhere() async {
     do {
-      try await KitchenAPI.logoutEverywhere()
+      try await AuthAPI.logoutEverywhere()
     } catch {
       self.error = KitchenAPI.message(error)
     }
@@ -617,7 +649,7 @@ private struct DeleteAccountSheet: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.deleteAccount(password: password)
+      try await AuthAPI.deleteAccount(password: password)
       onDeleted()
     } catch {
       self.error = KitchenAPI.message(error)
