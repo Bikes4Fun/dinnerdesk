@@ -1533,3 +1533,30 @@ img { display: block; max-width: 100%; }
 .suggested-plan .sp-body strong { overflow-wrap: normal; word-break: normal; }
 
 .ai-photo-tip { margin: 8px 0 12px; }
+
+/* Narrow screens and large browser text or zoom (#35). Wrapping is harmless when things fit, so
+   these apply everywhere; the media query covers what only makes sense when space is short.
+   22em is 352px at the default text size: phones zoomed past about 110%, or narrow windows. */
+.top { flex-wrap: wrap; }
+.tabs { flex-wrap: wrap; }
+.section-head { flex-wrap: wrap; gap: 0 0.75rem; }
+.section-head .text-link { white-space: nowrap; }
+.list-link { flex-wrap: wrap; gap: 0.15rem 1rem; }
+.list-link em { min-width: 0; overflow-wrap: anywhere; }
+.plan-menu summary { list-style: none; }
+.plan-menu summary::-webkit-details-marker { display: none; }
+@media (max-width: 22em) {
+  /* Back button and actions on the first row; the title gets the full width under them. */
+  .top.sub h1 { grid-column: 1 / -1; grid-row: 2; overflow-wrap: break-word; }
+  /* Grocery: the amount goes under the item name so the name keeps the width. */
+  .g-item .g-main { grid-column: -3 / -2; }
+  .g-item .g-qty { grid-column: -3 / -2; grid-row: 2; justify-self: start; white-space: normal; }
+}
+/* When space is short (zoomed in, or a small window), the whole screen scrolls, header
+   included, so a tall header can't squeeze the content to nothing. */
+@media (max-width: 22em), (max-height: 34em) {
+  .screen { overflow-y: auto; }
+  .screen > .scroll, .screen > .recipe-layout, .recipe-layout > .scroll { flex: none; min-height: auto; overflow: visible; }
+  /* A docked action bar would cover most of a short screen; it sits after the content instead. */
+  .dock { position: static; }
+}
