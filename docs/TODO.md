@@ -4,6 +4,7 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 **How to use it**
 
+- Every item that's more than a quick fix gets a GitHub issue; put its number on the line.
 - Jot new issues in **Inbox** in any wording. Add the screenshot to the matching
   `docs/<area> to do/` folder and put its path on the line.
 - Moving an item from Inbox to **Now** means it's clear and ready to work on. Add who has it:
@@ -20,33 +21,34 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
   fixed automatic suggestion presentation at launch, photo growth above four meals,
   replacement-picker styling, direct filter recovery links, and empty-plan action alignment.
   Remaining screenshot work, after checking existing implementations:
-  - Compact Account & security; simplify household naming/invite layout.
+  - Compact Account & security; simplify household naming/invite layout. #83
   - Taste Lab returning-user spacing fixed on `codex/screenshot-tastelab-spacing`.
-    Reconcile its cards/actions with the preferred earlier simple suggestion layout.
+    Reconcile its cards/actions with the preferred earlier simple suggestion layout. #84
   - Generic ingredient photos: private gallery has garlic, but the live
     `/grocery-food/garlic.jpg` URL returned 404 on Oct 9. Verify/upload the ingredient
-    gallery and configure its persistent `GROCERY_PHOTO_DIR` before visual retesting.
-  - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
+    gallery and configure its persistent `GROCERY_PHOTO_DIR` before visual retesting. #82
+  - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips. #85
   - Family portions default fixed on `codex/screenshot-family-portions`: recipe browsing,
     new additions and suggestions use the saved value; explicit/existing servings stay intact.
   - Issue #36 follow-up (`codex/issue-36-tab-return-root`): destination reset now runs for
-    every tab selection, including Grocery ingredient details. Verify across all tabs.
+    every tab selection, including Grocery ingredient details. Verify across all tabs. #36
   - Plan edit layout fixed on `codex/issue-30-screenshot-edit-layout`: selection on the
     right, Schedule/votes in one row when they fit, servings in the next row.
-  - Decide whether Build from scratch opens Recipes or creates an empty plan.
+  - Decide whether Build from scratch opens Recipes or creates an empty plan. #86
   Sources: annotated PNGs in `docs/`, `my kitchen to do/`, `groceries page to do/`, and
   `suggestion meal plan to do/`. Keep these private screenshots out of Git.
 
-- [ ] Taste Lab: when everything is rejected, the recovery message is easy to miss (plain font,
-      looked like a glitch). Make it stand out. *(from your tester checklist notes)*
+- [x] Taste Lab: when everything is rejected, the recovery message is easy to miss (plain font,
+      looked like a glitch). Make it stand out. *(from your tester checklist notes)* #14
+      *Done in the Oct 8 issue pass; verify on device.*
 - [x] Use a purple ★ tip to tell users when a recipe photo is AI-generated (and, once
       `shared_photo` exists, when it's borrowed from a similar recipe). Needs a way to mark
       AI photos in `data/recipe_photos.json`, e.g. `"ai_generated": true`.
 - [ ] Recipe ⋯ menu only flashes when tapped; may be large text only.
-      `docs/when elips on recipes is clicked it only flashes may be an issue onyl in large font.png`
+      `docs/when elips on recipes is clicked it only flashes may be an issue onyl in large font.png` #16
 - [ ] *(Later)* Review how the More tab is nested: Weekend prep, My kitchen (portions, pantry,
       always checked off, substitutions, stores & aisles), Taste Lab, Hidden recipes, Quick start
-      tour, Settings, web, Twitter. Decide what belongs together and what's one tap too deep.
+      tour, Settings, web, Twitter. Decide what belongs together and what's one tap too deep. #40
 
 ## Now
 
@@ -65,15 +67,15 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       plain words, on the screen they belong to, with how to recover.
       Follow-up on `codex/issue-2-router-diagnostics`: fixed a server diagnostic crash with
       newer FastAPI router wrappers; missing paths and wrong methods now return useful JSON.
-      The original user action that triggered the screenshot still needs reproduction.
+      The original user action that triggered the screenshot still needs reproduction. #2 (closed)
       `docs/suggestion meal plan to do/no easy done editing button.png`
 - [x] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
       `docs/recipes page to do/this meal is already in a plan.png`
       *Checked Oct 9: it reads "Remove from this plan" when the meal is on the plan, iPhone and web.*
 - [x] Taste Lab keeps asking about meals already answered (cheesy broccoli and rice always comes
       first). A skipped meal may come back; a liked or passed one shouldn't.
-- [ ] Prep check-off: two routes (PUT and PATCH `/prep/{id}/steps`) and two iPhone functions do
-      the same job, and the old `prep_step_done` table is left over. Keep one of each.
+- [x] Prep check-off: two routes (PUT and PATCH `/prep/{id}/steps`) and two iPhone functions do
+      the same job, and the old `prep_step_done` table is left over. Keep one of each. #28
 - [x] Prep task names from real recipes are sometimes wrong: "Whisk garlic", "Prep off roots",
       "Grate on holes grater". *(Claude)*
 
@@ -90,7 +92,7 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       *Checked Oct 9: singular/plural fixed; the sheet scrolls and grows to full height at large text so Cancel stays reachable.*
 - [x] "Won't be suggested again" should be a purple ★ tip.
       `docs/suggestion meal plan to do/move wont be suggested again to a purple stary tip and fix the over flow of -+ .png`
-- [ ] Bring back the one-line "why these meals" summary; it was removed along with the per-meal
+- [x] #8 Bring back the one-line "why these meals" summary; it was removed along with the per-meal
       commentary. Approving still writes "N meals · Approved · N swaps" into the plan; the plan
       should look the same whether meals were suggested or chosen.
       `docs/weekend prep to do/removed excess commentary but also removed the summary of why its a good plan.png`
@@ -98,17 +100,17 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       means nothing to users. Clearer rows, accessible delete, empty states.
       `docs/suggestion meal plan to do/history 0 swaps is data for us the user doesn't care.png`
       `docs/suggestion meal plan to do/saved and draft plans formatting.png`
-- [ ] Plan list view: room for a Schedule button and more of the recipe name, without shrinking
-      the photo.
+- [x] Plan list view: room for a Schedule button and more of the recipe name, without shrinking
+      the photo. #30
 - [x] Suggested plans should look like Taste Lab's suggested plans.
-- [ ] Declining a suggested plan shouldn't reload the whole page.
+- [x] Declining a suggested plan shouldn't reload the whole page. #32
 
 ### Taste Lab
 
 - [x] Double header on every Taste Lab screen: the top bar says "Taste Lab" and a second
       "← Taste Lab" sits below it. `docs/quick start to do/Screenshot 2026-10-07 at 6.21.50 PM.png`
       *Checked Oct 9: in the app (`chrome=app`) the page drops its own "Taste Lab" title.*
-- [ ] Filters should fit on one iPhone 16 screen at standard text, without dropping options.
+- [x] Filters should fit on one iPhone 16 screen at standard text, without dropping options. #11
       `docs/quick start to do/taste lab filters should fit on one screen from an iphone 16 with standard font size. do not remove options but do consider layout/formatting..png`
 - [x] Meal names are cut at two lines when there's room for more.
       `docs/quick start to do/tastelab meal names don't need to cut off at two lines assuming they don't spill over the actual phone screen size.png`
@@ -121,7 +123,7 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 - [x] Use "See all" or an arrow for section links, not both.
       `docs/recipes page to do/choose either see all or arrow not both.png`
 - [ ] Browse cards break names mid-word at large text. A fix is on main; check it on a fresh
-      build. Same screenshot as above.
+      build. Same screenshot as above. #35
 
 ### Grocery
 
@@ -130,9 +132,9 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       `docs/groceries page to do/add a purple stary tip to the _pantry_ note and resize aisle terms to remain smaller than title.png`
 - [ ] Item page shows an empty box where the ingredient photo goes.
       *Checked Oct 9: the code shows nothing when there's no photo. Photos only appear once
-      `GROCERY_PHOTO_DIR` is set on the server, so this is setup, not code.*
+      `GROCERY_PHOTO_DIR` is set on the server, so this is setup, not code.* #18, #82
       `docs/groceries page to do/get images of individual foods.png`
-- [ ] "You'll use this in…" wraps too early at large text.
+- [x] "You'll use this in…" wraps too early at large text. #34
 
 ### My kitchen
 
@@ -151,22 +153,22 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 ### Whole app
 
-- [ ] The current tab is shown by color only (the filled-icon fix was reverted).
+- [x] The current tab is shown by color only (the filled-icon fix was reverted). #22
       `docs/accessibility to do/color only representation of current page.png`
 - [x] The selected-tab highlight spills past the tab bar and clips the Grocery badge.
       `docs/accessibility to do/bottom nav highlight overlow when selected.png`
-- [ ] Large-text pass on Pantry, the recipe page, Cook, Prep, and Settings (needs a device).
-- [ ] Opening a tab again should show that tab's main page.
+- [ ] Large-text pass on Pantry, the recipe page, Cook, Prep, and Settings (needs a device). #35
+- [x] Opening a tab again should show that tab's main page. #36
 
 ### Quick start tour
 
-- [ ] Decide the order. Notes so far: start by showing suggestions, then groceries; end with
+- [ ] #24 Decide the order. Notes so far: start by showing suggestions, then groceries; end with
       Taste Lab; explain the purple ★ tips and that they fade after the first few uses.
       `docs/quick start to do/quick start to do .txt`
 - [x] Tour cards are blank below the text; each needs a picture of its screen.
       `docs/quick start to do/need screenshot of recipes page.png`
 
-### Checks before a release *(Codex)*
+### Checks before a release *(Codex)* — #37
 
 - [ ] Walk the suggestion flow: four meals, resize, swap, decline, approve, pending plan.
 - [ ] Layouts: small screens, larger text, long names, menus, confirmation sheets.
@@ -177,10 +179,10 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 ## Decisions needed
 
-- [ ] **Category likes and dislikes** (curry, Mexican, comfort classics…). What does a dislike do:
+- [ ] #38 **Category likes and dislikes** (curry, Mexican, comfort classics…). What does a dislike do:
       hide everywhere, or only stop suggesting? What does a like do: rank higher, a "More …" row
       in Recipes, or both? Is the category list right? Groundwork: `app/domain/categories.py`.
-- [ ] **Sample week for guests.** Meals picked so far: Sesame Chicken & Broccoli, Chicken Kebabs
+- [ ] #39 **Sample week for guests.** Meals picked so far: Sesame Chicken & Broccoli, Chicken Kebabs
       with Tzatziki, Italian Stuffed Zucchini Boats (beef), Tomato Mushroom & Olive Penne (quick),
       Dijon Pork Chops (quick). Still to decide: who gets it (the guest household, new accounts,
       or both), whether it's labeled "Sample week" until they make their own plan, and whether
@@ -191,9 +193,10 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
 
 ## Ideas (not started)
 
-Roughly most useful first within each group. Not a roadmap.
+Roughly most useful first within each group. Not a roadmap. Each group has a tracking issue;
+split an item into its own issue when it's picked up.
 
-**Planning and suggestions**
+**Planning and suggestions** — #88
 - [ ] Scroll several suggested plans; add one meal from a plan the way the recipe carousel does.
 - [ ] While building a plan from scratch, show the meals already in it (a small strip with a
       clear close). Brainstorm the layout first.
@@ -208,9 +211,9 @@ Roughly most useful first within each group. Not a roadmap.
 - [ ] Drag meals onto days (scheduling is a date picker today).
 - [ ] On the plan, a small carousel for adding a meal (today, Add meals opens Recipes).
 - [ ] Turn on swapping recipes for low-carb versions (cheesy broccoli chicken without the rice).
-- [ ] More diets and allergies (keto / low-carb, Whole30, AIP, a longer allergy list).
+- [ ] More diets and allergies (keto / low-carb, Whole30, AIP, a longer allergy list). See #81.
 
-**Recipes and cooking**
+**Recipes and cooking** — #89
 - [ ] Attach sides or components to any meal; "customize this meal" (protein, salad, bread,
       sides; groceries merge).
 - [ ] Gather near-identical sides, sauces, and salads across recipes into shared components (one
@@ -227,7 +230,7 @@ Roughly most useful first within each group. Not a roadmap.
 - [ ] Print recipes and event sheets.
 - [ ] General cooking education.
 
-**Grocery and prep**
+**Grocery and prep** — #90
 - [ ] Shop-my-list / online order hooks (Instacart, Walmart, Kroger, Amazon). Notes in
       [grocery shopping research](#grocery-shopping-research).
 - [ ] Package-aligned scaling (prefer ½ / 1 / 2× retail packs) and a standard package-size table.
@@ -236,7 +239,7 @@ Roughly most useful first within each group. Not a roadmap.
 - [ ] Drag a prep task to another day; tell batch leftovers apart from ingredient prep.
 - [ ] Cost estimates (estimated vs entered).
 
-**Nutrition and health**
+**Nutrition and health** — #91
 - [ ] Nutrient labels from ingredients and amounts; per-meal macros before you commit.
 - [ ] Personal calorie and macro targets; recipes matched to targets; macro gap fill ("need ~30g
       protein").
@@ -247,7 +250,7 @@ Roughly most useful first within each group. Not a roadmap.
 - [ ] Fitness goals and a simple intake forecast; light progress tracking (not a food diary).
 - [ ] Optional MyPlate / FoodData Central live APIs (no bulk mirror without a license).
 
-**People and sharing**
+**People and sharing** — #92
 - [ ] Partner / family sync; optional Calendar or Keep.
 - [ ] Reviews, comments, and other cooks' photos on the recipe page (Settings → Social switches
       already exist). User-submitted photos; share customizations.
@@ -262,12 +265,12 @@ Roughly most useful first within each group. Not a roadmap.
       > reviews other people submit. If you submit a photo, it may be used as that recipe's
       > featured photo.
 
-**Business**
+**Business** — #93
 - [ ] Fair free tier; pay for storage and sync costs. Trial or money-back option.
 - [ ] Sync or export with other apps (e.g. Umami).
 - [ ] Offline browse (plan, recipes, grocery).
 
-**Recipe library (operator)**
+**Recipe library (operator)** — #94
 - [ ] Review and normalize archive ingredient names into a canonical list (Settings → Ingredient
       review; first pass in `data/ingredients_review.json`). Don't auto-merge bone-in and
       boneless.
@@ -364,7 +367,12 @@ entry on phones that have space for the Prep tab.
 
 ## Far future
 
-- [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature.
+- [ ] Inline Cook-mode timers on iPhone and web. Commented out October 9 after a Cook-tab crash and reported slowness. Revisit only after measuring rendering performance and deciding how timers should be presented. Retained parser code and its regression test are groundwork, not an active feature. #87
+- [ ] **Allergies vs avoids.** Allergies stay a 100% block in any amount. Avoids become a ranking
+      penalty, not a filter: a household that avoids bell peppers still gets a fajita recipe with
+      bell pepper when it's one of the few matches (e.g. a search for fajitas), marked as containing
+      an avoid. Today both are hard filters (`diet_filter.blocks_for`, `taste_rank._filters`). #81
+- [ ] Remaining Mealime-style design polish from the Oct 3 design list (re-check first). #95
 
 ## Done (recent)
 
