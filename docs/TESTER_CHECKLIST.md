@@ -51,3 +51,5 @@
 Give **screen + action + expected/actual result**, platform/build, text size, and a screenshot if useful. Confusing wording or awkward layout counts as a problem.
 
 [Archived detailed checklist and original tester notes](archive/TESTER_CHECKLIST_2026-10-09.md) — reference only, not a daily assignment.
+
+- [ ] **Taste Lab swipe history:** open beside Edit filters, change Like ↔ Pass, reopen/reload and confirm it saved. Back returns to the previous screen; failed saves show an error and keep the original vote.

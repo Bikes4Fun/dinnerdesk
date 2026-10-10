@@ -140,9 +140,10 @@ html.in-frame .app {
 
 
 /* Give the introduction breathing room without stretching swipe or review screens. */
-.welcome .hero-mosaic { margin: 1rem 0 1.5rem; }
-.welcome h1.page { margin-bottom: 0.875rem; line-height: 1.2; }
-.welcome .entry-modes { margin: 1.25rem 0; }
+.welcome .hero-mosaic { margin: 1.25rem 0 2rem; }
+.welcome h1.page { margin: 0 0 1.25rem; line-height: 1.2; }
+.welcome .lead { margin: 0 0 1.75rem; }
+.welcome .entry-modes { gap: 1rem; margin: 1.75rem 0 1.5rem; }
 .welcome .legal { margin-top: 1.5rem; }
 
 .kicker {
@@ -598,3 +599,13 @@ code { font-size: 0.86em; background: var(--soft); padding: 0.1rem 0.35rem; bord
 /* Shared photo frame: source dimensions never determine the displayed shape. */
 .food-photo { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; flex-shrink: 0; overflow: hidden; background: var(--soft); }
 .food-photo > img, .food-photo > .ph { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }
+
+.history-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1.5rem; }
+.history-links .text-link { width: auto; margin: 0; }
+.history-list { display: grid; gap: 1rem; }
+.history-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 1rem; align-items: start; padding: 1rem 0; border-bottom: 1px solid var(--line); }
+.history-row .food-photo { border-radius: 10px; }
+.history-info { min-width: 0; }
+.history-info strong { display: block; overflow-wrap: anywhere; line-height: 1.4; }
+.history-votes { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
+.history-votes button { min-height: 44px; }
