@@ -349,3 +349,13 @@ def test_where_it_goes_next_does_not_end_the_cut():
     titles = {t['title'] for t in tasks}
     assert 'Trim and dice english cucumber' in titles
     assert 'Rinse and cut tomatoes' in titles
+
+
+def test_a_bottled_sauce_is_not_making_a_sauce():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Burgers',
+        'ingredients': [{'name': 'ground turkey', 'quantity': '1 lb'}, {'name': 'soy sauce', 'quantity': '2 tsp'}],
+        'instructions': [{'text': 'Mix the turkey, panko and soy sauce with your hands and shape 4 patties.'},
+                         {'text': 'Whisk the soy sauce, honey and vinegar together.'}]}])
+    titles = [t['title'] for t in tasks]
+    assert titles.count('Make sauce') <= 1  # only the whisked one
+    assert not any('patties' in t.lower() and 'sauce' in t.lower() for t in titles)
