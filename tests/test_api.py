@@ -1254,3 +1254,22 @@ def test_unknown_api_requests_say_what_happened(tmp_path, caplog):
     assert auth.status_code == 405 and auth.json()["allowed"] == ["GET"]
     assert "POST /api/no-such-route -> 404" in caplog.text and "ios 1.0 (7)" in caplog.text
     assert client.get("/api/health").json() == {"ok": True}  # real routes still win
+
+
+def test_download_my_data_has_the_kitchen_and_no_secrets(tmp_path):
+    """#64: one JSON file with this household's data; never passwords or tokens."""
+    with _client(tmp_path) as client:
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(f"/api/plans/{pid}/slots",
+                   json={"slots": [{"recipe_id": 1, "day_index": 0, "meal_type": "dinner", "servings": 4}]})
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        res = client.get("/api/household/export")
+        assert res.status_code == 200
+        assert "attachment" in res.headers["content-disposition"]
+        data = res.json()
+        assert data["household"]["prefs"]["filters"]["avoids"] == ["olives"]
+        assert any(p["meals"] for p in data["plans"])
+        for key in ("favorites", "pantry", "meal_ratings", "prep_feedback", "taste_lab"):
+            assert key in data
+        text = res.text
+        assert "password_hash" not in text and "token_hash" not in text

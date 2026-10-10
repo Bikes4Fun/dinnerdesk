@@ -247,6 +247,11 @@ An invite link adds another account to the same household (plan, grocery list, p
 can be removed from Account & security, which ends their access. Password change, sign out, and
 sign out everywhere live there too.
 
+- **Must (#64):** Privacy has **Download my data**: one JSON file (GET /api/household/export) with
+  everything stored for the household (plans with meals, grocery lists and prep, pantry, filters,
+  favorites, hides, ratings, prep votes, substitutions, stores and aisles, recipes added, Taste Lab
+  answers). Never password hashes, session, invite or reset tokens, or other households' data.
+
 ### 10. Across the whole app (UI principles)
 
 - Phone-first; the website is the same app in a wider layout. Plan and Grocery are the daily

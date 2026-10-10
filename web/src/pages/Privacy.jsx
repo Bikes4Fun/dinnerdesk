@@ -13,6 +13,13 @@ export function Privacy() {
       <div className="scroll pad privacy">
         <p>Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it.</p>
 
+        <h2>Your data</h2>
+        <p>
+          Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings,
+          prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.
+        </p>
+        <p><a className="btn-secondary" href="/api/household/export" download>Download my data</a></p>
+
         <h2>Account</h2>
         <p>
           If you create an account we store your email, a hash of your password (not the password), and your
