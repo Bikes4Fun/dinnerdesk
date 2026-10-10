@@ -17,10 +17,10 @@ final class Session: ObservableObject {
   var needsSignIn: Bool {
     guard let status else { return false }
     if status.authenticated { return false }
-    return status.required || !guest
+    return !guest
   }
 
-  var canContinueAsGuest: Bool { !(status?.required ?? false) }
+  var canContinueAsGuest: Bool { true }
 
   /// Show the quick start tour. Set it from anywhere (More, Settings) to replay the tour.
   @Published var showTour = false
@@ -73,6 +73,8 @@ final class Session: ObservableObject {
 struct AuthGate<Content: View>: View {
   @StateObject private var session = Session()
   @State private var blockingError: String?
+  @State private var guestNoticeDismissed = false
+  @State private var showSignIn = false
   private let content: () -> Content
 
   init(@ViewBuilder content: @escaping () -> Content) {
@@ -101,6 +103,20 @@ struct AuthGate<Content: View>: View {
         AuthView()
       } else {
         content()
+          .safeAreaInset(edge: .top) {
+            if session.status?.authenticated != true && !guestNoticeDismissed {
+              VStack(alignment: .leading, spacing: 6) {
+                Text("Guest data can be lost if you reinstall the app. Create an account to protect it.")
+                  .font(Theme.subtitle).foregroundStyle(Theme.muted)
+                HStack {
+                  Button("Sign in or create account") { showSignIn = true }
+                  Spacer()
+                  Button("Dismiss") { guestNoticeDismissed = true }
+                }.font(Theme.subtitle)
+              }.padding().background(Theme.bg)
+            }
+          }
+          .sheet(isPresented: $showSignIn) { AuthView(isSheet: true).environmentObject(session) }
           .overlay(alignment: .top) {
             if let error = session.loadError { ErrorBanner(message: error).padding() }
           }
@@ -232,7 +248,7 @@ struct AuthView: View {
               .frame(maxWidth: .infinity)
               .foregroundStyle(Theme.accent)
           } footer: {
-            Text("You can create an account later in Settings.")
+            Text("All features work as a guest. Create an account in Settings to protect your data; reinstalling the app or clearing its data can lose access.")
           }
         }
       }

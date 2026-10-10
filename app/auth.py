@@ -65,7 +65,7 @@ def _check_password_strength(password: str) -> None:
         raise AuthError("password_too_short")
 
 
-def signup(conn: Any, email: str, password: str, household_name: str) -> str:
+def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
     email = email.strip().lower()
     if not email or "@" not in email:
         raise AuthError("invalid_email")
@@ -79,7 +79,10 @@ def signup(conn: Any, email: str, password: str, household_name: str) -> str:
     users = conn.execute("SELECT COUNT(*) AS c FROM users").fetchone()["c"]
     home = conn.execute("SELECT id FROM households WHERE id = 1").fetchone()
     name = household_name.strip() or "My household"
-    if users == 0 and home:
+    if guest_household_id is not None:
+        household_id = guest_household_id
+        conn.execute("UPDATE households SET name = ? WHERE id = ?", (name, household_id))
+    elif users == 0 and home:
         conn.execute("UPDATE households SET name = ? WHERE id = 1", (name,))
         household_id = 1
     else:

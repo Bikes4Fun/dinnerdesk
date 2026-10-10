@@ -44,8 +44,7 @@ export function Privacy() {
 
         <h2>Without an account</h2>
         <p>
-          If sign-in is not required, the app uses one shared guest household on the server. Anything added there
-          is not private to you. Create an account for a household of your own.
+          Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it.
         </p>
 
         <h2>What we don’t collect</h2>
