@@ -14,13 +14,11 @@ struct PlanView: View {
   @State private var savingDraft = false
   @State private var draftTitle = ""
   @State private var removing = false
-  /// Width of the plan list after its padding. One photo size is chosen from this.
-  @State private var totalRowWidth: CGFloat = 350
 
   var body: some View {
     NavigationStack {
       ScrollView {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: typeSize.isAccessibilitySize || editing ? 16 : 10) {
 
           // New inline custom header replacing the native toolbar
           HStack {
@@ -65,7 +63,7 @@ struct PlanView: View {
             }
           }
           if let plan = store.plan {
-            let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
+            let photoWidth: CGFloat = typeSize.isAccessibilitySize || editing ? 160 : 96
             if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
               VStack(alignment: .leading, spacing: 8) {
                 Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
@@ -138,8 +136,10 @@ struct PlanView: View {
                 }
               } else {
                 ForEach(group.slots) { slot in
-                  meal(slot, plan: plan, grid: false, photoWidth: photoWidth)
-                  Divider()
+                  VStack(alignment: .leading, spacing: 6) {
+                    meal(slot, plan: plan, grid: false, photoWidth: photoWidth)
+                    Divider()
+                  }
                 }
               }
             }
@@ -159,14 +159,8 @@ struct PlanView: View {
             ProgressView()
           }
         }
-        .background {
-          GeometryReader { geo in
-            Color.clear.preference(key: PlanRowWidthKey.self, value: geo.size.width)
-          }
-        }
         .padding()
       }
-      .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
       .background(Theme.bg)
       .navigationBarTitleDisplayMode(.inline)
       .tint(Theme.accent)
@@ -231,11 +225,6 @@ struct PlanView: View {
     }
   }
 
-  /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.
-  private func calculateGlobalPhotoWidth(for plan: Plan, availableWidth: CGFloat) -> CGFloat {
-    160
-  }
-
   private func meal(_ slot: PlanSlot, plan: Plan, grid: Bool, photoWidth: CGFloat) -> some View {
     return Group {
       if grid && !editing && !typeSize.isAccessibilitySize {
@@ -261,13 +250,25 @@ struct PlanView: View {
       } else {
         HStack(alignment: .top, spacing: 8) {
           photo(slot, side: photoWidth)
-          VStack(alignment: .leading, spacing: 8) {
+          VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 8) {
-              title(slot, plan: plan).frame(maxWidth: .infinity, alignment: .leading)
+              title(slot, plan: plan, showServings: editing).frame(maxWidth: .infinity, alignment: .leading)
               if editing { selectionButton(slot) }
             }
             if editing { editControls(slot, plan: plan) }
-            else { scheduleButton(slot, plan: plan) }
+            else {
+              ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                  Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  Spacer(minLength: 0)
+                  scheduleButton(slot, plan: plan)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                  Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  scheduleButton(slot, plan: plan)
+                }
+              }
+            }
           }
         }
       }
@@ -404,14 +405,14 @@ struct PlanView: View {
     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
   }
 
-  private func title(_ slot: PlanSlot, plan: Plan) -> some View {
+  private func title(_ slot: PlanSlot, plan: Plan, showServings: Bool = true) -> some View {
     NavigationLink {
       RecipeDetailView(id: slot.recipeId)
     } label: {
       VStack(alignment: .leading, spacing: 4) {
         Text(slot.recipeName).font(Theme.mealName).foregroundStyle(Theme.ink)
           .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
-        if !editing {
+        if !editing && showServings {
           Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
       }
@@ -443,7 +444,8 @@ struct PlanView: View {
           } label: {
             Image(systemName: slot.cooked ? "checkmark.circle.fill" : "circle")
               .font(.title3).foregroundStyle(slot.cooked ? Theme.accent : .white)
-              .shadow(color: .black.opacity(0.35), radius: 2).padding(8)
+              .shadow(color: .black.opacity(0.35), radius: 2)
+              .frame(width: 44, height: 44)
           }
           .buttonStyle(.plain)
           .accessibilityLabel(slot.cooked ? "Mark not cooked" : "Mark cooked")
@@ -652,13 +654,6 @@ struct SavedPlansView: View {
   }
 }
 
-private struct PlanRowWidthKey: PreferenceKey {
-  static var defaultValue: CGFloat = 350
-  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-    value = nextValue()
-  }
-}
-
 func planDate(_ value: String) -> Date? {
   let f = DateFormatter()
   f.locale = Locale(identifier: "en_US_POSIX")
@@ -831,6 +826,7 @@ private struct ProposalSwapPicker: View {
         if loading { ProgressView() }
         if !loading && options.isEmpty && error == nil {
           Text("No matching meals. Try another search or adjust your filters.").font(Theme.body)
+          // add a button to report an error if the user believes there SHOULD have been results
           NavigationLink("Adjust filters") { FiltersView() }
         }
         ForEach(options) { option in
