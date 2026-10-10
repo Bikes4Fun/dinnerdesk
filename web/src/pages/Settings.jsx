@@ -94,10 +94,12 @@ export function Settings() {
 }
 
 const TIMES = [
-  ["any", "Any"],
-  ["30", "≤30 min"],
-  ["45", "≤45 min"],
+  ["any", "Any time"],
+  ["30", "30 min or less"],
+  ["45", "45 min or less"],
 ];
+// Same labels as Taste Lab's Filters screen.
+const DIET_LABELS = { omnivore: "Omnivore", pescatarian: "Pescatarian", vegetarian: "Vegetarian", vegan: "Vegan", "gluten-free": "Gluten-free", "dairy-free": "Dairy-free" };
 
 /** Chips for a list plus an Other box for words not on it. Saves the whole list. */
 function FoodFilterPicker({ label, selected, onAdd, onRemove }) {
@@ -119,7 +121,7 @@ function FoodFilterPicker({ label, selected, onAdd, onRemove }) {
   }, [query]);
   return <div className="filter-food-picker">
     <div className="chip-row wrap">{selected.map((name) => <button type="button" className="chip is-on" key={name} aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>{name} ×</button>)}</div>
-    <label className="block-label">{label}<input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+    <label><input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
     {loading && <p role="status">Searching…</p>}
     {error && <p role="alert">{error}</p>}
     <div className="filter-food-results">{matches.filter((name) => !selected.includes(name)).map((name) => <button type="button" className="list-link" key={name} onClick={() => { onAdd(name); setQuery(""); }}>{name}</button>)}</div>
@@ -134,21 +136,21 @@ function ChoiceBlock({ label, items, saved, onChange, otherLabel }) {
   return (
     <>
       <h3 className="block-label">{label}</h3>
-      <div className="chip-row wrap">
+      <div className="chip-row wrap filter-chips">
         <button type="button" className={`chip${saved.length ? "" : " is-on"}`} aria-pressed={!saved.length} onClick={() => { setOpen(false); onChange([]); }}>
-          none
+          None
         </button>
         {items.map((item) => {
           const [id, text] = Array.isArray(item) ? item : [item, item];
           const on = saved.includes(id);
           return (
             <button key={id} type="button" className={`chip${on ? " is-on" : ""}`} aria-pressed={on} onClick={() => onChange(toggleAvoid(saved, id))}>
-              {text.toLowerCase()}
+              {text}
             </button>
           );
         })}
-        <button type="button" className={`chip${open || custom.length ? " is-on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
-          other…
+        <button type="button" className={`chip${open ? " is-on" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+          Other
         </button>
       </div>
       {open && <FoodFilterPicker label={otherLabel} selected={custom} onAdd={(name) => onChange([...new Set([...saved, name])])} onRemove={(name) => onChange(saved.filter((word) => word !== name))} />}
@@ -202,9 +204,9 @@ export function Filters() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help">Recipes, suggestions and Taste Lab all use these. Changing them in Taste Lab changes them here.</p>
+        <p className="help">We’ll hide meals that don’t fit. Same filters as Taste Lab.</p>
         <h3 className="block-label">Diet</h3>
-        <div className="chip-row wrap">
+        <div className="chip-row wrap filter-chips">
           {DIETS.map((d) => (
             <button
               key={d}
@@ -213,14 +215,14 @@ export function Filters() {
               aria-pressed={diets.includes(d)}
               onClick={() => setFilter({ diets: toggleDiet(diets, d) })}
             >
-              {d}
+              {DIET_LABELS[d] || d}
             </button>
           ))}
         </div>
         <ChoiceBlock label="Allergies" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />
-        <ChoiceBlock label="Avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" onChange={(next) => setFilter({ avoids: next })} />
-        <h3 className="block-label">Time</h3>
-        <div className="chip-row wrap">
+        <ChoiceBlock label="I avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" onChange={(next) => setFilter({ avoids: next })} />
+        <h3 className="block-label">Cook time</h3>
+        <div className="chip-row wrap filter-chips">
           {TIMES.map(([k, label]) => (
             <button
               key={k}

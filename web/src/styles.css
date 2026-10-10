@@ -1533,3 +1533,7 @@ img { display: block; max-width: 100%; }
 .suggested-plan .sp-body strong { overflow-wrap: normal; word-break: normal; }
 
 .ai-photo-tip { margin: 8px 0 12px; }
+
+/* Settings → Filters: Taste Lab's filter chips (soft tint, aubergine when on). */
+.filter-chips { gap: 0.35rem; }
+.filter-chips .chip { min-height: 36px; padding: 0.45rem 0.7rem; line-height: 1.25; }
