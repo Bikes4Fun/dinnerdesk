@@ -1570,3 +1570,6 @@ img { display: block; max-width: 100%; }
 
 .guest-notice { padding: 0.75rem 1rem; background: var(--soft); font-size: 0.85rem; line-height: 1.4; }
 .guest-notice a { color: var(--brand); text-decoration: underline; }
+
+.guest-notice { flex-shrink: 0; }
+.guest-notice button { color: var(--brand); margin-left: 0.5rem; min-height: 44px; }

@@ -165,7 +165,7 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
     votes = [{"recipe_id": rid, "liked": False} for rid in sorted(taste.passed)]
     votes.extend({"recipe_id": rid, "liked": True} for rid in sorted(taste.liked))
     votes.extend({"recipe_id": rid, "liked": True, "plan": True} for rid in sorted(taste.plan_liked))
-    if not signed_in:
+    if not signed_in and filters is None:
         # A guest's own earlier answers (same browser), so Taste Lab doesn't ask again (#27).
         # No profile: guests' filters stay in the page.
         return {
@@ -188,7 +188,7 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
                 "dislikes": [str(item).strip().lower() for item in (prof.get("dislikes") or []) if str(item).strip()],
             }
     return {
-        "signed_in": True,
+        "signed_in": signed_in,
         "profile": profile,
         "likes": len(taste.liked) + len(taste.plan_liked),
         "passes": len(taste.passed),

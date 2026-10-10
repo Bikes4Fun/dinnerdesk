@@ -122,6 +122,7 @@ export function App() {
   const [tasteHome, setTasteHome] = useState(true);
   const [authStatus, setAuthStatus] = useState(null);
   const [fatalError, setFatalError] = useState("");
+  const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
 
   useEffect(() => {
     const fail = (event) => {
@@ -238,7 +239,7 @@ export function App() {
         </nav>
       </aside>
       <div className="main" key={tabRootVersion}>
-        {!authStatus.authenticated && <div className="guest-notice">Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data.</div>}
+        {!authStatus.authenticated && !guestNoticeDismissed && <div className="guest-notice">Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data. <button type="button" onClick={() => setGuestNoticeDismissed(true)}>Dismiss</button></div>}
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes />}
         {page === "recipe" && <Recipe id={route.id} />}

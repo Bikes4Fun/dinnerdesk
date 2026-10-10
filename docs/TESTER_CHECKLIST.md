@@ -53,3 +53,5 @@ Give **screen + action + expected/actual result**, platform/build, text size, an
 [Archived detailed checklist and original tester notes](archive/TESTER_CHECKLIST_2026-10-09.md) — reference only, not a daily assignment.
 
 - [ ] **Taste Lab swipe history:** open beside Edit filters, change Like ↔ Pass, reopen/reload and confirm it saved. Back returns to the previous screen; failed saves show an error and keep the original vote.
+
+- [ ] **Guest access:** use Plan, Recipes, Grocery, Prep, Filters, and Taste Lab signed out. Reopen and confirm data remains; a second browser must have a separate kitchen. Expired login must allow guest use. Create an account and confirm guest data carries over. Sign-in warnings must be dismissible and must not block features.

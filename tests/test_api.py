@@ -48,6 +48,11 @@ def _seed(path: Path) -> None:
             never_shop, custom_text, source_slots_json
         ) VALUES (1, 1, '1', 'produce', 0, 0, 0, 'hidden line', '[]')"""
     )
+    # Seeded feature tests exercise Home through its explicit guest identity.
+    import hashlib
+    db.execute("INSERT INTO guest_sessions (token_hash, household_id, created_at) VALUES (?, 1, ?)",
+               (hashlib.sha256(b"feature-test-guest").hexdigest(), ts))
+    db.execute("SELECT setval(pg_get_serial_sequence('households', 'id'), (SELECT MAX(id) FROM households), true)")
     db.commit()
     db.close()
 
@@ -55,7 +60,7 @@ def _seed(path: Path) -> None:
 def _client(tmp_path: Path) -> TestClient:
     _seed(tmp_path)
     app = create_app()
-    return TestClient(app)
+    return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
 
 
 def test_household_cannot_see_other_household_pantry(tmp_path):
@@ -795,7 +800,7 @@ def test_catalog_lists_only_rewritten_recipes_with_real_photos(tmp_path):
     _add_catalog(tmp_path, "copied", "Copied steps", True, "food/copied.jpg")
     _add_catalog(tmp_path, "stock", "Stock photo", False, "food/pasta-tomato.jpg")
     _add_catalog(tmp_path, "nophoto", "No photo", False, "")
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), cookies={"dd_guest": "feature-test-guest"}) as client:
         made = client.post(
             "/api/recipes",
             json={"name": "Our own stew", "ingredients": [], "instructions": []},
@@ -948,7 +953,7 @@ def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
     db.execute("INSERT INTO recipe_ingredients (recipe_id, ingredient_id) VALUES (?, ?)", (noodles, pb))
     db.commit()
     db.close()
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), cookies={"dd_guest": "feature-test-guest"}) as client:
         names = lambda: {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
         assert {"Turkey Chili", "Garden Bowl", "Peanut Noodles", "Soup"} <= names()
 
