@@ -135,3 +135,72 @@ def test_specific_food_selection_filters_only_that_ingredient():
     assert ok("Skillet", ["green bell pepper", "ground turkey"], avoids=["red bell pepper"])
     assert not ok("Chili", ["ground beef", "tomatoes"], avoids=["ground beef"])
     assert ok("Chili", ["ground turkey", "tomatoes"], avoids=["ground beef"])
+
+
+def test_tastelab_independent_entry_modes():
+    """Run the real UI event handlers with a fake DOM and API, including session saves."""
+    from pathlib import Path
+    import shutil
+    import subprocess
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node is required for Taste Lab flow checks")
+    script = r'''
+const fs = require("node:fs"), vm = require("node:vm"), assert = require("node:assert/strict");
+const source = fs.readFileSync(process.argv[1], "utf8");
+const flush = async () => { for (let i=0; i<4; i++) await new Promise(setImmediate); };
+async function boot(search = "", count = 16) {
+  const handlers = {}, saves = [];
+  const app = { innerHTML: "", addEventListener: (kind, fn) => handlers[kind] = fn, querySelector: () => null };
+  const window = { addEventListener() {} }; window.self = window.top = window;
+  const recipes = Array.from({length: count}, (_, i) => ({id: i+1, name: `Dinner ${i+1}`, photo: "/photo.jpg", ingredients: ["rice"]}));
+  vm.runInNewContext(source, {
+    URLSearchParams, location: {search}, window, TASTE_SEEDS: [], TASTE_GROUPS: [],
+    document: {getElementById: () => app, documentElement: {classList: {add() {}}}},
+    localStorage: {getItem: () => null, setItem() {}}, crypto: {randomUUID: () => "test"},
+    fetch: async (url, options) => {
+      if (url === "/api/sessions") saves.push(JSON.parse(options.body).body);
+      return {ok: true, json: async () => url === "/api/catalog" ? {recipes} : {votes: []}};
+    }
+  });
+  await flush();
+  const click = async (attr, value = "") => {
+    assert.ok(app.innerHTML.includes(attr), `Missing control ${attr}`);
+    const key = attr.slice(5).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+    const control = {dataset: {[key]: value}, hasAttribute: a => a === attr};
+    handlers.click({target: {closest: () => control}});
+    await flush();
+  };
+  return {app, saves, click};
+}
+(async () => {
+  const swipe = await boot();
+  assert.match(swipe.app.innerHTML, /Swipe meals/); assert.match(swipe.app.innerHTML, /Suggest plans/);
+  await swipe.click("data-start");
+  assert.match(swipe.app.innerHTML, /swipe-stage/); assert.doesNotMatch(swipe.app.innerHTML, /class="shell quiz"/);
+  await swipe.click("data-edit-filters"); await swipe.click("data-after-quiz");
+  assert.match(swipe.app.innerHTML, /swipe-stage/);
+  for (let i=0; i<4; i++) await swipe.click("data-swipe", "1");
+  assert.match(swipe.app.innerHTML, /You're set/); assert.doesNotMatch(swipe.app.innerHTML, /class="plan-grid"/);
+  assert.equal(swipe.saves.at(-1).swipes.length, 4); assert.equal(swipe.saves.at(-1).plans.length, 0);
+  await swipe.click("data-keep-swiping"); assert.match(swipe.app.innerHTML, /swipe-stage/);
+  const plans = await boot(); await plans.click("data-see-plan");
+  assert.match(plans.app.innerHTML, /class="plan-grid"/); assert.doesNotMatch(plans.app.innerHTML, /swipe-stage/);
+  await plans.click("data-edit-filters"); await plans.click("data-after-quiz");
+  assert.match(plans.app.innerHTML, /class="plan-grid"/);
+  for (let i=0; i<3; i++) await plans.click("data-verdict", "up");
+  assert.match(plans.app.innerHTML, /You're set/);
+  assert.equal(plans.saves.at(-1).swipes.length, 0); assert.equal(plans.saves.at(-1).plans.length, 3);
+  const link = await boot("?swipe=1"); assert.match(link.app.innerHTML, /swipe-stage/);
+  const exhausted = await boot("", 1); await exhausted.click("data-start");
+  await exhausted.click("data-swipe", "1"); await exhausted.click("data-keep-swiping");
+  assert.match(exhausted.app.innerHTML, /No new meals to swipe/);
+  await exhausted.click("data-see-plan"); assert.match(exhausted.app.innerHTML, /class="plan-grid"/);
+  const empty = await boot("", 0); assert.doesNotMatch(empty.app.innerHTML, /data-start/);
+})().catch(error => { console.error(error); process.exitCode = 1; });
+'''
+    source = Path(__file__).resolve().parents[1] / "tastelab/web/app.js"
+    result = subprocess.run([node, "-e", script, str(source)], capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr

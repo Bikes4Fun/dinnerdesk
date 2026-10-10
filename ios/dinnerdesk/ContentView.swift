@@ -125,7 +125,7 @@ private struct InstantTabSwitch: UIViewRepresentable {
 
     func install(from view: UIView?) {
       guard let tabBar = view?.nearestTabBarController() else { return }
-      let appearance = tabBar.tabBar.standardAppearance.copy() as! UITabBarAppearance
+      let appearance = tabBar.tabBar.standardAppearance.copy()
       for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance, appearance.compactInlineLayoutAppearance] {
         layout.normal.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 10, weight: .regular)
         layout.selected.titleTextAttributes[.font] = UIFont.systemFont(ofSize: 10, weight: .bold)

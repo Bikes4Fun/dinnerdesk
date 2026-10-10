@@ -66,6 +66,11 @@ export function Privacy() {
           others are still in the household, it stays for them. You can also remove other people from Account &amp;
           security.
         </p>
+
+        <h2>Questions</h2>
+        <p>
+          See <a className="text-link" href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help &amp; support</a> to contact us.
+        </p>
       </div>
     </section>
     </div>

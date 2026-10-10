@@ -139,6 +139,12 @@ def logout_everywhere(response: Response, conn=DbDep, user_id=UserDep):
     return {"ok": True}
 
 
+@router.get("/support")
+def support():
+    """Public contact details for the /support page. Set SUPPORT_EMAIL on the server."""
+    return {"email": (os.environ.get("SUPPORT_EMAIL") or "").strip()}
+
+
 @router.post("/auth/delete-account")
 def delete_account(body: DeleteAccountBody, response: Response, conn=DbDep, user_id=UserDep):
     """Delete the signed-in account (#65). Asks for the password again so a borrowed, unlocked

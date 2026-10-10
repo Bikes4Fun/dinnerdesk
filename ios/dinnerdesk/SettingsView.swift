@@ -38,6 +38,10 @@ struct SettingsView: View {
         } label: {
           KitchenIconRow(title: "Privacy", systemImage: "hand.raised")
         }
+        Link(destination: API.origin.appending(path: "support")) {
+          KitchenIconRow(title: "Help & support", systemImage: "questionmark.circle")
+        }
+        .accessibilityHint("Opens the support page in Safari")
       }
       .kitchenRows()
 
