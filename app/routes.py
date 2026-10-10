@@ -31,7 +31,7 @@ from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots, step_key, step_sentences
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, merge_filters
-from app.domain.search import hard_tokens, search_grocery_names, tokens as search_tokens
+from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
 from app.domain.suggest import norm_pantry
 from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, suggestion_note, suggestion_penalties
 from app.taste_lab import SKIP as TASTE_SKIP
@@ -1605,12 +1605,7 @@ def list_filter_items(
            JOIN recipe_ingredients ri ON ri.ingredient_id = i.id
            JOIN recipes r ON r.id = ri.recipe_id
            WHERE r.household_id IS NULL OR r.household_id = ?""", (household_id,)))
-    hits, _ = search_grocery_names(sorted(names), q, limit=len(names) or 1)
-    # Every query word must match; plural queries also find singular ingredient names.
-    def matches(name):
-        hay = search_tokens(name)
-        return all(any(part.startswith(word) or part.startswith(word[:-1] if len(word) > 3 and word.endswith("s") else word) for part in hay) for word in words)
-    return {"items": [{"name": name} for name in hits if matches(name)][:40]}
+    return {"items": [{"name": name} for name in filter_item_matches(sorted(names), q)]}
 
 
 @router.get("/grocery-items")
