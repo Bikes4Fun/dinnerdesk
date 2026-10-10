@@ -1567,3 +1567,6 @@ img { display: block; max-width: 100%; }
 .food-photo { display: block; position: relative; width: 100%; flex-shrink: 0; overflow: hidden; border-radius: inherit; background: var(--soft); }
 .food-photo > img, .food-photo > .food-photo-placeholder { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .food-photo.g-thumb { width: 40px; }
+
+.guest-notice { padding: 0.75rem 1rem; background: var(--soft); font-size: 0.85rem; line-height: 1.4; }
+.guest-notice a { color: var(--brand); text-decoration: underline; }

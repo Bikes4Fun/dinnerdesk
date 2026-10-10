@@ -17,10 +17,10 @@ final class Session: ObservableObject {
   var needsSignIn: Bool {
     guard let status else { return false }
     if status.authenticated { return false }
-    return status.required || !guest
+    return !guest
   }
 
-  var canContinueAsGuest: Bool { !(status?.required ?? false) }
+  var canContinueAsGuest: Bool { true }
 
   /// Show the quick start tour. Set it from anywhere (More, Settings) to replay the tour.
   @Published var showTour = false
@@ -232,7 +232,7 @@ struct AuthView: View {
               .frame(maxWidth: .infinity)
               .foregroundStyle(Theme.accent)
           } footer: {
-            Text("You can create an account later in Settings.")
+            Text("All features work as a guest. Create an account in Settings to protect your data; reinstalling the app or clearing its data can lose access.")
           }
         }
       }

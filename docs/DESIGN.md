@@ -35,8 +35,9 @@ hide, plan, pantry, or grocery action creates a new catalog recipe.
 
 ### 1. Accounts and Quick start
 
-Email-and-password accounts with a session cookie. When sign-in isn't required, everyone shares
-one guest household. Forgot password works on the website and in the iOS app.
+Email-and-password accounts with a session cookie. All normal features work signed out in a
+private kitchen identified by a random guest cookie. Expired sign-in sessions fall back to guest
+access. Creating an account keeps the guest kitchen and revokes its anonymous access. Forgot password works on the website and in the iOS app.
 
 The Quick start tour is optional: a short what-to-eat survey (diet, avoids, cook time, the same
 filters as Settings) and one screen each for Recipes, This week, Grocery, and Weekend prep.
@@ -360,7 +361,7 @@ HealthKit for nutrition sync.
 ## Decisions
 
 - Native iOS and the website both ship; iOS is SwiftUI.
-- Accounts ship; a shared guest household remains when sign-in isn't required.
+- Accounts are optional; guests have separate kitchens and a nonblocking data-loss warning.
 - Suggestions are a proposal to approve, never an automatic replacement of the plan.
 - Suggestion review prioritizes meal choices and decisions; explanatory copy is saved for tips.
 - Diets and avoids are hard filters everywhere (Recipes and suggestions).

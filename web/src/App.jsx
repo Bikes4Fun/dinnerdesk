@@ -223,14 +223,6 @@ export function App() {
     );
   }
 
-  if (authStatus.required && !authStatus.authenticated) {
-    return (
-      <Auth
-        onAuthed={refreshAuth}
-      />
-    );
-  }
-
 
   return (
     <div className={page === "taste-lab" && !tasteHome ? "app is-taste" : "app"}>
@@ -246,6 +238,7 @@ export function App() {
         </nav>
       </aside>
       <div className="main" key={tabRootVersion}>
+        {!authStatus.authenticated && <div className="guest-notice">Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data.</div>}
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes />}
         {page === "recipe" && <Recipe id={route.id} />}

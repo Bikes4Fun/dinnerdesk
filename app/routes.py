@@ -2397,6 +2397,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int) -> tuple[list
         str(r["id"])
         for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))
     ]
+    accounts.append(f"guest:{household_id}")
     # Settings → Filters is the one filter system (Taste Lab edits it too), so the diet,
     # allergy and avoid lists inside old Taste Lab snapshots no longer apply here.
     snapshots = [

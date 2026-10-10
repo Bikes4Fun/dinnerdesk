@@ -18,7 +18,7 @@ from app.auth import logout as do_logout
 from app.auth import logout_everywhere as do_logout_everywhere
 from app.auth import remove_member as do_remove_member
 from app.auth import signup as do_signup
-from app.deps import auth_required, DbDep, HhDep, UserDep
+from app.deps import auth_required, guest_household, GUEST_COOKIE, DbDep, HhDep, UserDep
 from app.mailer import reset_link, send_reset_email
 
 router = APIRouter()
@@ -103,9 +103,19 @@ def _auth_error(e: AuthError, status: int) -> HTTPException:
 
 
 @router.post("/auth/signup")
-def signup(body: SignupBody, response: Response, conn=DbDep):
+def signup(body: SignupBody, request: Request, response: Response, conn=DbDep):
     try:
-        token = do_signup(conn, body.email, body.password, body.household_name)
+        guest_id = guest_household(conn, request.cookies.get(GUEST_COOKIE))
+        token = do_signup(conn, body.email, body.password, body.household_name, guest_id)
+        if guest_id is not None:
+            # Account creation keeps the guest kitchen, but revokes anonymous access to it.
+            conn.execute("DELETE FROM guest_sessions WHERE household_id = ?", (guest_id,))
+            if conn.execute("SELECT to_regclass('taste_people') AS name").fetchone()["name"]:
+                user = session_info(conn, token)
+                conn.execute("UPDATE taste_people SET account_id = ? WHERE account_id = ?",
+                             (str(user["user_id"]), f"guest:{guest_id}"))
+            conn.commit()
+            response.delete_cookie(GUEST_COOKIE, path="/")
     except AuthError as e:
         raise _auth_error(e, 400)
     _set_session_cookie(response, token)
@@ -158,7 +168,7 @@ def delete_account(body: DeleteAccountBody, response: Response, conn=DbDep, user
 
 
 @router.get("/auth/status")
-def status(request: Request, conn=DbDep):
+def status(request: Request, conn=DbDep, household_id: int = HhDep):
     token = request.cookies.get(SESSION_COOKIE)
     row = session_info(conn, token)
     email = row["email"] if row else None
