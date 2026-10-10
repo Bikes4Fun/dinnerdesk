@@ -278,7 +278,8 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   var rating: Int?
   var reason: String?
 
-  var name: String { (item?.isEmpty == false ? item : nil) ?? title }
+  /// What the row says: "Peel and mince garlic". The server names it from the recipe steps.
+  var name: String { title }
 }
 
 /// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.
