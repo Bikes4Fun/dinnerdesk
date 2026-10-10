@@ -1576,3 +1576,6 @@ img { display: block; max-width: 100%; }
 
 .guest-notice { flex-shrink: 0; }
 .guest-notice button { color: var(--brand); margin-left: 0.5rem; min-height: 44px; }
+
+/* Filters: "Saving…" / "✓ Saved" in the header (#85). */
+.save-state { min-width: 4.5rem; text-align: right; font-size: 0.85rem; color: var(--muted); }

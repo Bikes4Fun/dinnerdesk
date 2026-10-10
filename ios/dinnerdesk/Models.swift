@@ -301,6 +301,8 @@ enum PrepReason: String, CaseIterable, Identifiable, Sendable {
 nonisolated struct PrepMeal: Decodable, Identifiable, Sendable {
   let id: Int
   let name: String
+  /// The meal's cook day on the plan ("Mon"), or nil when it isn't scheduled.
+  let day: String?
   let instructions: [String]
   var steps: [PrepStep]?
 }
@@ -325,6 +327,7 @@ nonisolated struct MissingPrepList: Decodable, Sendable {
 nonisolated struct MissingPrepMeal: Decodable, Identifiable, Sendable {
   let id: Int
   let name: String
+  let day: String?
   var steps: [MissingPrepStep]
 }
 

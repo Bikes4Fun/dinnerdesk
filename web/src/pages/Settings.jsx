@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { ALLERGENS, AVOIDS, DIETS, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
@@ -125,7 +125,8 @@ function FoodFilterPicker({ label, selected, onAdd, onRemove }) {
     <label><input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
     {loading && <p role="status">Searching…</p>}
     {error && <p role="alert">{error}</p>}
-    <div className="filter-food-results">{matches.filter((name) => !selected.includes(name)).map((name) => <button type="button" className="list-link" key={name} onClick={() => { onAdd(name); setQuery(""); }}>{name}</button>)}</div>
+    {/* Matches as chips (#85): tap one to add it. */}
+    <div className="chip-row wrap filter-food-results">{matches.filter((name) => !selected.includes(name)).map((name) => <button type="button" className="chip" key={name} aria-label={`Add ${name}`} onClick={() => { onAdd(name); setQuery(""); }}>+ {name}</button>)}</div>
     {!loading && !error && query.trim() && !matches.length && <p role="status">No matching foods. Try another name.</p>}
   </div>;
 }
@@ -166,6 +167,8 @@ export function Filters() {
   const [avoids, setAvoids] = useState([]);
   const [time, setTime] = useState("any");
   const [err, setErr] = useState("");
+  const [saveState, setSaveState] = useState(""); // "", "saving", "saved" (#85)
+  const saves = useRef(0);
 
   useEffect(() => {
     api
@@ -186,10 +189,17 @@ export function Filters() {
     if (patch.allergens) setAllergens(patch.allergens);
     if (patch.avoids) setAvoids(patch.avoids);
     if (patch.time) setTime(patch.time);
+    const mine = ++saves.current;
+    setSaveState("saving");
     try {
       await api.putHousehold({ prefs: { filters: patch } });
       setErr("");
+      if (mine === saves.current) {
+        setSaveState("saved");
+        setTimeout(() => { if (mine === saves.current) setSaveState(""); }, 2000);
+      }
     } catch (e) {
+      if (mine === saves.current) setSaveState("");
       setErr(e.message);
     }
   }
@@ -201,7 +211,7 @@ export function Filters() {
           ←
         </button>
         <h1>Filters</h1>
-        <span />
+        <span className="save-state" role="status" aria-live="polite">{saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : ""}</span>
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
