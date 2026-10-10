@@ -113,11 +113,18 @@ def create_app() -> FastAPI:
                    include_in_schema=False)
     def unknown_api(path: str, request: Request):
         full = f"/api/{path}"
+        # Newer FastAPI versions keep included routers as wrapper objects. Inspect
+        # their declared routes too; never mistake the website catch-all for an API.
+        candidates = [(route, full) for route in app.routes
+                      if getattr(route, "path", "").startswith("/api/")]
+        candidates.extend((route, f"/{path}")
+                          for api_router in (router, taste_router, auth_router)
+                          for route in api_router.routes)
         allowed = sorted({
             method
-            for route in app.routes
-            if route.name != "unknown_api" and getattr(route, "methods", None)
-            and getattr(route, "path_regex", None) and route.path_regex.match(full)
+            for route, route_path in candidates
+            if getattr(route, "name", None) != "unknown_api" and getattr(route, "methods", None)
+            and getattr(route, "path_regex", None) and route.path_regex.match(route_path)
             for method in route.methods if method != "HEAD"
         })
         build = request.headers.get("x-dinnerdesk-app", "unknown")

@@ -31,7 +31,7 @@
 - [ ] **Accessibility:** smaller phone, largest text, narrow web window, and VoiceOver. Check recipe, suggestion, Grocery, and Prep screens; no clipped names, overlap, or unreachable decisions.
 - [ ] **Account access:** sign-up/sign-in/out, password reset, invite/join/remove a household member. Removed members lose access; shared data matches across app and web.
 - [ ] **Delete account (#65):** Account & security → Delete account asks for the password; a wrong one is refused. An invited member deleting leaves the household for the owner; the last member deleting removes the household, and the email can sign up again.
-- [ ] **Recovery and persistence:** failed requests show readable retry guidance; pending proposals and saved edits survive restart. Verify search, share/print, and tour skip/replay.
+- [ ] **Recovery and persistence:** failed requests show readable retry guidance, including missing or unsupported API routes; pending proposals and saved edits survive restart. Verify search, share/print, and tour skip/replay.
 - [ ] **Deployment:** updated API/app ship together, prep completion migration is verified, and catalog/photo paths work. Startup must not overwrite catalog recipes. Revised private instructions need explicit import.
 
 ## Tester feedback still open — not passing tests

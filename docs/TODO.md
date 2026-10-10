@@ -62,6 +62,9 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       `docs/quick start to do/filters screen in settings is lacking basically everything it should math or exceed tastelab filters system.png`
 - [ ] Raw error text on screen: "HTTP 405 Method Not Allowed" on This week. Errors should be in
       plain words, on the screen they belong to, with how to recover.
+      Follow-up on `codex/issue-2-router-diagnostics`: fixed a server diagnostic crash with
+      newer FastAPI router wrappers; missing paths and wrong methods now return useful JSON.
+      The original user action that triggered the screenshot still needs reproduction.
       `docs/suggestion meal plan to do/no easy done editing button.png`
 - [x] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
       `docs/recipes page to do/this meal is already in a plan.png`
