@@ -1557,3 +1557,7 @@ img { display: block; max-width: 100%; }
   /* A docked action bar would cover most of a short screen; it sits after the content instead. */
   .dock { position: static; }
 }
+
+/* Settings → Filters: Taste Lab's filter chips (soft tint, aubergine when on). */
+.filter-chips { gap: 0.35rem; }
+.filter-chips .chip { min-height: 36px; padding: 0.45rem 0.7rem; line-height: 1.25; }
