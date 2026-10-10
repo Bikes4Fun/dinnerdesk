@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from app.db.database import PgConnection
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -1916,6 +1916,7 @@ def list_prep(
         )
     }
     tasks = []
+    days = _meal_days(db, plan_id)
     for r in db.execute(
         "SELECT * FROM prep_tasks WHERE plan_id = ? ORDER BY sort, id",
         (plan_id,),
@@ -1923,6 +1924,7 @@ def list_prep(
         details = json.loads(r["details_json"])
         votes = []
         for meal in details.get("meals") or []:
+            meal.update(days.get(int(meal["id"]), {"day": None, "day_index": None}))
             for step in meal.get("steps") or []:
                 rating, reason = feedback.get((int(meal["id"]), step["key"]), (0, ""))
                 step["rating"] = rating
@@ -1935,6 +1937,26 @@ def list_prep(
                       "rating": rating, "reason": reason, "section": "other", "item": r["title"],
                       "action": "", **details})
     return {"tasks": tasks}
+
+
+def _meal_days(db: PgConnection, plan_id: int) -> dict[int, dict]:
+    """Each recipe's first cook day on the plan: {"day": "Mon", "day_index": 0}. Unscheduled
+    meals aren't listed. Weekend prep shows these next to each meal's step (#78)."""
+    plan = db.execute("SELECT start_date FROM plans WHERE id = ?", (plan_id,)).fetchone()
+    try:
+        start = date.fromisoformat(str(plan["start_date"])[:10]) if plan else None
+    except ValueError:
+        start = None
+    days: dict[int, dict] = {}
+    for r in db.execute(
+        "SELECT recipe_id, day_index FROM plan_slots WHERE plan_id = ? AND day_index IS NOT NULL ORDER BY day_index, sort, id",
+        (plan_id,),
+    ):
+        if start is None or int(r["recipe_id"]) in days:
+            continue
+        when = start + timedelta(days=int(r["day_index"]))
+        days[int(r["recipe_id"])] = {"day": when.strftime("%a"), "day_index": int(r["day_index"])}
+    return days
 
 
 def _plan_recipe_sentences(db: PgConnection, plan_id: int, household_id: int) -> list[dict]:
@@ -1978,6 +2000,7 @@ def list_missing_prep(plan_id: int, db: PgConnection = DbDep, household_id: int 
         )
     }
     meals = []
+    days = _meal_days(db, plan_id)
     for meal in _plan_recipe_sentences(db, plan_id, household_id):
         steps = []
         for step in meal["steps"]:
@@ -1986,7 +2009,9 @@ def list_missing_prep(plan_id: int, db: PgConnection = DbDep, household_id: int 
                 continue
             steps.append({**step, "added": key in notes, "note": notes.get(key, "")})
         if steps:
-            meals.append({**meal, "steps": steps})
+            meals.append({**meal, **days.get(meal["id"], {"day": None, "day_index": None}), "steps": steps})
+    # Scheduled meals first, in cook order (#78: the sheet lists meals by day).
+    meals.sort(key=lambda m: (m["day_index"] is None, m["day_index"] or 0))
     return {"meals": meals}
 
 

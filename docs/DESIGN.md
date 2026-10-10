@@ -225,18 +225,29 @@ all week."
   & citrus; Protein; Cheese & dairy; Sauces & dressings; More prep. One row per item however many
   meals use it; never one row per meal. Sections collapse with an arrow and remember it.
 - **Must:** a row is named for what the steps say to do, with the amount under it:
-  "Peel and mince garlic · 14 cloves garlic", "Wash and thinly slice mushrooms". When meals cut it
-  differently, the most common way wins. Opening a row shows each different step once, with the
-  meals that use it as small links under it. No grey "For meal, meal" line.
+  "Peel and mince garlic · 14 cloves garlic", "Wash and thinly slice mushrooms". The name merges
+  every meal's verbs: wash, then peel/trim, then one cut ("Rinse and chop cauliflower"); cuts that
+  differ become "chop". Onion, garlic, ginger and the like sit with herbs and citrus, aromatics
+  first.
+- **Must (#78):** a closed row shows only the check circle, name, amount, and a chevron. Opening it
+  shows 👍/👎 beside the chevron and each different step once: the meal's cook day on the left
+  (MON, TUE; blank when unscheduled), the step, then each meal that uses it as a light purple pill
+  that opens the recipe. No coral links, no grey left bar, no day labels on closed rows.
 - **Must:** a progress ring (done of total) and one bar per section at the top; tapping a bar
   jumps to that section.
 - **Must:** check-off works like the grocery list: a done item leaves its section; "Show
   completed" brings done items back, faded, at the bottom of their section. Checking an item
   shows a bar with Undo and "Worth prepping ahead next time?" 👍/👎.
-- **Must:** every item has 👍/👎 whether it's checked or not. 👎 asks why: better done day-of,
-  didn't keep well, too small to bother, prep it differently, not a prep step. Votes and reasons
-  are saved for review only (GET /dev/prep-feedback); they don't change what Prep shows yet.
-  Tapping an item's name shows each meal's step and a link to the recipe.
+- **Must:** every item can take 👍/👎 (on the open row, and from the check-off bar) whether it's
+  checked or not. 👎 asks why: better done day-of, didn't keep well, too small to bother, prep it
+  differently, not a prep step. Votes and reasons are saved for review only (GET
+  /dev/prep-feedback); they don't change what Prep shows yet.
+- **Must (#78):** a dashed "Missing a prep step?" card ends the list. It opens a sheet: 1 · pick
+  the meal (by cook day, with how many of its steps aren't in prep; Change goes back), 2 · pick the
+  step that should be prep, 3 · optional "Why do it ahead?", then Add to prep and a confirmation
+  (Add another / Done). The step joins this household's prep right away, marked "Added by you",
+  and can be removed from the same sheet. Saved in prep_step_feedback (reason "missing", with the
+  note) for review; 👍/👎 never overwrite it.
 - **Must not:** include last week's meals, leftovers, or "wash your hands"-type steps.
 - **Bug if:** a recipe not on this plan appears; tagging Prep copies the recipe or edits the
   catalog.

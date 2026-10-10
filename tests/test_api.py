@@ -1112,6 +1112,42 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
         assert bad.status_code == 404
 
 
+def test_prep_meals_carry_their_cook_day_and_missing_steps_can_be_added(tmp_path):
+    from datetime import date, timedelta
+    with _client(tmp_path) as client:
+        client.patch("/api/recipes/1", json={"instructions": [
+            {"text": "Dice the onion. Soak the beans overnight.", "prep": False},
+            {"text": "Heat the oven.", "prep": False},
+        ]})
+        plan = client.get("/api/plans/current").json()
+        pid = plan["id"]
+        client.put(f"/api/plans/{pid}/slots",
+                   json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]})
+        day = (date.fromisoformat(plan["start_date"][:10]) + timedelta(days=1)).strftime("%a")
+        tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
+        assert tasks["Dice onion"]["meals"][0]["day"] == day  # #78: day label beside the step
+        assert "Soak the beans overnight" not in tasks
+
+        missing = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"]
+        assert missing[0]["day"] == day
+        soak = next(s for s in missing[0]["steps"] if s["text"].startswith("Soak"))
+        assert not any(s["text"] == "Dice the onion." for s in missing[0]["steps"])  # already in prep
+
+        added = client.put(f"/api/plans/{pid}/prep/missing",
+                           json={"recipe_id": 1, "key": soak["key"], "note": "takes all night"})
+        assert added.status_code == 200
+        tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
+        assert tasks["Soak the beans overnight"]["meals"][0]["steps"][0]["added"] is True
+        again = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"][0]["steps"]
+        assert next(s for s in again if s["key"] == soak["key"])["note"] == "takes all night"
+
+        client.put(f"/api/plans/{pid}/prep/missing", json={"recipe_id": 1, "key": soak["key"], "added": False})
+        tasks = {t["title"] for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
+        assert "Soak the beans overnight" not in tasks
+        bad = client.put(f"/api/plans/{pid}/prep/missing", json={"recipe_id": 1, "key": "nope"})
+        assert bad.status_code == 404
+
+
 def test_prep_json_progress_and_legacy_migration(tmp_path):
     import json
     with _client(tmp_path) as client:
