@@ -16,7 +16,7 @@ from app.deps import AdminDep, DbDep, HhDep
 from fractions import Fraction
 
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
-from app.domain.recipe_photos import usable_photo, photo_is_ai
+from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
     collect_flagged_recipes,
@@ -393,6 +393,10 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "cooking_minutes": row["cooking_minutes"],
         "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
         "photo_ai": photo_is_ai(usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])),
+        "photo_shared": photo_is_borrowed(
+            usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
+            archive_id_of(row["source_url"], row["slug"]),
+        ),
         "source_url": row["source_url"],
         "instructions_source": provenance.get("instructions_source"),
         "instructions_copied_from_third_party": provenance.get("instructions_copied_from_third_party"),
