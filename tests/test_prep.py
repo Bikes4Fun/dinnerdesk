@@ -371,3 +371,13 @@ def test_salt_and_pepper_is_not_the_bell_pepper_and_box_graters_are_tools():
     titles = {t['title'] for t in tasks}
     assert not any('bell' in t for t in titles)
     assert 'Trim and grate english cucumber' in titles
+
+
+def test_shape_nouns_and_split_do_not_end_the_cut():
+    ings = [{'name': 'zucchini squash', 'quantity': '2'}, {'name': 'baby bok choy', 'quantity': '4'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Stir-fry', 'ingredients': ings, 'instructions': [
+        {'text': 'Trim the zucchini, split it lengthwise, and slice it into ¼-inch half-moons.'},
+        {'text': 'Trim the bok choy and slice it across into thin shreds.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert 'Trim and slice zucchini' in titles
+    assert 'Trim and slice baby bok choy' in titles

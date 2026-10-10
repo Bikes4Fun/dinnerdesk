@@ -418,7 +418,9 @@ SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chun
                # Which way it's cut: "quarter it the long way", "slice it crosswise".
                "long", "way", "lengthwise", "crosswise", "across", "halves", "wise",
                # The tool, not the food: "grate it on the large holes of a box grater".
-               "hole", "box", "grater", "peeler", "processor", "food", "knife", "spoon"}
+               "hole", "box", "grater", "peeler", "processor", "food", "knife", "spoon",
+               # Shapes named as nouns: "slice it into half-moons", "coins", "noodles".
+               "split", "half", "moon", "coin", "noodle", "shred", "ribbon", "fry", "fries", "spear", "stick"}
 
 
 def _verbs_for(text: str, item_words: set[str]) -> list[str]:
