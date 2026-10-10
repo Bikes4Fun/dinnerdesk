@@ -37,8 +37,15 @@ struct PlanView: View {
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
                 .accessibilityLabel("Done editing plan")
-            }
-
+            } 
+            // else { Button {
+            //     Task { await store.newPlan(meals: 4) }
+            // } label: {
+            //     Label("New meal plan", systemImage: "sparkles")
+            // }
+            // .buttonStyle(.borderedProminent)
+            // .tint(Theme.accent)
+            // }
             Button {
               menu = true
             } label: {
@@ -136,12 +143,18 @@ struct PlanView: View {
                 }
               }
             }
-            if !plan.slots.isEmpty { Button {
-              selectTab(.recipes)
-            } label: {
-              Label("Add meals", systemImage: "plus")
+            if !plan.slots.isEmpty { 
+              // Button {
+              //     Task { await store.newPlan(meals: 4) }
+              //   } label: {
+              //     Label("New meal plan", systemImage: "sparkles")
+              //   }
+              //   .buttonStyle(.borderedProminent)
+              //   .tint(Theme.accent)
+                Button { selectTab(.recipes) } label: {
+                  Label("Add meals", systemImage: "plus")
+                }.font(Theme.action).frame(minHeight: 44)
             }
-            .font(Theme.mealName).padding(.vertical) }
           } else {
             ProgressView()
           }
@@ -159,6 +172,10 @@ struct PlanView: View {
       .tint(Theme.accent)
       .menuSheet(isPresented: $menu) {
         [
+          
+          MenuSheetItem(title: "New meal plan", systemImage: "sparkles", accent: true) {
+            Task { await store.newPlan(meals: 4) }
+          },
           MenuSheetItem(title: editing ? "Finish editing" : "Edit plan", systemImage: editing ? "checkmark.circle" : "pencil") {
             setEditing(!editing)
           },
@@ -173,7 +190,7 @@ struct PlanView: View {
             savingDraft = true
           },
           MenuSheetItem(title: "Saved plans & history", systemImage: "tray") { drafts = true },
-          MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.newPlan(meals: 4) } }
+          // MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.newPlan(meals: 4) } }
         ]
       }
       .alert("Save as draft", isPresented: $savingDraft) {
@@ -264,7 +281,7 @@ struct PlanView: View {
       selected = selected.count == plan.slots.count ? [] : Set(plan.slots.map(\.id))
     }
     .buttonStyle(.plain)
-    .frame(minHeight: 44)
+    // .frame(minHeight: 44)
     .contentShape(Rectangle())
     .accessibilityLabel("Select all meals")
     .accessibilityValue(

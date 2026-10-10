@@ -16,7 +16,7 @@ struct MoreView: View {
           NavigationLink {
             KitchenView()
           } label: {
-            KitchenIconRow(title: "My kitchen", systemImage: "refrigerator")
+            KitchenIconRow(title: "My kitchen and Groceries", systemImage: "refrigerator")
           }
           NavigationLink {
             TasteLabView()
@@ -24,7 +24,8 @@ struct MoreView: View {
             KitchenIconRow(title: "Taste Lab", systemImage: "hand.draw")
           }
           NavigationLink {
-            HiddenRecipesView()
+            // Move to My kitchen and Groceries
+            HiddenRecipesView() 
           } label: {
             KitchenIconRow(title: "Hidden recipes", systemImage: "eye.slash")
           }

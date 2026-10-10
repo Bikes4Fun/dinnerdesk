@@ -50,9 +50,25 @@ struct KitchenView: View {
         }
       }
       .kitchenRows()
+
+      KitchenSection("Recipes") {
+        NavigationLink {
+          FiltersView()
+        } label: {
+          KitchenIconRow(title: "Filters", systemImage: "slider.horizontal.3")
+        }
+        NavigationLink {
+          HiddenRecipesView()
+        } label: {
+          KitchenIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+        }
+        KitchenIconRow(title: "My recipes", systemImage: "list.bullet", value: "Coming soon")
+        KitchenIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
+      }
+      .kitchenRows()
     }
     .kitchenList()
-    .navigationTitle("My kitchen")
+    .navigationTitle("My kitchen and Groceries")
     .largeNavigationTitle()
     .task { await load() }
     .refreshable { await load() }

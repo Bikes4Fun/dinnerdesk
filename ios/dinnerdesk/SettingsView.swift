@@ -8,11 +8,11 @@ struct SettingsView: View {
   var body: some View {
     List {
       Section {
-        NavigationLink {
-          FiltersView()
-        } label: {
-          KitchenIconRow(title: "Filters", systemImage: "slider.horizontal.3")
-        }
+        // NavigationLink {
+        //   FiltersView()
+        // } label: {
+        //   KitchenIconRow(title: "Filters", systemImage: "slider.horizontal.3")
+        // }
         NavigationLink {
           AccountView()
         } label: {
@@ -21,11 +21,6 @@ struct SettingsView: View {
             systemImage: "person.crop.circle",
             value: session.status?.email ?? "Guest"
           )
-        }
-        NavigationLink {
-          TasteLabView()
-        } label: {
-          KitchenIconRow(title: "Taste Lab", systemImage: "hand.draw")
         }
         Button {
           session.showTour = true
