@@ -598,7 +598,7 @@ const macros = (r) => {
       ? "Likes, passes, and filters are saved for your household and used to suggest meals."
       : "Sign in so likes and passes stay with your household. A guest kitchen is shared.";
     return `
-    <div class="shell">
+    <div class="shell welcome">
       ${mosaic}
       <h1 class="page">${started ? "Pick up where you left off." : "What do you like to cook?"}</h1>
       <p class="lead">${esc(summary)}</p>

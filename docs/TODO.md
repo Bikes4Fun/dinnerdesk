@@ -21,8 +21,8 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
   replacement-picker styling, direct filter recovery links, and empty-plan action alignment.
   Remaining screenshot work, after checking existing implementations:
   - Compact Account & security; simplify household naming/invite layout.
-  - Add breathing room to Taste Lab's returning-user screen; reconcile its cards/actions
-    with the preferred earlier simple suggestion layout.
+  - Taste Lab returning-user spacing fixed on `codex/screenshot-tastelab-spacing`.
+    Reconcile its cards/actions with the preferred earlier simple suggestion layout.
   - Verify generic ingredient photo configuration (the private gallery already has garlic).
   - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
   - Make family portions the default when browsing recipes and adding new meals.
