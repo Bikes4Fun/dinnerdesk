@@ -338,3 +338,46 @@ def test_a_step_marked_missing_is_listed_even_when_the_picker_skips_it():
     # Even a step with heat is listed when the household says it belongs in prep.
     pot = prep_from_slots([{**slot, 'added': ['Cook the onion in the pot until soft.']}])
     assert any(s['text'].startswith('Cook the onion') for t in pot for m in t['meals'] for s in m['steps'])
+
+
+def test_where_it_goes_next_does_not_end_the_cut():
+    """'Trim the cucumber, then cut it into dice and add it to the bowl' is still cucumber prep."""
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Salad',
+        'ingredients': [{'name': 'English cucumber', 'quantity': '1'}, {'name': 'tomatoes', 'quantity': '2'}],
+        'instructions': [{'text': 'Trim the cucumber ends, then cut it into medium dice and add it to the bowl.'},
+                         {'text': 'Rinse the tomatoes, pat them dry, and cut them into thin rounds.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert 'Trim and dice english cucumber' in titles
+    assert 'Rinse and cut tomatoes' in titles
+
+
+def test_a_bottled_sauce_is_not_making_a_sauce():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Burgers',
+        'ingredients': [{'name': 'ground turkey', 'quantity': '1 lb'}, {'name': 'soy sauce', 'quantity': '2 tsp'}],
+        'instructions': [{'text': 'Mix the turkey, panko and soy sauce with your hands and shape 4 patties.'},
+                         {'text': 'Whisk the soy sauce, honey and vinegar together.'}]}])
+    titles = [t['title'] for t in tasks]
+    assert titles.count('Make sauce') <= 1  # only the whisked one
+    assert not any('patties' in t.lower() and 'sauce' in t.lower() for t in titles)
+
+
+def test_salt_and_pepper_is_not_the_bell_pepper_and_box_graters_are_tools():
+    ings = [{'name': 'eggs', 'quantity': '12'}, {'name': 'green bell peppers', 'quantity': '2'},
+            {'name': 'black pepper', 'quantity': '¼ tsp'}, {'name': 'salt', 'quantity': '½ tsp'},
+            {'name': 'English cucumber', 'quantity': '1'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Frittata', 'ingredients': ings, 'instructions': [
+        {'text': 'Whisk the eggs with the salt and pepper in a large bowl.'},
+        {'text': 'Trim the cucumber and grate it on the large holes of a box grater.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert not any('bell' in t for t in titles)
+    assert 'Trim and grate english cucumber' in titles
+
+
+def test_shape_nouns_and_split_do_not_end_the_cut():
+    ings = [{'name': 'zucchini squash', 'quantity': '2'}, {'name': 'baby bok choy', 'quantity': '4'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Stir-fry', 'ingredients': ings, 'instructions': [
+        {'text': 'Trim the zucchini, split it lengthwise, and slice it into ¼-inch half-moons.'},
+        {'text': 'Trim the bok choy and slice it across into thin shreds.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert 'Trim and slice zucchini' in titles
+    assert 'Trim and slice baby bok choy' in titles
