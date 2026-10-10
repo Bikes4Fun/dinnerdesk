@@ -199,7 +199,7 @@ struct PrepView: View {
   // MARK: Rows
 
   private func row(_ task: PrepTask) -> some View {
-    let sub = ([task.action ?? ""] + task.quantities).filter { !$0.isEmpty }.joined(separator: " · ")
+    let sub = task.quantities.filter { !$0.isEmpty }.joined(separator: " · ")
     return VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 10) {
         Button {
@@ -260,19 +260,24 @@ struct PrepView: View {
             .background(Self.coralTint, in: RoundedRectangle(cornerRadius: 6))
         }
         if detailsOpen.contains(task.id) {
-          VStack(alignment: .leading, spacing: 8) {
-            ForEach(task.meals) { meal in
-              VStack(alignment: .leading, spacing: 4) {
-                NavigationLink { RecipeDetailView(id: meal.id) } label: {
-                  Text(meal.name).font(Theme.action).foregroundStyle(Theme.accent)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                ForEach(Array(((meal.steps ?? []).map(\.text).nilIfEmpty ?? meal.instructions).enumerated()), id: \.offset) { _, text in
-                  Text(text).font(Theme.body).foregroundStyle(Theme.ink)
-                    .fixedSize(horizontal: false, vertical: true)
+          // One line per distinct step; the meals that use it are small links underneath.
+          VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(Self.stepGroups(task).enumerated()), id: \.offset) { _, group in
+              VStack(alignment: .leading, spacing: 3) {
+                Text(group.text).font(Theme.subtitle).foregroundStyle(Theme.ink)
+                  .fixedSize(horizontal: false, vertical: true)
+                ForEach(group.meals) { meal in
+                  NavigationLink { RecipeDetailView(id: meal.id) } label: {
+                    Text(meal.name).font(Theme.count.weight(.semibold)).foregroundStyle(Theme.accent)
+                      .multilineTextAlignment(.leading)
+                      .frame(maxWidth: .infinity, minHeight: 28, alignment: .leading)
+                  }
+                  .buttonStyle(.plain)
+                  .accessibilityHint("Opens the recipe")
                 }
               }
+              .padding(.leading, 10)
+              .overlay(alignment: .leading) { Rectangle().fill(Theme.line).frame(width: 2) }
             }
           }
         }
@@ -295,6 +300,23 @@ struct PrepView: View {
     }
     .buttonStyle(.plain)
     .accessibilityAddTraits(on ? .isSelected : [])
+  }
+
+  /// The open row's steps, each distinct text once with the meals that use it, in meal order.
+  private static func stepGroups(_ task: PrepTask) -> [(text: String, meals: [PrepMeal])] {
+    var out: [(text: String, meals: [PrepMeal])] = []
+    for meal in task.meals {
+      let texts = (meal.steps ?? []).map(\.text).nilIfEmpty ?? meal.instructions
+      for text in texts {
+        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let i = out.firstIndex(where: { $0.text.caseInsensitiveCompare(key) == .orderedSame }) {
+          if !out[i].meals.contains(where: { $0.id == meal.id }) { out[i].meals.append(meal) }
+        } else {
+          out.append((key, [meal]))
+        }
+      }
+    }
+    return out
   }
 
   // MARK: Check-off bar
