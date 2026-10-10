@@ -147,7 +147,7 @@ final class Store: ObservableObject {
     if onWeek(recipe.id) {
       await removeFromWeek(recipeId: recipe.id)
     } else {
-      await addToWeek(recipeId: recipe.id, servings: recipe.servings)
+      await addToWeek(recipeId: recipe.id, servings: nil)
     }
   }
 

@@ -27,7 +27,8 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
     `/grocery-food/garlic.jpg` URL returned 404 on Oct 9. Verify/upload the ingredient
     gallery and configure its persistent `GROCERY_PHOTO_DIR` before visual retesting.
   - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
-  - Make family portions the default when browsing recipes and adding new meals.
+  - Family portions default fixed on `codex/screenshot-family-portions`: recipe browsing,
+    new additions and suggestions use the saved value; explicit/existing servings stay intact.
   - Issue #36 follow-up (`codex/issue-36-tab-return-root`): destination reset now runs for
     every tab selection, including Grocery ingredient details. Verify across all tabs.
   - Plan edit layout fixed on `codex/issue-30-screenshot-edit-layout`: selection on the

@@ -100,6 +100,11 @@ rest. Diet and avoid filters are hard rules (see 5).
 
 This week's meals, scheduled on days or unscheduled. Grocery and prep follow this plan.
 
+Family portions is the default serving count for recipes being browsed and meals newly
+added or suggested. An explicit serving choice overrides it; meals already on the plan
+keep their saved servings. Scaling uses the recipe's original yield, which is not rewritten
+by this preference. Without a valid saved preference, use the recipe's own yield.
+
 - **Must:** add, move, remove, or change servings on one meal without rebuilding the week.
   The slot keeps the same recipe id (this kitchen's overlay, if any).
 - **Must:** unscheduled meals count toward groceries. Marking a meal cooked keeps it on the plan,

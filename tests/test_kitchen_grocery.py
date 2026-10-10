@@ -3,6 +3,40 @@
 from tests.test_api import _client, _link_soup_onion
 
 
+def test_family_portions_default_new_meals_without_rescaling_existing_plan(tmp_path):
+    with _client(tmp_path) as client:
+        pid = _plan_with_soup(client, tmp_path)
+        before = client.get("/api/plans/current").json()
+        assert client.put("/api/household", json={"prefs": {"family_portions": 8}}).status_code == 200
+        assert client.get("/api/plans/current").json()["slots"] == before["slots"]
+        added = client.put(f"/api/plans/{pid}/slots", json={"slots": [{"recipe_id": 1}]}).json()
+        assert added["slots"][0]["servings"] == 8
+        assert _onion(client, pid)["quantity"] == "2"
+        assert client.get("/api/recipes/1").json()["servings"] == 4
+        chosen = client.put(f"/api/plans/{pid}/slots", json={"slots": [{"recipe_id": 1, "servings": 3}]}).json()
+        assert chosen["slots"][0]["servings"] == 3
+
+
+def test_family_portions_default_suggested_meals(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "_suggest_meals", lambda db, household_id, want: (
+        [{"id": 1, "reasons": []}], "Suggested dinners", {"1": []}))
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"family_portions": 8}})
+        response = client.post("/api/plans", json={"meal_count": 1})
+        assert response.status_code == 200
+        assert response.json()["slots"][0]["servings"] == 8
+
+
+def test_unset_or_invalid_family_portions_use_recipe_servings(tmp_path):
+    with _client(tmp_path) as client:
+        pid = client.get("/api/plans/current").json()["id"]
+        for portions in [None, 0, 51, True, "8"]:
+            client.put("/api/household", json={"prefs": {"family_portions": portions}})
+            added = client.put(f"/api/plans/{pid}/slots", json={"slots": [{"recipe_id": 1}]}).json()
+            assert added["slots"][0]["servings"] == 4
+
+
 def _onion(client, pid):
     lines = client.get(f"/api/plans/{pid}/grocery").json()["lines"]
     return next(x for x in lines if "onion" in x["name"])
