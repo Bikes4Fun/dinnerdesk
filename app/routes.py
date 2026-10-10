@@ -7,6 +7,7 @@ from app.db.database import PgConnection
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from app.db.catalog import public_recipe_sql
 from app.db.seed import pantry_catalog
@@ -2188,6 +2189,71 @@ def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
     except json.JSONDecodeError:
         raise
     return {"id": row["id"], "name": row["name"], "prefs": prefs}
+
+
+# "Download my data" (#64): every table that holds this household's own data. Catalog
+# recipes, other households, and secrets (password hashes, session and invite tokens) are
+# never included.
+_EXPORT_TABLES = [
+    ("favorites", "household_favorites"), ("try_later", "household_try_later"),
+    ("hidden_recipes", "household_hidden_recipes"), ("meal_ratings", "household_meal_ratings"),
+    ("prep_feedback", "prep_step_feedback"), ("pantry", "pantry_items"),
+    ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
+    ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
+]
+_EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
+
+
+def _rows(cursor) -> list[dict]:
+    out = []
+    for r in cursor:
+        row = {k: r[k] for k in r.keys() if k not in _EXPORT_SECRET_COLUMNS}
+        for k, v in list(row.items()):
+            if k.endswith("_json") and isinstance(v, str):
+                try:
+                    row[k[:-5]] = json.loads(v)
+                    del row[k]
+                except json.JSONDecodeError:
+                    pass
+        out.append(row)
+    return out
+
+
+@router.get("/household/export")
+def export_household(db: PgConnection = DbDep, household_id: int = HhDep):
+    """Everything stored for this household, as one JSON file to download (#64)."""
+    home = db.execute("SELECT name, prefs_json, created_at FROM households WHERE id = ?", (household_id,)).fetchone()
+    if not home:
+        raise HTTPException(404, {"error": "not_found", "detail": "household"})
+    data: dict = {
+        "exported_at": now(),
+        "about": "Everything Dinnerdesk stores for your household. Passwords and sign-in tokens are never included.",
+        "household": {"name": home["name"], "created_at": home["created_at"],
+                      "prefs": json.loads(home["prefs_json"] or "{}")},
+        "members": _rows(db.execute(
+            "SELECT email, created_at FROM users WHERE household_id = ? ORDER BY id", (household_id,))),
+        "recipes_you_added": _rows(db.execute(
+            "SELECT * FROM recipes WHERE household_id = ? ORDER BY id", (household_id,))),
+        "plans": [],
+    }
+    for plan in _rows(db.execute("SELECT * FROM plans WHERE household_id = ? ORDER BY id", (household_id,))):
+        pid = plan["id"]
+        plan["meals"] = _rows(db.execute(
+            """SELECT s.day_index, s.meal_type, s.servings, s.cooked, s.notes, r.name AS recipe
+               FROM plan_slots s JOIN recipes r ON r.id = s.recipe_id
+               WHERE s.plan_id = ? ORDER BY s.sort, s.id""", (pid,)))
+        plan["grocery_list"] = _rows(db.execute("SELECT * FROM grocery_lines WHERE plan_id = ? ORDER BY id", (pid,)))
+        plan["prep"] = _rows(db.execute("SELECT title, done, notes FROM prep_tasks WHERE plan_id = ? ORDER BY sort, id", (pid,)))
+        data["plans"].append(plan)
+    for key, table in _EXPORT_TABLES:
+        data[key] = _rows(db.execute(f"SELECT * FROM {table} WHERE household_id = ?", (household_id,)))
+    accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
+    try:
+        data["taste_lab"] = snapshots_for_accounts([*accounts, f"guest:{household_id}"])
+    except Exception:  # Taste Lab's own store can be offline; the rest of the export still works.
+        data["taste_lab"] = "unavailable right now"
+    return JSONResponse(
+        data, headers={"Content-Disposition": f'attachment; filename="dinnerdesk-data-{date.today().isoformat()}.json"'})
 
 
 @router.put("/household")
