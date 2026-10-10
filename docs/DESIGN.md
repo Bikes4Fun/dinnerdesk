@@ -218,13 +218,16 @@ all week."
 - **Must:** build from this plan only. A recipe with steps tagged Prep uses only those. Otherwise
   the app picks make-ahead sentences (knife work, grating, sauces, marinades), never anything that
   needs heat or happens at serving.
-- **Must:** group by what's being prepped across meals ("Prep potatoes" for two meals), or by a
+- **Must:** group by what's being prepped across meals (one potatoes row for two meals), or by a
   step's heading ("Make the tzatziki: …" → "Make tzatziki"). A dressing with no name stays with
   its own meal.
 - **Must:** the screen is grouped into sections by what the food is: Vegetables; Aromatics, herbs
   & citrus; Protein; Cheese & dairy; Sauces & dressings; More prep. One row per item however many
-  meals use it ("Bell peppers · 2 bell peppers · For Chickpea Salad, Turkey & Potatoes"); never
-  one row per meal. Sections collapse with an arrow and remember it.
+  meals use it; never one row per meal. Sections collapse with an arrow and remember it.
+- **Must:** a row is named for what the steps say to do, with the amount under it:
+  "Peel and mince garlic · 14 cloves garlic", "Wash and thinly slice mushrooms". When meals cut it
+  differently, the most common way wins. Opening a row shows each different step once, with the
+  meals that use it as small links under it. No grey "For meal, meal" line.
 - **Must:** a progress ring (done of total) and one bar per section at the top; tapping a bar
   jumps to that section.
 - **Must:** check-off works like the grocery list: a done item leaves its section; "Show

@@ -57,10 +57,24 @@ def _seed(path: Path) -> None:
     db.close()
 
 
-def _client(tmp_path: Path) -> TestClient:
+def _client(tmp_path: Path, admin: bool = True) -> TestClient:
+    """Test client for the guest household. Recipe editing is admin-only, so by default these
+    tests act as an admin; pass admin=False to check what everyone else gets."""
     _seed(tmp_path)
     app = create_app()
+    if admin:
+        from app.deps import require_admin
+        app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
     return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
+
+
+def test_only_admins_can_edit_recipes(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch("/api/recipes/1", json={"name": "Hacked soup"}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"as_copy": True, "name": "Copy"}).status_code == 403
+        assert client.put("/api/recipes/1/dev-notes", json={"text": "hi"}).status_code == 403
+        assert client.delete("/api/recipes/1/edit").status_code == 403
+        assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
 def test_household_cannot_see_other_household_pantry(tmp_path):
@@ -997,6 +1011,8 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         plan = client.get("/api/plans/current").json()
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        # The Weekend prep sections need these from the server, not the "other" fallback.
+        assert task["section"] == "veg" and task["item"] == "Onions", (task["section"], task["item"])
         steps = task["meals"][0]["steps"]
         response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
@@ -1065,8 +1081,8 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
         client.put(f"/api/plans/{pid}/slots",
                    json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]})
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
-        assert set(tasks) == {"Prep onion", "Prep garlic"}
-        onion = tasks["Prep onion"]
+        assert set(tasks) == {"Dice onion", "Mince garlic"}
+        onion = tasks["Dice onion"]
         step = onion["meals"][0]["steps"][0]
         assert step["done"] is False and onion["done"] is False
 
@@ -1074,14 +1090,14 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
                              json={"recipe_id": 1, "key": step["key"], "done": True})
         assert checked.status_code == 200 and checked.json()["done"] is True
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
-        assert tasks["Prep onion"]["done"] is True
-        assert tasks["Prep onion"]["meals"][0]["steps"][0]["done"] is True
-        assert tasks["Prep garlic"]["done"] is False
+        assert tasks["Dice onion"]["done"] is True
+        assert tasks["Dice onion"]["meals"][0]["steps"][0]["done"] is True
+        assert tasks["Mince garlic"]["done"] is False
 
         # Unchecking the whole task clears its items.
         client.patch(f"/api/prep/{onion['id']}", json={"done": False})
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
-        assert tasks["Prep onion"]["meals"][0]["steps"][0]["done"] is False
+        assert tasks["Dice onion"]["meals"][0]["steps"][0]["done"] is False
 
         bad = client.put(f"/api/prep/{onion['id']}/steps", json={"recipe_id": 1, "key": "nope", "done": True})
         assert bad.status_code == 404

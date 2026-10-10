@@ -64,6 +64,7 @@ FILLER = {
     "crown", "cloves", "clove", "pieces", "piece", "inch", "plain", "greek", "italian", "flat",
     "leaf", "baby", "lean", "extra", "virgin", "low", "sodium", "unsalted", "salted", "whole",
     "raw", "lb", "oz", "fl", "pint", "pints", "block", "head", "heads", "stalk", "stalks",
+    "root",  # "ginger root" is ginger; "trim the roots" must not match it
 }
 # A protein's first word is what recipes call it ("the chicken"), not "breasts".
 PROTEINS = {"chicken", "beef", "pork", "turkey", "salmon", "shrimp", "steak", "lamb", "sausage",
@@ -111,8 +112,12 @@ def _singular(word: str) -> str:
     return word
 
 
+GREEN_ONION = re.compile(r"\b(?:green|spring) onions?\b|\bscallions?\b", re.I)
+
+
 def _words(text: str) -> list[str]:
-    return [_singular(w) for w in re.findall(r"[a-z]+", text.lower())]
+    # Green onions are their own grocery, not the onion: "scallion" keeps them apart.
+    return [_singular(w) for w in re.findall(r"[a-z]+", GREEN_ONION.sub("scallion", text).lower())]
 
 
 def _ingredient_heads(name: str) -> tuple[str, set[str]]:
@@ -353,6 +358,72 @@ def _item(title: str) -> tuple[str, str]:
     return title, ""
 
 
+# What the steps actually say to do, for the item's name: "Peel and mince garlic" (not "Prep
+# garlic"). A modifier is kept with its verb: "Finely dice onion".
+CUT_VERB = re.compile(
+    r"\b(?:(finely|thinly|roughly|coarsely|thickly)\s+)?"
+    r"(wash|rinse|scrub|peel|trim|core|seed|stem|halve|quarter|chop|dice|mince|slice|julienne|cube|"
+    r"cut|grate|shred|zest|spiralize|crush|smash|tear)\b", re.I)
+CLAUSE = re.compile(r"[,;]|\s+then\s+", re.I)
+PART_WORDS = {"root", "end", "stem", "top", "leave", "leaf", "skin", "peel", "seed", "rib", "core",
+              "pit", "rind", "fat", "them", "it", "both", "everything", "all", "half", "piece"}
+
+
+def _verbs_for(text: str, item_words: set[str]) -> list[str]:
+    """The cut verbs in `text` that apply to the item, in order.
+    "Rinse the green onions, trim off the roots, and chop them" → rinse, trim, chop.
+    "Wash, peel and dice the potatoes" → wash, peel, dice. "Dice the onion, mince the garlic"
+    → mince, for garlic."""
+    out: list[str] = []
+    pending: list[str] = []  # verbs waiting for their object: "Wash, | peel and dice the potatoes"
+    on_item = False
+    last: list[str] = []
+    for clause in CLAUSE.split(text):
+        words = _words(clause)
+        verbs = []
+        for m in CUT_VERB.finditer(clause):
+            before = _words(clause[: m.start()])[-3:]
+            if "into" in before or (before and before[-1] in {"a", "an", "the", "of", "one"}):
+                continue  # "cut into small dice", "a quarter of": nouns, not steps
+            verbs.append(f"{m.group(1).lower()} {m.group(2).lower()}" if m.group(1) else m.group(2).lower())
+        verb_words = {_singular(v.split()[-1]) for v in verbs}
+        objects = [w for w in words if w not in verb_words and w not in NOT_OBJECT
+                   and w not in PART_WORDS and w not in FILLER and len(w) > 2
+                   and w not in {"finely", "thinly", "roughly", "coarsely", "thickly"}]
+        if item_words & set(words):
+            on_item = True
+            verbs = pending + (verbs or ([] if pending else last))  # "Dice the onion, pepper and celery"
+            pending = []
+        elif objects:
+            on_item = False  # this clause is about something else
+            pending = []
+        elif verbs and not on_item:
+            pending += verbs
+        if on_item:
+            out += [v for v in verbs if v not in out]
+        if verbs:
+            last = verbs
+    return out[-3:]
+
+
+def _phrase(verbs: list[str]) -> str:
+    text = verbs[0] if len(verbs) == 1 else ", ".join(verbs[:-1]) + " and " + verbs[-1]
+    return text[:1].upper() + text[1:]
+
+
+def _action(task: dict) -> str:
+    """The most common way the meals cut this item, or "" when they don't say."""
+    words = {w for w in _words(task["item"]) if w not in FILLER and len(w) > 2}
+    counts: dict[str, int] = {}
+    for meal in task["meals"]:
+        for text in meal["instructions"]:
+            verbs = _verbs_for(text, words)
+            if verbs:
+                phrase = _phrase(verbs)
+                counts[phrase] = counts.get(phrase, 0) + 1
+    return max(counts, key=counts.get) if counts else ""  # ties keep the first meal's
+
+
 def prep_from_slots(slots: list[dict]) -> list[dict]:
     groups: dict[str, dict] = {}
     seen = set()
@@ -407,7 +478,13 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                               for name, amounts in task.pop('_ingredients').items()]
         task['recipe_ids'].sort()
         task['notes'] = '\n\n'.join(task.pop('steps'))
-        task['section'] = _section(task.pop('_kind'), task['title'], task['quantities'])
+        kind = task.pop('_kind')
+        task['section'] = _section(kind, task['title'], task['quantities'])
         task['item'], task['action'] = _item(task['title'])
+        if task['auto'] and kind in ('chop', 'grate'):  # not "Prep mashed potatoes" or sauces
+            action = _action(task)
+            if action:
+                task['action'] = action
+                task['title'] = f"{action} {task['item'][:1].lower()}{task['item'][1:]}"
     # Work shared by several meals first; otherwise keep recipe order.
     return sorted(groups.values(), key=lambda t: -len(t['meals']))

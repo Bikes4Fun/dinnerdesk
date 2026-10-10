@@ -729,6 +729,7 @@ def revert_recipe_edit(
     recipe_id: int,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -805,6 +806,7 @@ def put_dev_notes(
     body: DevNotesPut,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -859,6 +861,7 @@ def patch_recipe(
     body: RecipePatch,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -1862,7 +1865,11 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
     # Completion follows recipe and step identity, even when tasks regroup.
     for index, task in enumerate(prep_from_slots(slots)):
         linked = json.dumps(task["recipe_ids"])
-        details = json.dumps({"meals": task["meals"], "quantities": task["quantities"], "auto": task["auto"]})
+        # Section and item name drive the Weekend prep layout (#21); without them every row
+        # lands in "More prep" as "Prep garlic".
+        details = json.dumps({"meals": task["meals"], "quantities": task["quantities"], "auto": task["auto"],
+                              "section": task.get("section", "other"), "item": task.get("item") or task["title"],
+                              "action": task.get("action", "")})
         keys = {f"{m['id']}:{s['key']}" for m in task["meals"] for s in m["steps"]}
         progress = json.dumps(sorted(completed & keys))
         done = int(bool(keys) and keys <= completed)

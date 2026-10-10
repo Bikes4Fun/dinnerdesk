@@ -190,7 +190,7 @@ export function Prep() {
         <div className="pz-toast" role="status">
           <div className="pz-toast-row">
             <span className="pz-toast-check" aria-hidden="true">✓</span>
-            <strong>{toastTask.item || toastTask.title} checked off</strong>
+            <strong>{toastTask.title} checked off</strong>
             <button type="button" className="pz-toast-link" onClick={() => { toggle(toastTask); setToast(null); }}>Undo</button>
             <button type="button" className="pz-toast-x" aria-label="Dismiss" onClick={() => setToast(null)}>✕</button>
           </div>
@@ -216,19 +216,28 @@ export function Prep() {
 }
 
 function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails }) {
-  const sub = [t.action, ...(t.quantities || [])].filter(Boolean).join(" · ");
+  const sub = (t.quantities || []).filter(Boolean).join(" · ");
+  // Each different step once, with the meals that use it as small links underneath.
+  const groups = [];
+  for (const meal of t.meals || []) {
+    for (const text of meal.steps?.length ? meal.steps.map((s) => s.text) : meal.instructions || []) {
+      const hit = groups.find((g) => g.text.toLowerCase() === text.trim().toLowerCase());
+      if (hit) { if (!hit.meals.some((m) => m.id === meal.id)) hit.meals.push(meal); }
+      else groups.push({ text: text.trim(), meals: [meal] });
+    }
+  }
   return (
     <li className={`pz-item${t.done ? " is-done" : ""}`}>
       <div className="pz-row">
         <button type="button" role="checkbox" aria-checked={t.done} className={`pz-check${t.done ? " on" : ""}`}
-          aria-label={`${t.done ? "Uncheck" : "Check off"} ${t.item || t.title}`} onClick={onToggle}>
+          aria-label={`${t.done ? "Uncheck" : "Check off"} ${t.title}`} onClick={onToggle}>
           {t.done ? "✓" : ""}
         </button>
         <button type="button" className="pz-text" aria-expanded={details} onClick={onDetails}>
-          <span className="pz-name">{t.item || t.title}</span>
+          <span className="pz-name">{t.title}</span>
           {sub && <span className="pz-sub">{sub}</span>}
         </button>
-        <Thumbs size={18} rating={t.rating || 0} subject={`prepping ${t.item || t.title} ahead`} onRate={onRate} />
+        <Thumbs size={18} rating={t.rating || 0} subject={`prepping ${t.title} ahead`} onRate={onRate} />
       </div>
       {t.rating < 0 && t.reason && !why && <div className="pz-indent"><span className="pz-tag">{reasonLabel(t.reason)}</span></div>}
       {why && (
@@ -243,11 +252,11 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
       )}
       {details && (
         <div className="pz-indent pz-details">
-          {(t.meals || []).map((meal) => (
-            <div key={meal.id}>
-              <button type="button" className="text-link" onClick={() => go(`/recipes/${meal.id}`)}>{meal.name}</button>
-              {(meal.steps?.length ? meal.steps.map((s) => s.text) : meal.instructions || []).map((text, i) => (
-                <p key={i} className="pz-step">{text}</p>
+          {groups.map((g, i) => (
+            <div key={i} className="pz-step-group">
+              <p className="pz-step">{g.text}</p>
+              {g.meals.map((meal) => (
+                <button key={meal.id} type="button" className="text-link pz-meal-link" onClick={() => go(`/recipes/${meal.id}`)}>{meal.name}</button>
               ))}
             </div>
           ))}
