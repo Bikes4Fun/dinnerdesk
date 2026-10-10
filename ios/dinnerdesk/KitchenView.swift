@@ -9,65 +9,65 @@ struct KitchenView: View {
   var body: some View {
     List {
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
 
-      KitchenSection("Cooking") {
+      ThemeSection("Cooking") {
         // The − / + drops below the label when "Family portions" can't stay on one line.
         ViewThatFits(in: .horizontal) {
           HStack(spacing: 14) {
-            KitchenIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
             portionsStepper
           }
           VStack(alignment: .leading, spacing: 8) {
-            KitchenIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
             portionsStepper.padding(.leading, 40)
           }
         }
         NavigationLink {
           PantryView()
         } label: {
-          KitchenIconRow(title: "Pantry", systemImage: "shippingbox")
+          ThemeIconRow(title: "Pantry", systemImage: "shippingbox")
         }
       }
-      .kitchenRows()
+      .themeRows()
 
-      KitchenSection("Grocery list") {
+      ThemeSection("Grocery list") {
         NavigationLink {
           AlwaysCheckedView()
         } label: {
-          KitchenIconRow(title: "Always checked off", systemImage: "checkmark.circle")
+          ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
         }
         NavigationLink {
           SubstitutionsView()
         } label: {
-          KitchenIconRow(title: "Substitutions", systemImage: "arrow.left.arrow.right")
+          ThemeIconRow(title: "Substitutions", systemImage: "arrow.left.arrow.right")
         }
         NavigationLink {
           GroceryStoreView()
         } label: {
-          KitchenIconRow(title: "Stores & aisles", systemImage: "storefront")
+          ThemeIconRow(title: "Stores & aisles", systemImage: "storefront")
         }
       }
-      .kitchenRows()
+      .themeRows()
 
-      KitchenSection("Recipes") {
+      ThemeSection("Recipes") {
         NavigationLink {
           FiltersView()
         } label: {
-          KitchenIconRow(title: "Filters", systemImage: "slider.horizontal.3")
+          ThemeIconRow(title: "Filters", systemImage: "slider.horizontal.3")
         }
         NavigationLink {
           HiddenRecipesView()
         } label: {
-          KitchenIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
         }
-        KitchenIconRow(title: "My recipes", systemImage: "list.bullet", value: "Coming soon")
-        KitchenIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
+        ThemeIconRow(title: "My recipes", systemImage: "list.bullet", value: "Coming soon")
+        ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
       }
-      .kitchenRows()
+      .themeRows()
     }
-    .kitchenList()
+    .themeList()
     .navigationTitle("My kitchen and Groceries")
     .largeNavigationTitle()
     .task { await load() }
@@ -123,15 +123,15 @@ struct SubstitutionsView: View {
   var body: some View {
     List {
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
       Text(Copy.text("kitchen.substitutions"))
         .font(Theme.subtitle)
         .foregroundStyle(Theme.muted)
         .accessibilityIdentifier("tip.kitchen.substitutions")
-        .kitchenBareRow()
+        .themeBareRow()
 
-      KitchenSection("Your substitutions") {
+      ThemeSection("Your substitutions") {
         if items.isEmpty {
           Text("None yet").foregroundStyle(Theme.muted)
         }
@@ -160,20 +160,20 @@ struct SubstitutionsView: View {
           }
         }
       }
-      .kitchenRows()
+      .themeRows()
 
-      KitchenSection("Add one") {
+      ThemeSection("Add one") {
         TextField("Recipe says (e.g. vegetable oil)", text: $from)
           .textInputAutocapitalization(.never)
         TextField("Buy instead (e.g. olive oil)", text: $to)
           .textInputAutocapitalization(.never)
-        KitchenAddRow(title: "Add substitution") { Task { await add() } }
+        ThemeAddRow(title: "Add substitution") { Task { await add() } }
           .disabled(!canAdd)
           .opacity(canAdd ? 1 : 0.45)
       }
-      .kitchenRows()
+      .themeRows()
     }
-    .kitchenList()
+    .themeList()
     .navigationTitle("Substitutions")
     .navigationBarTitleDisplayMode(.inline)
     .toolbar { EditButton() }

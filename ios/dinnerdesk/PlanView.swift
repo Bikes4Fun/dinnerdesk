@@ -126,7 +126,7 @@ struct PlanView: View {
               .disabled(selected.isEmpty)
             }
             ForEach(groups(plan), id: \.key) { group in
-              if group.key >= 0 { KitchenHeader(dayTitle(plan.startDate, group.key)) }
+              if group.key >= 0 { ThemeHeader(dayTitle(plan.startDate, group.key)) }
               // At accessibility text sizes the grid shows as the list, so names don't break mid-word.
               if grid && !editing && !typeSize.isAccessibilitySize {
                 LazyVGrid(
@@ -552,7 +552,7 @@ struct SavedPlansView: View {
             }
           }
         }
-      }.kitchenList().navigationTitle("Saved plans")
+      }.themeList().navigationTitle("Saved plans")
         .sheet(item: $deleting) { plan in
           RemovalConfirmation(title: "Delete this plan?", message: heading(plan), actionTitle: "Delete plan") {
             do {

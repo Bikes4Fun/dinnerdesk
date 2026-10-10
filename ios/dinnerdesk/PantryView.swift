@@ -13,9 +13,9 @@ struct PantryView: View {
   var body: some View {
     List {
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
-      KitchenAddRow(title: "Add item") { adding = true }.kitchenRows()
+      ThemeAddRow(title: "Add item") { adding = true }.themeRows()
       Toggle(isOn: Binding(get: { autoCheck }, set: { on in Task { await setAutoCheck(on) } })) {
         VStack(alignment: .leading, spacing: 3) {
           Text("Always check off pantry items")
@@ -29,9 +29,9 @@ struct PantryView: View {
       }
       .tint(Theme.accent)
       .padding(.vertical, 6)
-      .kitchenRows()
+      .themeRows()
 
-      KitchenSection("In your pantry · \(items.count)") {
+      ThemeSection("In your pantry · \(items.count)") {
         if items.isEmpty {
           Text("Nothing here yet.").foregroundStyle(Theme.muted)
         }
@@ -50,9 +50,9 @@ struct PantryView: View {
         }
 
       }
-      .kitchenRows()
+      .themeRows()
     }
-    .kitchenList()
+    .themeList()
     .navigationTitle("Pantry")
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $adding) {
@@ -162,14 +162,14 @@ struct AlwaysCheckedView: View {
   var body: some View {
     List {
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
       Text(Copy.text("kitchen.always-checked"))
         .font(Theme.subtitle)
         .foregroundStyle(Theme.muted)
         .accessibilityIdentifier("tip.kitchen.always-checked")
-        .kitchenBareRow()
-      KitchenSection("Always checked off · \(items.count)") {
+        .themeBareRow()
+      ThemeSection("Always checked off · \(items.count)") {
         if items.isEmpty {
           VStack(alignment: .leading, spacing: 10) {
             Text("Examples — add the items you always keep on hand")
@@ -189,11 +189,11 @@ struct AlwaysCheckedView: View {
             for item in doomed { await remove(item) }
           }
         }
-        KitchenAddRow(title: "Add item") { adding = true }
+        ThemeAddRow(title: "Add item") { adding = true }
       }
-      .kitchenRows()
+      .themeRows()
     }
-    .kitchenList()
+    .themeList()
     .navigationTitle("Always checked off")
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $adding) {
@@ -275,7 +275,7 @@ struct KitchenItemPicker: View {
           .listRowBackground(index == highlighted ? Theme.aubergineTint : Theme.bg)
           .accessibilityAddTraits(index == highlighted ? .isSelected : [])
         }
-        .kitchenList()
+        .themeList()
         .overlay {
           if let searchError {
             ErrorBanner(message: searchError)
@@ -433,7 +433,7 @@ private struct PantryItemEditor: View {
       }
       .listRowBackground(Theme.surface)
     }
-    .kitchenForm()
+    .themeForm()
     .navigationTitle(item.name)
     .task {
       quantity = item.quantity

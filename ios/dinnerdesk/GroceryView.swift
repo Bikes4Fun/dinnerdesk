@@ -35,7 +35,7 @@ struct GroceryView: View {
 
         List {
           if let err = store.error {
-            ErrorBanner(message: err).kitchenBareRow()
+            ErrorBanner(message: err).themeBareRow()
           }
           if !store.stores.isEmpty {
             Section {
@@ -51,7 +51,7 @@ struct GroceryView: View {
                 .padding(.vertical, 4)
               }
               .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-              .kitchenBareRow()
+              .themeBareRow()
             }
           }
           if store.grocery.isEmpty {
@@ -71,17 +71,17 @@ struct GroceryView: View {
                 .padding(.vertical, 24)
                 .frame(maxWidth: .infinity)
                 .multilineTextAlignment(.center)
-                .kitchenBareRow()
+                .themeBareRow()
             }
             ForEach(aisleBlocks, id: \.id) { block in
-              KitchenSection(block.name) {
+              ThemeSection(block.name) {
                 ForEach(block.rows) { line in
                   GroceryRow(line: line) {
                     openItem = line.id
                   }
                 }
               }
-              .kitchenRows()
+              .themeRows()
             }
             if completedCount > 0 {
               // Same switch as ⋯ → Show completed items, one tap from the list.
@@ -98,10 +98,10 @@ struct GroceryView: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
               }
               .buttonStyle(.borderless)
-              .kitchenBareRow()
+              .themeBareRow()
             }
             // Room so the + button never covers the last row.
-            Color.clear.frame(height: 72).kitchenBareRow()
+            Color.clear.frame(height: 72).themeBareRow()
           }
         }
 
@@ -120,7 +120,7 @@ struct GroceryView: View {
         //   }
         // }
 
-        .kitchenList()
+        .themeList()
 
         .overlay(alignment: .bottomTrailing) {
           Button {
@@ -621,7 +621,7 @@ private struct EditGrocerySheet: View {
         }
         .listRowBackground(Theme.surface)
       }
-      .kitchenForm()
+      .themeForm()
       .navigationTitle("Edit item")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
@@ -699,7 +699,7 @@ private struct AddGrocerySheet: View {
         }
         .listRowBackground(Theme.surface)
       }
-      .kitchenForm()
+      .themeForm()
       .navigationTitle("Add item")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {

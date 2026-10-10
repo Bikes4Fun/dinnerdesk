@@ -54,10 +54,10 @@ struct GroceryStoreView: View {
   var body: some View {
     List {
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
 
-      KitchenSection("Your stores") {
+      ThemeSection("Your stores") {
         KitchenFlow(spacing: 8) {
           ForEach(stores) { store in
             // A Menu per chip: a context menu inside a List row lifts the whole row and
@@ -78,7 +78,7 @@ struct GroceryStoreView: View {
           .buttonStyle(.plain)
         }
         .padding(.vertical, 8)
-        .kitchenBareRow()
+        .themeBareRow()
 
         Text(Copy.text("kitchen.store-chips"))
           .font(Theme.subtitle).foregroundStyle(Theme.muted)
@@ -89,19 +89,19 @@ struct GroceryStoreView: View {
         NavigationLink {
           AisleOrderView()
         } label: {
-          KitchenIconRow(
+          ThemeIconRow(
             title: "Aisle order", systemImage: "list.number", value: "\(aisles.count) aisles")
         }
-        .kitchenRows()
+        .themeRows()
       }
 
-      KitchenSection("Store & aisle for each item") {
+      ThemeSection("Store & aisle for each item") {
         Picker("Which items", selection: $tab) {
           Text("Not set · \(unset.count)").tag(Tab.unset)
           Text("All items · \(items.count)").tag(Tab.all)
         }
         .pickerStyle(.segmented)
-        .kitchenBareRow()
+        .themeBareRow()
       } footer: {
         Text(Copy.text("kitchen.store-per-item"))
           .font(Theme.subtitle)
@@ -117,22 +117,22 @@ struct GroceryStoreView: View {
               : "Items show up here once they're on a grocery list or in your pantry."
           )
           .foregroundStyle(Theme.muted)
-          .kitchenBareRow()
+          .themeBareRow()
         }
       }
 
       ForEach(groups) { group in
-        KitchenSection(group.aisle.name) {
+        ThemeSection(group.aisle.name) {
           ForEach(group.rows) { item in
             PlacementRow(item: item, stores: stores, aisles: aisles) { store, aisle in
               Task { await place(item, store: store, aisle: aisle) }
             }
           }
         }
-        .kitchenRows()
+        .themeRows()
       }
     }
-    .kitchenList()
+    .themeList()
     .navigationTitle("Stores & aisles")
     .navigationBarTitleDisplayMode(.inline)
     .searchable(text: $query, prompt: "Search items")
@@ -303,9 +303,9 @@ struct AisleOrderView: View {
   var body: some View {
     List {
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
-      KitchenSection("Walk-the-store order") {
+      ThemeSection("Walk-the-store order") {
         ForEach($aisles) { $aisle in
           HStack(spacing: 12) {
             TextField("#", text: $aisle.number)
@@ -332,16 +332,16 @@ struct AisleOrderView: View {
           next.move(fromOffsets: from, toOffset: to)
           Task { await save(next) }
         }
-        KitchenAddRow(title: "Add aisle") { addingAisle = true }
+        ThemeAddRow(title: "Add aisle") { addingAisle = true }
       } footer: {
         Text(Copy.text("kitchen.aisle-order"))
           .font(Theme.subtitle)
           .foregroundStyle(Theme.muted)
           .accessibilityIdentifier("tip.kitchen.aisle-order")
       }
-      .kitchenRows()
+      .themeRows()
     }
-    .kitchenList()
+    .themeList()
     .environment(\.editMode, .constant(.active))
     .navigationTitle("Aisle order")
     .navigationBarTitleDisplayMode(.inline)

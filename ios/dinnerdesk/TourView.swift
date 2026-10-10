@@ -81,7 +81,7 @@ struct TourView: View {
       VStack(alignment: .leading, spacing: 16) {
         VStack(alignment: .leading, spacing: 6) {
           Text("Welcome to \(Copy.appName)")
-            .font(KitchenStyle.bigTitle)
+            .font(Theme.bigTitle)
             .foregroundStyle(Theme.ink)
           Text(Copy.text("app.tagline"))
             .foregroundStyle(Theme.muted)
@@ -122,7 +122,7 @@ struct TourView: View {
         VStack(alignment: .leading, spacing: 20) {
           VStack(alignment: .leading, spacing: 6) {
             Text("What do you eat?")
-              .font(KitchenStyle.title)
+              .font(Theme.tourTitle)
               .foregroundStyle(Theme.ink)
             Text("You can change this later in Settings › Filters.")
               .font(Theme.subtitle)
@@ -158,7 +158,7 @@ struct TourView: View {
 
   private func chipGroup<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
     VStack(alignment: .leading, spacing: 8) {
-      KitchenHeader(title)
+      ThemeHeader(title)
       KitchenFlow(spacing: 8) { content() }
     }
   }
@@ -182,7 +182,7 @@ struct TourView: View {
               .font(.system(size: 34, weight: .semibold))
               .foregroundStyle(Theme.accent)
             Text(item.title)
-              .font(KitchenStyle.title)
+              .font(Theme.tourTitle)
               .foregroundStyle(Theme.ink)
             Text(item.text)
               .font(Theme.body)
