@@ -29,30 +29,12 @@ struct MoreView: View {
           } label: {
             KitchenIconRow(title: "Hidden recipes", systemImage: "eye.slash")
           }
-        }
-        .kitchenRows()
-
-        Section {
           Button {
             session.showTour = true
           } label: {
             KitchenIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
           }
           .accessibilityHint("Replays the first-run tour")
-          NavigationLink {
-            SettingsView()
-          } label: {
-            KitchenIconRow(title: "Settings", systemImage: "gearshape")
-          }
-          if let url = URL(string: "https://dinnerdesk.computerscience.build") {
-            Link(destination: url) {
-              KitchenIconRow(title: "\(Copy.appName) on the web", systemImage: "safari")
-            }
-          }
-          Link(destination: URL(string: "https://x.com/DinnerDesk")!) {
-            KitchenIconRow(
-              title: "Twitter", systemImage: "bubble.left.and.bubble.right", value: "@DinnerDesk")
-          }
         }
         .kitchenRows()
       }
