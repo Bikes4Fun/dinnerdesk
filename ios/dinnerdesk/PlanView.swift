@@ -37,8 +37,15 @@ struct PlanView: View {
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
                 .accessibilityLabel("Done editing plan")
-            }
-
+            } 
+            // else { Button {
+            //     Task { await store.newPlan(meals: 4) }
+            // } label: {
+            //     Label("New meal plan", systemImage: "sparkles")
+            // }
+            // .buttonStyle(.borderedProminent)
+            // .tint(Theme.accent)
+            // }
             Button {
               menu = true
             } label: {
@@ -119,7 +126,7 @@ struct PlanView: View {
               .disabled(selected.isEmpty)
             }
             ForEach(groups(plan), id: \.key) { group in
-              if group.key >= 0 { KitchenHeader(dayTitle(plan.startDate, group.key)) }
+              if group.key >= 0 { ThemeHeader(dayTitle(plan.startDate, group.key)) }
               // At accessibility text sizes the grid shows as the list, so names don't break mid-word.
               if grid && !editing && !typeSize.isAccessibilitySize {
                 LazyVGrid(
@@ -136,12 +143,18 @@ struct PlanView: View {
                 }
               }
             }
-            if !plan.slots.isEmpty { Button {
-              selectTab(.recipes)
-            } label: {
-              Label("Add meals", systemImage: "plus")
+            if !plan.slots.isEmpty { 
+              // Button {
+              //     Task { await store.newPlan(meals: 4) }
+              //   } label: {
+              //     Label("New meal plan", systemImage: "sparkles")
+              //   }
+              //   .buttonStyle(.borderedProminent)
+              //   .tint(Theme.accent)
+                Button { selectTab(.recipes) } label: {
+                  Label("Add meals", systemImage: "plus")
+                }.font(Theme.action).frame(minHeight: 44)
             }
-            .font(Theme.mealName).padding(.vertical) }
           } else {
             ProgressView()
           }
@@ -159,6 +172,10 @@ struct PlanView: View {
       .tint(Theme.accent)
       .menuSheet(isPresented: $menu) {
         [
+          
+          MenuSheetItem(title: "New meal plan", systemImage: "sparkles", accent: true) {
+            Task { await store.newPlan(meals: 4) }
+          },
           MenuSheetItem(title: editing ? "Finish editing" : "Edit plan", systemImage: editing ? "checkmark.circle" : "pencil") {
             setEditing(!editing)
           },
@@ -173,7 +190,7 @@ struct PlanView: View {
             savingDraft = true
           },
           MenuSheetItem(title: "Saved plans & history", systemImage: "tray") { drafts = true },
-          MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.newPlan(meals: 4) } }
+          // MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.newPlan(meals: 4) } }
         ]
       }
       .alert("Save as draft", isPresented: $savingDraft) {
@@ -225,16 +242,17 @@ struct PlanView: View {
         VStack(alignment: .leading, spacing: 8) {
           photo(slot, side: nil)
           HStack(alignment: .top, spacing: 8) {
-            if editing { selectionButton(slot) }
             title(slot, plan: plan)
+            if editing { selectionButton(slot) }
           }
           if editing { editControls(slot, plan: plan) }
         }
       } else if typeSize.isAccessibilitySize {
         VStack(alignment: .leading, spacing: 12) {
           HStack(alignment: .top) {
-            if editing { selectionButton(slot) }
             photo(slot, side: photoWidth)
+            Spacer()
+            if editing { selectionButton(slot) }
           }
           title(slot, plan: plan)
           if editing { editControls(slot, plan: plan) }
@@ -242,10 +260,12 @@ struct PlanView: View {
         }
       } else {
         HStack(alignment: .top, spacing: 8) {
-          if editing { selectionButton(slot) }
           photo(slot, side: photoWidth)
           VStack(alignment: .leading, spacing: 8) {
-            title(slot, plan: plan)
+            HStack(alignment: .top, spacing: 8) {
+              title(slot, plan: plan).frame(maxWidth: .infinity, alignment: .leading)
+              if editing { selectionButton(slot) }
+            }
             if editing { editControls(slot, plan: plan) }
             else { scheduleButton(slot, plan: plan) }
           }
@@ -256,28 +276,12 @@ struct PlanView: View {
     .opacity(slot.cooked ? 0.45 : 1)
   }
 
-  /// Under each meal: rate it so suggestions learn. 👎 = never suggest again.
-  private func thumbs(_ slot: PlanSlot) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 4) {
-        ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
-          Task { await store.rateMeal(slot, next) }
-        }
-        .padding(.leading, -12)
-        if (slot.rating ?? 0) > 0 {
-          Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
-        }
-      }
-      if (slot.rating ?? 0) < 0 { StarTip(id: "plan.disliked") }
-    }
-  }
-
   private func selectAllButton(_ plan: Plan) -> some View {
     Button(selected.count == plan.slots.count ? "Deselect all" : "Select all") {
       selected = selected.count == plan.slots.count ? [] : Set(plan.slots.map(\.id))
     }
     .buttonStyle(.plain)
-    .frame(minHeight: 44)
+    // .frame(minHeight: 44)
     .contentShape(Rectangle())
     .accessibilityLabel("Select all meals")
     .accessibilityValue(
@@ -323,15 +327,26 @@ struct PlanView: View {
       ViewThatFits(in: .horizontal) {
         HStack(spacing: 8) {
           scheduleButton(slot, plan: plan)
-          servingsControl(slot)
+          ratingButtons(slot)
         }
         VStack(alignment: .leading, spacing: 4) {
           scheduleButton(slot, plan: plan)
-          servingsControl(slot)
+          ratingButtons(slot)
         }
       }
-      thumbs(slot)
+      servingsControl(slot)
+      if (slot.rating ?? 0) > 0 {
+        Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
+      }
+      if (slot.rating ?? 0) < 0 { StarTip(id: "plan.disliked") }
     }
+  }
+
+  private func ratingButtons(_ slot: PlanSlot) -> some View {
+    ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
+      Task { await store.rateMeal(slot, next) }
+    }
+    .fixedSize(horizontal: true, vertical: false)
   }
 
   private func scheduleButton(_ slot: PlanSlot, plan: Plan) -> some View {
@@ -537,7 +552,7 @@ struct SavedPlansView: View {
             }
           }
         }
-      }.kitchenList().navigationTitle("Saved plans")
+      }.themeList().navigationTitle("Saved plans")
         .sheet(item: $deleting) { plan in
           RemovalConfirmation(title: "Delete this plan?", message: heading(plan), actionTitle: "Delete plan") {
             do {
@@ -659,17 +674,13 @@ func dayTitle(_ start: String, _ index: Int) -> String {
 }
 
 /// Review a suggested plan in the app's own plain style (not Taste Lab's cards): a rounded
-/// landscape photo with a white swap button in its corner, then the name and cook time.
+/// square photo with a white swap button in its corner, then the name and cook time.
 private struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var swapping: PlanSlot?
   @State private var busy = false
-  @State private var captionHeights: [Int: CGFloat] = [:]
-  @State private var headerHeight: CGFloat = 40
-  @State private var actionsHeight: CGFloat = 44
-  @State private var improveHeight: CGFloat = 20
   var body: some View {
     NavigationStack {
       GeometryReader { geometry in
@@ -679,7 +690,6 @@ private struct SuggestedPlanReview: View {
               Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
             }
             .disabled(store.proposal?.status != "suggested")
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             if let error = store.proposalError {
               ErrorBanner(message: error)
               Button("Dismiss error") { store.proposalError = nil }
@@ -687,7 +697,7 @@ private struct SuggestedPlanReview: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
               ForEach(store.proposal?.slots ?? []) { slot in
                 VStack(alignment: .leading, spacing: 8) {
-                  Color.clear.frame(height: photoHeight(in: geometry.size))
+                  Color.clear.aspectRatio(1, contentMode: .fit)
                     .overlay {
                       NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
                     }
@@ -716,9 +726,6 @@ private struct SuggestedPlanReview: View {
                       Text("Your selection").font(Theme.subtitle).foregroundStyle(Theme.muted)
                     }
                   }
-                  .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
-                    captionHeights[slot.id] = $0
-                  }
                 }
               }
             }
@@ -730,13 +737,11 @@ private struct SuggestedPlanReview: View {
               }
             }
             .padding(.top, 4)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionsHeight = $0 }
             NavigationLink { TasteLabView(swipe: true) } label: {
               Label("Improve suggestions", systemImage: "hand.draw")
                 .font(Theme.action).foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { improveHeight = $0 }
           }.padding().disabled(busy)
         }
       }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
@@ -768,24 +773,6 @@ private struct SuggestedPlanReview: View {
       .frame(maxWidth: .infinity, minHeight: 50)
       .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
       .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line, lineWidth: 1.5))
-  }
-  /// Photos are landscape rectangles: 4:3 at most, shorter when that lets four meals and the
-  /// buttons fit on one screen. Never square.
-  private func photoHeight(in size: CGSize) -> CGFloat {
-    // Geometry can briefly be zero during sheet presentation or tab resets.
-    let padding: CGFloat = textSize.isAccessibilitySize ? 32 : 44
-    guard size.width.isFinite, size.width > padding else { return 0 }
-    let width = (size.width - padding) / (textSize.isAccessibilitySize ? 1 : 2)
-    let rectangle = width * 3 / 4
-    if let slots = store.proposal?.slots, slots.count >= 4, !textSize.isAccessibilitySize {
-      let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
-      let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
-      // Padding, stack/grid gaps, and the gap between each photo and caption.
-      let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 80
-      guard size.height.isFinite, reserved.isFinite else { return rectangle }
-      return min(rectangle, max(96, (size.height - reserved) / 2))
-    }
-    return rectangle
   }
   private func run(_ work: @escaping () async -> Void) {
     busy = true

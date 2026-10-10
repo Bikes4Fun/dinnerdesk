@@ -162,7 +162,7 @@ struct AuthView: View {
         Section {
           VStack(alignment: .leading, spacing: 6) {
             Text(Copy.appName)
-              .font(KitchenStyle.bigTitle)
+              .font(Theme.bigTitle)
               .foregroundStyle(Theme.ink)
             Text(Copy.text("app.tagline"))
               .foregroundStyle(Theme.muted)

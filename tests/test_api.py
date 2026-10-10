@@ -1228,10 +1228,15 @@ def test_unknown_api_requests_say_what_happened(tmp_path, caplog):
     with caplog.at_level(logging.WARNING, logger="dinnerdesk.api"):
         missing = client.post("/api/no-such-route", headers={"X-Dinnerdesk-App": "ios 1.0 (7)"})
         wrong = client.delete("/api/health")
+        included = client.post("/api/recipes/1")
+        auth = client.patch("/api/auth/status")
     assert missing.status_code == 404
     assert missing.json() == {"error": "not_found", "detail": "route", "method": "POST", "path": "/api/no-such-route"}
     assert wrong.status_code == 405
     assert wrong.json()["allowed"] == ["GET"]
     assert wrong.headers["allow"] == "GET"
+    assert included.status_code == 405
+    assert "GET" in included.json()["allowed"] and "POST" not in included.json()["allowed"]
+    assert auth.status_code == 405 and auth.json()["allowed"] == ["GET"]
     assert "POST /api/no-such-route -> 404" in caplog.text and "ios 1.0 (7)" in caplog.text
     assert client.get("/api/health").json() == {"ok": True}  # real routes still win

@@ -610,7 +610,7 @@ img { display: block; max-width: 100%; }
   background: var(--surface);
   border: 1px solid var(--line);
 }
-.feature-img { width: 100%; height: 160px; object-fit: cover; background: var(--soft); }
+.feature-img { width: 100%; height: auto; aspect-ratio: 1; background: var(--soft); }
 .feature-copy { padding: 0.9rem 1rem 1rem; color: var(--ink); }
 .feature-copy span {
   font-size: 0.68rem;
@@ -836,7 +836,7 @@ img { display: block; max-width: 100%; }
 .tab-btn.is-on { background: var(--soft); color: var(--ink); }
 .recipe-layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .recipe-side { display: none; }
-.hero { width: 100%; height: 200px; object-fit: cover; object-position: center; border-radius: 14px; margin-bottom: 1rem; }
+.hero { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; object-position: center; border-radius: 14px; margin-bottom: 1rem; }
 .ing-heading { margin: 1.1rem 0 0.45rem; font-size: 0.92rem; }
 .steps { padding-left: 1.2rem; }
 .steps > li { margin: 0 0 1.15rem; }
@@ -1010,7 +1010,8 @@ img { display: block; max-width: 100%; }
 .gitem-photo {
   display: block;
   width: 100%;
-  height: 180px;
+  height: auto;
+  aspect-ratio: 1;
   padding: 0;
   border-radius: 14px;
   overflow: hidden;
@@ -1032,8 +1033,7 @@ img { display: block; max-width: 100%; }
   border-bottom: 1px solid var(--line);
   text-align: left;
 }
-.g-meal img,
-.g-meal .ph {
+.g-meal .food-photo {
   width: 72px;
   height: 72px;
   border-radius: 10px;
@@ -1303,7 +1303,7 @@ img { display: block; max-width: 100%; }
   .fab { bottom: 1.5rem; }
   .action-sheet { bottom: 1.5rem; }
   .feature { grid-template-columns: 1.2fr 1fr; }
-  .feature-img { height: 100%; min-height: 180px; }
+  .feature-img { height: auto; aspect-ratio: 1; }
   .card {
     flex: 0 0 225px;
     width: 225px;
@@ -1330,7 +1330,8 @@ img { display: block; max-width: 100%; }
   .recipe-open-photo,
   .recipe-row .thumb-sq {
     width: 100%;
-    height: 225px;
+    height: auto;
+    aspect-ratio: 1;
     border-radius: 0;
   }
   .recipe-copy { padding: 0.75rem 0.85rem 1.2rem; }
@@ -1394,7 +1395,7 @@ img { display: block; max-width: 100%; }
 .plan-meal { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .plan-meal.grid { flex-direction: column; }
 .plan-meal .meal-photo-wrap { flex: 0 0 96px; width: 96px; height: 96px; }
-.plan-meal.grid .meal-photo-wrap { flex: none; width: 100%; height: 140px; }
+.plan-meal.grid .meal-photo-wrap { flex: none; width: 100%; height: auto; aspect-ratio: 1; }
 .plan-meal .meal-photo-btn { width: 100%; height: 100%; }
 .plan-meal .meal-photo-btn img { width: 100%; height: 100%; object-fit: cover; }
 .plan-meal .meal-copy { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 8px; }
@@ -1426,10 +1427,10 @@ img { display: block; max-width: 100%; }
 .grocery-amount-row, .grocery-substitute-row { display: flex; align-items: center; gap: 12px; min-height: 36px; font-weight: 600; }
 .grocery-amount-row input { margin-left: auto; text-align: right; width: 45%; border: 0; background: transparent; padding: 0; }
 .grocery-substitute-row .field { flex: 1; min-width: 0; margin: 0; padding: .5rem .75rem; }
-.ingredient-banner { flex-shrink: 0; width: 100%; height: clamp(160px, 23dvh, 220px); border-radius: 16px; overflow: hidden; background: var(--surface); }
+.ingredient-banner { flex-shrink: 0; width: 100%; height: auto; aspect-ratio: 1; border-radius: 16px; overflow: hidden; background: var(--surface); }
 .ingredient-banner img { width: 100%; height: 100%; object-fit: cover; }
 .grocery-editor .g-meal { grid-template-columns: 56px minmax(0, 1fr); padding: 0; border: 0; }
-.grocery-editor .g-meal img, .grocery-editor .g-meal .ph { width: 56px; height: 56px; }
+.grocery-editor .g-meal .food-photo { width: 56px; height: 56px; }
 .grocery-editor .g-meal strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .grocery-item-settings .toggle-row { min-height: 44px; margin: 0; padding: .5rem 0; border-bottom: 1px solid var(--line); }
 .grocery-item-settings .toggle-row:last-child { border: 0; }
@@ -1510,14 +1511,14 @@ img { display: block; max-width: 100%; }
 .saved-row-delete:hover { background: var(--coral-tint); }
 
 /* Suggested plan review, in the app's own plain style (not Taste Lab's cards). Photos are
-   rounded landscape rectangles with a white swap button in the corner. */
+   rounded square photos with a white swap button in the corner. */
 .suggested-plan { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
 .suggested-plan h2 { margin: 0; }
 .sp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 .suggested-plan .proposal-meal { gap: 4px; }
 .suggested-plan .proposal-photo { position: relative; margin-bottom: 4px; }
 .suggested-plan .proposal-open { display: block; width: 100%; padding: 0; border-radius: 14px; overflow: hidden; }
-.suggested-plan .proposal-open img, .proposal-ph { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--soft); }
+.suggested-plan .proposal-open img, .proposal-ph { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--soft); }
 .suggested-plan .proposal-swap { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border-radius: 50%; background: var(--surface); color: var(--accent); font-size: 22px; font-weight: 700; box-shadow: 0 1px 4px rgba(46, 26, 44, 0.18); }
 .suggested-plan .proposal-meal strong { color: var(--ink); line-height: 1.25; overflow-wrap: normal; word-break: normal; }
 .suggested-plan .proposal-meal .muted { font-size: 0.85rem; }
@@ -1560,3 +1561,12 @@ img { display: block; max-width: 100%; }
   /* A docked action bar would cover most of a short screen; it sits after the content instead. */
   .dock { position: static; }
 }
+
+/* Settings → Filters: Taste Lab's filter chips (soft tint, aubergine when on). */
+.filter-chips { gap: 0.35rem; }
+.filter-chips .chip { min-height: 36px; padding: 0.45rem 0.7rem; line-height: 1.25; }
+
+/* One geometry contract for recipe and ingredient photos on every screen. */
+.food-photo { display: block; position: relative; width: 100%; flex-shrink: 0; overflow: hidden; border-radius: inherit; background: var(--soft); }
+.food-photo > img, .food-photo > .food-photo-placeholder { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
+.food-photo.g-thumb { width: 40px; }

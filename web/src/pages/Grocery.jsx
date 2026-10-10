@@ -1,6 +1,7 @@
+import FoodPhoto from "../FoodPhoto.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { GroceryPick } from "../GroceryPick.jsx";
-import { api, photoSrc } from "../api.js";
+import { api } from "../api.js";
 import { go } from "../nav.js";
 
 const DEFAULT_STORES = [
@@ -489,7 +490,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
       </button>
       {showEmoji ? <span className="g-emo">{groceryEmoji(line.name)}</span> : null}
       {line.ingredient_photo_path ? (
-        <img className="g-thumb" src={photoSrc(line.ingredient_photo_path)} alt="" />
+        <FoodPhoto className="g-thumb" path={line.ingredient_photo_path} hideUnavailable />
       ) : null}
       <button type="button" className="g-main" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
         <span className="g-name">{line.name}</span>
@@ -505,7 +506,6 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
   const [name, setName] = useState(item.name);
   const [substitute, setSubstitute] = useState("");
   const [qty, setQty] = useState(item.quantity || "");
-  const [failedPhoto, setFailedPhoto] = useState(null);
   useEffect(() => {
     setQty(item.quantity || "");
   }, [item.id, item.quantity]);
@@ -525,11 +525,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         <label className="grocery-amount-row" htmlFor="grocery-item-amount">Quantity
           <input id="grocery-item-amount" aria-label="Quantity" value={qty} onChange={(e) => setQty(e.target.value)} onBlur={() => onPatch({ quantity: qty })} />
         </label>
-        {item.ingredient_photo_path && failedPhoto !== item.ingredient_photo_path && (
-          <div className="ingredient-banner">
-            <img src={photoSrc(item.ingredient_photo_path)} alt={item.name} onError={() => setFailedPhoto(item.ingredient_photo_path)} />
-          </div>
-        )}
+        <FoodPhoto className="ingredient-banner" path={item.ingredient_photo_path} alt={item.name} hideUnavailable />
         <label className="grocery-substitute-row">Substitute
           <input className="field" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
         </label>
@@ -544,11 +540,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
                 className="g-meal"
                 onClick={() => meal.id && go(`/recipes/${meal.id}`)}
               >
-                {meal.photo_path ? (
-                  <img src={photoSrc(meal.photo_path)} alt="" />
-                ) : (
-                  <span className="ph" />
-                )}
+                <FoodPhoto path={meal.photo_path} />
                 <span>
                   <strong>{meal.name}</strong>
                   {meal.cooking_minutes ? <em>{meal.cooking_minutes} min</em> : null}

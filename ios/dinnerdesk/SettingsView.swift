@@ -8,52 +8,57 @@ struct SettingsView: View {
   var body: some View {
     List {
       Section {
-        NavigationLink {
-          FiltersView()
-        } label: {
-          KitchenIconRow(title: "Filters", systemImage: "slider.horizontal.3")
-        }
+        // NavigationLink {
+        //   FiltersView()
+        // } label: {
+        //   ThemeIconRow(title: "Filters", systemImage: "slider.horizontal.3")
+        // }
         NavigationLink {
           AccountView()
         } label: {
-          KitchenIconRow(
+          ThemeIconRow(
             title: "Account & security",
             systemImage: "person.crop.circle",
             value: session.status?.email ?? "Guest"
           )
         }
-        NavigationLink {
-          TasteLabView()
-        } label: {
-          KitchenIconRow(title: "Taste Lab", systemImage: "hand.draw")
-        }
-        Button {
-          session.showTour = true
-        } label: {
-          KitchenIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
-        }
-        .accessibilityHint("Replays the first-run tour")
+
         NavigationLink {
           PrivacyView()
         } label: {
-          KitchenIconRow(title: "Privacy", systemImage: "hand.raised")
+          ThemeIconRow(title: "Privacy", systemImage: "hand.raised")
         }
         Link(destination: API.origin.appending(path: "support")) {
-          KitchenIconRow(title: "Help & support", systemImage: "questionmark.circle")
+          ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
         .accessibilityHint("Opens the support page in Safari")
-      }
-      .kitchenRows()
 
-      KitchenSection("About recipes & photos") {
+          NavigationLink {
+            SettingsView()
+          } label: {
+            ThemeIconRow(title: "Settings", systemImage: "gearshape")
+          }
+          if let url = URL(string: "https://dinnerdesk.computerscience.build") {
+            Link(destination: url) {
+              ThemeIconRow(title: "\(Copy.appName) on the web", systemImage: "safari")
+            }
+          }
+          Link(destination: URL(string: "https://x.com/DinnerDesk")!) {
+            ThemeIconRow(
+              title: "Twitter", systemImage: "bubble.left.and.bubble.right", value: "@DinnerDesk")
+          }
+      }
+      .themeRows()
+
+      ThemeSection("About recipes & photos") {
         Text(Copy.text("settings.gold-star"))
           .font(Theme.subtitle)
           .foregroundStyle(Theme.muted)
           .accessibilityIdentifier("tip.settings.gold-star")
-          .kitchenBareRow()
+          .themeBareRow()
       }
     }
-    .kitchenList()
+    .themeList()
     .navigationTitle("Settings")
     .largeNavigationTitle()
   }
@@ -396,21 +401,21 @@ struct AccountView: View {
   var body: some View {
     List {
       if let message {
-        Text(message).foregroundStyle(KitchenStyle.ok).kitchenBareRow()
+        Text(message).foregroundStyle(Theme.ok).themeBareRow()
       }
       if let error {
-        ErrorBanner(message: error).kitchenBareRow()
+        ErrorBanner(message: error).themeBareRow()
       }
 
       if signedIn {
-        KitchenSection("Signed in") {
+        ThemeSection("Signed in") {
           Label(session.status?.email ?? "", systemImage: "person.crop.circle")
             .font(Theme.body).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
         }
-        .kitchenRows()
+        .themeRows()
 
-        KitchenSection("Password") {
+        ThemeSection("Password") {
           Button { Task { await resetPassword() } } label: {
             Label("Reset password", systemImage: "key")
           }
@@ -418,9 +423,9 @@ struct AccountView: View {
           Text("Email a reset link to your signed-in address.")
             .font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
-        .kitchenRows()
+        .themeRows()
 
-        KitchenSection("Household") {
+        ThemeSection("Household") {
           TextField("Household name", text: $householdName)
             .textContentType(.organizationName)
             .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
@@ -448,7 +453,7 @@ struct AccountView: View {
             Task { for member in doomed { await remove(member) } }
           }
         }
-        .kitchenRows()
+        .themeRows()
 
         Section {
           Button("Sign out") { Task { await session.signOut() } }
@@ -459,7 +464,7 @@ struct AccountView: View {
             .foregroundStyle(Theme.muted)
             .accessibilityIdentifier("tip.settings.sign-out-everywhere")
         }
-        .kitchenRows()
+        .themeRows()
 
         Section {
           Button("Delete account", role: .destructive) { deletingAccount = true }
@@ -470,7 +475,7 @@ struct AccountView: View {
             .font(Theme.subtitle)
             .foregroundStyle(Theme.muted)
         }
-        .kitchenRows()
+        .themeRows()
       } else {
         Section {
           Text(
@@ -478,14 +483,14 @@ struct AccountView: View {
           )
           .font(Theme.subtitle)
           .foregroundStyle(Theme.muted)
-          .kitchenBareRow()
+          .themeBareRow()
           Button("Sign in or create account") { signingIn = true }
             .font(Theme.mealName)
-            .kitchenRows()
+            .themeRows()
         }
       }
     }
-    .kitchenList()
+    .themeList()
     .tint(Theme.accent)
     .navigationTitle("Account & security")
     .navigationBarTitleDisplayMode(.inline)
@@ -585,7 +590,7 @@ private struct DeleteAccountSheet: View {
   var body: some View {
     NavigationStack {
       List {
-        if let error { ErrorBanner(message: error).kitchenBareRow() }
+        if let error { ErrorBanner(message: error).themeBareRow() }
         Section {
           Text(alone
             ? "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
@@ -596,14 +601,14 @@ private struct DeleteAccountSheet: View {
             .textContentType(.password)
             .onSubmit { Task { await delete() } }
         }
-        .kitchenRows()
+        .themeRows()
         Section {
           Button("Delete account", role: .destructive) { Task { await delete() } }
             .disabled(busy || password.isEmpty)
         }
-        .kitchenRows()
+        .themeRows()
       }
-      .kitchenList()
+      .themeList()
       .navigationTitle("Delete account")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {

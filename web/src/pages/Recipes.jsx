@@ -1,5 +1,6 @@
+import FoodPhoto from "../FoodPhoto.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, photoSrc } from "../api.js";
+import { api } from "../api.js";
 import { RecipeCard, RecipeRow, hasTag } from "../cards.jsx";
 import { Icon } from "../icons.jsx";
 import { go } from "../nav.js";
@@ -190,7 +191,7 @@ function TemplateCard({ family, onOpen }) {
     <div className="card">
       <div className="card-img">
         <button type="button" className="card-open" onClick={() => onOpen(family)}>
-          {family.photo_path ? <img src={photoSrc(family.photo_path)} alt="" /> : <span className="ph-fill" />}
+          <FoodPhoto path={family.photo_path} />
         </button>
       </div>
       <button type="button" className="card-open" onClick={() => onOpen(family)}>

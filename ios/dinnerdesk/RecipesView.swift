@@ -461,6 +461,7 @@ struct RecipeDetailView: View {
   @State private var tab: RecipePageTab = .overview
   @State private var nameExpanded = false
   @State private var draftServings: Int?
+  @State private var familyPortions: Int?
   /// Tagging steps as Prep edits the recipe, which only Dinnerdesk admins may do.
   @State private var admin = false
 
@@ -468,7 +469,7 @@ struct RecipeDetailView: View {
     if let slot = store.plan?.slots.first(where: { $0.recipeId == id }) {
       return slot.servings
     }
-    return draftServings ?? recipe?.servings ?? 4
+    return draftServings ?? familyPortions ?? recipe?.servings ?? 4
   }
 
   var body: some View {
@@ -614,6 +615,10 @@ struct RecipeDetailView: View {
     .task {
       do {
         recipe = try await API.get("recipes/\(id)")
+        if let prefs = try? await KitchenAPI.prefs(),
+          let portions = prefs["family_portions"] as? Int, (1...50).contains(portions) {
+          familyPortions = portions
+        }
       } catch {
         self.error = error.localizedDescription
       }
@@ -724,7 +729,7 @@ struct RecipeDetailView: View {
     adding = true
     defer { adding = false }
     if removing { await store.removeFromWeek(recipeId: id) }
-    else { await store.addToWeek(recipeId: id, servings: mealServings) }
+    else { await store.addToWeek(recipeId: id, servings: draftServings) }
     if added != removing {
       planNotice = removing ? "Removed from this plan" : "Added to this plan"
     } else { error = store.error }

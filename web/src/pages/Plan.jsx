@@ -1,5 +1,6 @@
+import FoodPhoto from "../FoodPhoto.jsx";
 import { useEffect, useState } from "react";
-import { api, photoSrc } from "../api.js";
+import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
 import { Tip } from "../Tip.jsx";
@@ -173,7 +174,7 @@ export function Plan() {
           return <div key={s.id} className="proposal-meal">
             <div className="proposal-photo">
               <button type="button" className="proposal-open" aria-label={`Open ${s.recipe_name}`} onClick={() => go(`/recipes/${s.recipe_id}`)}>
-                {s.photo_path ? <img src={photoSrc(s.photo_path)} alt="" /> : <span className="proposal-ph" />}
+                <FoodPhoto path={s.photo_path} />
               </button>
               {swappable && <button type="button" className="proposal-swap" aria-label={`Swap meal: ${s.recipe_name}`} disabled={busy || proposal.status !== "suggested"} onClick={() => { setSwapping(s); setSwapQuery(""); setSwapOptions([]); }}>⟳</button>}
             </div>
@@ -219,7 +220,7 @@ export function Plan() {
             {editing && <label className="meal-select"><input aria-label={`Select ${slot.recipe_name}`} type="checkbox" checked={selected.has(slot.id)} onChange={() => toggleSelection(slot.id)} /></label>}
             <div className={`meal-photo-wrap${slot.cooked ? " plan-completed" : ""}`}>
               <button type="button" className="meal-photo-btn" aria-label={`Open ${slot.recipe_name}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}>
-                {slot.photo_path ? <img src={photoSrc(slot.photo_path)} alt="" /> : <span className="ph" />}
+                <FoodPhoto path={slot.photo_path} />
               </button>
               {!editing && <button type="button" className="meal-check" disabled={busy} aria-pressed={slot.cooked} aria-label={slot.cooked ? "Mark not cooked" : "Mark cooked"} onClick={() => act(() => patch(slot, { cooked: !slot.cooked }))}>{slot.cooked ? "✓" : ""}</button>}
             </div>

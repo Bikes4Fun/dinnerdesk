@@ -14,7 +14,7 @@
 .tp-bar.dark { background: rgba(74, 22, 70, 0.35); }
 .tp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .tp-tile { display: flex; flex-direction: column; gap: 5px; }
-.tp-photo { display: block; height: 46px; border-radius: 8px; }
+.tp-photo { display: block; aspect-ratio: 1; height: auto; border-radius: 8px; }
 .tp-photo.small { flex: none; width: 40px; height: 40px; border-radius: 7px; }
 .tp-photo.coral { background: var(--coral-tint); }
 .tp-photo.plum { background: #f1e7ef; }

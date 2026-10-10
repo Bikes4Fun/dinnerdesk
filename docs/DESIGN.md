@@ -55,6 +55,10 @@ Swiping skips the guided quiz/plan sequence and ends after its meal batch; revie
 does not require swiping first. Filters remain editable in either activity. Both activities
 are offered as optional next steps after a session.
 
+The Taste Lab introduction separates its photo mosaic, heading, summary, activity buttons,
+and privacy note with generous vertical spacing. These intro rules do not change swipe
+cards or suggested-plan sizing. Small screens and larger text can scroll.
+
 - **Must:** "Not for us" shows another plan, not a dead end. Swapping a meal in a sample plan
   offers choices, with **More options**. "None" clears allergies or avoids. When nothing is left,
   say so clearly and suggest what to change.
@@ -73,7 +77,7 @@ review, not a new plan.
 - **Must:** review keeps headings and controls compact; explanatory suggestion text is
   omitted from the visible review (updated October 9).
 - **Must:** review uses the app's own plain style, not Taste Lab's bordered cards: a rounded
-  landscape photo (never square) with a white swap button in its corner, then the name and cook
+  square photo with a white swap button in its corner, then the name and cook
   time. Approve plan (filled) and Suggest another (outlined) are equal full-width buttons, with
   Improve suggestions centered below.
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
@@ -100,12 +104,20 @@ rest. Diet and avoid filters are hard rules (see 5).
 
 This week's meals, scheduled on days or unscheduled. Grocery and prep follow this plan.
 
+Family portions is the default serving count for recipes being browsed and meals newly
+added or suggested. An explicit serving choice overrides it; meals already on the plan
+keep their saved servings. Scaling uses the recipe's original yield, which is not rewritten
+by this preference. Without a valid saved preference, use the recipe's own yield.
+
 - **Must:** add, move, remove, or change servings on one meal without rebuilding the week.
   The slot keeps the same recipe id (this kitchen's overlay, if any).
 - **Must:** unscheduled meals count toward groceries. Marking a meal cooked keeps it on the plan,
   faded, and moving it to another day keeps it cooked.
 - **Must:** Edit mode handles servings, scheduling, selecting several meals (mark cooked or
   remove), and 👍/👎 per meal. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
+  iPhone selection sits on the right rather than occupying a column beside every photo.
+  Schedule and voting share one row when they fit; servings use the next row. Narrow layouts
+  and larger text stack controls, while vote explanations remain below the controls.
 - **Must:** While editing, a visible **Done** sits in the plan header beside ⋯ (iPhone and
   website). Done leaves Edit mode and clears the selection; ⋯ → Finish editing does the same.
 - **Must:** save the plan as a draft without replacing it. Starting a new plan moves the live
@@ -335,6 +347,10 @@ Routes live in `app/routes.py`, `app/auth_routes.py`, and `app/taste_lab.py`, al
 `/api`. The interactive API docs are turned off on the server. Errors are JSON
 `{error, detail}`.
 
+Unknown API paths return 404; unsupported methods on known paths return 405 with the
+allowed methods. Diagnostics inspect included API routers as well as direct app routes,
+exclude the website fallback, and log the requesting app build without crashing.
+
 ### Outside services
 
 Build it ourselves by default, and prefer data tables we own (ingredients, nutrients, package
@@ -401,7 +417,7 @@ ingredient words remain readable at accessibility sizes.
 
 Recipes with existing Dinnerdesk-authored rewrite provenance, show “Instructions customized by Dinnerdesk” above Cook steps on iPhone and web. The importer retains the original rewrite source. This editorial label does not indicate kitchen testing. Private recipe revisions and original backups stay outside Git; publishing them requires the explicit catalog import.
 
-Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. Four meals use available screen height and measured caption/control heights to size photos across iPhones at non-accessibility text sizes. Very short screens, additional meals, and accessibility text can scroll. Clients derive the visible note directly from existing `instructions_source` and `instructions_copied_from_third_party` provenance; there is no additional customization flag in the catalog or API. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.
+Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. All food photos use shared square components with center-cropped fill across iOS, web, and Taste Lab. Photo shape stays square at every meal count and text size. Very short screens, additional meals, and accessibility text can scroll. Clients derive the visible note directly from existing `instructions_source` and `instructions_copied_from_third_party` provenance; there is no additional customization flag in the catalog or API. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.
 
 Selected tabs use bold labels on iPhone and bold underlined labels on web, with aria-current
 on web links. Selection remains visible without relying on accent color.
@@ -434,7 +450,7 @@ behavior. For example, Grocery → garlic → Plan → Grocery must show the gro
 Saved data and the current meal plan remain intact. On web, primary navigation remounts
 the destination screen without reloading the page.
 
-Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, measured four-meal layout, circular swap controls, and declined-proposal retry state.
+Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, square photo layout, circular swap controls, and declined-proposal retry state.
 
 Screenshot follow-up: adding a fifth or later suggested meal keeps the four-meal photo
 height calculation, with scrolling for extra rows. The replacement picker uses the cream

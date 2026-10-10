@@ -21,14 +21,18 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
   replacement-picker styling, direct filter recovery links, and empty-plan action alignment.
   Remaining screenshot work, after checking existing implementations:
   - Compact Account & security; simplify household naming/invite layout.
-  - Add breathing room to Taste Lab's returning-user screen; reconcile its cards/actions
-    with the preferred earlier simple suggestion layout.
-  - Verify generic ingredient photo configuration (the private gallery already has garlic).
+  - Taste Lab returning-user spacing fixed on `codex/screenshot-tastelab-spacing`.
+    Reconcile its cards/actions with the preferred earlier simple suggestion layout.
+  - Generic ingredient photos: private gallery has garlic, but the live
+    `/grocery-food/garlic.jpg` URL returned 404 on Oct 9. Verify/upload the ingredient
+    gallery and configure its persistent `GROCERY_PHOTO_DIR` before visual retesting.
   - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
-  - Make family portions the default when browsing recipes and adding new meals.
+  - Family portions default fixed on `codex/screenshot-family-portions`: recipe browsing,
+    new additions and suggestions use the saved value; explicit/existing servings stay intact.
   - Issue #36 follow-up (`codex/issue-36-tab-return-root`): destination reset now runs for
     every tab selection, including Grocery ingredient details. Verify across all tabs.
-  - Move edit selection to the right and arrange Schedule/votes/servings into compact rows.
+  - Plan edit layout fixed on `codex/issue-30-screenshot-edit-layout`: selection on the
+    right, Schedule/votes in one row when they fit, servings in the next row.
   - Decide whether Build from scratch opens Recipes or creates an empty plan.
   Sources: annotated PNGs in `docs/`, `my kitchen to do/`, `groceries page to do/`, and
   `suggestion meal plan to do/`. Keep these private screenshots out of Git.
@@ -59,6 +63,9 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
       `docs/quick start to do/filters screen in settings is lacking basically everything it should math or exceed tastelab filters system.png`
 - [ ] Raw error text on screen: "HTTP 405 Method Not Allowed" on This week. Errors should be in
       plain words, on the screen they belong to, with how to recover.
+      Follow-up on `codex/issue-2-router-diagnostics`: fixed a server diagnostic crash with
+      newer FastAPI router wrappers; missing paths and wrong methods now return useful JSON.
+      The original user action that triggered the screenshot still needs reproduction.
       `docs/suggestion meal plan to do/no easy done editing button.png`
 - [x] Recipe page ⋯ offers "Add to this plan" for a meal that's already on the plan.
       `docs/recipes page to do/this meal is already in a plan.png`

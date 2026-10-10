@@ -166,6 +166,139 @@ enum Theme {
   }
 }
 
+// MARK: - Shared list chrome
+// Reused on Grocery, Kitchen, More, Settings, Pantry, Plan drafts, Tour.
+
+/// Section header that stops pinning once the type size would eat the screen.
+struct ThemeSection<Content: View, Footer: View>: View {
+  let title: String
+  let content: Content
+  let footer: Footer
+  @Environment(\.dynamicTypeSize) private var typeSize
+
+  init(
+    _ title: String, @ViewBuilder content: () -> Content, @ViewBuilder footer: () -> Footer
+  ) {
+    self.title = title
+    self.content = content()
+    self.footer = footer()
+  }
+
+  private var pin: Bool { typeSize < .accessibility1 }
+
+  var body: some View {
+    if pin {
+      Section {
+        content
+      } header: {
+        ThemeHeader(title)
+      } footer: {
+        footer
+      }
+    } else {
+      Section {
+        ThemeHeader(title)
+          .listRowInsets(EdgeInsets(top: 18, leading: 20, bottom: 4, trailing: 20))
+          .themeBareRow()
+        content
+      } footer: {
+        footer
+      }
+    }
+  }
+}
+
+extension ThemeSection where Footer == EmptyView {
+  init(_ title: String, @ViewBuilder content: () -> Content) {
+    self.init(title, content: content, footer: { EmptyView() })
+  }
+}
+
+/// Small grey all-caps section header, like PRODUCE on the grocery list.
+struct ThemeHeader: View {
+  let text: String
+
+  init(_ text: String) {
+    self.text = text
+  }
+
+  var body: some View {
+    Text(text.uppercased())
+      .font(Theme.sectionHeader)
+      .tracking(0.8)
+      .foregroundStyle(Theme.muted.opacity(0.85))
+      .textCase(nil)
+      .padding(.top, 6)
+  }
+}
+
+/// Grey outline icon, bold label, optional grey value on the right.
+struct ThemeIconRow: View {
+  let title: String
+  let systemImage: String
+  var value: String?
+  @Environment(\.dynamicTypeSize) private var typeSize
+
+  var body: some View {
+    if typeSize.isAccessibilitySize {
+      // Large text: the value goes under the title, so the title keeps the full width
+      // instead of being squeezed into a column beside "5 aisles".
+      HStack(alignment: .top, spacing: 14) {
+        icon.padding(.top, 6)
+        VStack(alignment: .leading, spacing: 2) {
+          titleText
+          if let value { valueText(value) }
+        }
+        Spacer(minLength: 0)
+      }
+      .frame(minHeight: 44)
+    } else {
+      HStack(spacing: 14) {
+        icon
+        titleText
+        Spacer(minLength: 8)
+        if let value { valueText(value).lineLimit(1) }
+      }
+      .frame(minHeight: 44)
+    }
+  }
+
+  private var icon: some View {
+    Image(systemName: systemImage)
+      .font(.system(size: 19))
+      .foregroundStyle(Theme.muted)
+      .frame(width: 26)
+      .accessibilityHidden(true)
+  }
+
+  private var titleText: some View {
+    Text(title)
+      .font(Theme.mealName)
+      .foregroundStyle(Theme.ink)
+      .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private func valueText(_ value: String) -> some View {
+    Text(value)
+      .foregroundStyle(Theme.muted)
+      .monospacedDigit()
+  }
+}
+
+/// "+ Add item" row in the accent color. Pantry, Always checked off, Stores aisles, Substitutions.
+struct ThemeAddRow: View {
+  let title: String
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Label(title, systemImage: "plus")
+        .font(Theme.mealName)
+        .foregroundStyle(Theme.accent)
+    }
+  }
+}
+
 extension View {
   /// `.toolbarTitleDisplayMode(.large)` and a per-bar scroll-edge appearance that
   /// hides the compact title row only while this screen is visible.
@@ -175,6 +308,32 @@ extension View {
         LargeTitleScrollEdge()
           .allowsHitTesting(false)
       }
+  }
+
+  /// Plain list on the app background with hairline separators.
+  func themeList() -> some View {
+    listStyle(.plain)
+      .scrollContentBackground(.hidden)
+      .background(Theme.bg)
+      .environment(\.defaultMinListRowHeight, 56)
+  }
+
+  /// Row background and separator color for rows in a `themeList`.
+  func themeRows() -> some View {
+    listRowBackground(Theme.bg)
+      .listRowSeparatorTint(Theme.line)
+  }
+
+  /// A row that shouldn't look like a row (banners, explanations, chip clouds).
+  func themeBareRow() -> some View {
+    listRowBackground(Theme.bg)
+      .listRowSeparator(.hidden)
+  }
+
+  /// Forms use the same page color as the lists, including the grouped card behind them.
+  func themeForm() -> some View {
+    scrollContentBackground(.hidden)
+      .background(Theme.bg)
   }
 }
 

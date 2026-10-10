@@ -1,4 +1,5 @@
-import { api, photoSrc } from "./api.js";
+import FoodPhoto from "./FoodPhoto.jsx";
+import { api } from "./api.js";
 import { go } from "./nav.js";
 import { useWeek } from "./week.jsx";
 
@@ -22,7 +23,7 @@ export function RecipeCard({ recipe, onChange }) {
     <div className="card">
       <div className="card-img">
         <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
-          {recipe.photo_path ? <img src={photoSrc(recipe.photo_path)} alt="" /> : <span className="ph-fill" />}
+          <FoodPhoto path={recipe.photo_path} />
         </button>
         <button
           type="button"
@@ -64,11 +65,7 @@ export function RecipeRow({ recipe, onChange }) {
     <div className="recipe-row">
       <div className="thumb-wrap">
         <button type="button" className="recipe-open-photo" onClick={() => go(`/recipes/${recipe.id}`)}>
-          {recipe.photo_path ? (
-            <img className="thumb-sq" src={photoSrc(recipe.photo_path)} alt="" />
-          ) : (
-            <span className="thumb-sq ph" />
-          )}
+          <FoodPhoto className="thumb-sq" path={recipe.photo_path} />
         </button>
         <button
           type="button"

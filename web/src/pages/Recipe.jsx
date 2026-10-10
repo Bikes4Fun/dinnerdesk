@@ -1,6 +1,7 @@
+import FoodPhoto from "../FoodPhoto.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
-import { api, photoSrc } from "../api.js";
+import { api } from "../api.js";
 import { go } from "../nav.js";
 import { parseIngLine } from "../parseIngredient.js";
 import { asSlotIn, useWeek } from "../week.jsx";
@@ -32,15 +33,23 @@ export function Recipe({ id }) {
   const [ings, setIngs] = useState("");
   const [steps, setSteps] = useState([]);
   const [draftServings, setDraftServings] = useState(null);
+  const [familyPortions, setFamilyPortions] = useState(null);
   const [showMore, setShowMore] = useState(false);
   const moreRef = useRef(null);
 
   useEffect(() => {
     setEditing(false);
     setDraftServings(null);
+    setFamilyPortions(null);
+    let active = true;
+    api.household().then((household) => {
+      const portions = household.prefs?.family_portions;
+      if (active && Number.isInteger(portions) && portions >= 1 && portions <= 50) setFamilyPortions(portions);
+    }).catch(() => {});
     setShowMore(false);
     api.recipe(id).then(setRecipe).catch((e) => setErr(e.message));
     week?.load?.().catch((e) => setErr(e.message));
+    return () => { active = false; };
   }, [id]);
 
   useEffect(() => {
@@ -140,7 +149,7 @@ export function Recipe({ id }) {
       const removing = plan.slots.some((slot) => slot.recipe_id === recipe.id);
       const slots = removing ? plan.slots.filter((slot) => slot.recipe_id !== recipe.id).map(asSlotIn) : [
         ...plan.slots.map(asSlotIn),
-        { recipe_id: recipe.id, day_index: null, meal_type: "dinner", servings: draftServings ?? recipe.servings },
+        { recipe_id: recipe.id, day_index: null, meal_type: "dinner", servings: draftServings ?? undefined },
       ];
       await api.putSlots(plan.id, slots);
       await week?.load?.();
@@ -158,7 +167,7 @@ export function Recipe({ id }) {
   const planSlots = (week?.plan?.slots || []).filter((s) => s.recipe_id === recipe.id);
   const mealServings = planSlots.length
     ? planSlots[0].servings
-    : (draftServings ?? recipe.servings ?? 4);
+    : (draftServings ?? familyPortions ?? recipe.servings ?? 4);
 
   async function bumpServings(delta) {
     const servings = Math.min(50, Math.max(1, (mealServings || 1) + delta));
@@ -335,7 +344,7 @@ export function Recipe({ id }) {
             <>
               {tab === "overview" && (
                 <>
-                  {recipe.photo_path && <img className="hero" src={photoSrc(recipe.photo_path)} alt="" />}
+                  <FoodPhoto className="hero" path={recipe.photo_path} hideUnavailable />
                   {recipe.photo_path && recipe.photo_ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
                   {recipe.photo_path && !recipe.photo_ai && recipe.photo_shared && <Tip id="recipes.shared-photo" className="ai-photo-tip">This photo is from a similar recipe, so it may not match this one exactly.</Tip>}
                   <ServingsMeta />

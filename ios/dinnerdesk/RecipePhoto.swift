@@ -3,30 +3,35 @@ import SwiftUI
 struct RecipePhoto: View {
   let path: String?
   var large = false
-  var bannerHeight: CGFloat = 220
-  /// Size to whatever frame the parent gives (thumbnails, tiles) instead of a fixed banner height.
-  /// Without this a 220pt-tall photo gets cropped down to a small box and looks zoomed in.
+  /// Square tiles expand to the available width; thumbnails default to 56 points.
   var fill = false
+  var hideUnavailable = false
   @State private var image: UIImage?
   @State private var failure: String?
 
   var body: some View {
-    let size: CGFloat = large ? bannerHeight : 56
     Group {
-      if let image {
-        Image(uiImage: image).resizable().scaledToFill()
-      } else if let failure {
-        Text("Photo failed: \(failure)").font(Theme.subtitle).foregroundStyle(.red)
-      } else {
-        placeholder
+      if !hideUnavailable || image != nil {
+        Color.clear.aspectRatio(1, contentMode: .fit)
+          .overlay {
+            GeometryReader { geometry in
+              Group {
+                if let image {
+                  Image(uiImage: image).resizable().scaledToFill()
+                } else {
+                  placeholder
+                }
+              }
+              .frame(width: geometry.size.width, height: geometry.size.height)
+              .clipped()
+            }
+          }
+          .frame(width: fill || large ? nil : 56)
+          .background(Theme.line)
+          .clipShape(RoundedRectangle(cornerRadius: large ? 16 : 8, style: .continuous))
       }
     }
     .task(id: path) { await load() }
-    .frame(width: fill || large ? nil : size, height: fill ? nil : size)
-    .frame(maxWidth: fill || large ? .infinity : nil, maxHeight: fill ? .infinity : nil)
-    .background(Theme.line)
-    .clipped()
-    .clipShape(RoundedRectangle(cornerRadius: large ? 16 : 8, style: .continuous))
   }
 
   private func load() async {

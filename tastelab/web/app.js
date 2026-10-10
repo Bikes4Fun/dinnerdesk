@@ -279,8 +279,10 @@ const macros = (r) => {
 
   const photo = (url, name, cls = "") => {
     const letter = esc((name || "?").slice(0, 1));
-    if (!url) return `<div class="ph ${cls}">${letter}</div>`;
-    return `<img class="${cls}" src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;ph ${cls}&quot;>${letter}</div>'" />`;
+    const content = url
+      ? `<img src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;ph&quot;>${letter}</div>'" />`
+      : `<div class="ph">${letter}</div>`;
+    return `<div class="food-photo ${cls}">${content}</div>`;
   };
 
   const heroMeals = () => {
@@ -598,7 +600,7 @@ const macros = (r) => {
       ? "Likes, passes, and filters are saved for your household and used to suggest meals."
       : "Sign in so likes and passes stay with your household. A guest kitchen is shared.";
     return `
-    <div class="shell">
+    <div class="shell welcome">
       ${mosaic}
       <h1 class="page">${started ? "Pick up where you left off." : "What do you like to cook?"}</h1>
       <p class="lead">${esc(summary)}</p>

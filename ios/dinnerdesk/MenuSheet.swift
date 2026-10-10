@@ -9,6 +9,7 @@ struct MenuSheetItem: Identifiable {
   var dismissOnSelection = true
   var isOn: Bool? = nil
   var status: String? = nil
+  var accent = false
   let action: () -> Void
 }
 
@@ -86,35 +87,46 @@ private struct MenuSheetBody: View {
       .padding(.bottom, 6)
 
       ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-        Button {
-          pick(item)
-        } label: {
-          HStack(spacing: 16) {
-            Image(systemName: item.systemImage)
-              .font(.system(size: 20))
-              .foregroundStyle(item.destructive ? Color.red : Theme.muted)
-              .frame(width: 28)
-            Text(item.title)
-              .font(Theme.rowTitle)
-              .foregroundStyle(item.destructive ? Color.red : Theme.ink)
-              .multilineTextAlignment(.leading)
-              .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-            if let on = item.isOn {
-              Image(systemName: on ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(on ? Theme.accent : Theme.muted)
-            }
-            if let status = item.status {
-              Text(status).font(Theme.subtitle).foregroundStyle(Theme.accent)
-            }
+        if item.accent {
+          Button {
+            pick(item)
+          } label: {
+            Label(item.title, systemImage: item.systemImage)
           }
-          .padding(.vertical, 8)
-          .frame(minHeight: 60)
-          .contentShape(Rectangle())
-          .padding(.horizontal, 20)
+          .buttonStyle(.borderedProminent)
+          .tint(Theme.accent)
+          .padding(.bottom, 8)
+        } else {
+          Button {
+            pick(item)
+          } label: {
+            HStack(spacing: 16) {
+              Image(systemName: item.systemImage)
+                .font(.system(size: 20))
+                .foregroundStyle(item.destructive ? Color.red : Theme.muted)
+                .frame(width: 28)
+              Text(item.title)
+                .font(Theme.rowTitle)
+                .foregroundStyle(item.destructive ? Color.red : Theme.ink)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
+              Spacer(minLength: 0)
+              if let on = item.isOn {
+                Image(systemName: on ? "checkmark.circle.fill" : "circle")
+                  .foregroundStyle(on ? Theme.accent : Theme.muted)
+              }
+              if let status = item.status {
+                Text(status).font(Theme.subtitle).foregroundStyle(Theme.accent)
+              }
+            }
+            .padding(.vertical, 8)
+            .frame(minHeight: 60)
+            .contentShape(Rectangle())
+            .padding(.horizontal, 20)
+          }
+          .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
-        if index < items.count - 1 {
+        if index < items.count - 1 && !item.accent {
           Rectangle()
             .fill(Theme.line)
             .frame(height: 1)

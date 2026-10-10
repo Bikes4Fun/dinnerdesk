@@ -99,7 +99,7 @@ struct TourScreenPicture: View {
 
   private func mealTile(_ tint: Color, _ name: CGFloat) -> some View {
     VStack(alignment: .leading, spacing: 5) {
-      RoundedRectangle(cornerRadius: 8, style: .continuous).fill(tint).frame(height: 46)
+      RoundedRectangle(cornerRadius: 8, style: .continuous).fill(tint).aspectRatio(1, contentMode: .fit)
       line(name, Theme.ink.opacity(0.35))
     }
     .frame(maxWidth: .infinity)
