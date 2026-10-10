@@ -77,7 +77,7 @@ review, not a new plan.
 - **Must:** review keeps headings and controls compact; explanatory suggestion text is
   omitted from the visible review (updated October 9).
 - **Must:** review uses the app's own plain style, not Taste Lab's bordered cards: a rounded
-  landscape photo (never square) with a white swap button in its corner, then the name and cook
+  square photo with a white swap button in its corner, then the name and cook
   time. Approve plan (filled) and Suggest another (outlined) are equal full-width buttons, with
   Improve suggestions centered below.
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
@@ -414,7 +414,7 @@ ingredient words remain readable at accessibility sizes.
 
 Recipes with existing Dinnerdesk-authored rewrite provenance, show “Instructions customized by Dinnerdesk” above Cook steps on iPhone and web. The importer retains the original rewrite source. This editorial label does not indicate kitchen testing. Private recipe revisions and original backups stay outside Git; publishing them requires the explicit catalog import.
 
-Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. Four meals use available screen height and measured caption/control heights to size photos across iPhones at non-accessibility text sizes. Very short screens, additional meals, and accessibility text can scroll. Clients derive the visible note directly from existing `instructions_source` and `instructions_copied_from_third_party` provenance; there is no additional customization flag in the catalog or API. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.
+Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. All food photos use shared square components with center-cropped fill across iOS, web, and Taste Lab. Photo shape stays square at every meal count and text size. Very short screens, additional meals, and accessibility text can scroll. Clients derive the visible note directly from existing `instructions_source` and `instructions_copied_from_third_party` provenance; there is no additional customization flag in the catalog or API. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.
 
 Selected tabs use bold labels on iPhone and bold underlined labels on web, with aria-current
 on web links. Selection remains visible without relying on accent color.
@@ -447,7 +447,7 @@ behavior. For example, Grocery → garlic → Plan → Grocery must show the gro
 Saved data and the current meal plan remain intact. On web, primary navigation remounts
 the destination screen without reloading the page.
 
-Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, measured four-meal layout, circular swap controls, and declined-proposal retry state.
+Suggestion review shares Taste Lab’s bordered cards, coral swap badges, and aubergine approval styling. Integration of #31 preserves the later compact heading, square photo layout, circular swap controls, and declined-proposal retry state.
 
 Screenshot follow-up: adding a fifth or later suggested meal keeps the four-meal photo
 height calculation, with scrolling for extra rows. The replacement picker uses the cream

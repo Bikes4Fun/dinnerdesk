@@ -414,18 +414,8 @@ struct GroceryItemView: View {
                   .foregroundStyle(Theme.muted)
               }
 
-              if let url = API.photoURL(line.ingredientPhotoPath) {
-                AsyncImage(url: url) { phase in
-                  if let image = phase.image {
-                    image.resizable().scaledToFill()
-                      .frame(maxWidth: .infinity)
-                      .frame(height: min(220, geometry.size.height * 0.25))
-                      .clipped()
-                      .clipShape(RoundedRectangle(cornerRadius: 16))
-                      .accessibilityLabel("Photo of \(line.name)")
-                  }
-                }
-              }
+              RecipePhoto(path: line.ingredientPhotoPath, large: true, hideUnavailable: true)
+                .accessibilityLabel("Photo of \(line.name)")
               ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
                   substituteLabel

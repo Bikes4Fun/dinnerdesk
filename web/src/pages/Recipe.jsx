@@ -1,6 +1,7 @@
+import FoodPhoto from "../FoodPhoto.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
-import { api, photoSrc } from "../api.js";
+import { api } from "../api.js";
 import { go } from "../nav.js";
 import { parseIngLine } from "../parseIngredient.js";
 import { asSlotIn, useWeek } from "../week.jsx";
@@ -334,7 +335,7 @@ export function Recipe({ id }) {
             <>
               {tab === "overview" && (
                 <>
-                  {recipe.photo_path && <img className="hero" src={photoSrc(recipe.photo_path)} alt="" />}
+                  <FoodPhoto className="hero" path={recipe.photo_path} hideUnavailable />
                   {recipe.photo_path && recipe.photo_ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
                   {recipe.photo_path && !recipe.photo_ai && recipe.photo_shared && <Tip id="recipes.shared-photo" className="ai-photo-tip">This photo is from a similar recipe, so it may not match this one exactly.</Tip>}
                   <ServingsMeta />

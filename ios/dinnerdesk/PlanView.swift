@@ -674,17 +674,13 @@ func dayTitle(_ start: String, _ index: Int) -> String {
 }
 
 /// Review a suggested plan in the app's own plain style (not Taste Lab's cards): a rounded
-/// landscape photo with a white swap button in its corner, then the name and cook time.
+/// square photo with a white swap button in its corner, then the name and cook time.
 private struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var swapping: PlanSlot?
   @State private var busy = false
-  @State private var captionHeights: [Int: CGFloat] = [:]
-  @State private var headerHeight: CGFloat = 40
-  @State private var actionsHeight: CGFloat = 44
-  @State private var improveHeight: CGFloat = 20
   var body: some View {
     NavigationStack {
       GeometryReader { geometry in
@@ -694,7 +690,6 @@ private struct SuggestedPlanReview: View {
               Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
             }
             .disabled(store.proposal?.status != "suggested")
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
             if let error = store.proposalError {
               ErrorBanner(message: error)
               Button("Dismiss error") { store.proposalError = nil }
@@ -702,7 +697,7 @@ private struct SuggestedPlanReview: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
               ForEach(store.proposal?.slots ?? []) { slot in
                 VStack(alignment: .leading, spacing: 8) {
-                  Color.clear.frame(height: photoHeight(in: geometry.size))
+                  Color.clear.aspectRatio(1, contentMode: .fit)
                     .overlay {
                       NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
                     }
@@ -731,9 +726,6 @@ private struct SuggestedPlanReview: View {
                       Text("Your selection").font(Theme.subtitle).foregroundStyle(Theme.muted)
                     }
                   }
-                  .onGeometryChange(for: CGFloat.self) { $0.size.height } action: {
-                    captionHeights[slot.id] = $0
-                  }
                 }
               }
             }
@@ -745,13 +737,11 @@ private struct SuggestedPlanReview: View {
               }
             }
             .padding(.top, 4)
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { actionsHeight = $0 }
             NavigationLink { TasteLabView(swipe: true) } label: {
               Label("Improve suggestions", systemImage: "hand.draw")
                 .font(Theme.action).foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { improveHeight = $0 }
           }.padding().disabled(busy)
         }
       }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
@@ -783,24 +773,6 @@ private struct SuggestedPlanReview: View {
       .frame(maxWidth: .infinity, minHeight: 50)
       .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
       .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line, lineWidth: 1.5))
-  }
-  /// Photos are landscape rectangles: 4:3 at most, shorter when that lets four meals and the
-  /// buttons fit on one screen. Never square.
-  private func photoHeight(in size: CGSize) -> CGFloat {
-    // Geometry can briefly be zero during sheet presentation or tab resets.
-    let padding: CGFloat = textSize.isAccessibilitySize ? 32 : 44
-    guard size.width.isFinite, size.width > padding else { return 0 }
-    let width = (size.width - padding) / (textSize.isAccessibilitySize ? 1 : 2)
-    let rectangle = width * 3 / 4
-    if let slots = store.proposal?.slots, slots.count >= 4, !textSize.isAccessibilitySize {
-      let firstRow = max(captionHeights[slots[0].id] ?? 110, captionHeights[slots[1].id] ?? 110)
-      let secondRow = max(captionHeights[slots[2].id] ?? 110, captionHeights[slots[3].id] ?? 110)
-      // Padding, stack/grid gaps, and the gap between each photo and caption.
-      let reserved = headerHeight + actionsHeight + improveHeight + firstRow + secondRow + 80
-      guard size.height.isFinite, reserved.isFinite else { return rectangle }
-      return min(rectangle, max(96, (size.height - reserved) / 2))
-    }
-    return rectangle
   }
   private func run(_ work: @escaping () async -> Void) {
     busy = true

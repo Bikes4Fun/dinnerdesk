@@ -126,10 +126,8 @@ html.in-frame .app {
 
 .hero-mosaic {
   display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  grid-template-rows: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.4rem;
-  height: min(34vh, 220px);
   margin: 0.5rem 0 0.2rem;
 }
 .hero-cell {
@@ -138,14 +136,8 @@ html.in-frame .app {
   border-radius: 14px;
   background: var(--soft);
 }
-.hero-cell.big { grid-row: 1 / span 2; }
-.hero-cell img, .hero-cell .ph {
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  object-fit: cover;
-  display: block;
-}
+
+
 
 /* Give the introduction breathing room without stretching swipe or review screens. */
 .welcome .hero-mosaic { margin: 1rem 0 1.5rem; }
@@ -324,15 +316,7 @@ button:focus-visible, .text-link:focus-visible {
   z-index: 0;
   pointer-events: none;
 }
-.card img, .card .ph {
-  flex: none;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  height: auto;
-  max-width: none;
-  object-fit: cover;
-  background: var(--soft);
-}
+
 .ph {
   display: grid;
   place-items: center;
@@ -433,13 +417,7 @@ button:focus-visible, .text-link:focus-visible {
 .meal-photo {
   position: relative;
 }
-.meal-photo img, .meal-photo .ph {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-}
+
 .swap-badge {
   position: absolute;
   top: 0.5rem;
@@ -513,10 +491,10 @@ button:focus-visible, .text-link:focus-visible {
   border-radius: 14px;
 }
 .swap-row.is-on { border-color: var(--aubergine); background: var(--surface); }
-.swap-row img, .swap-row .ph {
+.swap-row .food-photo {
   width: 72px;
   height: 72px;
-  object-fit: contain;
+  object-fit: cover;
   border-radius: 10px;
   background: var(--soft);
 }
@@ -616,3 +594,7 @@ code { font-size: 0.86em; background: var(--soft); padding: 0.1rem 0.35rem; bord
   padding-top: 0.5rem;
   background: var(--bg);
 }
+
+/* Shared photo frame: source dimensions never determine the displayed shape. */
+.food-photo { position: relative; display: block; width: 100%; aspect-ratio: 1 / 1; height: auto; flex-shrink: 0; overflow: hidden; background: var(--soft); }
+.food-photo > img, .food-photo > .ph { position: absolute; inset: 0; width: 100%; height: 100%; max-width: none; object-fit: cover; }

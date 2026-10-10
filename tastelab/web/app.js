@@ -279,8 +279,10 @@ const macros = (r) => {
 
   const photo = (url, name, cls = "") => {
     const letter = esc((name || "?").slice(0, 1));
-    if (!url) return `<div class="ph ${cls}">${letter}</div>`;
-    return `<img class="${cls}" src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;ph ${cls}&quot;>${letter}</div>'" />`;
+    const content = url
+      ? `<img src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;ph&quot;>${letter}</div>'" />`
+      : `<div class="ph">${letter}</div>`;
+    return `<div class="food-photo ${cls}">${content}</div>`;
   };
 
   const heroMeals = () => {
