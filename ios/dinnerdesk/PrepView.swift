@@ -17,10 +17,11 @@ struct PrepView: View {
   @State private var detailsOpen: Set<Int> = []
   @State private var toast: Int?
   @State private var toastWhy = false
+  @State private var missingOpen = false
 
   private static let sections: [(key: String, title: String, short: String)] = [
     ("veg", "Vegetables", "Veg"),
-    ("herbs", "Aromatics, herbs & citrus", "Herbs"),
+    ("herbs", "Aromatics, herbs & citrus", "Aromatics"),
     ("protein", "Protein", "Protein"),
     ("cheese", "Cheese & dairy", "Cheese"),
     ("sauce", "Sauces & dressings", "Sauce"),
@@ -72,6 +73,7 @@ struct PrepView: View {
           } else {
             header { key in withAnimation { proxy.scrollTo(key, anchor: .top) } }
             ForEach(groups) { group in section(group).id(group.key) }
+            missingButton
           }
           // Room so the check-off bar never covers the last row.
           Color.clear.frame(height: toast == nil ? 8 : 180)
@@ -84,6 +86,7 @@ struct PrepView: View {
     .overlay(alignment: .bottom) { toastBar }
     .navigationTitle("Weekend prep")
     .largeNavigationTitle()
+    .sheet(isPresented: $missingOpen) { MissingPrepSheet() }
     .refreshable { await store.loadPrep() }
     .task { await store.loadPrep() }
   }
@@ -144,6 +147,26 @@ struct PrepView: View {
         }
       }
     }
+  }
+
+  /// "Missing a prep step?": pick a step from one of the plan's recipes that should be here.
+  private var missingButton: some View {
+    Button { missingOpen = true } label: {
+      HStack(spacing: 10) {
+        Image(systemName: "plus.circle").font(.system(size: 20)).accessibilityHidden(true)
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Missing a prep step?").font(Theme.action)
+          Text("Add one from this week’s recipes.").font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
+        Spacer(minLength: 0)
+      }
+      .foregroundStyle(Theme.accent)
+      .padding(14)
+      .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+      .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4])))
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
   }
 
   // MARK: Sections
@@ -266,6 +289,9 @@ struct PrepView: View {
               VStack(alignment: .leading, spacing: 3) {
                 Text(group.text).font(Theme.subtitle).foregroundStyle(Theme.ink)
                   .fixedSize(horizontal: false, vertical: true)
+                if Self.isAdded(task, group.text) {
+                  Text("Added by you").font(Theme.count).foregroundStyle(Theme.muted)
+                }
                 ForEach(group.meals) { meal in
                   NavigationLink { RecipeDetailView(id: meal.id) } label: {
                     Text(meal.name).font(Theme.count.weight(.semibold)).foregroundStyle(Theme.accent)
@@ -300,6 +326,10 @@ struct PrepView: View {
     }
     .buttonStyle(.plain)
     .accessibilityAddTraits(on ? .isSelected : [])
+  }
+
+  private static func isAdded(_ task: PrepTask, _ text: String) -> Bool {
+    task.meals.contains { meal in (meal.steps ?? []).contains { $0.added == true && $0.text == text } }
   }
 
   /// The open row's steps, each distinct text once with the meals that use it, in meal order.
@@ -388,6 +418,132 @@ struct PrepView: View {
     .buttonStyle(.plain)
     .accessibilityLabel(up ? "Yes, worth it" : "No, not worth it")
     .accessibilityAddTraits(on ? .isSelected : [])
+  }
+}
+
+/// "Missing a prep step?" (#21): every step of this week's recipes that isn't in prep, by meal.
+/// Tap one, say why if you like, and it joins prep (and is logged for review).
+struct MissingPrepSheet: View {
+  @EnvironmentObject private var store: Store
+  @Environment(\.dismiss) private var dismiss
+  @State private var meals: [MissingPrepMeal]?
+  @State private var failed = false
+  @State private var picked: String?  // "<recipe id>:<step key>"
+  @State private var note = ""
+  @State private var saving = false
+
+  var body: some View {
+    NavigationStack {
+      Group {
+        if let meals {
+          List {
+            Section {
+              Text("Pick a step that would save time if you did it ahead. It’s added to your prep, and we’ll use it to make prep better.")
+                .font(Theme.subtitle).foregroundStyle(Theme.muted)
+                .listRowBackground(Color.clear)
+            }
+            if meals.isEmpty {
+              Text("Every step of this week’s recipes is already in prep.")
+                .font(Theme.subtitle).foregroundStyle(Theme.muted)
+            }
+            ForEach(meals) { meal in
+              Section {
+                ForEach(meal.steps) { step in stepRow(meal, step) }
+              } header: {
+                Text(meal.name).font(Theme.action).foregroundStyle(Theme.ink).textCase(nil)
+              }
+            }
+          }
+          .scrollContentBackground(.hidden)
+        } else if failed {
+          VStack(spacing: 12) {
+            Text("Couldn’t load the recipes.").font(Theme.subtitle).foregroundStyle(Theme.muted)
+            Button("Try again") { Task { await load() } }.font(Theme.action).frame(minHeight: 44)
+          }
+          .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+          ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+      }
+      .background(Theme.bg)
+      .navigationTitle("Missing a prep step?")
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+      }
+    }
+    .task { await load() }
+  }
+
+  private func load() async {
+    failed = false
+    meals = await store.loadMissingPrep()
+    failed = meals == nil
+  }
+
+  @ViewBuilder private func stepRow(_ meal: MissingPrepMeal, _ step: MissingPrepStep) -> some View {
+    let id = "\(meal.id):\(step.key)"
+    VStack(alignment: .leading, spacing: 10) {
+      Button {
+        guard !step.added else { return }
+        picked = picked == id ? nil : id
+        note = ""
+      } label: {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+          Image(systemName: step.added ? "checkmark.circle.fill" : (picked == id ? "circle.inset.filled" : "circle"))
+            .foregroundStyle(step.added || picked == id ? Theme.accent : Theme.muted)
+            .accessibilityHidden(true)
+          VStack(alignment: .leading, spacing: 3) {
+            Text(step.text).font(Theme.subtitle).foregroundStyle(Theme.ink)
+              .fixedSize(horizontal: false, vertical: true)
+            Text(step.added ? "In your prep" + (step.note.isEmpty ? "" : " · \(step.note)") : "Step \(step.step)")
+              .font(Theme.count).foregroundStyle(Theme.muted)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityAddTraits(picked == id || step.added ? .isSelected : [])
+
+      if step.added {
+        Button("Remove from prep") { Task { await save(meal, step, added: false) } }
+          .font(Theme.action).foregroundStyle(Theme.accent)
+          .frame(minHeight: 44)
+          .disabled(saving)
+      } else if picked == id {
+        TextField("Why do it ahead? (optional)", text: $note, axis: .vertical)
+          .font(Theme.subtitle)
+          .lineLimit(1...4)
+          .padding(10)
+          .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+          .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
+        Button { Task { await save(meal, step, added: true) } } label: {
+          Text("Add to prep").font(Theme.action).foregroundStyle(Theme.surface)
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(Theme.ink, in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(saving)
+      }
+    }
+    .padding(.vertical, 2)
+  }
+
+  private func save(_ meal: MissingPrepMeal, _ step: MissingPrepStep, added: Bool) async {
+    saving = true
+    let text = added ? note.trimmingCharacters(in: .whitespacesAndNewlines) : ""
+    if await store.setMissingPrep(recipeId: meal.id, key: step.key, note: text, added: added),
+      let m = meals?.firstIndex(where: { $0.id == meal.id }),
+      let s = meals?[m].steps.firstIndex(where: { $0.key == step.key })
+    {
+      meals?[m].steps[s].added = added
+      meals?[m].steps[s].note = text
+      picked = nil
+      note = ""
+    }
+    saving = false
   }
 }
 

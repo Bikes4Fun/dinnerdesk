@@ -175,6 +175,15 @@ class PrepTaskFeedbackPut(BaseModel):
     reason: str = Field(default="", pattern="^(|day_of|kept_badly|too_small|prep_differently|not_prep)$")
 
 
+class PrepMissingPut(BaseModel):
+    """A recipe step the household says belongs in Weekend prep but wasn't listed (#21).
+    added=False takes the suggestion back."""
+    recipe_id: int
+    key: str = Field(min_length=1, max_length=40)
+    note: str = Field(default="", max_length=500)
+    added: bool = True
+
+
 class SubmissionCreate(BaseModel):
     kind: str = Field(pattern="^(photo|suggestion|review)$")
     body: str = Field(default="", max_length=2000)

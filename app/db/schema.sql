@@ -173,6 +173,8 @@ CREATE TABLE IF NOT EXISTS household_meal_ratings (
 -- 👍/👎 on a single prep step: was it useful to do ahead? Logged for review only; it never
 -- hides a step. step_key = hash of the wording; category = the prep heading it was shown under;
 -- auto = 1 when the app picked the step, 0 when the recipe tagged it Prep.
+-- reason = 'missing': the household added a step prep had skipped (rating 1, with their note);
+-- it then shows in their prep.
 CREATE TABLE IF NOT EXISTS prep_step_feedback (
   household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
@@ -182,6 +184,7 @@ CREATE TABLE IF NOT EXISTS prep_step_feedback (
   auto INTEGER NOT NULL DEFAULT 1,
   rating INTEGER NOT NULL CHECK (rating IN (-1, 1)),
   reason TEXT NOT NULL DEFAULT '',
+  note TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL,
   PRIMARY KEY (household_id, recipe_id, step_key)
 );

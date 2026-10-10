@@ -11,7 +11,7 @@ import "./prep.css";
 
 const SECTIONS = [
   ["veg", "Vegetables", "Veg"],
-  ["herbs", "Aromatics, herbs & citrus", "Herbs"],
+  ["herbs", "Aromatics, herbs & citrus", "Aromatics"],
   ["protein", "Protein", "Protein"],
   ["cheese", "Cheese & dairy", "Cheese"],
   ["sauce", "Sauces & dressings", "Sauce"],
@@ -179,6 +179,7 @@ export function Prep() {
                 </section>
               );
             })}
+            <MissingPrep onChange={() => load().catch((e) => setErr(e.message))} onError={setErr} />
             <button type="button" className="list-foot-link" onClick={() => window.print()}>
               Print prep
             </button>
@@ -255,6 +256,7 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
           {groups.map((g, i) => (
             <div key={i} className="pz-step-group">
               <p className="pz-step">{g.text}</p>
+              {g.meals.some((m) => m.steps?.some((st) => st.added && st.text.trim() === g.text)) && <span className="pz-added">Added by you</span>}
               {g.meals.map((meal) => (
                 <button key={meal.id} type="button" className="text-link pz-meal-link" onClick={() => go(`/recipes/${meal.id}`)}>{meal.name}</button>
               ))}
@@ -263,5 +265,90 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
         </div>
       )}
     </li>
+  );
+}
+
+/* "Missing a prep step?" (#21): every step of this week's recipes that isn't in prep, by meal.
+   Pick one, say why if you like, and it joins prep (and is logged for review). */
+function MissingPrep({ onChange, onError }) {
+  const [open, setOpen] = useState(false);
+  const [meals, setMeals] = useState(null);
+  const [picked, setPicked] = useState(null); // "<recipe id>:<step key>"
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function openPanel() {
+    setOpen(!open);
+    if (open || meals) return;
+    try {
+      const plan = await api.plan();
+      setMeals((await api.missingPrep(plan.id)).meals);
+    } catch (e) {
+      onError(e.message);
+      setOpen(false);
+    }
+  }
+
+  async function save(meal, step, added) {
+    setSaving(true);
+    const text = added ? note.trim() : "";
+    try {
+      const plan = await api.plan();
+      await api.setMissingPrep(plan.id, { recipe_id: meal.id, key: step.key, note: text, added });
+      setMeals((cur) => cur.map((m) => (m.id !== meal.id ? m : {
+        ...m, steps: m.steps.map((st) => (st.key === step.key ? { ...st, added, note: text } : st)),
+      })));
+      setPicked(null);
+      setNote("");
+      onChange();
+    } catch (e) {
+      onError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="pz-missing">
+      <button type="button" className="pz-missing-open" aria-expanded={open} onClick={openPanel}>
+        <span className="pz-missing-title">Missing a prep step?</span>
+        <span className="muted">Add one from this week’s recipes.</span>
+      </button>
+      {open && (meals == null ? <p className="muted">Loading…</p> : (
+        <div className="pz-missing-body">
+          <p className="help">Pick a step that would save time if you did it ahead. It’s added to your prep, and we’ll use it to make prep better.</p>
+          {meals.length === 0 && <p className="muted">Every step of this week’s recipes is already in prep.</p>}
+          {meals.map((meal) => (
+            <div key={meal.id} className="pz-missing-meal">
+              <h3>{meal.name}</h3>
+              <ul>
+                {meal.steps.map((step) => {
+                  const id = `${meal.id}:${step.key}`;
+                  return (
+                    <li key={step.key} className={step.added ? "is-added" : picked === id ? "is-picked" : ""}>
+                      <button type="button" className="pz-missing-step" aria-pressed={step.added || picked === id}
+                        disabled={step.added} onClick={() => { setPicked(picked === id ? null : id); setNote(""); }}>
+                        <span>{step.text}</span>
+                        <span className="pz-sub">{step.added ? `In your prep${step.note ? ` · ${step.note}` : ""}` : `Step ${step.step}`}</span>
+                      </button>
+                      {step.added && (
+                        <button type="button" className="text-link" disabled={saving} onClick={() => save(meal, step, false)}>Remove from prep</button>
+                      )}
+                      {!step.added && picked === id && (
+                        <div className="pz-missing-form">
+                          <textarea rows={2} maxLength={500} aria-label="Why do it ahead? (optional)"
+                            placeholder="Why do it ahead? (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+                          <button type="button" className="btn-primary" disabled={saving} onClick={() => save(meal, step, true)}>Add to prep</button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
   );
 }

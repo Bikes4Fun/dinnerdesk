@@ -29,7 +29,7 @@ from app.domain.ingredient_review import (
 )
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
-from app.domain.prep import prep_from_slots
+from app.domain.prep import prep_from_slots, step_key, step_sentences
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, merge_filters
 from app.domain.search import hard_tokens, search_grocery_names, tokens as search_tokens
 from app.domain.suggest import norm_pantry
@@ -37,6 +37,7 @@ from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, s
 from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
+    PrepMissingPut,
     PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
@@ -1844,15 +1845,27 @@ def delete_override(
     return get_overrides(db, household_id)
 
 
+def _missing_steps(db: PgConnection, household_id: int) -> dict[int, list[str]]:
+    """Steps this household added to prep (#21), by recipe, oldest first."""
+    added: dict[int, list[str]] = {}
+    for r in db.execute(
+        "SELECT recipe_id, step_text FROM prep_step_feedback WHERE household_id = ? AND reason = 'missing' "
+        "ORDER BY updated_at, step_key", (household_id,),
+    ):
+        added.setdefault(int(r["recipe_id"]), []).append(r["step_text"])
+    return added
+
+
 def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
     """Synchronize derived prep with current household recipe edits, preserving task IDs."""
     slots = []
+    added = _missing_steps(db, household_id)
     for slot in db.execute("SELECT recipe_id, servings FROM plan_slots WHERE plan_id = ? ORDER BY sort, id", (plan_id,)):
         row = db.execute("SELECT * FROM recipes WHERE id = ?", (slot["recipe_id"],)).fetchone()
         recipe = _recipe_out(db, row, household_id)
         factor = Fraction(slot["servings"], recipe["servings"])
         slots.append({"recipe_id": recipe["id"], "recipe_name": recipe["name"],
-                      "instructions": recipe["instructions"],
+                      "instructions": recipe["instructions"], "added": added.get(recipe["id"], []),
                       "ingredients": [{**ing, "quantity": scale_quantity(ing["quantity"], factor)} for ing in recipe["ingredients"]]})
     existing = {(r["title"], r["linked_slots_json"]): r for r in db.execute("SELECT * FROM prep_tasks WHERE plan_id = ?", (plan_id,))}
     completed = set()
@@ -1902,7 +1915,8 @@ def list_prep(
     feedback = {
         (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "")
         for r in db.execute(
-            "SELECT recipe_id, step_key, rating, reason FROM prep_step_feedback WHERE household_id = ?",
+            # A step the household added (#21) isn't a 👍/👎; it is taken back on its own sheet.
+            "SELECT recipe_id, step_key, rating, reason FROM prep_step_feedback WHERE household_id = ? AND reason <> 'missing'",
             (household_id,),
         )
     }
@@ -1926,6 +1940,95 @@ def list_prep(
                       "rating": rating, "reason": reason, "section": "other", "item": r["title"],
                       "action": "", **details})
     return {"tasks": tasks}
+
+
+def _plan_recipe_sentences(db: PgConnection, plan_id: int, household_id: int) -> list[dict]:
+    """Every sentence of every recipe on the plan, the pieces a missing prep step is picked from."""
+    meals, seen = [], set()
+    for slot in db.execute("SELECT recipe_id FROM plan_slots WHERE plan_id = ? ORDER BY sort, id", (plan_id,)):
+        if slot["recipe_id"] in seen:
+            continue
+        seen.add(slot["recipe_id"])
+        row = db.execute("SELECT * FROM recipes WHERE id = ?", (slot["recipe_id"],)).fetchone()
+        recipe = _recipe_out(db, row, household_id)
+        steps = []
+        for number, step in enumerate(recipe["instructions"], start=1):
+            text = (step.get("text") or step.get("step") or "").strip()
+            for sentence in step_sentences(text) if text else []:
+                if sentence and step_key(sentence) not in {s["key"] for s in steps}:
+                    steps.append({"key": step_key(sentence), "text": sentence, "step": number})
+        meals.append({"id": recipe["id"], "name": recipe["name"], "steps": steps})
+    return meals
+
+
+@router.get("/plans/{plan_id}/prep/missing")
+def list_missing_prep(plan_id: int, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Recipe steps that aren't in Weekend prep yet, by meal, for "Missing a prep step?" (#21).
+    Steps the household already added come back with added=True so they can be taken back."""
+    if not db.execute("SELECT id FROM plans WHERE id = ? AND household_id = ?", (plan_id, household_id)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "plan"})
+    with transaction(db):
+        _refresh_prep(db, plan_id, household_id)
+    in_prep: set[tuple[int, str]] = set()
+    for r in db.execute("SELECT details_json FROM prep_tasks WHERE plan_id = ?", (plan_id,)):
+        for meal in json.loads(r["details_json"]).get("meals") or []:
+            for step in meal.get("steps") or []:
+                if not step.get("added"):
+                    in_prep.add((int(meal["id"]), step["key"]))
+    notes = {
+        (int(r["recipe_id"]), r["step_key"]): r["note"]
+        for r in db.execute(
+            "SELECT recipe_id, step_key, note FROM prep_step_feedback WHERE household_id = ? AND reason = 'missing'",
+            (household_id,),
+        )
+    }
+    meals = []
+    for meal in _plan_recipe_sentences(db, plan_id, household_id):
+        steps = []
+        for step in meal["steps"]:
+            key = (meal["id"], step["key"])
+            if key in in_prep:
+                continue
+            steps.append({**step, "added": key in notes, "note": notes.get(key, "")})
+        if steps:
+            meals.append({**meal, "steps": steps})
+    return {"meals": meals}
+
+
+@router.put("/plans/{plan_id}/prep/missing")
+def put_missing_prep(
+    plan_id: int,
+    body: PrepMissingPut,
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+):
+    """Add a recipe step to Weekend prep that the app skipped, with an optional note on why.
+    It shows in this household's prep from now on and is logged for review (GET /dev/prep-feedback)."""
+    if not db.execute("SELECT id FROM plans WHERE id = ? AND household_id = ?", (plan_id, household_id)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "plan"})
+    meal = next((m for m in _plan_recipe_sentences(db, plan_id, household_id) if m["id"] == body.recipe_id), None)
+    step = next((s for s in meal["steps"] if s["key"] == body.key), None) if meal else None
+    if not step:
+        raise HTTPException(404, {"error": "not_found", "detail": "recipe step"})
+    with transaction(db):
+        if body.added:
+            db.execute(
+                """INSERT INTO prep_step_feedback
+                   (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, note, updated_at)
+                   VALUES (?, ?, ?, ?, 'Missing prep step', 0, 1, 'missing', ?, ?)
+                   ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
+                     step_text = excluded.step_text, category = excluded.category, auto = excluded.auto,
+                     rating = excluded.rating, reason = excluded.reason, note = excluded.note,
+                     updated_at = excluded.updated_at""",
+                (household_id, body.recipe_id, body.key, step["text"], body.note.strip(), now()),
+            )
+        else:
+            db.execute(
+                "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ? AND reason = 'missing'",
+                (household_id, body.recipe_id, body.key),
+            )
+        _refresh_prep(db, plan_id, household_id)
+    return {"ok": True, "added": body.added}
 
 
 def _prep_items(details: dict) -> list[tuple[int, str]]:
@@ -1962,13 +2065,14 @@ def put_prep_feedback(
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
                      step_text = excluded.step_text, category = excluded.category, auto = excluded.auto,
-                     rating = excluded.rating, updated_at = excluded.updated_at""",
+                     rating = excluded.rating, updated_at = excluded.updated_at
+                     WHERE prep_step_feedback.reason <> 'missing'""",
                 (household_id, body.recipe_id, body.key, body.text, body.category,
                  1 if body.auto else 0, body.rating, now()),
             )
         else:
             db.execute(
-                "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ?",
+                "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ? AND reason <> 'missing'",
                 (household_id, body.recipe_id, body.key),
             )
     return {"ok": True, "rating": body.rating}
@@ -1997,13 +2101,14 @@ def put_prep_task_feedback(
                            ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
                              step_text = excluded.step_text, category = excluded.category,
                              auto = excluded.auto, rating = excluded.rating, reason = excluded.reason,
-                             updated_at = excluded.updated_at""",
+                             updated_at = excluded.updated_at
+                             WHERE prep_step_feedback.reason <> 'missing'""",
                         (household_id, int(meal["id"]), step["key"], step.get("text") or "", row["title"],
                          1 if step.get("auto", True) else 0, body.rating, reason, now()),
                     )
                 else:
                     db.execute(
-                        "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ?",
+                        "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ? AND reason <> 'missing'",
                         (household_id, int(meal["id"]), step["key"]),
                     )
     return {"ok": True, "rating": body.rating, "reason": reason}
@@ -2127,6 +2232,7 @@ def get_prep_feedback(_admin=AdminDep, db: PgConnection = DbDep):
             "picked_by": "app" if r["auto"] else "recipe tag",
             "rating": r["rating"],
             "reason": r["reason"] or "",
+            "note": r["note"] or "",
             "updated_at": r["updated_at"],
         }
         for r in db.execute(

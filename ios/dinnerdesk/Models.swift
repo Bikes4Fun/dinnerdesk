@@ -313,6 +313,29 @@ nonisolated struct PrepStep: Decodable, Identifiable, Sendable {
   var rating: Int?
   /// Checked off on the Prep screen (each meal's step is its own item).
   var done: Bool?
+  /// The household added this step with "Missing a prep step?" (the app had skipped it).
+  let added: Bool?
+}
+
+/// Recipe steps not in Weekend prep yet, by meal: what "Missing a prep step?" offers (#21).
+nonisolated struct MissingPrepList: Decodable, Sendable {
+  let meals: [MissingPrepMeal]
+}
+
+nonisolated struct MissingPrepMeal: Decodable, Identifiable, Sendable {
+  let id: Int
+  let name: String
+  var steps: [MissingPrepStep]
+}
+
+nonisolated struct MissingPrepStep: Decodable, Identifiable, Sendable {
+  var id: String { key }
+  let key: String
+  let text: String
+  /// The recipe step it comes from (1-based).
+  let step: Int
+  var added: Bool
+  var note: String
 }
 
 nonisolated struct PrepItemResult: Decodable, Sendable {
