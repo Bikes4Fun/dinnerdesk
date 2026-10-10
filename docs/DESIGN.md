@@ -106,6 +106,9 @@ This week's meals, scheduled on days or unscheduled. Grocery and prep follow thi
   faded, and moving it to another day keeps it cooked.
 - **Must:** Edit mode handles servings, scheduling, selecting several meals (mark cooked or
   remove), and 👍/👎 per meal. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
+  iPhone selection sits on the right rather than occupying a column beside every photo.
+  Schedule and voting share one row when they fit; servings use the next row. Narrow layouts
+  and larger text stack controls, while vote explanations remain below the controls.
 - **Must:** While editing, a visible **Done** sits in the plan header beside ⋯ (iPhone and
   website). Done leaves Edit mode and clears the selection; ⋯ → Finish editing does the same.
 - **Must:** save the plan as a draft without replacing it. Starting a new plan moves the live

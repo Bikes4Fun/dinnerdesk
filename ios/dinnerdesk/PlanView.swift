@@ -225,16 +225,17 @@ struct PlanView: View {
         VStack(alignment: .leading, spacing: 8) {
           photo(slot, side: nil)
           HStack(alignment: .top, spacing: 8) {
-            if editing { selectionButton(slot) }
             title(slot, plan: plan)
+            if editing { selectionButton(slot) }
           }
           if editing { editControls(slot, plan: plan) }
         }
       } else if typeSize.isAccessibilitySize {
         VStack(alignment: .leading, spacing: 12) {
           HStack(alignment: .top) {
-            if editing { selectionButton(slot) }
             photo(slot, side: photoWidth)
+            Spacer()
+            if editing { selectionButton(slot) }
           }
           title(slot, plan: plan)
           if editing { editControls(slot, plan: plan) }
@@ -242,10 +243,12 @@ struct PlanView: View {
         }
       } else {
         HStack(alignment: .top, spacing: 8) {
-          if editing { selectionButton(slot) }
           photo(slot, side: photoWidth)
           VStack(alignment: .leading, spacing: 8) {
-            title(slot, plan: plan)
+            HStack(alignment: .top, spacing: 8) {
+              title(slot, plan: plan).frame(maxWidth: .infinity, alignment: .leading)
+              if editing { selectionButton(slot) }
+            }
             if editing { editControls(slot, plan: plan) }
             else { scheduleButton(slot, plan: plan) }
           }
@@ -254,22 +257,6 @@ struct PlanView: View {
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .opacity(slot.cooked ? 0.45 : 1)
-  }
-
-  /// Under each meal: rate it so suggestions learn. 👎 = never suggest again.
-  private func thumbs(_ slot: PlanSlot) -> some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 4) {
-        ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
-          Task { await store.rateMeal(slot, next) }
-        }
-        .padding(.leading, -12)
-        if (slot.rating ?? 0) > 0 {
-          Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
-        }
-      }
-      if (slot.rating ?? 0) < 0 { StarTip(id: "plan.disliked") }
-    }
   }
 
   private func selectAllButton(_ plan: Plan) -> some View {
@@ -323,15 +310,26 @@ struct PlanView: View {
       ViewThatFits(in: .horizontal) {
         HStack(spacing: 8) {
           scheduleButton(slot, plan: plan)
-          servingsControl(slot)
+          ratingButtons(slot)
         }
         VStack(alignment: .leading, spacing: 4) {
           scheduleButton(slot, plan: plan)
-          servingsControl(slot)
+          ratingButtons(slot)
         }
       }
-      thumbs(slot)
+      servingsControl(slot)
+      if (slot.rating ?? 0) > 0 {
+        Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
+      }
+      if (slot.rating ?? 0) < 0 { StarTip(id: "plan.disliked") }
     }
+  }
+
+  private func ratingButtons(_ slot: PlanSlot) -> some View {
+    ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
+      Task { await store.rateMeal(slot, next) }
+    }
+    .fixedSize(horizontal: true, vertical: false)
   }
 
   private func scheduleButton(_ slot: PlanSlot, plan: Plan) -> some View {

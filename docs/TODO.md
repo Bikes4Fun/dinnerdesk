@@ -23,12 +23,15 @@ The working list: issues, fixes, ideas, and open questions. Implementation check
   - Compact Account & security; simplify household naming/invite layout.
   - Add breathing room to Taste Lab's returning-user screen; reconcile its cards/actions
     with the preferred earlier simple suggestion layout.
-  - Verify generic ingredient photo configuration (the private gallery already has garlic).
+  - Generic ingredient photos: private gallery has garlic, but the live
+    `/grocery-food/garlic.jpg` URL returned 404 on Oct 9. Verify/upload the ingredient
+    gallery and configure its persistent `GROCERY_PHOTO_DIR` before visual retesting.
   - Diagnose custom-food search failures and add clear saved/saving feedback; use filter chips.
   - Make family portions the default when browsing recipes and adding new meals.
   - Issue #36 follow-up (`codex/issue-36-tab-return-root`): destination reset now runs for
     every tab selection, including Grocery ingredient details. Verify across all tabs.
-  - Move edit selection to the right and arrange Schedule/votes/servings into compact rows.
+  - Plan edit layout fixed on `codex/issue-30-screenshot-edit-layout`: selection on the
+    right, Schedule/votes in one row when they fit, servings in the next row.
   - Decide whether Build from scratch opens Recipes or creates an empty plan.
   Sources: annotated PNGs in `docs/`, `my kitchen to do/`, `groceries page to do/`, and
   `suggestion meal plan to do/`. Keep these private screenshots out of Git.
