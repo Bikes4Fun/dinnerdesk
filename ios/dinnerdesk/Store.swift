@@ -563,6 +563,34 @@ final class Store: ObservableObject {
     }
   }
 
+  /// Recipe steps that aren't in Weekend prep, for "Missing a prep step?". nil on failure.
+  func loadMissingPrep() async -> [MissingPrepMeal]? {
+    do {
+      let plan = try await currentPlan()
+      let box: MissingPrepList = try await API.get("plans/\(plan.id)/prep/missing")
+      return box.meals
+    } catch {
+      fail(error)
+      return nil
+    }
+  }
+
+  /// Add a skipped recipe step to Weekend prep (or take it back), with an optional note.
+  /// It shows in prep right away and is logged for review.
+  func setMissingPrep(recipeId: Int, key: String, note: String, added: Bool) async -> Bool {
+    do {
+      let plan = try await currentPlan()
+      let _: Ok = try await API.send(
+        "plans/\(plan.id)/prep/missing", method: "PUT",
+        body: ["recipe_id": recipeId, "key": key, "note": note, "added": added])
+      await loadPrep()
+      return true
+    } catch {
+      fail(error)
+      return false
+    }
+  }
+
   private func setLocalStepRating(taskId: Int, mealId: Int, key: String, _ rating: Int) {
     guard let t = prepTasks.firstIndex(where: { $0.id == taskId }),
       let m = prepTasks[t].meals.firstIndex(where: { $0.id == mealId }),

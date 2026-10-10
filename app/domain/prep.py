@@ -84,8 +84,10 @@ def step_key(text: str) -> str:
     return hashlib.sha1(norm.encode()).hexdigest()[:12]
 
 
-def _kind(text: str) -> str | None:
-    if COOK_WORDS.search(text) or FRESH_ONLY.search(text) or SKIP_WORDS.search(text):
+def _kind(text: str, force: bool = False) -> str | None:
+    """What kind of make-ahead work this is. `force` (a step someone said was missing from
+    prep) skips the cooking/serving filters and calls plain knife work "chop"."""
+    if not force and (COOK_WORDS.search(text) or FRESH_ONLY.search(text) or SKIP_WORDS.search(text)):
         return None
     for kind, pattern in KINDS:
         if pattern.search(text):
@@ -94,6 +96,12 @@ def _kind(text: str) -> str | None:
                 return "chop"
             return kind
     return None
+
+
+def step_sentences(text: str) -> list[str]:
+    """The pieces of a recipe step that prep can list one at a time (a heading is dropped)."""
+    heading = _heading(text)
+    return _sentences(text.split(":", 1)[1] if heading else text)
 
 
 def likely_prep(text: str) -> str | None:
@@ -243,17 +251,18 @@ def _names(hits: list[dict]) -> str:
 
 
 def _auto_items(
-    text: str, ingredients: list[dict], meal_id, recipe_name: str = ""
+    text: str, ingredients: list[dict], meal_id, recipe_name: str = "", force: bool = False
 ) -> list[tuple[str, str, str, list[str] | None]]:
     """(group key, title, sentence text, ingredient names it covers) for each make-ahead sentence
-    of an untagged step. Names None means every ingredient the sentence mentions."""
+    of an untagged step. Names None means every ingredient the sentence mentions. `force`: the
+    person said this sentence belongs in prep, so it is always listed."""
     heading = _heading(text)
     body = text.split(":", 1)[1] if heading else text
     items: list[tuple[str, str, str]] = []
     for sentence in _sentences(body):
-        kind = _kind(sentence)
+        kind = _kind(sentence, force)
         component = component_title(sentence, recipe_name)
-        if component and not (COOK_WORDS.search(sentence) or FRESH_ONLY.search(sentence) or SKIP_WORDS.search(sentence)):
+        if component and (force or not (COOK_WORDS.search(sentence) or FRESH_ONLY.search(sentence) or SKIP_WORDS.search(sentence))):
             items.append(("component:" + component.casefold(), component, sentence, None))
             continue
         if not kind:
@@ -299,6 +308,10 @@ def _auto_items(
                 key = f"{kind}:{' '.join(_words(thing))}"
             title = f"{VERB[kind]} {thing}"
         items.append((key, title, sentence, None))
+    if force and not items:
+        # Nothing to name it by ("Soak the beans overnight"): list the sentence as its own item.
+        title = re.split(r"[,;.]", body.strip(), maxsplit=1)[0].strip()[:60] or "Prep step"
+        items.append((f"added:{meal_id}:{step_key(body)}", title, body.strip(), None))
     return items
 
 
@@ -318,9 +331,14 @@ SECTIONS = [
     ("sauce", "Sauces & dressings"),
     ("other", "More prep"),
 ]
-AROMATICS = {"garlic", "ginger", "shallot", "scallion", "leek", "chive", "lemon", "lime", "orange",
-             "zest", "parsley", "cilantro", "basil", "dill", "mint", "thyme", "rosemary", "oregano",
-             "sage", "tarragon", "jalapeno", "jalapeño", "chili", "chile", "lemongrass", "herb"}
+# Aromatics, herbs and citrus share one section, aromatics first: the onion and garlic you
+# chop for the base of a dish, then the herbs, then the citrus.
+AROMATIC_BASE = {"onion", "garlic", "ginger", "shallot", "scallion", "leek", "jalapeno", "jalapeño",
+                 "chili", "chile", "lemongrass"}
+HERBS = {"chive", "parsley", "cilantro", "basil", "dill", "mint", "thyme", "rosemary", "oregano",
+         "sage", "tarragon", "herb"}
+CITRUS = {"lemon", "lime", "orange", "zest"}
+AROMATICS = AROMATIC_BASE | HERBS | CITRUS
 MORE_PROTEINS = PROTEINS | {"chickpea", "bean", "lentil", "egg", "tempeh", "fish", "thigh",
                             "breast", "cutlet", "chop", "fillet", "meatball", "ham", "bacon"}
 CHEESES = {"cheese", "parmesan", "mozzarella", "cheddar", "feta", "ricotta", "yogurt", "yoghurt",
@@ -349,6 +367,14 @@ def _section(kind: str, title: str, quantities: list[str]) -> str:
     return "other"
 
 
+def _herb_rank(task: dict) -> int:
+    """Order inside "Aromatics, herbs & citrus": aromatics, then herbs, then citrus."""
+    if task["section"] != "herbs":
+        return 0
+    words = set(_words(task["item"]))
+    return 0 if words & AROMATIC_BASE else 1 if words & HERBS else 2
+
+
 def _item(title: str) -> tuple[str, str]:
     """("Onion", "") for "Prep onion"; ("Mozzarella", "Grate") for "Grate mozzarella"."""
     for verb in VERB_WORDS:
@@ -363,10 +389,20 @@ def _item(title: str) -> tuple[str, str]:
 CUT_VERB = re.compile(
     r"\b(?:(finely|thinly|roughly|coarsely|thickly)\s+)?"
     r"(wash|rinse|scrub|peel|trim|core|seed|stem|halve|quarter|chop|dice|mince|slice|julienne|cube|"
-    r"cut|grate|shred|zest|spiralize|crush|smash|tear)\b", re.I)
-CLAUSE = re.compile(r"[,;]|\s+then\s+", re.I)
+    r"cut|break|grate|shred|zest|spiralize|crush|smash|tear)\b", re.I)
+# A new clause starts at a comma, "then", or "and" + another cut: "Break the cauliflower into
+# florets | and cut the tomatoes", so the tomatoes' cut doesn't land on the cauliflower.
+CLAUSE = re.compile(
+    r"[,;]|\s+then\s+|\s+and\s+(?=(?:(?:finely|thinly|roughly|coarsely|thickly)\s+)?"
+    r"(?:wash|rinse|scrub|peel|trim|core|seed|stem|halve|quarter|chop|dice|mince|slice|julienne|"
+    r"cube|cut|break|grate|shred|zest|pull|remove)\b)", re.I)
 PART_WORDS = {"root", "end", "stem", "top", "leave", "leaf", "skin", "peel", "seed", "rib", "core",
               "pit", "rind", "fat", "them", "it", "both", "everything", "all", "half", "piece"}
+# Words that describe the cut or a side step, not another grocery: "cut it into bite-size
+# florets", "pull off the leaves". A clause with only these stays on the item.
+SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chunk", "strip", "wedge",
+               "round", "ring", "matchstick", "inch", "thin", "thick", "pull", "remove", "discard",
+               "separate", "aside", "reserve", "keep", "away", "rough", "fine", "even"}
 
 
 def _verbs_for(text: str, item_words: set[str]) -> list[str]:
@@ -381,14 +417,22 @@ def _verbs_for(text: str, item_words: set[str]) -> list[str]:
     for clause in CLAUSE.split(text):
         words = _words(clause)
         verbs = []
+        said: set[str] = set()  # the verbs as written, so "cut … into dice" doesn't make "cut" an object
         for m in CUT_VERB.finditer(clause):
             before = _words(clause[: m.start()])[-3:]
             if "into" in before or (before and before[-1] in {"a", "an", "the", "of", "one"}):
                 continue  # "cut into small dice", "a quarter of": nouns, not steps
-            verbs.append(f"{m.group(1).lower()} {m.group(2).lower()}" if m.group(1) else m.group(2).lower())
-        verb_words = {_singular(v.split()[-1]) for v in verbs}
+            verb = m.group(2).lower()
+            said.add(_singular(verb))
+            if verb == "cut" and re.match(r"\s+(?:away|off)\b", clause[m.end():], re.I):
+                verb = "trim"  # "cut off the roots"
+            elif verb == "cut" and re.match(r"[^,;.]*?\binto\s+(?:[\w-]+\s+){0,2}(?:dice|cubes?)\b",
+                                            clause[m.end():], re.I):
+                verb = "dice"  # "cut the tomatoes into medium dice"
+            verbs.append(f"{m.group(1).lower()} {verb}" if m.group(1) else verb)
+        verb_words = {_singular(v.split()[-1]) for v in verbs} | said
         objects = [w for w in words if w not in verb_words and w not in NOT_OBJECT
-                   and w not in PART_WORDS and w not in FILLER and len(w) > 2
+                   and w not in PART_WORDS and w not in FILLER and w not in SHAPE_WORDS and len(w) > 2
                    and w not in {"finely", "thinly", "roughly", "coarsely", "thickly"}]
         if item_words & set(words):
             on_item = True
@@ -411,17 +455,52 @@ def _phrase(verbs: list[str]) -> str:
     return text[:1].upper() + text[1:]
 
 
+WASH_VERBS = ("wash", "rinse", "scrub")
+TRIM_VERBS = ("peel", "trim", "core", "seed", "stem")
+SAME_CUT = {"cube": "dice"}
+
+
+def _merge_verbs(per_step: list[list[str]]) -> list[str]:
+    """One verb list for every meal's steps: wash, then peel/trim, then ONE cut.
+    Curry "rinse" + "break into florets", salmon "rinse … cut into florets" → rinse, chop.
+    Cuts that differ become "chop" (each meal's own cut is listed under the item)."""
+    wash: dict[str, int] = {}
+    trims: set[str] = set()
+    cuts: list[str] = []
+    for verbs in per_step:
+        for verb in verbs:
+            base = verb.split()[-1]
+            if base in WASH_VERBS:
+                wash[verb] = wash.get(verb, 0) + 1
+            elif base in TRIM_VERBS:
+                trims.add(base)
+            elif verb not in cuts:
+                cuts.append(verb)
+    out = [max(wash, key=wash.get)] if wash else []  # ties keep the first meal's
+    order = [v for v in TRIM_VERBS if v in trims]
+    if "peel" in order and "trim" in order:
+        order.remove("trim")  # trimming the ends is part of peeling an onion
+    out += order
+    bases = {SAME_CUT.get(c.split()[-1], c.split()[-1]) for c in cuts}
+    if len(cuts) == 1:
+        out.append(cuts[0])
+    elif len(bases) == 1:
+        out.append(bases.pop())  # "finely dice" and "dice" → "dice"
+    elif bases and bases <= {"slice", "julienne"}:
+        out.append("slice")
+    elif bases and bases <= {"grate", "shred", "zest"}:
+        out.append("grate")
+    elif bases:
+        out.append("chop")
+    return out
+
+
 def _action(task: dict) -> str:
-    """The most common way the meals cut this item, or "" when they don't say."""
+    """What the meals say to do to this item, merged across meals, or "" when they don't say."""
     words = {w for w in _words(task["item"]) if w not in FILLER and len(w) > 2}
-    counts: dict[str, int] = {}
-    for meal in task["meals"]:
-        for text in meal["instructions"]:
-            verbs = _verbs_for(text, words)
-            if verbs:
-                phrase = _phrase(verbs)
-                counts[phrase] = counts.get(phrase, 0) + 1
-    return max(counts, key=counts.get) if counts else ""  # ties keep the first meal's
+    per_step = [_verbs_for(text, words) for meal in task["meals"] for text in meal["instructions"]]
+    verbs = _merge_verbs([v for v in per_step if v])
+    return _phrase(verbs) if verbs else ""
 
 
 def prep_from_slots(slots: list[dict]) -> list[dict]:
@@ -434,17 +513,29 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
         ingredients = slot.get('ingredients') or []
         texts = [(s.get('text') or s.get('step') or '').strip() for s in steps]
         tagged = any(s.get('prep') for s in steps)
-        for i, (step, text) in enumerate(zip(steps, texts)):
+        # Steps the household said were missing from prep (#21) come after the recipe's own,
+        # listed even when the picker skipped them. Each is one sentence, matched by wording.
+        work = [(i, step, text, False) for i, (step, text) in enumerate(zip(steps, texts))]
+        work += [(None, {}, a.strip(), True) for a in slot.get('added') or [] if a and a.strip()]
+        for i, step, text, forced in work:
             if not text or (rid, i) in seen:
                 continue
-            seen.add((rid, i))
-            if tagged:
+            if forced:
+                listed = any(text in m['instructions'] for task in groups.values()
+                             for m in task['meals'] if m['id'] == rid)
+                if listed:
+                    continue  # already in prep
+                items = _auto_items(text, ingredients, rid, name, force=True)
+                auto = False
+            elif tagged:
+                seen.add((rid, i))
                 if not step.get('prep'):
                     continue
                 title = component_title(text, name) or _tagged_title(text)
                 items = [(re.sub(r'\s+', ' ', title).casefold(), title, text, None)]
                 auto = False
             else:
+                seen.add((rid, i))
                 items = _auto_items(text, ingredients, rid, name)
                 auto = True
             for group, title, item_text, only in items:
@@ -464,7 +555,8 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                 if item_text in meal['instructions']:
                     continue
                 meal['instructions'].append(item_text)
-                meal['steps'].append({'key': step_key(item_text), 'text': item_text, 'auto': auto})
+                meal['steps'].append({'key': step_key(item_text), 'text': item_text, 'auto': auto,
+                                      **({'added': True} if forced else {})})
                 for ing in mentioned(item_text, ingredients):
                     if only is not None and ing['name'] not in only:
                         continue
@@ -487,4 +579,4 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                 task['action'] = action
                 task['title'] = f"{action} {task['item'][:1].lower()}{task['item'][1:]}"
     # Work shared by several meals first; otherwise keep recipe order.
-    return sorted(groups.values(), key=lambda t: -len(t['meals']))
+    return sorted(groups.values(), key=lambda t: (_herb_rank(t), -len(t['meals'])))
