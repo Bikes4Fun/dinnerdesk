@@ -523,7 +523,7 @@ struct AccountView: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.forgotPassword(email: email)
+      try await AuthAPI.forgotPassword(email: email)
       message = "Check your email for a password reset link."
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
@@ -565,7 +565,7 @@ struct AccountView: View {
 
   private func signOutEverywhere() async {
     do {
-      try await KitchenAPI.logoutEverywhere()
+      try await AuthAPI.logoutEverywhere()
     } catch {
       self.error = KitchenAPI.message(error)
     }
@@ -617,7 +617,7 @@ private struct DeleteAccountSheet: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.deleteAccount(password: password)
+      try await AuthAPI.deleteAccount(password: password)
       onDeleted()
     } catch {
       self.error = KitchenAPI.message(error)

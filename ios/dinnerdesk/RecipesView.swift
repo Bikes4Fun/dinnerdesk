@@ -623,7 +623,7 @@ struct RecipeDetailView: View {
         self.error = error.localizedDescription
       }
     }
-    .task { admin = (try? await KitchenAPI.status())?.admin == true }
+    .task { admin = (try? await AuthAPI.status())?.admin == true }
   }
 
   private func ingredientLine(_ ing: IngredientLine, recipe: RecipeDetail) -> some View {
