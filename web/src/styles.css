@@ -1531,6 +1531,9 @@ img { display: block; max-width: 100%; }
 
 .ai-photo-tip { margin: 8px 0 12px; }
 
+/* Settings → Filters: Taste Lab's filter chips (soft tint, aubergine when on). */
+.filter-chips { gap: 0.35rem; }
+.filter-chips .chip { min-height: 36px; padding: 0.45rem 0.7rem; line-height: 1.25; }
 /* Narrow screens and large browser text or zoom (#35). Wrapping is harmless when things fit, so
    these apply everywhere; the media query covers what only makes sense when space is short.
    22em is 352px at the default text size: phones zoomed past about 110%, or narrow windows. */
