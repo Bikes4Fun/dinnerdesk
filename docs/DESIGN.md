@@ -405,6 +405,10 @@ ingredient words remain readable at accessibility sizes.
   to the shared catalog or this household; every query word must match. Typing alone does
   not save a restriction. Existing custom choices remain removable, and selected food
   names are stored intact, including commas, in the shared filters.
+- (#85) Matching ignores accents ("jalapeno" finds jalapeño) and accepts singular forms
+  ("tomatoes" → tomato, "strawberries" → strawberry) and longer words inside compound names
+  ("berries" → blueberries). The exact food comes first. Matches show as "+ name" chips. The
+  Filters header shows "Saving…" then "✓ Saved" after every change (announced to VoiceOver).
 - Recipes search uses the cream surface and line border rather than a system white field.
 - Meal-removal confirmation uses 20-point title, 17-point body/actions (scaled for Dynamic
   Type), and a content-sized sheet at standard text sizes. Accessibility sizes retain the
