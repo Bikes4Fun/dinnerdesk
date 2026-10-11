@@ -111,6 +111,9 @@ export const api = {
     req(`/api/recipes/${recipeId}/rating`, { method: "PUT", body: JSON.stringify({ rating }) }),
   ratePrepStep: (body) => req(`/api/prep/feedback`, { method: "PUT", body: JSON.stringify(body) }),
   ratePrepTask: (id, body) => req(`/api/prep/${id}/feedback`, { method: "PUT", body: JSON.stringify(body) }),
+  missingPrep: (planId) => req(`/api/plans/${planId}/prep/missing`),
+  setMissingPrep: (planId, body) =>
+    req(`/api/plans/${planId}/prep/missing`, { method: "PUT", body: JSON.stringify(body) }),
   patchPrep: (id, done) =>
     req(`/api/prep/${id}`, { method: "PATCH", body: JSON.stringify({ done }) }),
   checkPrepItem: (id, body) =>

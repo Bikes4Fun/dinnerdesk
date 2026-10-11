@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from app.db.database import ROOT
-from app.deps import DbDep
+from app.deps import DbDep, HhDep
 from app.domain.diet_filter import clean_filters, fold_profiles
 from app.domain.recipe_photos import usable_photo
 
@@ -137,13 +137,16 @@ def sessions():
 
 
 @router.post("/sessions")
-async def save_session(request: Request, db: PgConnection = DbDep):
+async def save_session(request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
     body = await request.json()
     if not isinstance(body, dict):
         raise HTTPException(400, {"error": "bad_json", "detail": "object"})
     row = session_info(db, request.cookies.get(SESSION_COOKIE))
     if row:
         body["account_id"] = str(row["user_id"])
+    else:
+        body["account_id"] = f"guest:{household_id}"
+        body["anon_id"] = f"guest-{household_id}"
     sid = taste().save_event(body)
     return {"ok": True, "id": sid}
 
@@ -154,7 +157,7 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
     With `filters` (the household's Settings → Filters) the profile is those filters, so Taste
     Lab and Settings edit one thing. Without it, the latest Taste Lab profile is shown.
     """
-    if not signed_in and not snapshots:
+    if not signed_in and not snapshots and filters is None:
         return {"signed_in": False, "profile": None, "likes": 0, "passes": 0, "votes": []}
     from app.domain.taste_rank import learn
 
@@ -162,12 +165,12 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
     votes = [{"recipe_id": rid, "liked": False} for rid in sorted(taste.passed)]
     votes.extend({"recipe_id": rid, "liked": True} for rid in sorted(taste.liked))
     votes.extend({"recipe_id": rid, "liked": True, "plan": True} for rid in sorted(taste.plan_liked))
-    if not signed_in:
+    if not signed_in and filters is None:
         # A guest's own earlier answers (same browser), so Taste Lab doesn't ask again (#27).
         # No profile: guests' filters stay in the page.
         return {
             "signed_in": False,
-            "profile": None,
+            "profile": filters,
             "likes": len(taste.liked) + len(taste.plan_liked),
             "passes": len(taste.passed),
             "votes": votes,
@@ -185,7 +188,7 @@ def public_taste(snapshots: list[dict], *, signed_in: bool, filters: dict | None
                 "dislikes": [str(item).strip().lower() for item in (prof.get("dislikes") or []) if str(item).strip()],
             }
     return {
-        "signed_in": True,
+        "signed_in": signed_in,
         "profile": profile,
         "likes": len(taste.liked) + len(taste.plan_liked),
         "passes": len(taste.passed),
@@ -218,6 +221,7 @@ def household_filters(db: PgConnection, household_id: int) -> dict:
     if filters.get("lab_folded"):
         return clean_filters(filters)
     accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
+    accounts.append(f"guest:{household_id}")
     folded = fold_profiles(filters, lab_profiles(snapshots_for_accounts(accounts)))
     folded["lab_folded"] = True
     if row is not None:
@@ -228,11 +232,11 @@ def household_filters(db: PgConnection, household_id: int) -> dict:
 
 
 @router.get("/taste")
-def my_taste(request: Request, db: PgConnection = DbDep):
+def my_taste(request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
     row = session_info(db, request.cookies.get(SESSION_COOKIE))
     if not row:
-        anon = (request.query_params.get("anon") or "").strip()
-        return public_taste(snapshots_for_anon(anon) if ANON_ID.fullmatch(anon) else [], signed_in=False)
+        return public_taste(snapshots_for_accounts([f"guest:{household_id}"]), signed_in=False,
+                            filters=household_filters(db, household_id))
     filters = household_filters(db, int(row["household_id"])) if row["household_id"] else None
     return public_taste(snapshots_for_accounts([str(row["user_id"])]), signed_in=True, filters=filters)
 

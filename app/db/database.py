@@ -222,6 +222,7 @@ def init_db(conn) -> None:
     _add_column(conn, "users", "failed_attempts", "INTEGER NOT NULL DEFAULT 0")
     _add_column(conn, "users", "locked_until", "TEXT")
     _add_column(conn, "prep_step_feedback", "category", "TEXT NOT NULL DEFAULT ''")
+    _add_column(conn, "prep_step_feedback", "note", "TEXT NOT NULL DEFAULT ''")
     migrate_prep_completion(conn)
     from app.db.seed import apply_seeds
 

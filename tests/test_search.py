@@ -50,3 +50,24 @@ def test_grocery_search_prefers_the_item_itself():
     assert hits.index("brown sugar") < hits.index("sugar snap peas")
     hits, _ = search_grocery_names(["sugar snap peas", "brown sugar"], "sugar", limit=2)
     assert hits[0] == "brown sugar"
+
+
+# #85: custom allergy/avoid food search.
+
+def test_custom_food_search_handles_plurals_accents_and_compounds():
+    from app.domain.search import filter_item_matches
+    names = ["bell pepper", "red bell pepper", "tomato", "cherry tomatoes", "strawberry", "blueberries",
+             "jalapeño", "jalapeno pepper", "ground beef", "onion", "green onions", "shrimp"]
+    assert filter_item_matches(names, "tomatoes")[:2] == ["tomato", "cherry tomatoes"]
+    assert filter_item_matches(names, "strawberries") == ["strawberry"]
+    assert "blueberries" in filter_item_matches(names, "berries")
+    assert filter_item_matches(names, "Jalapeño") == ["jalapeño", "jalapeno pepper"]
+    assert filter_item_matches(names, "jalapeno") == ["jalapeño", "jalapeno pepper"]
+    assert filter_item_matches(names, "bell peppers")[0] == "bell pepper"
+    assert filter_item_matches(names, "onions") == ["onion", "green onions"]
+    assert filter_item_matches(names, "ground")[0] == "ground beef"
+    assert filter_item_matches(names, "pep")[0] == "bell pepper"
+    # Never invents a food, and every word has to match.
+    assert filter_item_matches(names, "kale") == []
+    assert filter_item_matches(names, "red onion") == []
+    assert filter_item_matches(names, "  ") == []

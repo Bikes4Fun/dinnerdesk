@@ -19,6 +19,7 @@ class RecipeCreate(BaseModel):
 
 
 class RecipePatch(BaseModel):
+    photo_data: str | None = Field(default=None, max_length=7_000_000)
     name: str | None = Field(default=None, min_length=1, max_length=200)
     servings: int | None = Field(default=None, ge=1, le=50)
     cooking_minutes: int | None = Field(default=None, ge=0, le=24 * 60)
@@ -173,6 +174,15 @@ class PrepTaskFeedbackPut(BaseModel):
     """👍/👎 on a whole prep item (every meal's step in it), with an optional reason for a 👎."""
     rating: int = Field(ge=-1, le=1)
     reason: str = Field(default="", pattern="^(|day_of|kept_badly|too_small|prep_differently|not_prep)$")
+
+
+class PrepMissingPut(BaseModel):
+    """A recipe step the household says belongs in Weekend prep but wasn't listed (#21).
+    added=False takes the suggestion back."""
+    recipe_id: int
+    key: str = Field(min_length=1, max_length=40)
+    note: str = Field(default="", max_length=500)
+    added: bool = True
 
 
 class SubmissionCreate(BaseModel):

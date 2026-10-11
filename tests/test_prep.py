@@ -51,7 +51,7 @@ def test_untagged_recipe_gets_make_ahead_steps():
         {'text': 'Plate the boats and sprinkle with parsley.'},
     ]}])
     titles = {t['title'] for t in tasks}
-    assert titles == {'Rinse and cut mushrooms', 'Peel and mince garlic', 'Grate mozzarella', 'Make dressing'}
+    assert titles == {'Rinse and dice mushrooms', 'Peel and mince garlic', 'Grate mozzarella', 'Make dressing'}
     assert all(t['auto'] for t in tasks)
     assert tasks[0]['meals'][0]['steps'][0]['key']
 
@@ -71,9 +71,10 @@ def test_suggested_steps_batch_the_same_item_across_meals():
         {'recipe_id': 2, 'recipe_name': 'Chili', 'instructions': [{'text': 'Chop the onion.'}]},
     ])
     by_title = {t['title']: t for t in tasks}
-    assert set(by_title) == {'Dice onion', 'Mince garlic'}  # tie: the first meal's word
-    assert by_title['Dice onion']['recipe_ids'] == [1, 2]
-    assert tasks[0]['title'] == 'Dice onion'  # shared work first
+    # Meals that cut it differently share one generic cut; each meal's own step is listed.
+    assert set(by_title) == {'Chop onion', 'Mince garlic'}
+    assert by_title['Chop onion']['recipe_ids'] == [1, 2]
+    assert tasks[0]['title'] == 'Chop onion'  # shared work first
 
 
 def test_step_key_ignores_spacing_and_case():
@@ -247,7 +248,7 @@ def test_tasks_get_a_section_and_an_item_name():
             {'text': 'Rinse the chickpeas.'}, {'text': 'For the dressing, whisk oil and vinegar.'},
         ]}])
     by = {t['title']: (t['section'], t['item'], t['action']) for t in tasks}
-    assert by['Dice onion'] == ('veg', 'Onion', 'Dice')
+    assert by['Dice onion'] == ('herbs', 'Onion', 'Dice')  # aromatics sit with herbs & citrus
     assert by['Mince garlic'] == ('herbs', 'Garlic', 'Mince')
     assert by['Marinate turkey cutlets'] == ('protein', 'Turkey cutlets', 'Marinate')
     assert by['Grate mozzarella'] == ('cheese', 'Mozzarella', 'Grate')
@@ -283,4 +284,100 @@ def test_a_cut_named_as_a_noun_is_not_a_step():
     tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Hash',
         'ingredients': [{'name': 'sweet potatoes', 'quantity': '2'}],
         'instructions': [{'text': 'Peel the sweet potatoes and cut them into small dice.'}]}])
-    assert [t['title'] for t in tasks] == ['Peel and cut sweet potatoes']
+    assert [t['title'] for t in tasks] == ['Peel and dice sweet potatoes']  # "cut into small dice" is one dice
+
+
+# Weekend prep feedback, Oct 2026: one name for the whole job, aromatics with herbs & citrus.
+
+def test_item_name_merges_every_meals_verbs():
+    cauli = [{'name': 'cauliflower', 'quantity': '1 head'}, {'name': 'tomatoes', 'quantity': '2'}]
+    onion = [{'name': 'onion', 'quantity': '1 medium'}, {'name': 'garlic', 'quantity': '2 cloves'}]
+    tasks = prep_from_slots([
+        {'recipe_id': 1, 'recipe_name': 'Curry', 'ingredients': cauli + onion, 'instructions': [
+            {'text': 'Rinse the cauliflower and tomatoes.'},
+            {'text': 'Break the cauliflower into bite-size florets and cut the tomatoes into medium dice.'},
+            {'text': 'Peel the onion and garlic and mince them both.'}]},
+        {'recipe_id': 2, 'recipe_name': 'Salmon', 'ingredients': cauli, 'instructions': [
+            {'text': 'Rinse the cauliflower, pull off the leaves, and cut it into bite-size florets.'}]},
+        {'recipe_id': 3, 'recipe_name': 'Stir fry', 'ingredients': onion, 'instructions': [
+            {'text': 'Cut off the onion roots and chop the onions.'}]},
+        {'recipe_id': 4, 'recipe_name': 'Penne', 'ingredients': onion, 'instructions': [
+            {'text': 'Peel the onion and cut it into small dice.'}]},
+    ])
+    by = {t['item']: t for t in tasks}
+    assert by['Cauliflower']['title'] == 'Rinse and chop cauliflower'
+    assert by['Tomatoes']['title'] == 'Rinse and dice tomatoes'
+    assert by['Onion']['title'] == 'Peel and chop onion'
+
+
+def test_aromatics_herbs_and_citrus_share_a_section_aromatics_first():
+    ings = [{'name': 'lime', 'quantity': '1'}, {'name': 'cilantro', 'quantity': '1 bunch'},
+            {'name': 'yellow onion', 'quantity': '1'}, {'name': 'carrots', 'quantity': '2'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Bowls', 'ingredients': ings, 'instructions': [
+        {'text': 'Zest the lime.'}, {'text': 'Chop the cilantro.'}, {'text': 'Dice the onion.'},
+        {'text': 'Peel and slice the carrots.'}]}])
+    herbs = [t['item'] for t in tasks if t['section'] == 'herbs']
+    assert herbs == ['Yellow onion', 'Cilantro', 'Lime']
+    assert [t['section'] for t in tasks if t['item'] == 'Carrots'] == ['veg']
+
+
+def test_a_step_marked_missing_is_listed_even_when_the_picker_skips_it():
+    from app.domain.prep import step_sentences
+    slot = {'recipe_id': 7, 'recipe_name': 'Chili', 'ingredients': [
+        {'name': 'dried black beans', 'quantity': '1 lb'}, {'name': 'onion', 'quantity': '1'}],
+        'instructions': [{'text': 'Soak the beans overnight. Dice the onion.'},
+                         {'text': 'Cook the onion in the pot until soft.'}]}
+    assert step_sentences(slot['instructions'][0]['text']) == ['Soak the beans overnight.', 'Dice the onion.']
+    before = prep_from_slots([slot])
+    assert [t['title'] for t in before] == ['Dice onion']
+    after = prep_from_slots([{**slot, 'added': ['Soak the beans overnight.', 'Dice the onion.']}])
+    by = {t['title']: t for t in after}
+    assert set(by) == {'Dice onion', 'Soak the beans overnight'}  # no duplicate onion
+    soak = by['Soak the beans overnight']
+    assert soak['auto'] is False and soak['meals'][0]['steps'][0]['added'] is True
+    # Even a step with heat is listed when the household says it belongs in prep.
+    pot = prep_from_slots([{**slot, 'added': ['Cook the onion in the pot until soft.']}])
+    assert any(s['text'].startswith('Cook the onion') for t in pot for m in t['meals'] for s in m['steps'])
+
+
+def test_where_it_goes_next_does_not_end_the_cut():
+    """'Trim the cucumber, then cut it into dice and add it to the bowl' is still cucumber prep."""
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Salad',
+        'ingredients': [{'name': 'English cucumber', 'quantity': '1'}, {'name': 'tomatoes', 'quantity': '2'}],
+        'instructions': [{'text': 'Trim the cucumber ends, then cut it into medium dice and add it to the bowl.'},
+                         {'text': 'Rinse the tomatoes, pat them dry, and cut them into thin rounds.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert 'Trim and dice english cucumber' in titles
+    assert 'Rinse and cut tomatoes' in titles
+
+
+def test_a_bottled_sauce_is_not_making_a_sauce():
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Burgers',
+        'ingredients': [{'name': 'ground turkey', 'quantity': '1 lb'}, {'name': 'soy sauce', 'quantity': '2 tsp'}],
+        'instructions': [{'text': 'Mix the turkey, panko and soy sauce with your hands and shape 4 patties.'},
+                         {'text': 'Whisk the soy sauce, honey and vinegar together.'}]}])
+    titles = [t['title'] for t in tasks]
+    assert titles.count('Make sauce') <= 1  # only the whisked one
+    assert not any('patties' in t.lower() and 'sauce' in t.lower() for t in titles)
+
+
+def test_salt_and_pepper_is_not_the_bell_pepper_and_box_graters_are_tools():
+    ings = [{'name': 'eggs', 'quantity': '12'}, {'name': 'green bell peppers', 'quantity': '2'},
+            {'name': 'black pepper', 'quantity': '¼ tsp'}, {'name': 'salt', 'quantity': '½ tsp'},
+            {'name': 'English cucumber', 'quantity': '1'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Frittata', 'ingredients': ings, 'instructions': [
+        {'text': 'Whisk the eggs with the salt and pepper in a large bowl.'},
+        {'text': 'Trim the cucumber and grate it on the large holes of a box grater.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert not any('bell' in t for t in titles)
+    assert 'Trim and grate english cucumber' in titles
+
+
+def test_shape_nouns_and_split_do_not_end_the_cut():
+    ings = [{'name': 'zucchini squash', 'quantity': '2'}, {'name': 'baby bok choy', 'quantity': '4'}]
+    tasks = prep_from_slots([{'recipe_id': 1, 'recipe_name': 'Stir-fry', 'ingredients': ings, 'instructions': [
+        {'text': 'Trim the zucchini, split it lengthwise, and slice it into ¼-inch half-moons.'},
+        {'text': 'Trim the bok choy and slice it across into thin shreds.'}]}])
+    titles = {t['title'] for t in tasks}
+    assert 'Trim and slice zucchini' in titles
+    assert 'Trim and slice baby bok choy' in titles

@@ -1,5 +1,6 @@
 import SwiftUI
 import WebKit
+import UIKit
 
 /// Settings: food filters, account & household, Taste Lab. Push it from a NavigationStack (More tab).
 struct SettingsView: View {
@@ -97,6 +98,10 @@ struct FiltersView: View {
 
   @State private var otherAllergenOpen = false
   @State private var otherAvoidOpen = false
+  /// "Saving…" then "Saved" after each change (#85), so a tap never looks like it did nothing.
+  enum SaveState { case idle, saving, saved }
+  @State private var saveState = SaveState.idle
+  @State private var saveCount = 0
 
   static let dietLabels = [
     "omnivore": "Omnivore", "pescatarian": "Pescatarian", "vegetarian": "Vegetarian", "vegan": "Vegan",
@@ -183,6 +188,22 @@ struct FiltersView: View {
     .background(Theme.bg)
     .navigationTitle("Filters")
     .navigationBarTitleDisplayMode(.inline)
+    .toolbar {
+      ToolbarItem(placement: .topBarTrailing) {
+        Group {
+          switch saveState {
+          case .idle: EmptyView()
+          case .saving:
+            HStack(spacing: 6) { ProgressView().controlSize(.small); Text("Saving…") }
+          case .saved:
+            Label("Saved", systemImage: "checkmark").labelStyle(.titleAndIcon)
+          }
+        }
+        .font(Theme.count).foregroundStyle(Theme.muted)
+        .animation(.easeInOut(duration: 0.2), value: saveState)
+        .accessibilityElement(children: .combine)
+      }
+    }
     .task { await load() }
   }
 
@@ -286,12 +307,23 @@ struct FiltersView: View {
       "avoids": Self.avoids.filter { avoids.contains($0) } + otherAvoids,
       "time": time,
     ]
+    saveCount += 1
+    let mine = saveCount
+    saveState = .saving
     Task {
       do {
         try await KitchenAPI.savePrefs(["filters": body])
+        error = nil
+        if mine == saveCount {
+          saveState = .saved
+          UIAccessibility.post(notification: .announcement, argument: "Filters saved")
+        }
         // Recipes follow the filters, so refresh the list behind this screen.
         await store.searchRecipes("")
+        try? await Task.sleep(for: .seconds(2))
+        if mine == saveCount, saveState == .saved { saveState = .idle }
       } catch {
+        if mine == saveCount { saveState = .idle }
         self.error = KitchenAPI.message(error)
       }
     }
@@ -320,17 +352,17 @@ private struct OtherField: View {
         .accessibilityLabel("Search \(label.lowercased())")
       if loading { ProgressView() }
       if let error { Text(error).font(Theme.subtitle) }
-      ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
-        Button {
-          selected.append(name)
-          query = ""
-          matches = []
-          onCommit()
-        } label: {
-          Label(name, systemImage: "plus").font(Theme.body).foregroundStyle(Theme.ink)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+      // Matches as chips (#85): tap one to add it; it moves up with the other picked chips.
+      KitchenFlow(spacing: 6) {
+        ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
+          FilterChip(label: "+ \(name)", on: false) {
+            selected.append(name)
+            query = ""
+            matches = []
+            onCommit()
+          }
+          .accessibilityLabel("Add \(name)")
         }
-        .buttonStyle(.plain)
       }
       if !loading && error == nil && !query.isEmpty && matches.isEmpty {
         Text("No matching foods. Try another name.").font(Theme.subtitle)
@@ -523,7 +555,7 @@ struct AccountView: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.forgotPassword(email: email)
+      try await AuthAPI.forgotPassword(email: email)
       message = "Check your email for a password reset link."
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
@@ -565,7 +597,7 @@ struct AccountView: View {
 
   private func signOutEverywhere() async {
     do {
-      try await KitchenAPI.logoutEverywhere()
+      try await AuthAPI.logoutEverywhere()
     } catch {
       self.error = KitchenAPI.message(error)
     }
@@ -617,7 +649,7 @@ private struct DeleteAccountSheet: View {
     busy = true
     defer { busy = false }
     do {
-      try await KitchenAPI.deleteAccount(password: password)
+      try await AuthAPI.deleteAccount(password: password)
       onDeleted()
     } catch {
       self.error = KitchenAPI.message(error)
@@ -758,9 +790,14 @@ private struct TasteLabWebView: UIViewRepresentable {
 }
 
 private struct PrivacyView: View {
+  @State private var exportFile: URL?
+  @State private var exporting = false
+  @State private var exportError: String?
+
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
+        yourData
         Text(
           "Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it."
         )
@@ -783,7 +820,7 @@ private struct PrivacyView: View {
         section(
           "Without an account",
           """
-          If sign-in is not required, the app uses one shared guest household on the server. Anything added there is not private to you. Create an account for a household of your own.
+          Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it.
           """)
         section(
           "What we don’t collect",
@@ -795,7 +832,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
+          Download a copy of your data at the top of this page. Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
           """)
       }
       .font(Theme.body)
@@ -806,6 +843,49 @@ private struct PrivacyView: View {
     .background(Theme.bg)
     .navigationTitle("Privacy")
     .navigationBarTitleDisplayMode(.inline)
+  }
+
+  /// "Download my data" (#64): everything stored for this household as one JSON file.
+  private var yourData: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Your data").font(Theme.title)
+      Text("Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings, prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.")
+        .foregroundStyle(Theme.muted)
+      if let exportFile {
+        ShareLink(item: exportFile) {
+          Label("Save or share your data", systemImage: "square.and.arrow.up")
+            .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+        }
+      } else {
+        Button {
+          Task { await download() }
+        } label: {
+          HStack(spacing: 8) {
+            if exporting { ProgressView().controlSize(.small) }
+            Text(exporting ? "Preparing…" : "Download my data")
+          }
+          .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+        }
+        .disabled(exporting)
+      }
+      if let exportError { Text(exportError).font(Theme.subtitle).foregroundStyle(Theme.accent) }
+    }
+    .padding(.bottom, 8)
+  }
+
+  private func download() async {
+    exporting = true
+    exportError = nil
+    defer { exporting = false }
+    do {
+      let data = try await API.getData("household/export")
+      let day = Date().formatted(.iso8601.year().month().day())
+      let file = FileManager.default.temporaryDirectory.appendingPathComponent("dinnerdesk-data-\(day).json")
+      try data.write(to: file, options: .atomic)
+      exportFile = file
+    } catch {
+      exportError = "Couldn’t prepare your data. Please try again."
+    }
   }
 
   private func section(_ title: String, _ body: String) -> some View {

@@ -8,7 +8,7 @@ own, so the list is not matched against the database id.
 
 from __future__ import annotations
 
-from app.assets import catalog_dir
+from app.assets import catalog_dir, food_dir
 
 import json
 import re
@@ -47,14 +47,20 @@ def photo_name(path: str) -> str:
     return Path(str(path or "")).name
 
 
+def is_uploaded_photo(path: str) -> bool:
+    return bool(re.fullmatch(r"admin-upload-[0-9a-f]{32}\.jpg", photo_name(path)))
+
+
 def photo_allowed(name: str) -> bool:
-    return bool(photo_name(name)) and photo_name(name) in USE
+    filename = photo_name(name)
+    uploaded = is_uploaded_photo(filename)
+    return bool(filename) and (filename in USE or (uploaded and (food_dir() / filename).is_file()))
 
 
 def usable_photo(path: str, *_recipe_ids: int | None) -> str:
     text = str(path or "").strip()
     filename = photo_name(text)
-    if not filename or filename not in USE:
+    if not filename or not photo_allowed(filename):
         return ""
     return text
 

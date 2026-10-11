@@ -49,12 +49,12 @@ def test_signup_login_me_logout(tmp_path):
         assert client.get("/api/auth/me").status_code == 200
 
 
-def test_auth_status_required_when_env_set(tmp_path, monkeypatch):
+def test_guest_access_remains_available_when_auth_required_env_set(tmp_path, monkeypatch):
     monkeypatch.setenv("AUTH_REQUIRED", "1")
     with _client(tmp_path) as client:
         res = client.get("/api/auth/status")
-        assert res.json()["required"] is True
-        assert client.get("/api/recipes").status_code == 401
+        assert res.json()["required"] is False
+        assert client.get("/api/recipes").status_code == 200
         client.post(
             "/api/auth/signup",
             json={
@@ -242,3 +242,45 @@ def test_remove_member_who_joined_by_invite(tmp_path):
         client.post("/api/auth/login", json={"email": "owner@example.com", "password": "correct horse battery staple"})
         guest = [m for m in client.get("/api/household/members").json()["members"] if m["email"] == "guest@example.com"][0]
         assert client.delete(f"/api/household/members/{guest['id']}").status_code == 200
+
+
+def test_guest_kitchens_are_private_persist_and_survive_stale_signin(tmp_path):
+    from app.deps import GUEST_COOKIE
+    with _client(tmp_path) as first, TestClient(create_app()) as second:
+        first.cookies.set(SESSION_COOKIE, "expired-signin", domain="testserver.local", path="/")
+        assert first.get("/api/auth/status").json()["authenticated"] is False
+        assert GUEST_COOKIE in first.cookies
+        a = first.get("/api/plans/current").json()
+        b = second.get("/api/plans/current").json()
+        assert a["id"] != b["id"]
+        assert first.get("/api/plans/current").json()["id"] == a["id"]
+        assert second.get(f"/api/plans/{a['id']}").status_code == 404
+        assert first.put("/api/household", json={"prefs": {"family_portions": 7}}).status_code == 200
+        assert second.get("/api/household").json()["prefs"].get("family_portions") != 7
+        assert first.get("/api/plans/current").status_code == 200
+
+
+def test_signup_keeps_guest_data_and_revokes_guest_cookie(tmp_path):
+    from app.deps import GUEST_COOKIE
+    with _client(tmp_path) as guest:
+        plan = guest.get("/api/plans/current").json()
+        cookie = guest.cookies.get(GUEST_COOKIE)
+        guest.put("/api/household", json={"prefs": {"family_portions": 6}})
+        assert guest.post("/api/auth/signup", json={"email": "keep@example.com", "password": "guestguest"}).status_code == 200
+        assert guest.get("/api/plans/current").json()["id"] == plan["id"]
+        assert guest.get("/api/household").json()["prefs"]["family_portions"] == 6
+        with TestClient(create_app(), cookies={GUEST_COOKIE: cookie}) as old_guest:
+            assert old_guest.get(f"/api/plans/{plan['id']}").status_code == 404
+
+
+def test_guest_tastelab_votes_and_filters_persist(tmp_path):
+    with _client(tmp_path) as guest, TestClient(create_app()) as other:
+        guest.get("/api/auth/status")
+        assert guest.post("/api/sessions", json={"anon_id": "test-anon-123", "id": "guest-test", "kind": "snapshot", "body": {"swipes": [{"recipe_id": "395", "liked": True}]}}).status_code == 200
+        assert guest.get("/api/taste").json()["votes"] == [{"recipe_id": "395", "liked": True}]
+        assert other.get("/api/taste").json()["votes"] == []
+        assert guest.put("/api/household", json={"prefs": {"filters": {"diets": ["vegetarian"], "avoids": ["cilantro"]}}}).status_code == 200
+        assert "vegetarian" in guest.get("/api/taste").json()["profile"]["diets"]
+        assert "cilantro" in guest.get("/api/taste").json()["profile"]["dislikes"]
+        guest.post("/api/auth/signup", json={"email": "taste@example.com", "password": "guestguest"})
+        assert guest.get("/api/taste").json()["votes"] == [{"recipe_id": "395", "liked": True}]

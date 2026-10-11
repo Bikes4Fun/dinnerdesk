@@ -101,7 +101,11 @@
     "tree-nuts": ["almond", "walnut", "pecan", "cashew", "pistachio", "hazelnut", "macadamia"],
     dairy: ["milk", "butter", "cheese", "cream", "yogurt", "yoghurt", "parmesan", "feta", "mozzarella", "cheddar", "whey", "ghee"],
     egg: ["egg"],
-    gluten: ["wheat", "flour", "bread", "pasta", "spaghetti", "linguine", "penne", "couscous", "panko", "breadcrumb", "soy sauce"],
+    gluten: ["wheat", "flour", "bread", "pasta", "spaghetti", "linguine", "penne", "couscous", "panko", "breadcrumb", "soy sauce",
+      "buns", " rolls", "pita", "naan", "bagel", "crouton", "cracker", "biscuit", "gnocchi", "fettuccine", "rotini",
+      "rigatoni", "farfalle", "orzo", "macaroni", "lasagna", "ziti", "tortellini", "ravioli", "egg noodle",
+      "lo mein", "ramen", "udon", "wonton", "barley", "bulgur", "farro", "semolina", "seitan", "hoisin",
+      "teriyaki", "stir-fry sauce"],
     sesame: ["sesame", "tahini"],
     fish: ["salmon", "tuna", "cod", "halibut", "tilapia", "trout", "anchovy", "fish"],
     shellfish: ["shrimp", "prawn", "crab", "lobster", "clam", "mussel", "oyster", "scallop"],
@@ -371,7 +375,6 @@ const macros = (r) => {
   // Signed in, these filters are the household's Settings → Filters: one list, edited from either
   // screen. Only the keys Taste Lab shows are sent; the server keeps cook time and anything else.
   const saveFilters = async () => {
-    if (!state.signedIn) return;
     const response = await fetch("/api/household", {
       method: "PUT",
       headers: { "Content-Type": "application/json", "X-Dinnerdesk-App": "tastelab" },
@@ -601,7 +604,7 @@ const macros = (r) => {
       : "Swipe individual meals or review suggested dinner plans. Choose either to get started.";
     const legal = state.signedIn
       ? "Likes, passes, and filters are saved for your household and used to suggest meals."
-      : "Sign in so likes and passes stay with your household. A guest kitchen is shared.";
+      : "You can use every feature as a guest. Create an account in Settings to protect your data; reinstalling the app or clearing browser data can lose access.";
     return `
     <div class="shell welcome">
       ${mosaic}

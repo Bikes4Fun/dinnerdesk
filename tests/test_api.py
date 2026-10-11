@@ -48,6 +48,11 @@ def _seed(path: Path) -> None:
             never_shop, custom_text, source_slots_json
         ) VALUES (1, 1, '1', 'produce', 0, 0, 0, 'hidden line', '[]')"""
     )
+    # Seeded feature tests exercise Home through its explicit guest identity.
+    import hashlib
+    db.execute("INSERT INTO guest_sessions (token_hash, household_id, created_at) VALUES (?, 1, ?)",
+               (hashlib.sha256(b"feature-test-guest").hexdigest(), ts))
+    db.execute("SELECT setval(pg_get_serial_sequence('households', 'id'), (SELECT MAX(id) FROM households), true)")
     db.commit()
     db.close()
 
@@ -60,7 +65,16 @@ def _client(tmp_path: Path, admin: bool = True) -> TestClient:
     if admin:
         from app.deps import require_admin
         app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
-    return TestClient(app)
+    return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
+
+
+def test_only_admins_can_edit_recipes(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch("/api/recipes/1", json={"name": "Hacked soup"}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"as_copy": True, "name": "Copy"}).status_code == 403
+        assert client.put("/api/recipes/1/dev-notes", json={"text": "hi"}).status_code == 403
+        assert client.delete("/api/recipes/1/edit").status_code == 403
+        assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
 def test_only_admins_can_edit_recipes(tmp_path):
@@ -809,7 +823,7 @@ def test_catalog_lists_only_rewritten_recipes_with_real_photos(tmp_path):
     _add_catalog(tmp_path, "copied", "Copied steps", True, "food/copied.jpg")
     _add_catalog(tmp_path, "stock", "Stock photo", False, "food/pasta-tomato.jpg")
     _add_catalog(tmp_path, "nophoto", "No photo", False, "")
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), cookies={"dd_guest": "feature-test-guest"}) as client:
         made = client.post(
             "/api/recipes",
             json={"name": "Our own stew", "ingredients": [], "instructions": []},
@@ -962,7 +976,7 @@ def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
     db.execute("INSERT INTO recipe_ingredients (recipe_id, ingredient_id) VALUES (?, ?)", (noodles, pb))
     db.commit()
     db.close()
-    with TestClient(create_app()) as client:
+    with TestClient(create_app(), cookies={"dd_guest": "feature-test-guest"}) as client:
         names = lambda: {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
         assert {"Turkey Chili", "Garden Bowl", "Peanut Noodles", "Soup"} <= names()
 
@@ -1095,6 +1109,42 @@ def test_prep_items_check_off_one_at_a_time(tmp_path):
         assert tasks["Dice onion"]["meals"][0]["steps"][0]["done"] is False
 
         bad = client.put(f"/api/prep/{onion['id']}/steps", json={"recipe_id": 1, "key": "nope", "done": True})
+        assert bad.status_code == 404
+
+
+def test_prep_meals_carry_their_cook_day_and_missing_steps_can_be_added(tmp_path):
+    from datetime import date, timedelta
+    with _client(tmp_path) as client:
+        client.patch("/api/recipes/1", json={"instructions": [
+            {"text": "Dice the onion. Soak the beans overnight.", "prep": False},
+            {"text": "Heat the oven.", "prep": False},
+        ]})
+        plan = client.get("/api/plans/current").json()
+        pid = plan["id"]
+        client.put(f"/api/plans/{pid}/slots",
+                   json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]})
+        day = (date.fromisoformat(plan["start_date"][:10]) + timedelta(days=1)).strftime("%a")
+        tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
+        assert tasks["Dice onion"]["meals"][0]["day"] == day  # #78: day label beside the step
+        assert "Soak the beans overnight" not in tasks
+
+        missing = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"]
+        assert missing[0]["day"] == day
+        soak = next(s for s in missing[0]["steps"] if s["text"].startswith("Soak"))
+        assert not any(s["text"] == "Dice the onion." for s in missing[0]["steps"])  # already in prep
+
+        added = client.put(f"/api/plans/{pid}/prep/missing",
+                           json={"recipe_id": 1, "key": soak["key"], "note": "takes all night"})
+        assert added.status_code == 200
+        tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
+        assert tasks["Soak the beans overnight"]["meals"][0]["steps"][0]["added"] is True
+        again = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"][0]["steps"]
+        assert next(s for s in again if s["key"] == soak["key"])["note"] == "takes all night"
+
+        client.put(f"/api/plans/{pid}/prep/missing", json={"recipe_id": 1, "key": soak["key"], "added": False})
+        tasks = {t["title"] for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
+        assert "Soak the beans overnight" not in tasks
+        bad = client.put(f"/api/plans/{pid}/prep/missing", json={"recipe_id": 1, "key": "nope"})
         assert bad.status_code == 404
 
 
@@ -1240,3 +1290,126 @@ def test_unknown_api_requests_say_what_happened(tmp_path, caplog):
     assert auth.status_code == 405 and auth.json()["allowed"] == ["GET"]
     assert "POST /api/no-such-route -> 404" in caplog.text and "ios 1.0 (7)" in caplog.text
     assert client.get("/api/health").json() == {"ok": True}  # real routes still win
+
+
+def test_download_my_data_has_the_kitchen_and_no_secrets(tmp_path):
+    """#64: one JSON file with this household's data; never passwords or tokens."""
+    with _client(tmp_path) as client:
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(f"/api/plans/{pid}/slots",
+                   json={"slots": [{"recipe_id": 1, "day_index": 0, "meal_type": "dinner", "servings": 4}]})
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        res = client.get("/api/household/export")
+        assert res.status_code == 200
+        assert "attachment" in res.headers["content-disposition"]
+        data = res.json()
+        assert data["household"]["prefs"]["filters"]["avoids"] == ["olives"]
+        assert any(p["meals"] for p in data["plans"])
+        for key in ("favorites", "pantry", "meal_ratings", "prep_feedback", "taste_lab"):
+            assert key in data
+        text = res.text
+        assert "password_hash" not in text and "token_hash" not in text
+
+
+def test_download_recipes_include_ingredients_and_tags_only_for_this_household(tmp_path):
+    with _client(tmp_path) as client:
+        created = client.post('/api/recipes', json={
+            'name': 'Our soup', 'ingredients': [
+                {'name': 'carrot', 'quantity': '2'},
+                {'name': 'onion', 'quantity': '1/2'},
+            ], 'tags': ['soup', 'tested'],
+        })
+        assert created.status_code in (200, 201)
+        recipe_id = created.json()['id']
+        empty = client.post('/api/recipes', json={'name': 'Empty recipe'}).json()
+        db = connect()
+        db.execute("UPDATE recipe_ingredients SET unit = 'cups', note = 'finely chopped' WHERE recipe_id = ? AND sort = 1", (recipe_id,))
+        db.execute("INSERT INTO recipe_tags (recipe_id, tag) VALUES (2, 'private-tag')")
+        db.execute("INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity) VALUES (2, 1, 'secret-quantity')")
+        db.commit()
+        db.close()
+        exported = client.get('/api/household/export')
+        assert exported.status_code == 200
+        recipes = {r['id']: r for r in exported.json()['recipes_you_added']}
+        assert set(recipes) == {recipe_id, empty['id']}
+        assert recipes[recipe_id]['tags'] == ['soup', 'tested']
+        ingredients = recipes[recipe_id]['ingredients']
+        assert [i['quantity'] for i in ingredients] == ['2', '1/2']
+        assert [i['sort'] for i in ingredients] == [0, 1]
+        assert all(i['name'] and i['ingredient_id'] for i in ingredients)
+        assert ingredients[1]['unit'] == 'cups'
+        assert ingredients[1]['note'] == 'finely chopped'
+        assert recipes[empty['id']]['ingredients'] == []
+        assert recipes[empty['id']]['tags'] == []
+        assert 'private-tag' not in exported.text
+        assert 'secret-quantity' not in exported.text
+def _upload_photo_data():
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    image = BytesIO()
+    Image.new('RGB', (24, 24), 'green').save(image, 'PNG')
+    return 'data:image/png;base64,' + base64.b64encode(image.getvalue()).decode()
+
+
+def test_admin_photo_update_persists_and_copy_is_independent(tmp_path, monkeypatch):
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    with _client(tmp_path) as client:
+        updated = client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()})
+        assert updated.status_code == 200
+        photo = updated.json()['photo_path']
+        assert photo.startswith('food/admin-upload-')
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        assert client.get('/' + photo).status_code == 200
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'photo_data': _upload_photo_data()})
+        assert copied.status_code == 200
+        assert copied.json()['photo_path'] != photo
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        invalid = client.patch('/api/recipes/1', json={'photo_data': 'invalid', 'name': 'Bad edit'})
+        assert invalid.status_code == 400
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        assert client.get('/api/recipes/1').json()['name'] == 'Soup'
+        from app.db.catalog import upsert_catalog_recipe
+        db = connect()
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'photo_path': 'food/soup.jpg'}, {})
+        db.commit()
+        db.close()
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        assert client.patch('/api/recipes/2', json={'photo_data': _upload_photo_data()}).status_code == 404
+
+
+
+def test_photo_updates_require_admin(tmp_path, monkeypatch):
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).status_code == 403
+    assert not list(tmp_path.iterdir())
+
+
+def test_admin_catalog_tags_are_global_and_survive_import(tmp_path):
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        saved = client.patch('/api/recipes/1', json={'tags': ['low_carb_pasta', 'tested']})
+        assert saved.status_code == 200
+        assert saved.json()['tags'] == ['low_carb_pasta', 'tested']
+        db = connect()
+        from app.routes import _recipe_out
+        row = db.execute('SELECT * FROM recipes WHERE id = 1').fetchone()
+        assert _recipe_out(db, row, 2)['tags'] == ['low_carb_pasta', 'tested']
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'tags': ['old']}, {})
+        db.commit()
+        assert client.get('/api/recipes/1').json()['tags'] == ['low_carb_pasta', 'tested']
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'tags': ['copy']})
+        assert copied.status_code == 200
+        assert copied.json()['tags'] == ['copy']
+        assert client.get('/api/recipes/1').json()['tags'] == ['low_carb_pasta', 'tested']
+        assert client.patch('/api/recipes/1', json={'tags': []}).json()['tags'] == []
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'tags': ['old']}, {})
+        db.commit()
+        db.close()
+        assert client.get('/api/recipes/1').json()['tags'] == []
+
+
+def test_catalog_tags_require_admin(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch('/api/recipes/1', json={'tags': ['changed']}).status_code == 403

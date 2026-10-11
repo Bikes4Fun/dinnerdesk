@@ -11,7 +11,7 @@ import "./prep.css";
 
 const SECTIONS = [
   ["veg", "Vegetables", "Veg"],
-  ["herbs", "Aromatics, herbs & citrus", "Herbs"],
+  ["herbs", "Aromatics, herbs & citrus", "Aromatics"],
   ["protein", "Protein", "Protein"],
   ["cheese", "Cheese & dairy", "Cheese"],
   ["sauce", "Sauces & dressings", "Sauce"],
@@ -179,6 +179,7 @@ export function Prep() {
                 </section>
               );
             })}
+            <MissingPrep onChange={() => load().catch((e) => setErr(e.message))} onError={setErr} />
             <button type="button" className="list-foot-link" onClick={() => window.print()}>
               Print prep
             </button>
@@ -217,7 +218,7 @@ export function Prep() {
 
 function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails }) {
   const sub = (t.quantities || []).filter(Boolean).join(" · ");
-  // Each different step once, with the meals that use it as small links underneath.
+  // Each different step once, with the meals that use it as light pill links (#78 D).
   const groups = [];
   for (const meal of t.meals || []) {
     for (const text of meal.steps?.length ? meal.steps.map((s) => s.text) : meal.instructions || []) {
@@ -227,7 +228,7 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
     }
   }
   return (
-    <li className={`pz-item${t.done ? " is-done" : ""}`}>
+    <li className={`pz-item${t.done ? " is-done" : ""}${details ? " is-open" : ""}`}>
       <div className="pz-row">
         <button type="button" role="checkbox" aria-checked={t.done} className={`pz-check${t.done ? " on" : ""}`}
           aria-label={`${t.done ? "Uncheck" : "Check off"} ${t.title}`} onClick={onToggle}>
@@ -237,7 +238,12 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
           <span className="pz-name">{t.title}</span>
           {sub && <span className="pz-sub">{sub}</span>}
         </button>
-        <Thumbs size={18} rating={t.rating || 0} subject={`prepping ${t.title} ahead`} onRate={onRate} />
+        {/* 👍/👎 only on the open item (#78 D). */}
+        {details && <Thumbs size={18} rating={t.rating || 0} subject={`prepping ${t.title} ahead`} onRate={onRate} />}
+        <button type="button" className={`pz-chevron${details ? " on" : ""}`} aria-expanded={details}
+          aria-label={`${details ? "Hide" : "Show"} steps for ${t.title}`} onClick={onDetails}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        </button>
       </div>
       {t.rating < 0 && t.reason && !why && <div className="pz-indent"><span className="pz-tag">{reasonLabel(t.reason)}</span></div>}
       {why && (
@@ -251,17 +257,157 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
         </div>
       )}
       {details && (
-        <div className="pz-indent pz-details">
+        <div className="pz-details">
           {groups.map((g, i) => (
             <div key={i} className="pz-step-group">
-              <p className="pz-step">{g.text}</p>
-              {g.meals.map((meal) => (
-                <button key={meal.id} type="button" className="text-link pz-meal-link" onClick={() => go(`/recipes/${meal.id}`)}>{meal.name}</button>
-              ))}
+              <span className="pz-day" aria-hidden={!g.meals[0]?.day}>{g.meals[0]?.day || ""}</span>
+              <div className="pz-step-body">
+                <p className="pz-step">{g.text}</p>
+                {g.meals.some((m) => m.steps?.some((st) => st.added && st.text.trim() === g.text)) && <span className="pz-added">Added by you</span>}
+                {g.meals.map((meal) => (
+                  <button key={meal.id} type="button" className="pz-pill" onClick={() => go(`/recipes/${meal.id}`)}
+                    aria-label={`${meal.name}${meal.day ? `, ${meal.day}` : ""}: open recipe`}>
+                    <span>{meal.name}</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+                  </button>
+                ))}
+              </div>
             </div>
           ))}
         </div>
       )}
     </li>
+  );
+}
+
+/* "Missing a prep step?" (#78 E/F): pick the meal, then the step that should have been prep,
+   optionally say why, and it joins prep (and is logged for review). */
+function MissingPrep({ onChange, onError }) {
+  const [open, setOpen] = useState(false);
+  const [meals, setMeals] = useState(null);
+  const [mealId, setMealId] = useState(null);
+  const [stepKey, setStepKey] = useState(null);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [added, setAdded] = useState(null); // { meal, text }
+
+  const meal = meals?.find((m) => m.id === mealId);
+  const step = meal?.steps.find((s) => s.key === stepKey);
+
+  async function openPanel() {
+    setOpen(!open);
+    if (open || meals) return;
+    try {
+      const plan = await api.plan();
+      setMeals((await api.missingPrep(plan.id)).meals);
+    } catch (e) {
+      onError(e.message);
+      setOpen(false);
+    }
+  }
+
+  function pickMeal(id) { setMealId(id); setStepKey(null); setNote(""); }
+
+  async function save(m, st, adding) {
+    setSaving(true);
+    const text = adding ? note.trim() : "";
+    try {
+      const plan = await api.plan();
+      await api.setMissingPrep(plan.id, { recipe_id: m.id, key: st.key, note: text, added: adding });
+      setMeals((cur) => cur.map((x) => (x.id !== m.id ? x : {
+        ...x, steps: x.steps.map((y) => (y.key === st.key ? { ...y, added: adding, note: text } : y)),
+      })));
+      if (adding) setAdded({ meal: m.name, text: st.text });
+      setStepKey(null);
+      setNote("");
+      onChange();
+    } catch (e) {
+      onError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="pz-missing">
+      <button type="button" className="pz-missing-open" aria-expanded={open} onClick={openPanel}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>
+        <span>
+          <span className="pz-missing-title">Missing a prep step?</span>
+          <span className="muted">Pick a step from this week’s recipes.</span>
+        </span>
+      </button>
+      {open && (
+        <div className="pz-missing-body">
+          <p className="help">Tell us a step that would have saved time if you did it ahead. We’ll add it to your prep and use it to make prep better.</p>
+          {meals == null ? <p className="muted">Loading…</p> : added ? (
+            <div className="pz-missing-done" role="status">
+              <span className="pz-missing-tick" aria-hidden="true">✓</span>
+              <strong>Added to your prep</strong>
+              <span>{added.text}</span>
+              <span className="muted">{added.meal} · marked “Added by you”</span>
+              <div className="pz-missing-actions">
+                <button type="button" className="btn-secondary" onClick={() => { setAdded(null); pickMeal(null); }}>Add another</button>
+                <button type="button" className="btn-primary" onClick={() => { setAdded(null); pickMeal(null); setOpen(false); }}>Done</button>
+              </div>
+            </div>
+          ) : meals.length === 0 ? <p className="muted">Every step of this week’s recipes is already in prep.</p> : (
+            <>
+              <h3 className="pz-missing-label">1 · Meal</h3>
+              {meal ? (
+                <div className="pz-missing-picked">
+                  <span className="pz-day">{meal.day || ""}</span>
+                  <strong>{meal.name}</strong>
+                  <button type="button" className="text-link" onClick={() => pickMeal(null)}>Change</button>
+                </div>
+              ) : (
+                <ul className="pz-missing-meals">
+                  {meals.map((m) => (
+                    <li key={m.id}>
+                      <button type="button" onClick={() => pickMeal(m.id)}>
+                        <span className="pz-day">{m.day || ""}</span>
+                        <span className="pz-missing-meal-text">
+                          <strong>{m.name}</strong>
+                          <span className="muted">{m.steps.length === 1 ? "1 step not in prep" : `${m.steps.length} steps not in prep`}</span>
+                        </span>
+                        <span aria-hidden="true">›</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {meal && (
+                <>
+                  <h3 className="pz-missing-label">2 · Step that should be prep</h3>
+                  <div className="pz-missing-steps" role="radiogroup" aria-label="Step that should be prep">
+                    {meal.steps.map((st) => st.added ? (
+                      <div key={st.key} className="pz-missing-step is-added">
+                        <span className="muted">Step {st.step} · in your prep{st.note ? ` · ${st.note}` : ""}</span>
+                        <span>{st.text}</span>
+                        <button type="button" className="text-link" disabled={saving} onClick={() => save(meal, st, false)}>Remove from prep</button>
+                      </div>
+                    ) : (
+                      <button key={st.key} type="button" role="radio" aria-checked={st.key === stepKey}
+                        className={`pz-missing-step${st.key === stepKey ? " is-picked" : ""}`} onClick={() => setStepKey(st.key)}>
+                        <span className="pz-radio" aria-hidden="true" />
+                        <span><span className="muted">Step {st.step}</span><span>{st.text}</span></span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {meal && step && (
+                <div className="pz-missing-form">
+                  <h3 className="pz-missing-label"><label htmlFor="pz-missing-note">3 · Why do it ahead? (optional)</label></h3>
+                  <textarea id="pz-missing-note" rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)}
+                    placeholder="e.g. Tofu needs 15 min to press — no time on a weeknight" />
+                  <button type="button" className="btn-primary" disabled={saving} onClick={() => save(meal, step, true)}>{saving ? "Adding…" : "Add to prep"}</button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </section>
   );
 }

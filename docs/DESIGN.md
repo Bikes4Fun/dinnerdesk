@@ -35,8 +35,9 @@ hide, plan, pantry, or grocery action creates a new catalog recipe.
 
 ### 1. Accounts and Quick start
 
-Email-and-password accounts with a session cookie. When sign-in isn't required, everyone shares
-one guest household. Forgot password works on the website and in the iOS app.
+Email-and-password accounts with a session cookie. All normal features work signed out in a
+private kitchen identified by a random guest cookie. Expired sign-in sessions fall back to guest
+access. Creating an account keeps the guest kitchen and revokes its anonymous access. Forgot password works on the website and in the iOS app.
 
 The Quick start tour is optional: a short what-to-eat survey (diet, avoids, cook time, the same
 filters as Settings) and one screen each for Recipes, This week, Grocery, and Weekend prep.
@@ -224,18 +225,29 @@ all week."
   & citrus; Protein; Cheese & dairy; Sauces & dressings; More prep. One row per item however many
   meals use it; never one row per meal. Sections collapse with an arrow and remember it.
 - **Must:** a row is named for what the steps say to do, with the amount under it:
-  "Peel and mince garlic · 14 cloves garlic", "Wash and thinly slice mushrooms". When meals cut it
-  differently, the most common way wins. Opening a row shows each different step once, with the
-  meals that use it as small links under it. No grey "For meal, meal" line.
+  "Peel and mince garlic · 14 cloves garlic", "Wash and thinly slice mushrooms". The name merges
+  every meal's verbs: wash, then peel/trim, then one cut ("Rinse and chop cauliflower"); cuts that
+  differ become "chop". Onion, garlic, ginger and the like sit with herbs and citrus, aromatics
+  first.
+- **Must (#78):** a closed row shows only the check circle, name, amount, and a chevron. Opening it
+  shows 👍/👎 beside the chevron and each different step once: the meal's cook day on the left
+  (MON, TUE; blank when unscheduled), the step, then each meal that uses it as a light purple pill
+  that opens the recipe. No coral links, no grey left bar, no day labels on closed rows.
 - **Must:** a progress ring (done of total) and one bar per section at the top; tapping a bar
   jumps to that section.
 - **Must:** check-off works like the grocery list: a done item leaves its section; "Show
   completed" brings done items back, faded, at the bottom of their section. Checking an item
   shows a bar with Undo and "Worth prepping ahead next time?" 👍/👎.
-- **Must:** every item has 👍/👎 whether it's checked or not. 👎 asks why: better done day-of,
-  didn't keep well, too small to bother, prep it differently, not a prep step. Votes and reasons
-  are saved for review only (GET /dev/prep-feedback); they don't change what Prep shows yet.
-  Tapping an item's name shows each meal's step and a link to the recipe.
+- **Must:** every item can take 👍/👎 (on the open row, and from the check-off bar) whether it's
+  checked or not. 👎 asks why: better done day-of, didn't keep well, too small to bother, prep it
+  differently, not a prep step. Votes and reasons are saved for review only (GET
+  /dev/prep-feedback); they don't change what Prep shows yet.
+- **Must (#78):** a dashed "Missing a prep step?" card ends the list. It opens a sheet: 1 · pick
+  the meal (by cook day, with how many of its steps aren't in prep; Change goes back), 2 · pick the
+  step that should be prep, 3 · optional "Why do it ahead?", then Add to prep and a confirmation
+  (Add another / Done). The step joins this household's prep right away, marked "Added by you",
+  and can be removed from the same sheet. Saved in prep_step_feedback (reason "missing", with the
+  note) for review; 👍/👎 never overwrite it.
 - **Must not:** include last week's meals, leftovers, or "wash your hands"-type steps.
 - **Bug if:** a recipe not on this plan appears; tagging Prep copies the recipe or edits the
   catalog.
@@ -246,12 +258,17 @@ An invite link adds another account to the same household (plan, grocery list, p
 can be removed from Account & security, which ends their access. Password change, sign out, and
 sign out everywhere live there too.
 
+- **Must (#64):** Privacy has **Download my data**: one JSON file (GET /api/household/export) with
+  everything stored for the household (plans with meals, grocery lists and prep, pantry, filters,
+  favorites, hides, ratings, prep votes, substitutions, stores and aisles, recipes added, Taste Lab
+  answers). Never password hashes, session, invite or reset tokens, or other households' data.
+
 ### 10. Across the whole app (UI principles)
 
 - Phone-first; the website is the same app in a wider layout. Plan and Grocery are the daily
   screens; Recipes is always one tap away.
 - Show amounts wherever groceries matter. Don't bury the pantry, editing, or filters.
-- Photos: ours or the user's only, never Mealime's. A catalog recipe is listed only once its
+- Photos: ours or the user's only, never third-party app photos. A catalog recipe is listed only once its
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
   A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
   purple ★ tip on the recipe page saying so.
@@ -363,7 +380,7 @@ HealthKit for nutrition sync.
 ## Decisions
 
 - Native iOS and the website both ship; iOS is SwiftUI.
-- Accounts ship; a shared guest household remains when sign-in isn't required.
+- Accounts are optional; guests have separate kitchens and a nonblocking data-loss warning.
 - Suggestions are a proposal to approve, never an automatic replacement of the plan.
 - Suggestion review prioritizes meal choices and decisions; explanatory copy is saved for tips.
 - Diets and avoids are hard filters everywhere (Recipes and suggestions).
@@ -404,6 +421,10 @@ ingredient words remain readable at accessibility sizes.
   to the shared catalog or this household; every query word must match. Typing alone does
   not save a restriction. Existing custom choices remain removable, and selected food
   names are stored intact, including commas, in the shared filters.
+- (#85) Matching ignores accents ("jalapeno" finds jalapeño) and accepts singular forms
+  ("tomatoes" → tomato, "strawberries" → strawberry) and longer words inside compound names
+  ("berries" → blueberries). The exact food comes first. Matches show as "+ name" chips. The
+  Filters header shows "Saving…" then "✓ Saved" after every change (announced to VoiceOver).
 - Recipes search uses the cream surface and line border rather than a system white field.
 - Meal-removal confirmation uses 20-point title, 17-point body/actions (scaled for Dynamic
   Type), and a content-sized sheet at standard text sizes. Accessibility sizes retain the
