@@ -68,13 +68,17 @@ struct PrepView: View {
               title: "No prep yet",
               message: "Add meals on Plan. Make-ahead steps like chopping, grating and sauces show up here.",
               systemImage: "list.clipboard")
-            Button(store.plan?.slots.isEmpty != false ? "Create meal plan" : "Back to plan") {
-              selectTab(.plan)
-              dismiss()
-              if store.plan?.slots.isEmpty != false { Task { await store.openSuggestions() } }
+            if store.plan?.slots.isEmpty != false {
+              CreateMealPlanButton()
+                .frame(maxWidth: .infinity)
+            } else {
+              Button("Back to plan") {
+                selectTab(.plan)
+                dismiss()
+              }
+              .font(Theme.action)
+              .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .font(Theme.action)
-            .frame(maxWidth: .infinity, minHeight: 44)
           } else {
             header { key in withAnimation { proxy.scrollTo(key, anchor: .top) } }
             ForEach(groups) { group in section(group).id(group.key) }

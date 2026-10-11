@@ -79,3 +79,9 @@ Validation: affected API and recommendation suites; iOS simulator build; web pro
 
 Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA-256 manifest. Planned directory `/web/public/food/ingredient-photos-2026-10-10` on existing `weekplate-volume`; existing catalog and PostgreSQL storage are untouched. Enable via `GROCERY_PHOTO_DIR` only after production approval, then verify live mapped photo URLs.
 - [ ] **Download my data (#64):** Settings → Privacy → Download my data on iPhone (then Save or share) and web. The file opens as JSON with your plans, pantry, filters and ratings, and contains no `password_hash` or tokens.
+
+### PR #111: empty-screen suggestion buttons
+
+- On an empty plan, compare Plan, Grocery and Weekend prep: suggestion buttons use the same orange capsule and sparkles (Grocery/Prep say Create meal plan).
+- Tap Create meal plan on Grocery and on Prep opened through More: suggestions appear directly; the originating tab/screen stays selected. Dismiss and confirm you return to that screen.
+- With meals already on the plan but no prep tasks, Prep still offers Back to plan.

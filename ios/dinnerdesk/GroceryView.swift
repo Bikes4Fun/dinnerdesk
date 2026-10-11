@@ -69,10 +69,9 @@ struct GroceryView: View {
             .listRowSeparator(.hidden)
             .listRowBackground(Theme.bg)
             if store.plan?.slots.isEmpty != false {
-              Button("Create meal plan") {
-                selectTab(.plan)
-                Task { await store.openSuggestions() }
-              }.font(Theme.action).themeBareRow()
+              CreateMealPlanButton()
+                .frame(maxWidth: .infinity)
+                .themeBareRow()
             }
           } else {
             if aisleBlocks.isEmpty {

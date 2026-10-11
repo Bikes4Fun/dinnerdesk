@@ -87,13 +87,7 @@ struct PlanView: View {
                   title: "Nothing on this plan",
                   message: "Get suggestions for your next meals.",
                   systemImage: "calendar")
-                Button {
-                  Task { await store.openSuggestions() }
-                } label: {
-                  Label("New meal plan", systemImage: "sparkles")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.accent)
+                CreateMealPlanButton(title: "New meal plan")
                 Button { selectTab(.recipes) } label: {
                   Label("Add meals", systemImage: "plus")
                 }.font(Theme.action).frame(minHeight: 44)

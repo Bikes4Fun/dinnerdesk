@@ -378,3 +378,20 @@ private final class LargeTitleScrollEdgeController: UIViewController {
     bar.scrollEdgeAppearance = Theme.largeTitleScrollEdgeAppearance()
   }
 }
+
+/// Shared suggestion entry point for empty Plan, Grocery and Prep screens.
+struct CreateMealPlanButton: View {
+  @EnvironmentObject private var store: Store
+  var title = "Create meal plan"
+
+  var body: some View {
+    Button {
+      Task { await store.openSuggestions() }
+    } label: {
+      Label(title, systemImage: "sparkles")
+    }
+    .buttonStyle(.borderedProminent)
+    .buttonBorderShape(.capsule)
+    .tint(Theme.accent)
+  }
+}
