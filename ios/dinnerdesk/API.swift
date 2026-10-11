@@ -88,7 +88,9 @@ enum API {
   static func reportFailure(_ error: Error) {
     guard !isCancellation(error) else { return }
     if case APIError.http = error { return }
-    NotificationCenter.default.post(name: .dinnerdeskFailure, object: error.localizedDescription)
+    // Request callers own recovery and user-visible errors. Never stop the whole app.
+    let failure = error as NSError
+    NSLog("Dinnerdesk request failed: %@ (%ld)", failure.domain, failure.code)
   }
 
   private static func url(_ path: String, query: [String: String] = [:]) -> URL {
@@ -141,8 +143,4 @@ enum APIError: LocalizedError {
       return "Couldn't complete this action. Please try again."
     }
   }
-}
-
-extension Notification.Name {
-  static let dinnerdeskFailure = Notification.Name("dinnerdeskFailure")
 }

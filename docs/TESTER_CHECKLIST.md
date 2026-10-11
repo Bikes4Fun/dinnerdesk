@@ -95,3 +95,11 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Pantry items have a small muted Pantry label, without a star, pill or claim about automatic check-off.
 - With pantry auto-check disabled, an unchecked pantry item stays unchecked and appears in the shared grocery list. Manually checking it removes it from the shared list.
+
+### #124: connection error recovery
+
+- Launch without networking: show an error and Try again. Restore networking and retry without relaunching.
+- After loading a kitchen, lose networking and refresh/open a recipe. The error stays on that screen; no App stopped cover appears. Restore networking and repeat the action.
+- Cancel a screen load by leaving it; cancellation must not show an error.
+- Fail a save/delete request: do not replay it automatically. Recheck server state before retrying if completion is uncertain.
+- Regression harness: `python3 ios/tests/test_network_recovery.py` (macOS/Xcode command-line tools).
