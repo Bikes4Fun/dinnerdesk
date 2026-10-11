@@ -69,7 +69,7 @@ struct GroceryView: View {
             .listRowSeparator(.hidden)
             .listRowBackground(Theme.bg)
             if store.plan?.slots.isEmpty != false {
-              CreateMealPlanButton()
+              CreateMealPlanButton { Task { await store.openSuggestions() } }
                 .frame(maxWidth: .infinity)
                 .themeBareRow()
             }

@@ -69,7 +69,7 @@ struct PrepView: View {
               message: "Add meals on Plan. Make-ahead steps like chopping, grating and sauces show up here.",
               systemImage: "list.clipboard")
             if store.plan?.slots.isEmpty != false {
-              CreateMealPlanButton()
+              CreateMealPlanButton { Task { await store.openSuggestions() } }
                 .frame(maxWidth: .infinity)
             } else {
               Button("Back to plan") {

@@ -82,6 +82,6 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 ### PR #111: empty-screen suggestion buttons
 
-- On an empty plan, compare Plan, Grocery and Weekend prep: suggestion buttons use the same orange capsule and sparkles (Grocery/Prep say Create meal plan).
-- Tap Create meal plan on Grocery and on Prep opened through More: suggestions appear directly; the originating tab/screen stays selected. Dismiss and confirm you return to that screen.
+- On an empty plan, compare Plan, Grocery and Weekend prep: all four suggestion buttons (including the Plan menu) use the same orange capsule, visible sparkles and “New meal plan” wording.
+- Tap New meal plan on Grocery and on Prep opened through More: suggestions appear directly; the originating tab/screen stays selected. Dismiss and confirm you return to that screen.
 - With meals already on the plan but no prep tasks, Prep still offers Back to plan.

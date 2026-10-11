@@ -87,7 +87,7 @@ struct PlanView: View {
                   title: "Nothing on this plan",
                   message: "Get suggestions for your next meals.",
                   systemImage: "calendar")
-                CreateMealPlanButton(title: "New meal plan")
+                CreateMealPlanButton { Task { await store.openSuggestions() } }
                 Button { selectTab(.recipes) } label: {
                   Label("Add meals", systemImage: "plus")
                 }.font(Theme.action).frame(minHeight: 44)
@@ -168,7 +168,7 @@ struct PlanView: View {
       .menuSheet(isPresented: $menu) {
         [
           
-          MenuSheetItem(title: "New meal plan", systemImage: "sparkles", accent: true) {
+          MenuSheetItem.newMealPlan {
             Task { await store.openSuggestions() }
           },
           MenuSheetItem(title: "Fill in this plan", systemImage: "plus.circle") {

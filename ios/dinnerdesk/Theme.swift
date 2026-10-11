@@ -379,19 +379,36 @@ private final class LargeTitleScrollEdgeController: UIViewController {
   }
 }
 
-/// Shared suggestion entry point for empty Plan, Grocery and Prep screens.
+/// One appearance and label for every suggestion entry point, including menu sheets.
 struct CreateMealPlanButton: View {
-  @EnvironmentObject private var store: Store
-  var title = "Create meal plan"
+  static let title = "New meal plan"
+  static let symbol = "sparkles"
+  let action: () -> Void
 
   var body: some View {
-    Button {
-      Task { await store.openSuggestions() }
-    } label: {
-      Label(title, systemImage: "sparkles")
+    Button(action: action) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Image(systemName: Self.symbol).accessibilityHidden(true)
+        Text(Self.title)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      .font(.body)
+      .foregroundStyle(.white)
+      .padding(.horizontal, 20)
+      .padding(.vertical, 12)
+      .frame(minHeight: 44)
+      .background(Theme.accent, in: Capsule())
+      .contentShape(Capsule())
     }
-    .buttonStyle(.borderedProminent)
-    .buttonBorderShape(.capsule)
-    .tint(Theme.accent)
+    .buttonStyle(.plain)
+    .accessibilityLabel(Self.title)
+  }
+}
+
+extension MenuSheetItem {
+  static func newMealPlan(action: @escaping () -> Void) -> MenuSheetItem {
+    MenuSheetItem(title: CreateMealPlanButton.title, systemImage: CreateMealPlanButton.symbol,
+                  createsMealPlan: true, action: action)
   }
 }
