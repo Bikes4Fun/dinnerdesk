@@ -12,3 +12,6 @@
   line-height: 1.4;
 }
 .tip-star { flex: none; color: #7a3b73; }
+
+/* Tips are tracked for the future tour, hidden on ordinary screens (#103). */
+.tip[hidden] { display: none; }

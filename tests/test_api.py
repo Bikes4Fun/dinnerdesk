@@ -1021,7 +1021,7 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         client.put(f"/api/plans/{plan['id']}/slots", json={"slots": [{"recipe_id": recipe["id"], "servings": 4}]})
         task = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         # The Weekend prep sections need these from the server, not the "other" fallback.
-        assert task["section"] == "veg" and task["item"] == "Onions", (task["section"], task["item"])
+        assert task["section"] == "herbs" and task["item"] == "Onions", (task["section"], task["item"])
         steps = task["meals"][0]["steps"]
         response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
@@ -1333,3 +1333,32 @@ def test_photo_updates_require_admin(tmp_path, monkeypatch):
     with _client(tmp_path, admin=False) as client:
         assert client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).status_code == 403
     assert not list(tmp_path.iterdir())
+
+
+def test_fill_plan_uses_edited_ingredients_and_excludes_kept_recipes(tmp_path, monkeypatch):
+    import app.routes as routes
+    with _client(tmp_path) as client:
+        active = client.get('/api/plans/current').json()
+        client.put(f"/api/plans/{active['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 6}]})
+        client.patch('/api/recipes/1', json={'ingredients': [{'name': 'bell pepper', 'quantity': '2'}]})
+        monkeypatch.setattr(routes, '_candidate_meals', lambda *args: [
+            {'id': 1, 'name': 'Soup', 'ingredients': ['onion'], 'tags': []},
+            {'id': 2, 'name': 'Pepper bowl', 'ingredients': ['bell pepper'], 'tags': []},
+        ])
+        captured = {}
+        def pick(recipes, *args, **kwargs):
+            captured['recipes'] = recipes
+            captured['plan_ings'] = kwargs['plan_ings']
+            return [{**recipes[0], 'reasons': ['shares 1 with this plan']}]
+        monkeypatch.setattr(routes, 'pick_meals', pick)
+        monkeypatch.setattr(routes, 'snapshots_for_accounts', lambda *args: [])
+        # Test ranking context directly; recipe 2 belongs to another kitchen in the seed.
+        db = connect()
+        try:
+            picked, _, _ = routes._suggest_meals(db, 1, 1, {1})
+        finally:
+            db.close()
+        assert [r['id'] for r in captured['recipes']] == [2]
+        assert captured['plan_ings'] == {'bell pepper'}
+        assert picked[0]['reasons'] == ['shares 1 with this plan']
+        assert client.get('/api/plans/current').json()['id'] == active['id']

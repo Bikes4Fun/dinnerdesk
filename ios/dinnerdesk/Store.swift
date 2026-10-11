@@ -7,6 +7,7 @@ final class Store: ObservableObject {
   @Published var proposal: Plan?
   // Loading a saved proposal must not interrupt launch or pull-to-refresh.
   @Published var showingProposal = false
+  @Published private(set) var generatingProposal = false
   @Published var plan: Plan?
   @Published var recipes: [RecipeSummary] = []
   @Published var grocery: [GroceryLine] = []
@@ -752,7 +753,7 @@ extension Store {
 
   func replaceDeclinedProposal() async {
     guard let proposal else { return }
-    let count = max(1, proposal.slots.count)
+    let count = max(1, proposal.suggestedRecipeIds?.count ?? proposal.slots.count)
     let keep = proposal.slots.count > (proposal.suggestedRecipeIds?.count ?? proposal.slots.count)
     if !(await newPlan(meals: count, keepCurrent: keep)) {
       proposalError = error ?? "Couldn't find another plan. Try again or adjust Settings → Filters."
@@ -774,8 +775,37 @@ extension Store {
     catch { proposalError = error.localizedDescription }
   }
 
+  /// Resume a saved/in-flight suggestion without issuing another request.
+  func openSuggestions(keepCurrent: Bool = false) async {
+    if generatingProposal { showingProposal = true; return }
+    if let proposal, proposal.status == "suggested" {
+      let kept = Set(proposal.slots.filter { !(proposal.suggestedRecipeIds ?? []).contains($0.recipeId) }.map(\.recipeId))
+      let current = Set(plan?.slots.map(\.recipeId) ?? [])
+      if (keepCurrent && kept == current) || (!keepCurrent && kept.isEmpty) {
+        proposalError = nil
+        showingProposal = true
+        return
+      }
+    }
+    let count = keepCurrent ? max(1, 4 - (plan?.slots.count ?? 0)) : 4
+    await newPlan(meals: count, keepCurrent: keepCurrent)
+  }
+
   @discardableResult
   func newPlan(source: Int? = nil, meals: Int? = nil, keepCurrent: Bool = false) async -> Bool {
+    if meals != nil {
+      if generatingProposal { showingProposal = true; return false }
+      generatingProposal = true
+      proposal = nil
+      proposalError = nil
+      showingProposal = true
+    }
+    defer {
+      if meals != nil {
+        generatingProposal = false
+        if let error { proposalError = error }
+      }
+    }
     do {
       error = nil
       var body: [String: Any] = ["title": "This week"]
@@ -803,7 +833,6 @@ extension Store {
         }
         proposalError = nil
         proposal = created
-        showingProposal = true
       } else { plan = created; await loadGrocery() }
       error = nil
       return true

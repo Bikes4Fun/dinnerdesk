@@ -55,3 +55,26 @@ Give **screen + action + expected/actual result**, platform/build, text size, an
 - [ ] **Taste Lab swipe history:** open beside Edit filters, change Like ↔ Pass, reopen/reload and confirm it saved. Back returns to the previous screen; failed saves show an error and keep the original vote.
 
 - [ ] **Guest access:** use Plan, Recipes, Grocery, Prep, Filters, and Taste Lab signed out. Reopen and confirm data remains; a second browser must have a separate kitchen. Expired login must allow guest use. Create an account and confirm guest data carries over. Sign-in warnings must be dismissible and must not block features.
+
+## TestFlight feedback: October 10, 2026
+
+All twelve supplied reports were submitted from version **1.0.3 (2)**. They describe that installed build, not necessarily current main. No report is discarded merely because it is old. Branch `fix/testflight-feedback-oct10` starts from main `f97b6ae`.
+
+| Folder suffix | Report | Disposition | Issues | Branches |
+|---|---|---|---|---|
+| base | Other-food search closes after one choice | Fixed in this branch: retain query and results, serialize saves | #85; #110 | issue-85-custom-food-search; fix/testflight-feedback-oct10 |
+| 2 | Singular/plural duplicate food results | Already addressed by merged PR #98; retest against updated server | #85 | issue-85-custom-food-search |
+| 3 | Prep feedback is too large and persistent | Fixed in this branch: compact Undo bar, four-second expiry, ratings in expanded rows | #78; #104; #110 | issue-78-prep-layout; fix/testflight-feedback-oct10 |
+| 4 | Purple-star tips should remain hidden | Fixed in this branch for iOS and web; source inventory retained | #103 | fix/testflight-feedback-oct10 |
+| 5 | Suggestions appear unexpectedly | Fixed delayed-completion reopening; saved suggestions no longer control presentation | #109; #26 | fix/testflight-feedback-oct10 |
+| 6 | Closed suggestions will not reopen | Fixed: resume pending or in-flight proposal without another request | #109 | fix/testflight-feedback-oct10 |
+| 7 | Four-meal plan does not fit iPhone 16 | Improved fixed layout after PR #80: 132-point photos at standard type, servings beside Schedule; device visual retest pending | #30; #35; #110 | codex/issue-30-four-meal-plan-fit; fix/testflight-feedback-oct10 |
+| 8 | Plan menu New meal plan does nothing | Presentation moved to stable app root; menu action resumes/creates review | #109; #26 | fix/testflight-feedback-oct10 |
+| 9 | Ingredient photos missing | Still a production configuration issue: garlic HTTP 404, GROCERY_PHOTO_DIR unset. Sixteen mapped photos prepared with checksums on existing volume path; production approval pending | #82; #18 | fix/testflight-feedback-oct10 (audit); Railway configuration |
+| 10 | Complete all / Uncheck all should be one button | Fixed in iOS and web: one action based on completion state | #110 | fix/testflight-feedback-oct10 |
+| 11 | Fill remaining plan using chosen meals | Added Fill in this plan. Keep selections; rank additions using ingredient reuse; active plan unchanged until approval | #88; #109 | fix/testflight-feedback-oct10 |
+| 12 | Empty Grocery/Prep should offer Create meal plan | Fixed native actions: start suggestions directly when current plan is empty; Prep keeps Back to plan for a nonempty plan | #86; #109 | fix/testflight-feedback-oct10 |
+
+Validation: affected API and recommendation suites; iOS simulator build; web production build. The Store suggestion methods are exercised with a delayed mock API for close-before-completion, reopening, duplicate taps, and error handling. Simulator installation stalled, so four-meal fit and native interaction still need a real-device or functioning simulator retest. These source fixes are not a new TestFlight release.
+
+Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA-256 manifest. Planned directory `/web/public/food/ingredient-photos-2026-10-10` on existing `weekplate-volume`; existing catalog and PostgreSQL storage are untouched. Enable via `GROCERY_PHOTO_DIR` only after production approval, then verify live mapped photo URLs.
