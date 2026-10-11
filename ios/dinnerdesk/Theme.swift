@@ -44,6 +44,7 @@ enum Theme {
   static let action = Font.custom("DMSans-SemiBold", size: 17, relativeTo: .body)
   static let mealName = action
   static let recipeCardName = Font.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline)
+  static let recipeCardServing = Font.custom("DMSans-Regular", size: 12, relativeTo: .caption)
   static let rowTitle = Font.custom("DMSans-Medium", size: 17, relativeTo: .body)
   static let body = Font.custom("DMSans-Regular", size: 17, relativeTo: .body)
   static let chipLabel = Font.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline)
@@ -410,5 +411,39 @@ extension MenuSheetItem {
   static func newMealPlan(action: @escaping () -> Void) -> MenuSheetItem {
     MenuSheetItem(title: CreateMealPlanButton.title, systemImage: CreateMealPlanButton.symbol,
                   createsMealPlan: true, action: action)
+  }
+}
+
+/// Shared card typography; photo sizes and actions belong to each card layout.
+struct RecipeCardName: View {
+  let name: String
+  var lineLimit: Int? = nil
+  var reservesSpace = false
+
+  var body: some View {
+    Group {
+      if let lineLimit { text.lineLimit(lineLimit, reservesSpace: reservesSpace) }
+      else { text.lineLimit(nil) }
+    }
+  }
+
+  private var text: some View {
+    Text(name)
+      .font(Theme.recipeCardName)
+      .foregroundStyle(Theme.ink)
+      .truncationMode(.tail)
+      .multilineTextAlignment(.leading)
+      .fixedSize(horizontal: false, vertical: true)
+      .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
+struct RecipeCardServings: View {
+  let servings: Int
+
+  var body: some View {
+    Text("\(servings) servings")
+      .font(Theme.recipeCardServing)
+      .foregroundStyle(Theme.muted)
   }
 }

@@ -85,3 +85,13 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 - On an empty plan, compare Plan, Grocery and Weekend prep: all four suggestion buttons (including the Plan menu) use the same orange capsule, visible sparkles and “New meal plan” wording.
 - Tap New meal plan on Grocery and on Prep opened through More: suggestions appear directly; the originating tab/screen stays selected. Dismiss and confirm you return to that screen.
 - With meals already on the plan but no prep tasks, Prep still offers Back to plan.
+
+### Shared recipe-card typography
+
+- Compare Recipes, Plan grid/list, suggestion review and swap results: recipe card names use the shared 15-point semibold subheadline component. Plan serving labels use 12-point Caption 1.
+- Check default and accessibility text sizes; Plan/suggestion names remain fully readable, and library cards retain their existing three-line limit.
+
+### Pantry notation in Grocery
+
+- Pantry items have a small muted Pantry label, without a star, pill or claim about automatic check-off.
+- With pantry auto-check disabled, an unchecked pantry item stays unchecked and appears in the shared grocery list. Manually checking it removes it from the shared list.

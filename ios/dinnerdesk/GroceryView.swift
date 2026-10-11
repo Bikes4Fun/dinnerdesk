@@ -24,7 +24,13 @@ struct GroceryView: View {
                 .font(Theme.bigTitle)
 
             Spacer()
-
+            
+            Button {
+              sharing = true
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            
             Button {
                 menu = true
             } label: {
@@ -182,9 +188,9 @@ struct GroceryView: View {
               store.showAisleNums.toggle()
               Task { await store.persistGroceryPrefs() }
             },
-            MenuSheetItem(title: "Share list", systemImage: "square.and.arrow.up") {
-              sharing = true
-            },
+            // MenuSheetItem(title: "Share list", systemImage: "square.and.arrow.up") {
+            //   sharing = true
+            // },
             MenuSheetItem(title: "Edit stores & aisles", systemImage: "storefront") {
               editingStores = true
             },
@@ -223,7 +229,7 @@ struct GroceryView: View {
 
   /// What's left to buy, grouped by aisle in walk-the-store order, for the selected store.
   private var shareText: String {
-    let left = storeLines.filter { !$0.checked && !$0.neverShop && !$0.fromPantry }
+    let left = storeLines.filter { !$0.checked && !$0.neverShop }
     let storeName = store.stores.first { $0.id == storeFilter }?.name
     let title = storeName.map { "Grocery list — \($0)" } ?? "Grocery list"
     guard !left.isEmpty else { return "\(title)\n\nNothing left to buy." }
@@ -318,7 +324,9 @@ struct GroceryRow: View {
               Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
             if line.fromPantry && !line.neverShop {
-              pantryTip
+              Text(Copy.text("grocery.pantry"))
+                .font(Theme.subtitle)
+                .foregroundStyle(Theme.muted)
             }
           }
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -347,20 +355,7 @@ struct GroceryRow: View {
     return parts.joined(separator: " · ")
   }
 
-  /// The pantry note is a tip (purple ★ on the aubergine tint), not plain grey text.
-  private var pantryTip: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 4) {
-      Image(systemName: "star.fill").font(Theme.subtitle)
-        .foregroundStyle(Color(hex: 0x7A3B73))
-        .accessibilityHidden(true)
-      Text(Copy.text("grocery.pantry")).font(Theme.subtitle).foregroundStyle(Theme.ink)
-    }
-    .padding(.horizontal, 8)
-    .padding(.vertical, 3)
-    .background(Theme.aubergineTint, in: Capsule())
-    .accessibilityElement(children: .combine)
-    .accessibilityIdentifier("tip.grocery.pantry")
-  }
+
 }
 
 struct GroceryItemView: View {
