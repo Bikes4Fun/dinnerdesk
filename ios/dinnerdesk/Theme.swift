@@ -378,3 +378,37 @@ private final class LargeTitleScrollEdgeController: UIViewController {
     bar.scrollEdgeAppearance = Theme.largeTitleScrollEdgeAppearance()
   }
 }
+
+/// One appearance and label for every suggestion entry point, including menu sheets.
+struct CreateMealPlanButton: View {
+  static let title = "New meal plan"
+  static let symbol = "sparkles"
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(alignment: .firstTextBaseline, spacing: 8) {
+        Image(systemName: Self.symbol).accessibilityHidden(true)
+        Text(Self.title)
+          .multilineTextAlignment(.center)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+      .font(.body)
+      .foregroundStyle(.white)
+      .padding(.horizontal, 20)
+      .padding(.vertical, 12)
+      .frame(minHeight: 44)
+      .background(Theme.accent, in: Capsule())
+      .contentShape(Capsule())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(Self.title)
+  }
+}
+
+extension MenuSheetItem {
+  static func newMealPlan(action: @escaping () -> Void) -> MenuSheetItem {
+    MenuSheetItem(title: CreateMealPlanButton.title, systemImage: CreateMealPlanButton.symbol,
+                  createsMealPlan: true, action: action)
+  }
+}

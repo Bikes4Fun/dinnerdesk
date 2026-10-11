@@ -458,8 +458,7 @@ export function Grocery() {
           <label>Show aisle numbers <input type="checkbox" checked={showAisleNums} onChange={(e) => { const value = e.target.checked; setShowAisleNums(value); persist({ showAisleNums: value }); }} /></label>
           <label>Show meals under each item <input type="checkbox" checked={showMeals} onChange={(e) => { const value = e.target.checked; setShowMeals(value); persist({ showMeals: value }); }} /></label>
           <label>Show emoji <input type="checkbox" checked={showEmoji} onChange={(e) => { const value = e.target.checked; setShowEmoji(value); persist({ showEmoji: value }); }} /></label>
-          <button type="button" onClick={markAllComplete}>Complete all</button>
-          <button type="button" onClick={uncheckAll}>Uncheck all</button>
+          <button type="button" onClick={lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? uncheckAll : markAllComplete}>{lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? "Uncheck all" : "Complete all"}</button>
           {menuStatus && <p className="grocery-action-status" role="status">{menuStatus}</p>}
           <button type="button" onClick={() => { setSheet(false); setView("stores"); }}>Edit stores</button>
           <button type="button" onClick={() => { setSheet(false); setView("aisles"); }}>Edit aisles</button>

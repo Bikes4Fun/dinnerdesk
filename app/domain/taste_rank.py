@@ -476,6 +476,7 @@ def pick_meals(
     skip: set[str] | None = None,
     to_try: set[int] | None = None,
     cooked: set[int] | None = None,
+    plan_ings: set[str] | None = None,
 ) -> list[dict]:
     swaps = overrides or {}
     ignored = skip or set()
@@ -491,7 +492,7 @@ def pick_meals(
     return pick_suggestions(
         recipes,
         pantry,
-        set(),
+        plan_ings or set(),
         set(),
         aliases,
         want,
