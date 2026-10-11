@@ -55,3 +55,4 @@ Give **screen + action + expected/actual result**, platform/build, text size, an
 - [ ] **Taste Lab swipe history:** open beside Edit filters, change Like ↔ Pass, reopen/reload and confirm it saved. Back returns to the previous screen; failed saves show an error and keep the original vote.
 
 - [ ] **Guest access:** use Plan, Recipes, Grocery, Prep, Filters, and Taste Lab signed out. Reopen and confirm data remains; a second browser must have a separate kitchen. Expired login must allow guest use. Create an account and confirm guest data carries over. Sign-in warnings must be dismissible and must not block features.
+- [ ] **Download my data (#64):** Settings → Privacy → Download my data on iPhone (then Save or share) and web. The file opens as JSON with your plans, pantry, filters and ratings, and contains no `password_hash` or tokens.
