@@ -1290,3 +1290,46 @@ def test_unknown_api_requests_say_what_happened(tmp_path, caplog):
     assert auth.status_code == 405 and auth.json()["allowed"] == ["GET"]
     assert "POST /api/no-such-route -> 404" in caplog.text and "ios 1.0 (7)" in caplog.text
     assert client.get("/api/health").json() == {"ok": True}  # real routes still win
+
+
+def _upload_photo_data():
+    import base64
+    from io import BytesIO
+    from PIL import Image
+    image = BytesIO()
+    Image.new('RGB', (24, 24), 'green').save(image, 'PNG')
+    return 'data:image/png;base64,' + base64.b64encode(image.getvalue()).decode()
+
+
+def test_admin_photo_update_persists_and_copy_is_independent(tmp_path, monkeypatch):
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    with _client(tmp_path) as client:
+        updated = client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()})
+        assert updated.status_code == 200
+        photo = updated.json()['photo_path']
+        assert photo.startswith('food/admin-upload-')
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        assert client.get('/' + photo).status_code == 200
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'photo_data': _upload_photo_data()})
+        assert copied.status_code == 200
+        assert copied.json()['photo_path'] != photo
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        invalid = client.patch('/api/recipes/1', json={'photo_data': 'invalid', 'name': 'Bad edit'})
+        assert invalid.status_code == 400
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        assert client.get('/api/recipes/1').json()['name'] == 'Soup'
+        from app.db.catalog import upsert_catalog_recipe
+        db = connect()
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'photo_path': 'food/soup.jpg'}, {})
+        db.commit()
+        db.close()
+        assert client.get('/api/recipes/1').json()['photo_path'] == photo
+        assert client.patch('/api/recipes/2', json={'photo_data': _upload_photo_data()}).status_code == 404
+
+
+
+def test_photo_updates_require_admin(tmp_path, monkeypatch):
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).status_code == 403
+    assert not list(tmp_path.iterdir())

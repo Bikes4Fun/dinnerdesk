@@ -162,3 +162,12 @@ Font licenses remain in their font directories and [third-party notices](THIRD_P
 Use the existing core documents for future updates: this README for setup and operations,
 `DESIGN.md` for implemented behavior, `TODO.md` for issues/proposals/research, and
 `TESTER_CHECKLIST.md` for concise testing. Keep the privacy policy and legal notices separate.
+
+### Admin recipe photo updates
+
+In the recipe editor, choose a JPEG, PNG, or WebP photo (up to 5 MB and
+25 megapixels). The preview is saved with the recipe. For catalog recipes, Save
+replaces the catalog photo for everyone; Save as copy applies it only to the new
+kitchen recipe. Uploads are normalized to JPEG with metadata removed and stored
+in `FOOD_DIR`, which must be writable persistent storage. Back up that directory
+alongside PostgreSQL. Catalog imports preserve photos uploaded by admins.
