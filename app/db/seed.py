@@ -88,5 +88,9 @@ def apply_seeds(db: PgConnection) -> None:
             "INSERT INTO households (id, name, prefs_json, created_at) VALUES (1, 'Home', '{}', ?)",
             (now(),),
         )
-        db.execute("SELECT setval(pg_get_serial_sequence('households', 'id'), 1, true)")
+        # Point the id sequence past the highest existing household, not at 1. If household 1
+        # was deleted while others exist, resetting to 1 made every new household (guest
+        # sign-in included) collide with existing ids after each deploy until the sequence
+        # walked past them: 500s on /api/auth/status and suggestion requests.
+        db.execute("SELECT setval(pg_get_serial_sequence('households', 'id'), (SELECT MAX(id) FROM households))")
     db.commit()
