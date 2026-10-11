@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.assets import catalog_dir
+from app.domain.recipe_photos import is_uploaded_photo
 
 import json
 import os
@@ -145,7 +146,7 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
     ).fetchone()
     if existing:
         rid = existing["id"]
-        photo = incoming_photo
+        photo = existing["photo_path"] if is_uploaded_photo(existing["photo_path"]) else incoming_photo
         conn.execute(
             """UPDATE recipes SET name = ?, servings = ?, cooking_minutes = ?,
                instructions_json = ?, cookware_json = ?, source_url = ?,

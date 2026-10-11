@@ -27,6 +27,8 @@ export function Recipe({ id }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const added = week?.weekIds?.has(Number(id)) ?? false;
+  const [photoData, setPhotoData] = useState(null);
+  const [photoLoading, setPhotoLoading] = useState(false);
   const [name, setName] = useState("");
   const [servings, setServings] = useState(4);
   const [minutes, setMinutes] = useState("");
@@ -67,6 +69,7 @@ export function Recipe({ id }) {
 
   function startEdit() {
     if (!admin) return;
+    setPhotoData(null);
     setName(recipe.name);
     setServings(recipe.servings);
     setMinutes(recipe.cooking_minutes == null ? "" : String(recipe.cooking_minutes));
@@ -77,8 +80,32 @@ export function Recipe({ id }) {
     setErr("");
   }
 
+  async function selectPhoto(event) {
+    const file = event.target.files?.[0];
+    setPhotoData(null);
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5_000_000) {
+      setErr("Choose a JPEG, PNG, or WebP photo under 5 MB.");
+      event.target.value = "";
+      return;
+    }
+    setPhotoLoading(true);
+    setErr("");
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error("Couldn't read this photo."));
+        reader.readAsDataURL(file);
+      });
+      setPhotoData(data);
+    } catch (e) { setErr(e.message); }
+    finally { setPhotoLoading(false); }
+  }
+
   function editPayload() {
     return {
+      ...(photoData ? { photo_data: photoData } : {}),
       name: name.trim(),
       servings: Number(servings) || 4,
       cooking_minutes: minutes === "" ? null : Number(minutes),
@@ -279,7 +306,7 @@ export function Recipe({ id }) {
                     {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
                   </button>
                   {admin && recipe.catalog && recipe.edited ? (
-                    <button type="button" role="menuitem" onClick={restoreOriginal} disabled={busy}>
+                    <button type="button" role="menuitem" onClick={restoreOriginal} disabled={busy || photoLoading}>
                       Restore original
                     </button>
                   ) : null}
@@ -322,6 +349,11 @@ export function Recipe({ id }) {
           {err && <p className="banner err">{err}</p>}
           {editing && admin ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
+              <label className="block-label" htmlFor="recipe-photo">Recipe photo</label>
+              <FoodPhoto path={recipe.photo_path} hideUnavailable />
+              <input id="recipe-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || photoLoading} onChange={selectPhoto} />
+              <p className="help">Choose your own JPEG, PNG, or WebP photo under 5 MB. {recipe.catalog ? "Save updates the catalog photo for everyone. Save as copy uses it only on the new recipe." : "The photo is saved with this recipe."}</p>
+              {photoData && <img src={photoData} alt="New recipe photo preview" style={{ width: "100%", maxWidth: 320, aspectRatio: "1", objectFit: "cover" }} />}
               <RecipeEditorFields
                 name={name}
                 setName={setName}
@@ -413,17 +445,17 @@ export function Recipe({ id }) {
       <footer className="dock">
         {editing && admin ? (
           <>
-            <button type="submit" form="recipe-edit" className="btn-primary block" disabled={busy}>
+            <button type="submit" form="recipe-edit" className="btn-primary block" disabled={busy || photoLoading}>
               {busy ? "Saving…" : "Save"}
             </button>
             {recipe.catalog ? (
-              <button type="button" className="btn-secondary block" disabled={busy} onClick={saveCopy}>
+              <button type="button" className="btn-secondary block" disabled={busy || photoLoading} onClick={saveCopy}>
                 Save as copy
               </button>
             ) : null}
           </>
         ) : (
-          <button type="button" className="btn-primary block" disabled={busy} onClick={addToWeek}>
+          <button type="button" className="btn-primary block" disabled={busy || photoLoading} onClick={addToWeek}>
             {busy ? "Updating…" : added ? "Remove from this plan" : "Add to this plan"}
           </button>
         )}

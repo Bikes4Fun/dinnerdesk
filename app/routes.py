@@ -16,6 +16,7 @@ from app.assets import catalog_dir
 from app.deps import AdminDep, DbDep, HhDep
 from fractions import Fraction
 
+from app.domain.photo_uploads import save_photo
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
@@ -870,6 +871,10 @@ def patch_recipe(
         raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
     with transaction(db):
         catalog = row["household_id"] is None
+        if catalog and not body.as_copy and body.photo_data is not None:
+            photo = save_photo(body.photo_data)
+            db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
+            row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
         if catalog and not body.as_copy:
             base = _recipe_out(db, row, household_id)
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
@@ -883,6 +888,9 @@ def patch_recipe(
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
         fields = []
         args = []
+        if body.photo_data is not None:
+            fields.append("photo_path = ?")
+            args.append(save_photo(body.photo_data))
         if body.name is not None:
             fields.append("name = ?")
             args.append(body.name.strip())
