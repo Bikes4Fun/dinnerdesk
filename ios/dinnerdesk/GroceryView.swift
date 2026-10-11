@@ -210,8 +210,8 @@ struct GroceryView: View {
         .navigationDestination(item: $openItem) { id in
           GroceryItemView(lineId: id)
         }
-        .refreshable { await store.loadGrocery() }
-        .task { await store.loadGrocery() }
+        .refreshable { await store.loadGrocery(rebuild: true) }
+        .task { await store.loadGrocery(onlyIfStale: true) }
       }
     }
   }

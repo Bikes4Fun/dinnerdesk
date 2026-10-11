@@ -102,7 +102,7 @@ struct PrepView: View {
     .largeNavigationTitle()
     .sheet(isPresented: $missingOpen) { MissingPrepSheet() }
     .refreshable { await store.loadPrep() }
-    .task { await store.loadPrep() }
+    .task { await store.loadPrep(onlyIfStale: true) }
   }
 
   // MARK: Header

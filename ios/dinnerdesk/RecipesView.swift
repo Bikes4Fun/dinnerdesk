@@ -148,7 +148,7 @@ struct RecipesView: View {
         if let suggestions: RecipeSuggestions = try? await API.get("suggestions/recipes", reportErrors: false) { suggestedIds = suggestions.recipeIds }
       }
       .task {
-        hiddenRecipes = await store.loadHiddenRecipes()
+        hiddenRecipes = await store.loadHiddenRecipes(onlyIfStale: true)
       }
       }
     }
@@ -454,15 +454,14 @@ struct RecipeDetailView: View {
   @State private var tab: RecipePageTab = .overview
   @State private var nameExpanded = false
   @State private var draftServings: Int?
-  @State private var familyPortions: Int?
   /// Tagging steps as Prep edits the recipe, which only Dinnerdesk admins may do.
-  @State private var admin = false
+  private var admin: Bool { store.isAdmin }
 
   private var mealServings: Int {
     if let slot = store.plan?.slots.first(where: { $0.recipeId == id }) {
       return slot.servings
     }
-    return draftServings ?? familyPortions ?? recipe?.servings ?? 4
+    return draftServings ?? store.familyPortions ?? recipe?.servings ?? 4
   }
 
   var body: some View {
@@ -606,17 +605,21 @@ struct RecipeDetailView: View {
       } else { [] }
     }
     .task {
-      do {
-        recipe = try await API.get("recipes/\(id)")
-        if let prefs = try? await KitchenAPI.prefs(),
-          let portions = prefs["family_portions"] as? Int, (1...50).contains(portions) {
-          familyPortions = portions
+      // Show the saved recipe at once; ask the server only when there is none or it's old.
+      let key = ResponseCache.key("recipes/\(id)")
+      if recipe == nil, let saved: RecipeDetail = API.cached("recipes/\(id)") { recipe = saved }
+      let age = ResponseCache.age(of: key) ?? .infinity
+      if recipe == nil || age > Freshness.recipeAge {
+        do {
+          recipe = try await API.get("recipes/\(id)", cache: true)
+        } catch {
+          // With a saved copy on screen (e.g. no signal in the store), keep showing it.
+          if recipe == nil { self.error = error.localizedDescription }
         }
-      } catch {
-        self.error = error.localizedDescription
       }
+      await store.loadGroceryPrefs(onlyIfStale: true)
     }
-    .task { admin = (try? await AuthAPI.status())?.admin == true }
+    .task { await store.loadAdmin() }
   }
 
   private func ingredientLine(_ ing: IngredientLine, recipe: RecipeDetail) -> some View {
@@ -740,7 +743,8 @@ struct RecipeDetailView: View {
         body: [
           "in_place": true,
           "instructions": recipe.instructions.map { $0.asBody() },
-        ]
+        ],
+        cacheAs: "recipes/\(id)"
       )
       self.recipe = next
     } catch {

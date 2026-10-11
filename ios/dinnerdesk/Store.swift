@@ -8,9 +8,27 @@ final class Store: ObservableObject {
   // Loading a saved proposal must not interrupt launch or pull-to-refresh.
   @Published var showingProposal = false
   @Published private(set) var generatingProposal = false
-  @Published var plan: Plan?
+  @Published var plan: Plan? {
+    didSet {
+      guard let plan else { return }
+      ResponseCache.save(plan, as: "plans/current")
+      // Prep follows the plan's meals, servings and cooked state.
+      if Self.prepShape(oldValue) != Self.prepShape(plan) { Freshness.invalidate(Freshness.prep) }
+    }
+  }
   @Published var recipes: [RecipeSummary] = []
-  @Published var grocery: [GroceryLine] = []
+  /// Saved on every change (checking items off in the store), so a relaunch with no signal
+  /// still shows the list as the person left it.
+  @Published var grocery: [GroceryLine] = [] {
+    didSet {
+      guard let id = plan?.id else { return }
+      ResponseCache.save(GroceryList(lines: grocery), as: "plans/\(id)/grocery")
+    }
+  }
+  /// Household default servings, for recipes not yet on the plan.
+  @Published private(set) var familyPortions: Int?
+  /// Dinnerdesk admins can tag recipe steps as Prep.
+  @Published private(set) var isAdmin = false
   @Published var stores: [ShopStore] = ShopStore.defaults
   @Published var aisles: [ShopAisle] = ShopAisle.defaults
   @Published var groupByStore = false
@@ -22,6 +40,16 @@ final class Store: ObservableObject {
   @Published var error: String?
 
   private var groceryPrefsLoaded = false
+  private var paintedFromCache = false
+  private var loadingAll = false
+  /// Bumped when the account changes. A request started before then belongs to the previous
+  /// kitchen, so its result is dropped instead of shown or saved.
+  private var generation = 0
+  private var prefetchTask: Task<Void, Never>?
+
+  private static func prepShape(_ plan: Plan?) -> [String] {
+    (plan?.slots ?? []).map { "\($0.id):\($0.recipeId):\($0.servings):\($0.cooked)" }
+  }
 
   private func fail(_ error: Error) {
     guard !API.isCancellation(error) else { return }
@@ -36,20 +64,127 @@ final class Store: ObservableObject {
     weekIds.contains(recipeId)
   }
 
-  func loadAll() async {
+  /// Shows what's saved on the device right away, then refreshes from the server.
+  /// `onlyIfStale` (launch, returning to the app) skips the server while the data is fresh;
+  /// pull-to-refresh and recovering from a failed change always refetch.
+  func loadAll(onlyIfStale: Bool = false) async {
+    paintFromCache()
+    // Launch and returning to the app can both ask at once; one request is enough.
+    if onlyIfStale && loadingAll { return }
+    if onlyIfStale && Freshness.isFresh(Freshness.plan) && Freshness.isFresh(Freshness.recipes) {
+      await loadGrocery(onlyIfStale: true)
+      return
+    }
+    let gen = generation
+    loadingAll = true
+    defer { if gen == generation { loadingAll = false } }
     error = nil
     do {
-      async let planBox: Plan = API.get("plans/current")
-      async let recipeBox: RecipeList = API.get("recipes", query: ["limit": "400"])
+      async let planBox: Plan = API.get("plans/current", cache: true)
+      async let recipeBox: RecipeList = API.get("recipes", query: ["limit": "400"], cache: true)
       let plan = try await planBox
+      guard gen == generation else { return }
       self.plan = plan
-      if let pending: PendingSuggestion = try? await API.get("suggestions/current", reportErrors: false), pending.plan?.status == "suggested", pending.plan?.suggestedRecipeIds != nil { proposal = pending.plan }
-      recipes = try await recipeBox.recipes
+      Freshness.mark(Freshness.plan)
+      var pending: PendingSuggestion?
+      do {
+        let loaded: PendingSuggestion = try await API.get("suggestions/current", reportErrors: false)
+        pending = loaded
+      } catch {}
+      guard gen == generation else { return }
+      if let pending, pending.plan?.status == "suggested", pending.plan?.suggestedRecipeIds != nil { proposal = pending.plan }
+      let recipeList = try await recipeBox
+      guard gen == generation else { return }
+      recipes = recipeList.recipes
+      Freshness.mark(Freshness.recipes)
       await reloadGrocery()
-      await loadGroceryPrefs()
+      await loadGroceryPrefs(onlyIfStale: onlyIfStale)
+      guard gen == generation else { return }
+      prefetchTask?.cancel()
+      prefetchTask = Task { await prefetchRecipes() }
     } catch {
+      guard gen == generation else { return }
       fail(error)
     }
+  }
+
+  /// Signed in, out or as someone else: forget the previous kitchen and load this one.
+  func switchAccount() async {
+    generation += 1
+    prefetchTask?.cancel()
+    prefetchTask = nil
+    loadingAll = false
+    paintedFromCache = true  // the saved copy was just cleared
+    error = nil
+    proposalError = nil
+    showingProposal = false
+    // Grocery settings belong to the household too: back to defaults until the new one loads.
+    stores = ShopStore.defaults
+    aisles = ShopAisle.defaults
+    groupByStore = false
+    showMeals = false
+    hideChecked = true
+    showAisleNums = false
+    showEmoji = false
+    plan = nil
+    proposal = nil
+    recipes = []
+    grocery = []
+    prepTasks = []
+    hiddenRecipes = nil
+    familyPortions = nil
+    isAdmin = false
+    groceryPrefsLoaded = false
+    await loadAll()
+  }
+
+  /// First paint from the device: the last plan, recipes, grocery list and prep.
+  private func paintFromCache() {
+    guard !paintedFromCache else { return }
+    paintedFromCache = true
+    if plan == nil, let saved: Plan = API.cached("plans/current") { plan = saved }
+    if recipes.isEmpty, let saved: RecipeList = API.cached("recipes", query: ["limit": "400"]) {
+      recipes = saved.recipes
+    }
+    if let plan {
+      if grocery.isEmpty, let saved: GroceryList = API.cached("plans/\(plan.id)/grocery") { grocery = saved.lines }
+      if prepTasks.isEmpty, let saved: PrepList = API.cached("plans/\(plan.id)/prep") { prepTasks = saved.tasks }
+    }
+    if let saved: Household = API.cached("household") { applyHousehold(saved) }
+  }
+
+  /// Full recipes and photos for planned meals, then favorites and To try, so cooking and
+  /// shopping work with no signal. Only fetches what isn't saved or is over a week old.
+  private func prefetchRecipes() async {
+    var ids: [Int] = []
+    var photos: [String?] = []
+    for slot in plan?.slots ?? [] where !ids.contains(slot.recipeId) {
+      ids.append(slot.recipeId)
+      photos.append(slot.photoPath)
+    }
+    for recipe in recipes where (recipe.favorited || recipe.toTry) && !ids.contains(recipe.id) {
+      ids.append(recipe.id)
+      photos.append(recipe.photoPath)
+    }
+    let week: TimeInterval = 7 * 24 * 60 * 60
+    let gen = generation
+    for (id, photo) in zip(ids, photos) {
+      if Task.isCancelled || gen != generation { return }
+      let age = ResponseCache.age(of: ResponseCache.key("recipes/\(id)"))
+      if age == nil || age! > week {
+        let _: RecipeDetail? = try? await API.get("recipes/\(id)", reportErrors: false, cache: true)
+      }
+      await PhotoCache.prefetch(photo)
+    }
+  }
+
+  /// Signed-in status for admin-only controls, fetched once per launch.
+  func loadAdmin() async {
+    if Freshness.isFresh(Freshness.auth, within: .greatestFiniteMagnitude) { return }
+    let gen = generation
+    guard let status = try? await AuthAPI.status(), gen == generation else { return }
+    isAdmin = status.admin == true
+    Freshness.mark(Freshness.auth)
   }
 
   func searchRecipes(_ q: String) async {
@@ -64,13 +199,26 @@ final class Store: ObservableObject {
     }
   }
 
-  func loadHiddenRecipes() async -> [RecipeSummary] {
+  private var hiddenRecipes: [RecipeSummary]?
+
+  /// `onlyIfStale` (opening Recipes) reuses the list from earlier in this launch.
+  func loadHiddenRecipes(onlyIfStale: Bool = false) async -> [RecipeSummary] {
+    let query = ["limit": "400", "hidden": "true"]
+    // The saved list keeps showing if the request fails (no signal).
+    if hiddenRecipes == nil, let saved: RecipeList = API.cached("recipes", query: query) {
+      hiddenRecipes = saved.recipes
+    }
+    if onlyIfStale, let hiddenRecipes, Freshness.isFresh(Freshness.hidden) { return hiddenRecipes }
+    let gen = generation
     do {
-      let box: RecipeList = try await API.get("recipes", query: ["limit": "400", "hidden": "true"])
+      let box: RecipeList = try await API.get("recipes", query: query, cache: true)
+      guard gen == generation else { return hiddenRecipes ?? [] }
+      hiddenRecipes = box.recipes
+      Freshness.mark(Freshness.hidden)
       return box.recipes
     } catch {
       fail(error)
-      return []
+      return hiddenRecipes ?? []
     }
   }
 
@@ -81,7 +229,8 @@ final class Store: ObservableObject {
       let _: RecipeDetail = try await API.send(
         "recipes/\(recipe.id)/favorite",
         method: "PUT",
-        body: ["on": on]
+        body: ["on": on],
+        cacheAs: "recipes/\(recipe.id)"
       )
     } catch {
       guard !API.isCancellation(error) else { return }
@@ -94,7 +243,7 @@ final class Store: ObservableObject {
   func setFavorite(id: Int, on: Bool) async -> RecipeDetail? {
     recipes = recipes.map { $0.id == id ? $0.withFavorited(on) : $0 }
     do {
-      return try await API.send("recipes/\(id)/favorite", method: "PUT", body: ["on": on])
+      return try await API.send("recipes/\(id)/favorite", method: "PUT", body: ["on": on], cacheAs: "recipes/\(id)")
     } catch {
       fail(error)
       return nil
@@ -110,7 +259,7 @@ final class Store: ObservableObject {
   func setTryLater(id: Int, on: Bool) async -> RecipeDetail? {
     recipes = recipes.map { $0.id == id ? $0.withToTry(on) : $0 }
     do {
-      return try await API.send("recipes/\(id)/try", method: "PUT", body: ["on": on])
+      return try await API.send("recipes/\(id)/try", method: "PUT", body: ["on": on], cacheAs: "recipes/\(id)")
     } catch {
       fail(error)
       return nil
@@ -122,6 +271,7 @@ final class Store: ObservableObject {
   }
 
   func setHidden(id: Int, on: Bool) async -> RecipeDetail? {
+    Freshness.invalidate(Freshness.hidden)
     if on {
       recipes = recipes.filter { $0.id != id }
     }
@@ -129,7 +279,8 @@ final class Store: ObservableObject {
       let next: RecipeDetail = try await API.send(
         "recipes/\(id)/hidden",
         method: "PUT",
-        body: ["on": on]
+        body: ["on": on],
+        cacheAs: "recipes/\(id)"
       )
       if !on {
         await searchRecipes("")
@@ -242,12 +393,28 @@ final class Store: ObservableObject {
     }
   }
 
-  func loadGrocery() async {
+  /// The server rebuilds the list whenever the plan, pantry or stores change, so reading it
+  /// is enough. `onlyIfStale` (opening the Grocery tab) uses the saved list while it's fresh;
+  /// `rebuild` (pull-to-refresh) asks the server to rebuild it first.
+  func loadGrocery(onlyIfStale: Bool = false, rebuild: Bool = false) async {
+    // An empty list is a real answer too: freshness alone decides.
+    if onlyIfStale && Freshness.isFresh(Freshness.grocery) {
+      await loadGroceryPrefs(onlyIfStale: true)
+      return
+    }
+    let gen = generation
     do {
       let plan = try await currentPlan()
-      let list: GroceryList = try await API.send("plans/\(plan.id)/grocery", method: "POST")
+      let list: GroceryList
+      if rebuild {
+        list = try await API.send("plans/\(plan.id)/grocery", method: "POST", cacheAs: "plans/\(plan.id)/grocery")
+      } else {
+        list = try await API.get("plans/\(plan.id)/grocery", cache: true)
+      }
+      guard gen == generation else { return }
       grocery = list.lines
-      await loadGroceryPrefs()
+      Freshness.mark(Freshness.grocery)
+      await loadGroceryPrefs(onlyIfStale: !rebuild)
     } catch {
       fail(error)
     }
@@ -421,7 +588,8 @@ final class Store: ObservableObject {
       let _: Household = try await API.send(
         "household",
         method: "PUT",
-        body: ["prefs": ["grocery": groceryPrefs]]
+        body: ["prefs": ["grocery": groceryPrefs]],
+        cacheAs: "household"
       )
     } catch {
       fail(error)
@@ -443,11 +611,16 @@ final class Store: ObservableObject {
     return aisle.name
   }
 
-  func loadPrep() async {
+  /// `onlyIfStale` (opening the Prep tab) skips the server unless the plan changed.
+  func loadPrep(onlyIfStale: Bool = false) async {
+    if onlyIfStale && Freshness.isFresh(Freshness.prep) { return }
+    let gen = generation
     do {
       let plan = try await currentPlan()
-      let box: PrepList = try await API.get("plans/\(plan.id)/prep")
+      let box: PrepList = try await API.get("plans/\(plan.id)/prep", cache: true)
+      guard gen == generation else { return }
       prepTasks = box.tasks
+      Freshness.mark(Freshness.prep)
     } catch {
       fail(error)
     }
@@ -607,16 +780,23 @@ final class Store: ObservableObject {
 
   private func currentPlan() async throws -> Plan {
     if let plan { return plan }
-    let loaded: Plan = try await API.get("plans/current")
+    let gen = generation
+    let loaded: Plan = try await API.get("plans/current", cache: true)
+    guard gen == generation else { throw CancellationError() }
     plan = loaded
+    Freshness.mark(Freshness.plan)
     return loaded
   }
 
+  /// After a change to the plan: the server has already rebuilt the list, so read it.
   private func reloadGrocery() async {
     guard let plan else { return }
+    let gen = generation
     do {
-      let list: GroceryList = try await API.send("plans/\(plan.id)/grocery", method: "POST")
+      let list: GroceryList = try await API.get("plans/\(plan.id)/grocery", cache: true)
+      guard gen == generation else { return }
       grocery = list.lines
+      Freshness.mark(Freshness.grocery)
     } catch {
       fail(error)
     }
@@ -631,29 +811,36 @@ final class Store: ObservableObject {
     }
   }
 
-  private func loadGroceryPrefs() async {
+  func loadGroceryPrefs(onlyIfStale: Bool = false) async {
+    if onlyIfStale && Freshness.isFresh(Freshness.household) && groceryPrefsLoaded { return }
+    let gen = generation
     do {
-      let hh: Household = try await API.get("household")
-      if let found = hh.prefs?.grocery?.stores {
-        stores = found
-      } else {
-        stores = ShopStore.defaults
-      }
-      if let found = hh.prefs?.grocery?.aisles, !found.isEmpty {
-        aisles = found
-      } else {
-        aisles = ShopAisle.defaults
-      }
-      if let v = hh.prefs?.grocery?.groupByStore { groupByStore = v }
-      if let v = hh.prefs?.grocery?.showMeals { showMeals = v }
-      if let v = hh.prefs?.grocery?.hideChecked { hideChecked = v }
-      if let v = hh.prefs?.grocery?.showAisleNums { showAisleNums = v }
-      if let v = hh.prefs?.grocery?.showEmoji { showEmoji = v }
+      let hh: Household = try await API.get("household", cache: true)
+      guard gen == generation else { return }
+      applyHousehold(hh)
+      // Only server data counts: saving grocery settings from a stale saved copy could
+      // overwrite stores added on another device.
       groceryPrefsLoaded = true
+      Freshness.mark(Freshness.household)
     } catch {
       fail(error)
       groceryPrefsLoaded = false
     }
+  }
+
+  private func applyHousehold(_ hh: Household) {
+    familyPortions = hh.prefs?.familyPortions
+    stores = hh.prefs?.grocery?.stores ?? ShopStore.defaults
+    if let found = hh.prefs?.grocery?.aisles, !found.isEmpty {
+      aisles = found
+    } else {
+      aisles = ShopAisle.defaults
+    }
+    if let v = hh.prefs?.grocery?.groupByStore { groupByStore = v }
+    if let v = hh.prefs?.grocery?.showMeals { showMeals = v }
+    if let v = hh.prefs?.grocery?.hideChecked { hideChecked = v }
+    if let v = hh.prefs?.grocery?.showAisleNums { showAisleNums = v }
+    if let v = hh.prefs?.grocery?.showEmoji { showEmoji = v }
   }
 
   private func patchSlot(

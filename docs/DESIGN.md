@@ -335,6 +335,17 @@ builds → shop → prep → cook.
   store/aisle per item (`grocery_places`), meal 👍/👎 (`household_meal_ratings`), prep step
   votes (`prep_step_feedback`), prep check-offs, and Taste Lab sessions, people, and events.
 - Ingredient photos live outside Git (`GROCERY_PHOTO_DIR`); the repo holds only the name mapping.
+- **iPhone keeps a copy on the device** (`ios/dinnerdesk/ResponseCache.swift`). The plan,
+  recipe list, grocery list, prep, household prefs, full recipes for planned meals, favorites
+  and To try, and all photos are saved after loading. Screens show the saved copy at once and
+  ask the server only when it is stale (`Freshness`): once per launch, after 10 minutes, after
+  a change that affects it, or on pull-to-refresh. Saved recipes are reused for a day, photos
+  until the path changes. Changes made on the phone (checked groceries, moved meals) are saved
+  as they happen, so a relaunch with no signal shows the list as it was left. With no signal,
+  screens show the saved copy and a banner rather than stopping the app; changes made offline
+  are not queued yet, so they are lost at the next refresh. Signing in as another
+  account clears the copy. The server rebuilds groceries on every change, so the app reads
+  the list (`GET`) and only pull-to-refresh asks for a rebuild.
 
 ### Code map
 
