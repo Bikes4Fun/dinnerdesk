@@ -229,7 +229,7 @@ struct PlanView: View {
   /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.
   /// 148 (not 160) so title + 4 meals + Add meals fit on iPhone 16 at default Dynamic Type.
   private func calculateGlobalPhotoWidth(for plan: Plan, availableWidth: CGFloat) -> CGFloat {
-    !editing && !typeSize.isAccessibilitySize && typeSize <= .large ? 132 : 148
+    148
   }
 
   private func meal(_ slot: PlanSlot, plan: Plan, grid: Bool, photoWidth: CGFloat) -> some View {
@@ -259,22 +259,11 @@ struct PlanView: View {
           photo(slot, side: photoWidth)
           VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
-              title(slot, plan: plan, showServings: editing).frame(maxWidth: .infinity, alignment: .leading)
+              title(slot, plan: plan).frame(maxWidth: .infinity, alignment: .leading)
               if editing { selectionButton(slot) }
             }
             if editing { editControls(slot, plan: plan) }
-            else {
-              ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) {
-                  RecipeCardServings(servings: slot.servings)
-                  scheduleButton(slot, plan: plan)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                  RecipeCardServings(servings: slot.servings)
-                  scheduleButton(slot, plan: plan)
-                }
-              }
-            }
+            else { scheduleButton(slot, plan: plan) }
           }
         }
       }
@@ -412,13 +401,13 @@ struct PlanView: View {
     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
   }
 
-  private func title(_ slot: PlanSlot, plan: Plan, showServings: Bool = true) -> some View {
+  private func title(_ slot: PlanSlot, plan: Plan) -> some View {
     NavigationLink {
       RecipeDetailView(id: slot.recipeId)
     } label: {
       VStack(alignment: .leading, spacing: 4) {
         RecipeCardName(name: slot.recipeName)
-        if !editing && showServings {
+        if !editing {
           RecipeCardServings(servings: slot.servings)
         }
       }
