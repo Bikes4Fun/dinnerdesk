@@ -180,7 +180,7 @@ export function Grocery() {
 
   /** What's left to buy, grouped by aisle in store order, for the selected store. */
   function shareText() {
-    const left = lines.filter((l) => !l.checked && !l.never_shop && !l.from_pantry
+    const left = lines.filter((l) => !l.checked && !l.never_shop
       && (storeFilter === "all" || l.store === storeFilter));
     const store = stores.find((s) => s.id === storeFilter);
     const title = store ? `Grocery list — ${store.name}` : "Grocery list";
@@ -494,7 +494,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
       <button type="button" className="g-main" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
         <span className="g-name">{line.name}</span>
         {note.length > 0 && <span className="g-sub">{note.join(" · ")}</span>}
-        {line.from_pantry && !line.never_shop && <span className="g-tip" data-tip="grocery.pantry"><span className="g-tip-star" aria-hidden="true">★</span> In your pantry, so it starts checked off</span>}
+        {line.from_pantry && !line.never_shop && <span className="g-sub">Pantry</span>}
       </button>
       <span className="g-qty">{line.quantity}</span>
     </div>
