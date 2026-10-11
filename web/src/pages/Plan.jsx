@@ -106,10 +106,10 @@ export function Plan() {
     for (const slot of plan.slots.filter((s) => selected.has(s.id))) setPlan(await api.deleteSlot(slot.id));
     setSelected(new Set()); await week.load();
   }
-  async function newPlan(source, mealCount) {
+  async function newPlan(source, mealCount, keepCurrent = false) {
     const body = {};
     if (source != null) body.source_plan_id = source;
-    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = false; }
+    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = keepCurrent; }
     const created = await api.createPlan(body);
     if (created.status === "suggested") setProposal(created);
     else setPlan(created);
@@ -186,7 +186,7 @@ export function Plan() {
         </div>
         <div className="proposal-actions">
         {proposal.status === "suggested" && <button type="button" className="sp-approve" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>}
-        <button type="button" className="sp-another" disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.slots.length)); })} aria-label={proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}>{proposal.status === "suggested" ? "Suggest another" : "Try another suggestion"}</button>
+        <button type="button" className="sp-another" disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids?.length || proposal.slots.length), proposal.slots.some((slot) => !proposal.suggested_recipe_ids?.includes(slot.recipe_id))); })} aria-label={proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}>{proposal.status === "suggested" ? "Suggest another" : "Try another suggestion"}</button>
         </div>
         <button type="button" className="text-link sp-improve" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
       </section>}
@@ -212,6 +212,7 @@ export function Plan() {
         <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected))}>Mark cooked</button>
         <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
       </div>}
+      {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
       {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
       {groups.map((day) => <section key={day}>
         {day >= 0 && <h2 className="block">{dayLabel(plan, day)}</h2>}

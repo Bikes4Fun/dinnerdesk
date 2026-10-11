@@ -2513,8 +2513,14 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
     return meals
 
 
-def _suggest_meals(db: PgConnection, household_id: int, want: int) -> tuple[list[dict], str, dict]:
-    recipes = _candidate_meals(db, household_id)
+def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
+    kept = kept_recipe_ids or set()
+    recipes = [recipe for recipe in _candidate_meals(db, household_id) if recipe["id"] not in kept]
+    selected_ingredients = []
+    for rid in sorted(kept):
+        row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
+        if row and _recipe_visible(row, household_id):
+            selected_ingredients.extend(i["name"] for i in _recipe_out(db, row, household_id)["ingredients"])
     aliases = _aliases(db)
     swaps = _overrides(db, household_id)
     pantry = norm_pantry(
@@ -2588,6 +2594,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int) -> tuple[list
                 (household_id,),
             )
         },
+        plan_ings=norm_pantry(selected_ingredients, aliases, swaps),
     )
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
@@ -2613,8 +2620,11 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
     note = None
     reasons = None
     if body.meal_count and not body.draft and (not source or body.keep_current):
-        candidates, note, reasons = _suggest_meals(db, household_id, 400)
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
+        if body.keep_current:
+            candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count, kept)
+        else:
+            candidates, note, reasons = _suggest_meals(db, household_id, 400)
         available = [m for m in candidates if m["id"] not in kept]
         current = _plan_out(db, _ensure_plan(db, household_id), household_id)
         current_ids = {slot["recipe_id"] for slot in current["slots"]}

@@ -482,3 +482,7 @@ simulator build and web production build passed, and Taste Lab JavaScript syntax
 passed. Test isolation resets Taste Lab's cached initializer between fresh schemas.
 These are historical results, not validation of the current build. Issue #2's original
 HTTP 405 trigger remains unresolved; request diagnostics are in place.
+
+### October 10 TestFlight follow-up
+
+Reports from 1.0.3 (2) are mapped individually in TESTER_CHECKLIST.md. Active fixes: #109 (suggestion lifecycle, fill-in, empty plans), #110 (multiple custom foods, prep Undo, compact Plan, grocery bulk toggle), and #103 (hide staged tips). #85's plural search fix is already merged as PR #98. #82 still needs the prepared ingredient gallery enabled in production. Branch: `fix/testflight-feedback-oct10`.

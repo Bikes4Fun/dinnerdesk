@@ -3,6 +3,7 @@ import UIKit
 
 struct GroceryView: View {
   @EnvironmentObject private var store: Store
+  @Environment(\.selectTab) private var selectTab
   @State private var storeFilter = ""
   @State private var adding = false
   @State private var menu = false
@@ -10,6 +11,10 @@ struct GroceryView: View {
   @State private var openItem: Int?
   @State private var menuStatus: String?
   @State private var sharing = false
+
+  private var allGroceryComplete: Bool {
+    !store.grocery.isEmpty && store.grocery.allSatisfy { $0.checked || $0.neverShop }
+  }
 
   var body: some View {
     NavigationStack {
@@ -57,12 +62,18 @@ struct GroceryView: View {
           if store.grocery.isEmpty {
             EmptyState(
               title: "List is empty",
-              message: "Add meals on Plan and they show up here.",  // TODO: what is this message? add meals ON plan? Meals show up here? or Groceries?
+              message: "Choose meals to build your grocery list.",
               systemImage: "cart"
             )
             .listRowInsets(EdgeInsets())
             .listRowSeparator(.hidden)
             .listRowBackground(Theme.bg)
+            if store.plan?.slots.isEmpty != false {
+              Button("Create meal plan") {
+                selectTab(.plan)
+                Task { await store.openSuggestions() }
+              }.font(Theme.action).themeBareRow()
+            }
           } else {
             if aisleBlocks.isEmpty {
               Text(allDoneMessage)
@@ -147,21 +158,15 @@ struct GroceryView: View {
               Task { await store.persistGroceryPrefs() }
             },
             MenuSheetItem(
-              title: "Complete all", systemImage: "checkmark.circle", dismissOnSelection: false,
-              status: menuStatus == "Completed" ? menuStatus : nil
+              title: allGroceryComplete ? "Uncheck all" : "Complete all",
+              systemImage: allGroceryComplete ? "arrow.uturn.backward.circle" : "checkmark.circle",
+              dismissOnSelection: false, status: menuStatus
             ) {
+              let uncheck = allGroceryComplete
               Task {
-                await store.markAllGroceryComplete()
-                if store.error == nil { menuStatus = "Completed" }
-              }
-            },
-            MenuSheetItem(
-              title: "Uncheck all", systemImage: "arrow.uturn.backward.circle",
-              dismissOnSelection: false, status: menuStatus == "Unchecked" ? menuStatus : nil
-            ) {
-              Task {
-                await store.uncheckAllGrocery()
-                if store.error == nil { menuStatus = "Unchecked" }
+                if uncheck { await store.uncheckAllGrocery() }
+                else { await store.markAllGroceryComplete() }
+                if store.error == nil { menuStatus = uncheck ? "Unchecked" : "Completed" }
               }
             },
             MenuSheetItem(

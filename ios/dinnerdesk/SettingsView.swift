@@ -102,6 +102,7 @@ struct FiltersView: View {
   enum SaveState { case idle, saving, saved }
   @State private var saveState = SaveState.idle
   @State private var saveCount = 0
+  @State private var saveTask: Task<Void, Never>?
 
   static let dietLabels = [
     "omnivore": "Omnivore", "pescatarian": "Pescatarian", "vegetarian": "Vegetarian", "vegan": "Vegan",
@@ -310,7 +311,10 @@ struct FiltersView: View {
     saveCount += 1
     let mine = saveCount
     saveState = .saving
-    Task {
+    let previous = saveTask
+    saveTask = Task {
+      await previous?.value
+      guard mine == saveCount else { return }
       do {
         try await KitchenAPI.savePrefs(["filters": body])
         error = nil
@@ -320,8 +324,10 @@ struct FiltersView: View {
         }
         // Recipes follow the filters, so refresh the list behind this screen.
         await store.searchRecipes("")
-        try? await Task.sleep(for: .seconds(2))
-        if mine == saveCount, saveState == .saved { saveState = .idle }
+        Task {
+          try? await Task.sleep(for: .seconds(2))
+          if mine == saveCount, saveState == .saved { saveState = .idle }
+        }
       } catch {
         if mine == saveCount { saveState = .idle }
         self.error = KitchenAPI.message(error)
@@ -357,8 +363,6 @@ private struct OtherField: View {
         ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
           FilterChip(label: "+ \(name)", on: false) {
             selected.append(name)
-            query = ""
-            matches = []
             onCommit()
           }
           .accessibilityLabel("Add \(name)")

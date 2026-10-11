@@ -40,7 +40,7 @@ struct PlanView: View {
                 .accessibilityLabel("Done editing plan")
             } 
             // else { Button {
-            //     Task { await store.newPlan(meals: 4) }
+            //     Task { await store.openSuggestions() }
             // } label: {
             //     Label("New meal plan", systemImage: "sparkles")
             // }
@@ -88,7 +88,7 @@ struct PlanView: View {
                   message: "Get suggestions for your next meals.",
                   systemImage: "calendar")
                 Button {
-                  Task { await store.newPlan(meals: 4) }
+                  Task { await store.openSuggestions() }
                 } label: {
                   Label("New meal plan", systemImage: "sparkles")
                 }
@@ -146,7 +146,7 @@ struct PlanView: View {
             }
             if !plan.slots.isEmpty { 
               // Button {
-              //     Task { await store.newPlan(meals: 4) }
+              //     Task { await store.openSuggestions() }
               //   } label: {
               //     Label("New meal plan", systemImage: "sparkles")
               //   }
@@ -175,7 +175,10 @@ struct PlanView: View {
         [
           
           MenuSheetItem(title: "New meal plan", systemImage: "sparkles", accent: true) {
-            Task { await store.newPlan(meals: 4) }
+            Task { await store.openSuggestions() }
+          },
+          MenuSheetItem(title: "Fill in this plan", systemImage: "plus.circle") {
+            Task { await store.openSuggestions(keepCurrent: true) }
           },
           MenuSheetItem(title: editing ? "Finish editing" : "Edit plan", systemImage: editing ? "checkmark.circle" : "pencil") {
             setEditing(!editing)
@@ -191,7 +194,7 @@ struct PlanView: View {
             savingDraft = true
           },
           MenuSheetItem(title: "Saved plans & history", systemImage: "tray") { drafts = true },
-          // MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.newPlan(meals: 4) } }
+          // MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.openSuggestions() } }
         ]
       }
       .alert("Save as draft", isPresented: $savingDraft) {
@@ -207,9 +210,6 @@ struct PlanView: View {
       }
       .sheet(item: $picking) { slot in ScheduleMealSheet(slot: slot) }
       .sheet(isPresented: $drafts) { SavedPlansView() }
-      .sheet(isPresented: $store.showingProposal) {
-        SuggestedPlanReview()
-      }
       .refreshable { await store.loadAll() }
     }
   }
@@ -235,7 +235,7 @@ struct PlanView: View {
   /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.
   /// 148 (not 160) so title + 4 meals + Add meals fit on iPhone 16 at default Dynamic Type.
   private func calculateGlobalPhotoWidth(for plan: Plan, availableWidth: CGFloat) -> CGFloat {
-    148
+    !editing && !typeSize.isAccessibilitySize && typeSize <= .large ? 132 : 148
   }
 
   private func meal(_ slot: PlanSlot, plan: Plan, grid: Bool, photoWidth: CGFloat) -> some View {
@@ -265,11 +265,22 @@ struct PlanView: View {
           photo(slot, side: photoWidth)
           VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top, spacing: 8) {
-              title(slot, plan: plan).frame(maxWidth: .infinity, alignment: .leading)
+              title(slot, plan: plan, showServings: editing).frame(maxWidth: .infinity, alignment: .leading)
               if editing { selectionButton(slot) }
             }
             if editing { editControls(slot, plan: plan) }
-            else { scheduleButton(slot, plan: plan) }
+            else {
+              ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                  Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  scheduleButton(slot, plan: plan)
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                  Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  scheduleButton(slot, plan: plan)
+                }
+              }
+            }
           }
         }
       }
@@ -407,14 +418,14 @@ struct PlanView: View {
     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
   }
 
-  private func title(_ slot: PlanSlot, plan: Plan) -> some View {
+  private func title(_ slot: PlanSlot, plan: Plan, showServings: Bool = true) -> some View {
     NavigationLink {
       RecipeDetailView(id: slot.recipeId)
     } label: {
       VStack(alignment: .leading, spacing: 4) {
         Text(slot.recipeName).font(Theme.mealName).foregroundStyle(Theme.ink)
           .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
-        if !editing {
+        if !editing && showServings {
           Text("\(slot.servings) servings").font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
       }
@@ -678,7 +689,7 @@ func dayTitle(_ start: String, _ index: Int) -> String {
 
 /// Review a suggested plan in the app's own plain style (not Taste Lab's cards): a rounded
 /// square photo with a white swap button in its corner, then the name and cook time.
-private struct SuggestedPlanReview: View {
+struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
   @Environment(\.dynamicTypeSize) private var textSize
@@ -689,6 +700,9 @@ private struct SuggestedPlanReview: View {
       GeometryReader { geometry in
         ScrollView {
           VStack(alignment: .leading, spacing: 12) {
+            if store.generatingProposal {
+              ProgressView("Finding meals…").frame(maxWidth: .infinity, minHeight: 80)
+            }
             Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
               Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
             }
@@ -745,7 +759,7 @@ private struct SuggestedPlanReview: View {
                 .font(Theme.action).foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
-          }.padding().disabled(busy)
+          }.padding().disabled(busy || store.generatingProposal)
         }
       }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }
@@ -766,7 +780,7 @@ private struct SuggestedPlanReview: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Decline and suggest another plan")
     } else {
-      Button { run { await store.replaceDeclinedProposal() } } label: { secondaryLabel("Try another suggestion") }
+      Button { run { await store.newPlan(meals: 4) } } label: { secondaryLabel("Try another suggestion") }
         .buttonStyle(.plain)
     }
   }

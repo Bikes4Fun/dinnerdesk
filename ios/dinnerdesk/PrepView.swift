@@ -3,8 +3,8 @@ import SwiftUI
 /// Weekend prep, grouped by what the food is (#21; mirrors web/src/pages/Prep.jsx).
 /// One row per item however many meals use it. A progress ring and one bar per section up
 /// top; collapsible sections; 👍/👎 on every item (a 👎 asks why); and check-off that works like
-/// the grocery list: a done item leaves its section unless "Show completed" is on, and a bar at
-/// the bottom offers Undo and asks whether it was worth doing ahead.
+/// the grocery list: a done item leaves its section unless "Show completed" is on, and a short-lived bar at
+/// the bottom offers Undo. Voting stays in the expanded row.
 struct PrepView: View {
   @EnvironmentObject private var store: Store
   @Environment(\.selectTab) private var selectTab
@@ -16,7 +16,6 @@ struct PrepView: View {
   @State private var whyOpen: Int?
   @State private var detailsOpen: Set<Int> = []
   @State private var toast: Int?
-  @State private var toastWhy = false
   @State private var missingOpen = false
 
   private static let sections: [(key: String, title: String, short: String)] = [
@@ -69,9 +68,10 @@ struct PrepView: View {
               title: "No prep yet",
               message: "Add meals on Plan. Make-ahead steps like chopping, grating and sauces show up here.",
               systemImage: "list.clipboard")
-            Button("Back to plan") {
+            Button(store.plan?.slots.isEmpty != false ? "Create meal plan" : "Back to plan") {
               selectTab(.plan)
               dismiss()
+              if store.plan?.slots.isEmpty != false { Task { await store.openSuggestions() } }
             }
             .font(Theme.action)
             .frame(maxWidth: .infinity, minHeight: 44)
@@ -81,7 +81,7 @@ struct PrepView: View {
             missingButton
           }
           // Room so the check-off bar never covers the last row.
-          Color.clear.frame(height: toast == nil ? 8 : 180)
+          Color.clear.frame(height: toast == nil ? 8 : 72)
         }
         .padding(.horizontal, 16)
         .padding(.top, 4)
@@ -89,6 +89,11 @@ struct PrepView: View {
     }
     .background(Theme.bg)
     .overlay(alignment: .bottom) { toastBar }
+    .task(id: toast) {
+      guard let id = toast else { return }
+      do { try await Task.sleep(for: .seconds(4)) } catch { return }
+      if toast == id { toast = nil }
+    }
     .navigationTitle("Weekend prep")
     .largeNavigationTitle()
     .sheet(isPresented: $missingOpen) { MissingPrepSheet() }
@@ -236,7 +241,6 @@ struct PrepView: View {
           let next = !task.done
           Task { await store.togglePrep(task) }
           toast = next ? task.id : nil
-          toastWhy = false
         } label: {
           Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
             .font(.system(size: 26))
@@ -402,7 +406,7 @@ struct PrepView: View {
         HStack(spacing: 10) {
           Image(systemName: "checkmark.circle.fill").foregroundStyle(Self.coral)
             .accessibilityHidden(true)
-          Text("\(task.name) checked off").font(Theme.action).foregroundStyle(Theme.surface)
+          Text("\(task.name) checked off").font(Theme.subtitle).lineLimit(2).foregroundStyle(Theme.surface)
             .frame(maxWidth: .infinity, alignment: .leading)
           Button("Undo") {
             Task { await store.togglePrep(task) }
@@ -415,33 +419,6 @@ struct PrepView: View {
           }
           .accessibilityLabel("Dismiss")
         }
-        HStack(spacing: 8) {
-          Text("Worth prepping ahead next time?").font(Theme.subtitle).foregroundStyle(Theme.aubergineTint)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          toastThumb(up: true, on: (task.rating ?? 0) > 0) {
-            toast = nil
-            Task { await store.ratePrepTask(task.id, 1) }
-          }
-          toastThumb(up: false, on: (task.rating ?? 0) < 0) {
-            toastWhy = true
-            Task { await store.ratePrepTask(task.id, -1, reason: task.reason ?? "") }
-          }
-        }
-        if toastWhy {
-          KitchenFlow(spacing: 6) {
-            ForEach(PrepReason.allCases) { reason in
-              Button {
-                toast = nil
-                Task { await store.ratePrepTask(task.id, -1, reason: reason.rawValue) }
-              } label: {
-                Text(reason.label).font(Theme.chipLabel).foregroundStyle(Theme.ink)
-                  .padding(.horizontal, 14).frame(minHeight: 44)
-                  .background(task.reason == reason.rawValue ? Self.coral : Theme.surface, in: Capsule())
-              }
-              .buttonStyle(.plain)
-            }
-          }
-        }
       }
       .padding(.leading, 16).padding(.trailing, 6).padding(.vertical, 8)
       .background(Theme.ink, in: RoundedRectangle(cornerRadius: 20))
@@ -452,18 +429,7 @@ struct PrepView: View {
     }
   }
 
-  private func toastThumb(up: Bool, on: Bool, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      Image(systemName: up ? (on ? "hand.thumbsup.fill" : "hand.thumbsup") : (on ? "hand.thumbsdown.fill" : "hand.thumbsdown"))
-        .foregroundStyle(on ? Theme.ink : Theme.surface)
-        .frame(width: 44, height: 44)
-        .background(on ? Self.coral : Color.clear, in: Circle())
-        .overlay(Circle().stroke(on ? Self.coral : Theme.surface.opacity(0.4)))
-    }
-    .buttonStyle(.plain)
-    .accessibilityLabel(up ? "Yes, worth it" : "No, not worth it")
-    .accessibilityAddTraits(on ? .isSelected : [])
-  }
+
 }
 
 /// "Missing a prep step?" (#78 F): pick the meal, then the step that should have been prep,
