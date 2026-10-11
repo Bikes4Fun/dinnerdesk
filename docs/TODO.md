@@ -217,18 +217,19 @@ split an item into its own issue when it's picked up.
 - [ ] Attach sides or components to any meal; "customize this meal" (protein, salad, bread,
       sides; groceries merge).
 - [ ] Gather near-identical sides, sauces, and salads across recipes into shared components (one
-      grocery line, one batch of prep).
+      grocery line, one batch of prep). #116
 - [ ] Short-order templates (pick format → protein / base / veg / sauce → generate a recipe);
       save builds as user recipes; template photo from the nearest sibling. Sheet pan family; pot
       roast as a template candidate.
 - [ ] Templates may suggest defaults (quesadilla → offer pico) but never lock choices.
-- [ ] Instruction detail: basic vs detailed.
+- [ ] Instruction detail: basic vs detailed. #117
 - [ ] Import from a URL (and report bad imports); crawl bookmarked links; TikTok, Instagram, PDF,
       or photo import.
 - [ ] Brand-agnostic box mixes and premade sides ("boxed mac & cheese" + milk/butter).
-- [ ] Leftover and waste-minimizing tags.
+- [ ] Leftover and waste-minimizing tags. #90; suggestion ingredient priorities in #118.
 - [ ] Print recipes and event sheets.
-- [ ] General cooking education.
+- [ ] Inline Cook-mode timers: #87 (paused; far future).
+- [ ] General cooking education. #117
 
 **Grocery and prep** — #90
 - [ ] Shop-my-list / online order hooks (Instacart, Walmart, Kroger, Amazon). Notes in
@@ -270,13 +271,13 @@ split an item into its own issue when it's picked up.
 - [ ] Sync or export with other apps (e.g. Umami).
 - [ ] Offline browse (plan, recipes, grocery).
 
-**Recipe library (operator)** — #94
+**Recipe library (operator)** — #120
 - [ ] Review and normalize archive ingredient names into a canonical list (Settings → Ingredient
       review; first pass in `data/ingredients_review.json`). Don't auto-merge bone-in and
       boneless.
 - [ ] Third-party instruction review workflow (`instructions_copied_from_third_party`,
       `instructions_reviewed`).
-- [ ] Upload app-only favorites (not on mealime.com; tag `favorite` + `incomplete`): BLT salad
+- [ ] Add user-requested favorites (tag `favorite` + `incomplete`; write original instructions): BLT salad
       with chicken and avocado; brussels sprouts mashed potato and sausage bowl; buffalo shrimp
       tacos with creamy napa; cauliflower chickpea salad with arugula and pine nuts; chicken
       zucchini meatballs with rice, cucumber, tomato; coconut chicken tenders with Thai sauce;
@@ -285,10 +286,8 @@ split an item into its own issue when it's picked up.
       green onion butter and cheesy roasted asparagus; penne with basil cottage cheese sauce,
       spinach, tomatoes; steak and potatoes with romaine and creamy Dijon; sticky maple Dijon wings
       with Caesar salad.
-- [ ] Finish stub recipes tagged `american_standard` or `side` (write them, or use only a clear
-      Mealime match).
-- [ ] Mealime / MyPlate / Allrecipes bulk scrape. Don't run until go-ahead.
-- [ ] Pro Mealime sync if an auth token appears.
+- [ ] Finish stub recipes tagged `american_standard` or `side` with original instructions.
+- [ ] Migrate legacy provider-specific identifiers and private archive paths to neutral catalog sources; preserve ingredient review and hidden source metadata. #120
 
 ---
 
@@ -372,7 +371,7 @@ entry on phones that have space for the Prep tab.
       penalty, not a filter: a household that avoids bell peppers still gets a fajita recipe with
       bell pepper when it's one of the few matches (e.g. a search for fajitas), marked as containing
       an avoid. Today both are hard filters (`diet_filter.blocks_for`, `taste_rank._filters`). #81
-- [ ] Remaining Mealime-style design polish from the Oct 3 design list (re-check first). #95
+- [ ] Remaining design polish from the Oct 3 design list (re-check first). #95
 
 ## Done (recent)
 
@@ -409,7 +408,7 @@ Older history is in Git and in [`DESIGN.md`](DESIGN.md), which describes everyth
 
 Historical application/research notes; verify availability and requirements before acting.
 
-Track grocery conversions and earn commissions (Mealime-style). Register with the networks that run each retailer program. Related app goal: in-app shop-my-list in `TODO.md` → Ideas.
+Track grocery conversions and earn commissions (retailer affiliate programs). Register with the networks that run each retailer program. Related app goal: in-app shop-my-list in `TODO.md` → Ideas.
 
 Instacart Developer Platform ([IDP](https://company.instacart.com/business/developers)) can send users to Instacart checkout and pay affiliate commissions, but **new applications are closed** (no waitlist). Recheck that page later.
 
