@@ -101,8 +101,8 @@ database. The following paths are relative to `DINNERDESK_CATALOG_DIR`, outside 
 - `sides.json`, `recipe_tags.json`: side names and known tags
 - `recipe_photos.json`: photos we may use, and which recipe each belongs to
 
-The original archive came from [Mealime](https://www.mealime.com/recipes). The scraper isn't in
-this repo; respect Mealime's terms and scrape politely if it's used again.
+Private archive material is for reference and review. Publish our own instructions and
+our/user-provided photos. Third-party apps inform workflow ideas; they are not implementation specifications.
 
 
 ## Private catalog and deployment

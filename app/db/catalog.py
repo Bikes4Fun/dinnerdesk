@@ -141,11 +141,16 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
     provenance = _provenance_json(data)
     cookware = json.dumps(data.get("cookware") or [])
     existing = conn.execute(
-        "SELECT id, photo_path FROM recipes WHERE household_id IS NULL AND slug = ?",
+        "SELECT id, photo_path, provenance_json FROM recipes WHERE household_id IS NULL AND slug = ?",
         (slug,),
     ).fetchone()
     if existing:
         rid = existing["id"]
+        keep_admin_tags = json.loads(existing["provenance_json"] or "{}").get("admin_tags_edited") is True
+        if keep_admin_tags:
+            incoming_provenance = json.loads(provenance)
+            incoming_provenance["admin_tags_edited"] = True
+            provenance = json.dumps(incoming_provenance)
         photo = existing["photo_path"] if is_uploaded_photo(existing["photo_path"]) else incoming_photo
         conn.execute(
             """UPDATE recipes SET name = ?, servings = ?, cooking_minutes = ?,
@@ -166,7 +171,8 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
             ),
         )
         _set_catalog_ingredients(conn, rid, ings, aliases)
-        _set_catalog_tags(conn, rid, tags)
+        if not keep_admin_tags:
+            _set_catalog_tags(conn, rid, tags)
         return "update"
     photo = incoming_photo
     cur = conn.execute(

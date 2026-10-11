@@ -268,7 +268,7 @@ sign out everywhere live there too.
 - Phone-first; the website is the same app in a wider layout. Plan and Grocery are the daily
   screens; Recipes is always one tap away.
 - Show amounts wherever groceries matter. Don't bury the pantry, editing, or filters.
-- Photos: ours or the user's only, never Mealime's. A catalog recipe is listed only once its
+- Photos: ours or the user's only, never third-party app photos. A catalog recipe is listed only once its
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
   A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
   purple ★ tip on the recipe page saying so.
