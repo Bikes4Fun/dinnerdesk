@@ -19,14 +19,18 @@ enum API {
     return URL(string: trimmed, relativeTo: origin)?.absoluteURL
   }
 
-  static func get<T: Decodable>(_ path: String, query: [String: String] = [:], reportErrors: Bool = true) async throws -> T {
+  /// `cache: true` keeps the response on the device so `cached(_:query:)` can show it instantly
+  /// next time (and with no signal).
+  static func get<T: Decodable>(_ path: String, query: [String: String] = [:], reportErrors: Bool = true, cache: Bool = false) async throws -> T {
     do {
       var request = URLRequest(url: url(path, query: query))
       request.setValue(appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
       let (data, response) = try await URLSession.shared.data(for: request)
       logRejectedRequest(response, method: "GET", path: path)
       try throwIfBad(response, data: data)
-      return try decoder.decode(T.self, from: data)
+      let value = try decoder.decode(T.self, from: data)
+      if cache { ResponseCache.store(data, for: ResponseCache.key(path, query: query)) }
+      return value
     } catch {
       if reportErrors { reportFailure(error) }
       throw error
@@ -43,11 +47,20 @@ enum API {
     return data
   }
 
-  static func send<T: Decodable>(_ path: String, method: String, body: [String: Any]? = nil)
+  /// The last saved response for a GET, decoded, or nil when there is none or it no longer
+  /// decodes (e.g. after an app update changed a model).
+  static func cached<T: Decodable>(_ path: String, query: [String: String] = [:]) -> T? {
+    guard let data = ResponseCache.data(for: ResponseCache.key(path, query: query)) else { return nil }
+    return try? decoder.decode(T.self, from: data)
+  }
+
+  /// `cacheAs` saves the response under that GET path when a write returns the same shape
+  /// (a plan, a recipe), so the saved copy never lags behind a change made on this device.
+  static func send<T: Decodable>(_ path: String, method: String, body: [String: Any]? = nil, cacheAs: String? = nil)
     async throws -> T
   {
     let data = try body.map { try JSONSerialization.data(withJSONObject: $0) }
-    return try await sendData(path, method: method, body: data)
+    return try await sendData(path, method: method, body: data, cacheAs: cacheAs)
   }
 
   /// Encode typed request values before suspending for the network request.
@@ -59,7 +72,7 @@ enum API {
   }
 
   private static func sendData<T: Decodable>(
-    _ path: String, method: String, body: Data?
+    _ path: String, method: String, body: Data?, cacheAs: String? = nil
   ) async throws -> T {
     var request = URLRequest(url: url(path))
     request.httpMethod = method
@@ -70,7 +83,10 @@ enum API {
       let (data, response) = try await URLSession.shared.data(for: request)
       logRejectedRequest(response, method: method, path: path)
       try throwIfBad(response, data: data)
-      return try decoder.decode(T.self, from: data)
+      let value = try decoder.decode(T.self, from: data)
+      Freshness.noteWrite(path, method: method)
+      if let cacheAs { ResponseCache.store(data, for: ResponseCache.key(cacheAs)) }
+      return value
     } catch {
       reportFailure(error)
       throw error
@@ -85,8 +101,16 @@ enum API {
     return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
   }
 
+  /// No signal or a dropped connection, e.g. inside a store. Screens keep showing what's
+  /// saved on the device instead of stopping the app.
+  static func isOffline(_ error: Error) -> Bool {
+    guard let url = error as? URLError else { return false }
+    return [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost,
+            .cannotFindHost, .dataNotAllowed, .internationalRoamingOff].contains(url.code)
+  }
+
   static func reportFailure(_ error: Error) {
-    guard !isCancellation(error) else { return }
+    guard !isCancellation(error), !isOffline(error) else { return }
     if case APIError.http = error { return }
     // Request callers own recovery and user-visible errors. Never stop the whole app.
     let failure = error as NSError

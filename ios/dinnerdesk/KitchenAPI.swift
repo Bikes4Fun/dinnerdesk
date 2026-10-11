@@ -26,6 +26,7 @@ enum KitchenAPI {
       guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
         throw APIError.http(code, "Expected a JSON object from \(path)")
       }
+      if method != "GET" { Freshness.noteWrite(path, method: method) }
       return object
     } catch {
       API.reportFailure(error)

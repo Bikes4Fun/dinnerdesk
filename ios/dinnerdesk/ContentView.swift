@@ -74,10 +74,16 @@ struct ContentView: View {
       .environmentObject(store)
       .environment(\.selectTab) { showTab($0) }
       .sheet(isPresented: $store.showingProposal) { SuggestedPlanReview().environmentObject(store) }
-      .task { await store.loadAll() }
+      .task { await store.loadAll(onlyIfStale: true) }
+      .onReceive(NotificationCenter.default.publisher(for: .dinnerdeskAccountChanged)) { _ in
+        Task { await store.switchAccount() }
+      }
       .onChange(of: scenePhase) { _, next in
         if next == .background {
           showTab(.plan)
+        } else if next == .active {
+          // Coming back to the app: refetch only data older than Freshness.window.
+          Task { await store.loadAll(onlyIfStale: true) }
         }
       }
     }

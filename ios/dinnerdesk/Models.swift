@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated struct Plan: Decodable, Sendable {
+nonisolated struct Plan: Codable, Sendable {
   let id: Int
   let title: String
   let startDate: String
@@ -18,7 +18,7 @@ nonisolated struct Plan: Decodable, Sendable {
   }
 }
 
-nonisolated struct PlanSlot: Decodable, Identifiable, Sendable {
+nonisolated struct PlanSlot: Codable, Identifiable, Sendable {
   let id: Int
   let recipeId: Int
   let recipeName: String
@@ -187,11 +187,11 @@ nonisolated struct InstructionStep: Decodable, Identifiable, Sendable {
   }
 }
 
-nonisolated struct GroceryList: Decodable, Sendable {
+nonisolated struct GroceryList: Codable, Sendable {
   let lines: [GroceryLine]
 }
 
-nonisolated struct UsedMeal: Decodable, Identifiable, Hashable, Sendable {
+nonisolated struct UsedMeal: Codable, Identifiable, Hashable, Sendable {
   var id: String { "\(recipeId ?? 0)-\(name)" }
   let recipeId: Int?
   let name: String
@@ -214,7 +214,7 @@ nonisolated struct UsedMeal: Decodable, Identifiable, Hashable, Sendable {
   }
 }
 
-nonisolated struct GroceryLine: Decodable, Identifiable, Sendable {
+nonisolated struct GroceryLine: Codable, Identifiable, Sendable {
   let id: Int
   var name: String
   var quantity: String
@@ -406,6 +406,18 @@ nonisolated struct Household: Decodable, Sendable {
     }
 
     let grocery: Grocery?
+    /// Default servings for new plan meals. Prefs are free-form JSON, so ignore a bad value
+    /// rather than failing the whole household.
+    let familyPortions: Int?
+
+    private enum CodingKeys: String, CodingKey { case grocery, familyPortions }
+
+    init(from decoder: Decoder) throws {
+      let c = try decoder.container(keyedBy: CodingKeys.self)
+      grocery = try c.decodeIfPresent(Grocery.self, forKey: .grocery)
+      let portions = (try? c.decodeIfPresent(Int.self, forKey: .familyPortions)) ?? nil
+      familyPortions = portions.flatMap { (1...50).contains($0) ? $0 : nil }
+    }
   }
 
   let prefs: Prefs?
