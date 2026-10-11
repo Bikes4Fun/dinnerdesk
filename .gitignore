@@ -73,3 +73,6 @@ android/local.properties
 *.keystore
 *.apk
 *.aab
+# The application namespace starts with "build"; these are source directories.
+!android/app/src/main/java/build/
+!android/app/src/test/java/build/
