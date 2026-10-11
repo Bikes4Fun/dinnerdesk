@@ -1273,3 +1273,37 @@ def test_download_my_data_has_the_kitchen_and_no_secrets(tmp_path):
             assert key in data
         text = res.text
         assert "password_hash" not in text and "token_hash" not in text
+
+
+def test_download_recipes_include_ingredients_and_tags_only_for_this_household(tmp_path):
+    with _client(tmp_path) as client:
+        created = client.post('/api/recipes', json={
+            'name': 'Our soup', 'ingredients': [
+                {'name': 'carrot', 'quantity': '2'},
+                {'name': 'onion', 'quantity': '1/2'},
+            ], 'tags': ['soup', 'tested'],
+        })
+        assert created.status_code in (200, 201)
+        recipe_id = created.json()['id']
+        empty = client.post('/api/recipes', json={'name': 'Empty recipe'}).json()
+        db = connect()
+        db.execute("UPDATE recipe_ingredients SET unit = 'cups', note = 'finely chopped' WHERE recipe_id = ? AND sort = 1", (recipe_id,))
+        db.execute("INSERT INTO recipe_tags (recipe_id, tag) VALUES (2, 'private-tag')")
+        db.execute("INSERT INTO recipe_ingredients (recipe_id, ingredient_id, quantity) VALUES (2, 1, 'secret-quantity')")
+        db.commit()
+        db.close()
+        exported = client.get('/api/household/export')
+        assert exported.status_code == 200
+        recipes = {r['id']: r for r in exported.json()['recipes_you_added']}
+        assert set(recipes) == {recipe_id, empty['id']}
+        assert recipes[recipe_id]['tags'] == ['soup', 'tested']
+        ingredients = recipes[recipe_id]['ingredients']
+        assert [i['quantity'] for i in ingredients] == ['2', '1/2']
+        assert [i['sort'] for i in ingredients] == [0, 1]
+        assert all(i['name'] and i['ingredient_id'] for i in ingredients)
+        assert ingredients[1]['unit'] == 'cups'
+        assert ingredients[1]['note'] == 'finely chopped'
+        assert recipes[empty['id']]['ingredients'] == []
+        assert recipes[empty['id']]['tags'] == []
+        assert 'private-tag' not in exported.text
+        assert 'secret-quantity' not in exported.text

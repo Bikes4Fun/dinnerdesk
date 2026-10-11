@@ -2216,6 +2216,13 @@ def export_household(db: PgConnection = DbDep, household_id: int = HhDep):
             "SELECT * FROM recipes WHERE household_id = ? ORDER BY id", (household_id,))),
         "plans": [],
     }
+    for recipe in data["recipes_you_added"]:
+        recipe["ingredients"] = _rows(db.execute(
+            """SELECT ri.ingredient_id, i.canonical_name AS name,
+                      ri.quantity, ri.unit, ri.note, ri.sort
+               FROM recipe_ingredients ri JOIN ingredients i ON i.id = ri.ingredient_id
+               WHERE ri.recipe_id = ? ORDER BY ri.sort, ri.ingredient_id""", (recipe["id"],)))
+        recipe["tags"] = _recipe_tags(db, recipe["id"])
     for plan in _rows(db.execute("SELECT * FROM plans WHERE household_id = ? ORDER BY id", (household_id,))):
         pid = plan["id"]
         plan["meals"] = _rows(db.execute(
