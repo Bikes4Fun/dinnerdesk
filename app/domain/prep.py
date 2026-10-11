@@ -84,13 +84,20 @@ def step_key(text: str) -> str:
     return hashlib.sha1(norm.encode()).hexdigest()[:12]
 
 
+# Bottled sauces are groceries, not something being made: "mix the turkey with the soy sauce".
+BOTTLED = re.compile(r"\b(?:soy|fish|hot|worcestershire|chili-garlic|sriracha|hoisin|oyster|teriyaki|"
+                     r"barbecue|bbq|tomato|pizza|marinara|enchilada|pasta|alfredo|buffalo|steak|sweet chili)"
+                     r"\s+sauce\b", re.I)
+
+
 def _kind(text: str, force: bool = False) -> str | None:
     """What kind of make-ahead work this is. `force` (a step someone said was missing from
     prep) skips the cooking/serving filters and calls plain knife work "chop"."""
     if not force and (COOK_WORDS.search(text) or FRESH_ONLY.search(text) or SKIP_WORDS.search(text)):
         return None
+    plain = BOTTLED.sub("", text)
     for kind, pattern in KINDS:
-        if pattern.search(text):
+        if pattern.search(plain):
             if kind == "grate" and not re.search(r"\b(cheese|parmesan|mozzarella|cheddar|feta|"
                                                  r"carrot|zucchini|ginger|cabbage)\b", text, re.I):
                 return "chop"
@@ -151,6 +158,8 @@ def _qualifier(words: list[str], head: str) -> str | None:
 
 def mentioned(text: str, ingredients: list[dict]) -> list[dict]:
     """Ingredients this text actually names, in recipe order. Matches the item, not filler words."""
+    # "salt and pepper" is the seasoning, never the bell pepper.
+    text = re.sub(r"\bsalt\s*(?:,|and|&)\s*pepper\b", "salt and black pepper", text, flags=re.I)
     text_words = _words(text)
     found = set(text_words)
     out = []
@@ -402,7 +411,16 @@ PART_WORDS = {"root", "end", "stem", "top", "leave", "leaf", "skin", "peel", "se
 # florets", "pull off the leaves". A clause with only these stays on the item.
 SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chunk", "strip", "wedge",
                "round", "ring", "matchstick", "inch", "thin", "thick", "pull", "remove", "discard",
-               "separate", "aside", "reserve", "keep", "away", "rough", "fine", "even"}
+               "separate", "aside", "reserve", "keep", "away", "rough", "fine", "even",
+               # Where it goes next isn't another grocery: "dice it and add it to the bowl".
+               "add", "bowl", "dish", "plate", "board", "set", "later", "serving", "pat", "towel",
+               "paper", "stir", "put", "place",
+               # Which way it's cut: "quarter it the long way", "slice it crosswise".
+               "long", "way", "lengthwise", "crosswise", "across", "halves", "wise",
+               # The tool, not the food: "grate it on the large holes of a box grater".
+               "hole", "box", "grater", "peeler", "processor", "food", "knife", "spoon",
+               # Shapes named as nouns: "slice it into half-moons", "coins", "noodles".
+               "split", "half", "moon", "coin", "noodle", "shred", "ribbon", "fry", "fries", "spear", "stick"}
 
 
 def _verbs_for(text: str, item_words: set[str]) -> list[str]:
