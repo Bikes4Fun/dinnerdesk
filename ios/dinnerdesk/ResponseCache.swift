@@ -28,7 +28,12 @@ enum ResponseCache {
     try? Data(contentsOf: file(key))
   }
 
-  static func store(_ data: Data, for key: String) {
+  /// Bumped by `clear()`. A response requested before the cache was cleared (the previous
+  /// account's) is never written into the new one.
+  private(set) static var epoch = 0
+
+  static func store(_ data: Data, for key: String, requestedAt requested: Int? = nil) {
+    if let requested, requested != epoch { return }
     do {
       try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
       try data.write(to: file(key), options: .atomic)
@@ -62,6 +67,7 @@ enum ResponseCache {
 
   /// Drop everything, e.g. when a different account signs in on this device.
   static func clear() {
+    epoch += 1
     try? FileManager.default.removeItem(at: directory)
     PhotoCache.clear()
   }
@@ -112,7 +118,8 @@ enum PhotoCache {
   static func image(for url: URL) async throws -> UIImage {
     if let hit = memoryImage(for: url) { return hit }
     let file = file(url)
-    if let data = try? Data(contentsOf: file), let image = UIImage(data: data) {
+    // Disk reads and decoding run off the main thread so scrolling a photo grid stays smooth.
+    if let image = await Task.detached(priority: .userInitiated, operation: { PhotoCache.decoded(at: file) }).value {
       memory.setObject(image, forKey: url.absoluteString as NSString)
       return image
     }
@@ -121,13 +128,21 @@ enum PhotoCache {
     guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
       throw APIError.http((response as? HTTPURLResponse)?.statusCode ?? 0, "Photo request failed")
     }
-    guard let image = UIImage(data: data) else {
-      throw APIError.http(http.statusCode, "Invalid photo data")
-    }
+    let folder = directory
+    let image = await Task.detached(priority: .userInitiated, operation: { () -> UIImage? in
+      guard let image = UIImage(data: data) else { return nil }
+      try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+      try? data.write(to: file, options: .atomic)
+      return image.preparingForDisplay() ?? image
+    }).value
+    guard let image else { throw APIError.http(http.statusCode, "Invalid photo data") }
     memory.setObject(image, forKey: url.absoluteString as NSString)
-    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    try? data.write(to: file, options: .atomic)
     return image
+  }
+
+  nonisolated private static func decoded(at file: URL) -> UIImage? {
+    guard let data = try? Data(contentsOf: file), let image = UIImage(data: data) else { return nil }
+    return image.preparingForDisplay() ?? image
   }
 
   /// Download a photo ahead of time (planned meals) without showing errors.

@@ -22,6 +22,7 @@ enum API {
   /// `cache: true` keeps the response on the device so `cached(_:query:)` can show it instantly
   /// next time (and with no signal).
   static func get<T: Decodable>(_ path: String, query: [String: String] = [:], reportErrors: Bool = true, cache: Bool = false) async throws -> T {
+    let epoch = ResponseCache.epoch
     do {
       var request = URLRequest(url: url(path, query: query))
       request.setValue(appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
@@ -29,7 +30,7 @@ enum API {
       logRejectedRequest(response, method: "GET", path: path)
       try throwIfBad(response, data: data)
       let value = try decoder.decode(T.self, from: data)
-      if cache { ResponseCache.store(data, for: ResponseCache.key(path, query: query)) }
+      if cache { ResponseCache.store(data, for: ResponseCache.key(path, query: query), requestedAt: epoch) }
       return value
     } catch {
       if reportErrors { reportFailure(error) }
@@ -74,6 +75,7 @@ enum API {
   private static func sendData<T: Decodable>(
     _ path: String, method: String, body: Data?, cacheAs: String? = nil
   ) async throws -> T {
+    let epoch = ResponseCache.epoch
     var request = URLRequest(url: url(path))
     request.httpMethod = method
     request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -85,7 +87,7 @@ enum API {
       try throwIfBad(response, data: data)
       let value = try decoder.decode(T.self, from: data)
       Freshness.noteWrite(path, method: method)
-      if let cacheAs { ResponseCache.store(data, for: ResponseCache.key(cacheAs)) }
+      if let cacheAs { ResponseCache.store(data, for: ResponseCache.key(cacheAs), requestedAt: epoch) }
       return value
     } catch {
       reportFailure(error)
@@ -101,16 +103,8 @@ enum API {
     return ns.domain == NSURLErrorDomain && ns.code == NSURLErrorCancelled
   }
 
-  /// No signal or a dropped connection, e.g. inside a store. Screens keep showing what's
-  /// saved on the device instead of stopping the app.
-  static func isOffline(_ error: Error) -> Bool {
-    guard let url = error as? URLError else { return false }
-    return [.notConnectedToInternet, .networkConnectionLost, .timedOut, .cannotConnectToHost,
-            .cannotFindHost, .dataNotAllowed, .internationalRoamingOff].contains(url.code)
-  }
-
   static func reportFailure(_ error: Error) {
-    guard !isCancellation(error), !isOffline(error) else { return }
+    guard !isCancellation(error) else { return }
     if case APIError.http = error { return }
     // Request callers own recovery and user-visible errors. Never stop the whole app.
     let failure = error as NSError
