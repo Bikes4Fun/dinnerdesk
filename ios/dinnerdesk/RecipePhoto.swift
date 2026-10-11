@@ -35,20 +35,19 @@ struct RecipePhoto: View {
   }
 
   private func load() async {
-    image = nil
     failure = nil
-    guard let url = API.photoURL(path) else { return }
+    guard let url = API.photoURL(path) else {
+      image = nil
+      return
+    }
+    // Already on screen elsewhere: show it with no flash and no request.
+    if let hit = PhotoCache.memoryImage(for: url) {
+      image = hit
+      return
+    }
+    image = nil
     do {
-      let (data, response) = try await URLSession.shared.data(from: url)
-      try Task.checkCancellation()
-      guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode)
-      else {
-        throw APIError.http((response as? HTTPURLResponse)?.statusCode ?? 0, "Photo request failed")
-      }
-      guard let decoded = UIImage(data: data) else {
-        throw APIError.http(response.statusCode, "Invalid photo data")
-      }
-      image = decoded
+      image = try await PhotoCache.image(for: url)
     } catch {
       if Task.isCancelled || API.isCancellation(error) { return }
       failure = error.localizedDescription
