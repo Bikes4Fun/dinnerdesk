@@ -370,3 +370,14 @@ def test_public_taste_shows_household_filters_when_given():
         filters={"diets": ["omnivore"], "allergens": ["sesame"], "avoids": ["olives"], "time": "30"},
     )
     assert body["profile"] == {"diets": ["omnivore"], "allergens": ["sesame"], "dislikes": ["olives"]}
+
+
+def test_fill_plan_prefers_reusing_selected_meal_ingredients():
+    recipes = [
+        meal(1, 'Carrot bowl', ['carrot', 'rice']),
+        meal(2, 'Pepper bowl', ['bell pepper', 'rice']),
+    ]
+    taste = learn([], recipes)
+    picked = pick_meals(recipes, taste, set(), set(), {}, 1, plan_ings={'bell pepper'})
+    assert picked[0]['id'] == 2
+    assert 'shares 1 with this plan' in picked[0]['reasons']

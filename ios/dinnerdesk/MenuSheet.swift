@@ -9,7 +9,7 @@ struct MenuSheetItem: Identifiable {
   var dismissOnSelection = true
   var isOn: Bool? = nil
   var status: String? = nil
-  var accent = false
+  var createsMealPlan = false
   let action: () -> Void
 }
 
@@ -87,15 +87,10 @@ private struct MenuSheetBody: View {
       .padding(.bottom, 6)
 
       ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
-        if item.accent {
-          Button {
-            pick(item)
-          } label: {
-            Label(item.title, systemImage: item.systemImage)
-          }
-          .buttonStyle(.borderedProminent)
-          .tint(Theme.accent)
-          .padding(.bottom, 8)
+        if item.createsMealPlan {
+          CreateMealPlanButton { pick(item) }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
         } else {
           Button {
             pick(item)
@@ -126,7 +121,7 @@ private struct MenuSheetBody: View {
           }
           .buttonStyle(.plain)
         }
-        if index < items.count - 1 && !item.accent {
+        if index < items.count - 1 && !item.createsMealPlan {
           Rectangle()
             .fill(Theme.line)
             .frame(height: 1)

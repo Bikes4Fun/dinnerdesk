@@ -73,6 +73,7 @@ struct ContentView: View {
       }
       .environmentObject(store)
       .environment(\.selectTab) { showTab($0) }
+      .sheet(isPresented: $store.showingProposal) { SuggestedPlanReview().environmentObject(store) }
       .task { await store.loadAll() }
       .onChange(of: scenePhase) { _, next in
         if next == .background {

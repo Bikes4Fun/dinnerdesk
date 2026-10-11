@@ -180,7 +180,7 @@ export function Grocery() {
 
   /** What's left to buy, grouped by aisle in store order, for the selected store. */
   function shareText() {
-    const left = lines.filter((l) => !l.checked && !l.never_shop && !l.from_pantry
+    const left = lines.filter((l) => !l.checked && !l.never_shop
       && (storeFilter === "all" || l.store === storeFilter));
     const store = stores.find((s) => s.id === storeFilter);
     const title = store ? `Grocery list — ${store.name}` : "Grocery list";
@@ -458,8 +458,7 @@ export function Grocery() {
           <label>Show aisle numbers <input type="checkbox" checked={showAisleNums} onChange={(e) => { const value = e.target.checked; setShowAisleNums(value); persist({ showAisleNums: value }); }} /></label>
           <label>Show meals under each item <input type="checkbox" checked={showMeals} onChange={(e) => { const value = e.target.checked; setShowMeals(value); persist({ showMeals: value }); }} /></label>
           <label>Show emoji <input type="checkbox" checked={showEmoji} onChange={(e) => { const value = e.target.checked; setShowEmoji(value); persist({ showEmoji: value }); }} /></label>
-          <button type="button" onClick={markAllComplete}>Complete all</button>
-          <button type="button" onClick={uncheckAll}>Uncheck all</button>
+          <button type="button" onClick={lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? uncheckAll : markAllComplete}>{lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? "Uncheck all" : "Complete all"}</button>
           {menuStatus && <p className="grocery-action-status" role="status">{menuStatus}</p>}
           <button type="button" onClick={() => { setSheet(false); setView("stores"); }}>Edit stores</button>
           <button type="button" onClick={() => { setSheet(false); setView("aisles"); }}>Edit aisles</button>
@@ -495,7 +494,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
       <button type="button" className="g-main" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
         <span className="g-name">{line.name}</span>
         {note.length > 0 && <span className="g-sub">{note.join(" · ")}</span>}
-        {line.from_pantry && !line.never_shop && <span className="g-tip" data-tip="grocery.pantry"><span className="g-tip-star" aria-hidden="true">★</span> In your pantry, so it starts checked off</span>}
+        {line.from_pantry && !line.never_shop && <span className="g-sub">Pantry</span>}
       </button>
       <span className="g-qty">{line.quantity}</span>
     </div>
