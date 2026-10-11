@@ -437,7 +437,7 @@ def _reason(reasons: list[str], text: str | None) -> None:
         reasons.append(text)
 
 
-def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str]):
+def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str], shop: set[str] | None = None):
     keys = _keys(recipe)
     if keys & taste.passed:
         return 0.0, [], True
@@ -449,7 +449,8 @@ def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict
     bonus -= getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
     reasons: list[str] = []
     _reason(reasons, direct)
-    shop = _shop(recipe, aliases, overrides, skip)
+    if shop is None:
+        shop = _shop(recipe, aliases, overrides, skip)
     ing_bonus, ing_reason = _ingredient_bonus(shop, taste)
     bonus += ing_bonus
     if not reasons:
@@ -477,6 +478,7 @@ def pick_meals(
     to_try: set[int] | None = None,
     cooked: set[int] | None = None,
     plan_ings: set[str] | None = None,
+    stats: dict | None = None,
 ) -> list[dict]:
     swaps = overrides or {}
     ignored = skip or set()
@@ -486,8 +488,8 @@ def pick_meals(
         known[int(recipe["id"])] = recipe
     _fit(taste, list(known.values()), aliases, swaps, ignored)
 
-    def adjust(recipe):
-        return _adjust(recipe, taste, aliases, swaps, ignored)
+    def adjust(recipe, shop=None):
+        return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop)
 
     return pick_suggestions(
         recipes,
@@ -500,6 +502,7 @@ def pick_meals(
         swaps,
         ignored,
         to_try,
+        stats=stats,
     )
 
 
