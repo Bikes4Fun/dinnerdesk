@@ -65,3 +65,11 @@ build/
 /data/
 /food/
 /tastelab/data/
+
+# Android local SDKs, signing material, and artifacts
+android/.gradle/
+android/local.properties
+*.jks
+*.keystore
+*.apk
+*.aab
