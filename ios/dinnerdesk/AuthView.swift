@@ -33,7 +33,10 @@ final class Session: ObservableObject {
       let prefs = try await KitchenAPI.prefs()
       tourChecked = true
       if prefs["tour_done"] == nil { showTour = true }
-    } catch { loadError = KitchenAPI.message(error) }
+    } catch {
+      guard !API.isCancellation(error) else { return }
+      loadError = KitchenAPI.message(error)
+    }
   }
 
   func refresh() async {
@@ -42,6 +45,7 @@ final class Session: ObservableObject {
       loadError = nil
       if status?.authenticated == true { guest = false }
     } catch {
+      guard !API.isCancellation(error) else { return }
       loadError = KitchenAPI.message(error)
     }
   }
@@ -72,7 +76,6 @@ final class Session: ObservableObject {
 /// `content` is only built once signed in (or a guest), so its data loads for the right household.
 struct AuthGate<Content: View>: View {
   @StateObject private var session = Session()
-  @State private var blockingError: String?
   @State private var guestNoticeDismissed = false
   @State private var showSignIn = false
   private let content: () -> Content
@@ -122,18 +125,6 @@ struct AuthGate<Content: View>: View {
           }
           .task { await session.checkTour() }
       }
-    }
-    .onReceive(NotificationCenter.default.publisher(for: .dinnerdeskFailure)) { note in
-      blockingError = note.object as? String
-    }
-    .fullScreenCover(isPresented: Binding(get: { blockingError != nil }, set: { _ in })) {
-      VStack(alignment: .leading, spacing: 20) {
-        Text("App stopped").font(Theme.bigTitle)
-        Text(blockingError!).font(Theme.body).textSelection(.enabled)
-        Text("Fix the error, then reopen the app.").foregroundStyle(Theme.muted)
-      }
-      .padding().frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-      .background(Theme.bg).interactiveDismissDisabled()
     }
     .fullScreenCover(isPresented: $session.showTour) {
       TourView()

@@ -102,6 +102,7 @@ struct FiltersView: View {
   enum SaveState { case idle, saving, saved }
   @State private var saveState = SaveState.idle
   @State private var saveCount = 0
+  @State private var saveTask: Task<Void, Never>?
 
   static let dietLabels = [
     "omnivore": "Omnivore", "pescatarian": "Pescatarian", "vegetarian": "Vegetarian", "vegan": "Vegan",
@@ -310,7 +311,10 @@ struct FiltersView: View {
     saveCount += 1
     let mine = saveCount
     saveState = .saving
-    Task {
+    let previous = saveTask
+    saveTask = Task {
+      await previous?.value
+      guard mine == saveCount else { return }
       do {
         try await KitchenAPI.savePrefs(["filters": body])
         error = nil
@@ -320,8 +324,10 @@ struct FiltersView: View {
         }
         // Recipes follow the filters, so refresh the list behind this screen.
         await store.searchRecipes("")
-        try? await Task.sleep(for: .seconds(2))
-        if mine == saveCount, saveState == .saved { saveState = .idle }
+        Task {
+          try? await Task.sleep(for: .seconds(2))
+          if mine == saveCount, saveState == .saved { saveState = .idle }
+        }
       } catch {
         if mine == saveCount { saveState = .idle }
         self.error = KitchenAPI.message(error)
@@ -357,8 +363,6 @@ private struct OtherField: View {
         ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
           FilterChip(label: "+ \(name)", on: false) {
             selected.append(name)
-            query = ""
-            matches = []
             onCommit()
           }
           .accessibilityLabel("Add \(name)")
@@ -790,9 +794,14 @@ private struct TasteLabWebView: UIViewRepresentable {
 }
 
 private struct PrivacyView: View {
+  @State private var exportFile: URL?
+  @State private var exporting = false
+  @State private var exportError: String?
+
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
+        yourData
         Text(
           "Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it."
         )
@@ -827,7 +836,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
+          Download a copy of your data at the top of this page. Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
           """)
       }
       .font(Theme.body)
@@ -838,6 +847,49 @@ private struct PrivacyView: View {
     .background(Theme.bg)
     .navigationTitle("Privacy")
     .navigationBarTitleDisplayMode(.inline)
+  }
+
+  /// "Download my data" (#64): everything stored for this household as one JSON file.
+  private var yourData: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Your data").font(Theme.title)
+      Text("Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings, prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.")
+        .foregroundStyle(Theme.muted)
+      if let exportFile {
+        ShareLink(item: exportFile) {
+          Label("Save or share your data", systemImage: "square.and.arrow.up")
+            .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+        }
+      } else {
+        Button {
+          Task { await download() }
+        } label: {
+          HStack(spacing: 8) {
+            if exporting { ProgressView().controlSize(.small) }
+            Text(exporting ? "Preparing…" : "Download my data")
+          }
+          .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+        }
+        .disabled(exporting)
+      }
+      if let exportError { Text(exportError).font(Theme.subtitle).foregroundStyle(Theme.accent) }
+    }
+    .padding(.bottom, 8)
+  }
+
+  private func download() async {
+    exporting = true
+    exportError = nil
+    defer { exporting = false }
+    do {
+      let data = try await API.getData("household/export")
+      let day = Date().formatted(.iso8601.year().month().day())
+      let file = FileManager.default.temporaryDirectory.appendingPathComponent("dinnerdesk-data-\(day).json")
+      try data.write(to: file, options: .atomic)
+      exportFile = file
+    } catch {
+      exportError = "Couldn’t prepare your data. Please try again."
+    }
   }
 
   private func section(_ title: String, _ body: String) -> some View {

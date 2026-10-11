@@ -7,6 +7,7 @@ from app.db.database import PgConnection
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import JSONResponse
 
 from app.db.catalog import public_recipe_sql
 from app.db.seed import pantry_catalog
@@ -875,6 +876,15 @@ def patch_recipe(
             db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
         if catalog and not body.as_copy:
+            if body.tags is not None:
+                db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))
+                for tag in body.tags:
+                    if tag.strip():
+                        db.execute("INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)", (recipe_id, tag.strip()[:40]))
+                provenance = json.loads(row["provenance_json"] or "{}")
+                provenance["admin_tags_edited"] = True
+                db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?", (json.dumps(provenance), now(), recipe_id))
+                row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
             base = _recipe_out(db, row, household_id)
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
             _rebuild_grocery_for_household(db, household_id)
@@ -2198,6 +2208,78 @@ def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
     return {"id": row["id"], "name": row["name"], "prefs": prefs}
 
 
+# "Download my data" (#64): every table that holds this household's own data. Catalog
+# recipes, other households, and secrets (password hashes, session and invite tokens) are
+# never included.
+_EXPORT_TABLES = [
+    ("favorites", "household_favorites"), ("try_later", "household_try_later"),
+    ("hidden_recipes", "household_hidden_recipes"), ("meal_ratings", "household_meal_ratings"),
+    ("prep_feedback", "prep_step_feedback"), ("pantry", "pantry_items"),
+    ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
+    ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
+]
+_EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
+
+
+def _rows(cursor) -> list[dict]:
+    out = []
+    for r in cursor:
+        row = {k: r[k] for k in r.keys() if k not in _EXPORT_SECRET_COLUMNS}
+        for k, v in list(row.items()):
+            if k.endswith("_json") and isinstance(v, str):
+                try:
+                    row[k[:-5]] = json.loads(v)
+                    del row[k]
+                except json.JSONDecodeError:
+                    pass
+        out.append(row)
+    return out
+
+
+@router.get("/household/export")
+def export_household(db: PgConnection = DbDep, household_id: int = HhDep):
+    """Everything stored for this household, as one JSON file to download (#64)."""
+    home = db.execute("SELECT name, prefs_json, created_at FROM households WHERE id = ?", (household_id,)).fetchone()
+    if not home:
+        raise HTTPException(404, {"error": "not_found", "detail": "household"})
+    data: dict = {
+        "exported_at": now(),
+        "about": "Everything Dinnerdesk stores for your household. Passwords and sign-in tokens are never included.",
+        "household": {"name": home["name"], "created_at": home["created_at"],
+                      "prefs": json.loads(home["prefs_json"] or "{}")},
+        "members": _rows(db.execute(
+            "SELECT email, created_at FROM users WHERE household_id = ? ORDER BY id", (household_id,))),
+        "recipes_you_added": _rows(db.execute(
+            "SELECT * FROM recipes WHERE household_id = ? ORDER BY id", (household_id,))),
+        "plans": [],
+    }
+    for recipe in data["recipes_you_added"]:
+        recipe["ingredients"] = _rows(db.execute(
+            """SELECT ri.ingredient_id, i.canonical_name AS name,
+                      ri.quantity, ri.unit, ri.note, ri.sort
+               FROM recipe_ingredients ri JOIN ingredients i ON i.id = ri.ingredient_id
+               WHERE ri.recipe_id = ? ORDER BY ri.sort, ri.ingredient_id""", (recipe["id"],)))
+        recipe["tags"] = _recipe_tags(db, recipe["id"])
+    for plan in _rows(db.execute("SELECT * FROM plans WHERE household_id = ? ORDER BY id", (household_id,))):
+        pid = plan["id"]
+        plan["meals"] = _rows(db.execute(
+            """SELECT s.day_index, s.meal_type, s.servings, s.cooked, s.notes, r.name AS recipe
+               FROM plan_slots s JOIN recipes r ON r.id = s.recipe_id
+               WHERE s.plan_id = ? ORDER BY s.sort, s.id""", (pid,)))
+        plan["grocery_list"] = _rows(db.execute("SELECT * FROM grocery_lines WHERE plan_id = ? ORDER BY id", (pid,)))
+        plan["prep"] = _rows(db.execute("SELECT title, done, notes FROM prep_tasks WHERE plan_id = ? ORDER BY sort, id", (pid,)))
+        data["plans"].append(plan)
+    for key, table in _EXPORT_TABLES:
+        data[key] = _rows(db.execute(f"SELECT * FROM {table} WHERE household_id = ?", (household_id,)))
+    accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
+    try:
+        data["taste_lab"] = snapshots_for_accounts([*accounts, f"guest:{household_id}"])
+    except Exception:  # Taste Lab's own store can be offline; the rest of the export still works.
+        data["taste_lab"] = "unavailable right now"
+    return JSONResponse(
+        data, headers={"Content-Disposition": f'attachment; filename="dinnerdesk-data-{date.today().isoformat()}.json"'})
+
+
 @router.put("/household")
 def put_household(
     body: HouseholdPut,
@@ -2513,8 +2595,14 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
     return meals
 
 
-def _suggest_meals(db: PgConnection, household_id: int, want: int) -> tuple[list[dict], str, dict]:
-    recipes = _candidate_meals(db, household_id)
+def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
+    kept = kept_recipe_ids or set()
+    recipes = [recipe for recipe in _candidate_meals(db, household_id) if recipe["id"] not in kept]
+    selected_ingredients = []
+    for rid in sorted(kept):
+        row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
+        if row and _recipe_visible(row, household_id):
+            selected_ingredients.extend(i["name"] for i in _recipe_out(db, row, household_id)["ingredients"])
     aliases = _aliases(db)
     swaps = _overrides(db, household_id)
     pantry = norm_pantry(
@@ -2588,6 +2676,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int) -> tuple[list
                 (household_id,),
             )
         },
+        plan_ings=norm_pantry(selected_ingredients, aliases, swaps),
     )
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
@@ -2613,8 +2702,11 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
     note = None
     reasons = None
     if body.meal_count and not body.draft and (not source or body.keep_current):
-        candidates, note, reasons = _suggest_meals(db, household_id, 400)
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
+        if body.keep_current:
+            candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count, kept)
+        else:
+            candidates, note, reasons = _suggest_meals(db, household_id, 400)
         available = [m for m in candidates if m["id"] not in kept]
         current = _plan_out(db, _ensure_plan(db, household_id), household_id)
         current_ids = {slot["recipe_id"] for slot in current["slots"]}

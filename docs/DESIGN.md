@@ -258,12 +258,17 @@ An invite link adds another account to the same household (plan, grocery list, p
 can be removed from Account & security, which ends their access. Password change, sign out, and
 sign out everywhere live there too.
 
+- **Must (#64):** Privacy has **Download my data**: one JSON file (GET /api/household/export) with
+  everything stored for the household (plans with meals, grocery lists and prep, pantry, filters,
+  favorites, hides, ratings, prep votes, substitutions, stores and aisles, recipes added, Taste Lab
+  answers). Never password hashes, session, invite or reset tokens, or other households' data.
+
 ### 10. Across the whole app (UI principles)
 
 - Phone-first; the website is the same app in a wider layout. Plan and Grocery are the daily
   screens; Recipes is always one tap away.
 - Show amounts wherever groceries matter. Don't bury the pantry, editing, or filters.
-- Photos: ours or the user's only, never Mealime's. A catalog recipe is listed only once its
+- Photos: ours or the user's only, never third-party app photos. A catalog recipe is listed only once its
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
   A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
   purple ★ tip on the recipe page saying so.

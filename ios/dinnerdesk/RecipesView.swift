@@ -413,14 +413,7 @@ struct RecipeTile: View {
               store.onWeek(recipe.id) ? "Remove from this plan" : "Add to this plan")
           }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        Text(recipe.name)
-          .font(Theme.recipeCardName)
-          .foregroundStyle(Theme.ink)
-          .lineLimit(3, reservesSpace: true)
-          .truncationMode(.tail)
-          .multilineTextAlignment(.leading)
-          .fixedSize(horizontal: false, vertical: true)
-          .frame(maxWidth: .infinity, alignment: .leading)
+        RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
       }
     }
     .buttonStyle(.plain)

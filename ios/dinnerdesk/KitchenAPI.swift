@@ -48,8 +48,6 @@ enum KitchenAPI {
   static func prefs() async throws -> [String: Any] {
     let household = try await json("household")
     guard let prefs = household["prefs"] as? [String: Any] else {
-      NotificationCenter.default.post(
-        name: .dinnerdeskFailure, object: "Missing or invalid household preferences")
       throw APIError.http(200, "Missing or invalid household preferences")
     }
     return prefs

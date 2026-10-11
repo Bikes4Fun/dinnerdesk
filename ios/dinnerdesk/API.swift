@@ -33,6 +33,16 @@ enum API {
     }
   }
 
+  /// The raw bytes of a GET, for files the person saves (Download my data, #64).
+  static func getData(_ path: String) async throws -> Data {
+    var request = URLRequest(url: url(path))
+    request.setValue(appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
+    let (data, response) = try await URLSession.shared.data(for: request)
+    logRejectedRequest(response, method: "GET", path: path)
+    try throwIfBad(response, data: data)
+    return data
+  }
+
   static func send<T: Decodable>(_ path: String, method: String, body: [String: Any]? = nil)
     async throws -> T
   {
@@ -78,7 +88,9 @@ enum API {
   static func reportFailure(_ error: Error) {
     guard !isCancellation(error) else { return }
     if case APIError.http = error { return }
-    NotificationCenter.default.post(name: .dinnerdeskFailure, object: error.localizedDescription)
+    // Request callers own recovery and user-visible errors. Never stop the whole app.
+    let failure = error as NSError
+    NSLog("Dinnerdesk request failed: %@ (%ld)", failure.domain, failure.code)
   }
 
   private static func url(_ path: String, query: [String: String] = [:]) -> URL {
@@ -131,8 +143,4 @@ enum APIError: LocalizedError {
       return "Couldn't complete this action. Please try again."
     }
   }
-}
-
-extension Notification.Name {
-  static let dinnerdeskFailure = Notification.Name("dinnerdeskFailure")
 }
