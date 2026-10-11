@@ -1,0 +1,11 @@
+<resources>
+    <style name="Theme.Dinnerdesk" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">#B94125</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:windowBackground">#FFFCF5</item>
+    </style>
+    <color name="launcher_background">#FFFCF5</color>
+</resources>

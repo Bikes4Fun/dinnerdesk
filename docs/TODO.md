@@ -482,3 +482,7 @@ simulator build and web production build passed, and Taste Lab JavaScript syntax
 passed. Test isolation resets Taste Lab's cached initializer between fresh schemas.
 These are historical results, not validation of the current build. Issue #2's original
 HTTP 405 trigger remains unresolved; request diagnostics are in place.
+
+## Android / Google Play — issue #112
+
+Branch `issue-112-android-google-play` adds the Android app, Gradle wrapper, native navigation/photo picker/grocery sharing/data export, and a release checklist in `android/README.md`. URL policy unit tests passed. Full Android compilation, lint and device testing await Android SDK license acceptance and installation. Play publication also requires the owner's Console app, upload signing key, listing/Data safety declarations, and internal-track acceptance. This is prepared source, not a published Play release.
