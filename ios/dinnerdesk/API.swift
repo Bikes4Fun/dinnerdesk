@@ -33,6 +33,16 @@ enum API {
     }
   }
 
+  /// The raw bytes of a GET, for files the person saves (Download my data, #64).
+  static func getData(_ path: String) async throws -> Data {
+    var request = URLRequest(url: url(path))
+    request.setValue(appBuild, forHTTPHeaderField: "X-Dinnerdesk-App")
+    let (data, response) = try await URLSession.shared.data(for: request)
+    logRejectedRequest(response, method: "GET", path: path)
+    try throwIfBad(response, data: data)
+    return data
+  }
+
   static func send<T: Decodable>(_ path: String, method: String, body: [String: Any]? = nil)
     async throws -> T
   {

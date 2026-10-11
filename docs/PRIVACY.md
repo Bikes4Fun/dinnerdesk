@@ -32,4 +32,4 @@ The website loads fonts from Google Fonts. That request goes to Google.
 
 ## Deleting data
 
-Delete your account any time from Account & security, on the website or in the iPhone app. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
+Download a copy of everything stored for your household (one JSON file; no passwords or sign-in tokens) from Privacy → **Download my data**, on the website or in the iPhone app. Delete your account any time from Account & security, on the website or in the iPhone app. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
