@@ -470,31 +470,51 @@ private struct ScheduleMealSheet: View {
     NavigationStack {
       VStack(alignment: .leading, spacing: 16) {
         Text(slot.recipeName).font(Theme.mealName)
+        
         DatePicker("Schedule meal", selection: $date, in: earliest..., displayedComponents: .date)
           .datePickerStyle(.graphical)
         if let error = store.error { ErrorBanner(message: error) }
-        Button("Save date") {
-          saving = true
-          Task {
-            if await store.schedule(slot, date: date) { dismiss() }
-            saving = false
-          }
-        }.disabled(saving)
+        
+        // Button("Save date") {
+        //   saving = true
+        //   Task {
+        //     if await store.schedule(slot, date: date) { dismiss() }
+        //     saving = false
+        //   }
+        // }.disabled(saving)
+        
         Button("Unschedule") {
           Task {
             await store.unschedule(slot)
             dismiss()
           }
         }
-      }.padding().background(Theme.bg)
-        .navigationTitle("Schedule meal").navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+      }
+        .padding()
+        .background(Theme.bg)
+        .navigationTitle("Schedule meal")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+          ToolbarItem(placement: .cancellationAction) {
+            Button("Cancel") { dismiss() }
+          } 
+        }
         .onAppear {
           if let start = planDate(store.plan?.startDate ?? ""), let day = slot.dayIndex {
             date = max(
               earliest, Calendar.current.date(byAdding: .day, value: day, to: start) ?? earliest)
           } else {
             date = earliest
+          }
+        }
+        .onChange(of: date) { oldDate, newDate in
+          if oldDate != newDate {
+            saving = true
+            Task {
+              if await store.schedule(slot, date: newDate) {
+                dismiss() }
+              saving = false
+            }
           }
         }
     }

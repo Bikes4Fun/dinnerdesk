@@ -24,7 +24,13 @@ struct GroceryView: View {
                 .font(Theme.bigTitle)
 
             Spacer()
-
+            
+            Button {
+              sharing = true
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            
             Button {
                 menu = true
             } label: {
@@ -182,9 +188,9 @@ struct GroceryView: View {
               store.showAisleNums.toggle()
               Task { await store.persistGroceryPrefs() }
             },
-            MenuSheetItem(title: "Share list", systemImage: "square.and.arrow.up") {
-              sharing = true
-            },
+            // MenuSheetItem(title: "Share list", systemImage: "square.and.arrow.up") {
+            //   sharing = true
+            // },
             MenuSheetItem(title: "Edit stores & aisles", systemImage: "storefront") {
               editingStores = true
             },
