@@ -234,8 +234,8 @@ export function App() {
           <NavLink href="/recipes" navKey="recipes" label="Recipes" icon="recipes" page={page} />
           <NavLink href="/grocery" navKey="grocery" label="Grocery" icon="grocery" page={page} />
           <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} />
-          <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} className="side-break" />
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
+          <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} className="side-break" />
         </nav>
       </aside>
       <div className="main" key={tabRootVersion}>
