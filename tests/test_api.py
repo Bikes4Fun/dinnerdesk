@@ -1333,3 +1333,32 @@ def test_photo_updates_require_admin(tmp_path, monkeypatch):
     with _client(tmp_path, admin=False) as client:
         assert client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).status_code == 403
     assert not list(tmp_path.iterdir())
+
+
+def test_admin_catalog_tags_are_global_and_survive_import(tmp_path):
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        saved = client.patch('/api/recipes/1', json={'tags': ['low_carb_pasta', 'tested']})
+        assert saved.status_code == 200
+        assert saved.json()['tags'] == ['low_carb_pasta', 'tested']
+        db = connect()
+        from app.routes import _recipe_out
+        row = db.execute('SELECT * FROM recipes WHERE id = 1').fetchone()
+        assert _recipe_out(db, row, 2)['tags'] == ['low_carb_pasta', 'tested']
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'tags': ['old']}, {})
+        db.commit()
+        assert client.get('/api/recipes/1').json()['tags'] == ['low_carb_pasta', 'tested']
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'tags': ['copy']})
+        assert copied.status_code == 200
+        assert copied.json()['tags'] == ['copy']
+        assert client.get('/api/recipes/1').json()['tags'] == ['low_carb_pasta', 'tested']
+        assert client.patch('/api/recipes/1', json={'tags': []}).json()['tags'] == []
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'tags': ['old']}, {})
+        db.commit()
+        db.close()
+        assert client.get('/api/recipes/1').json()['tags'] == []
+
+
+def test_catalog_tags_require_admin(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert client.patch('/api/recipes/1', json={'tags': ['changed']}).status_code == 403

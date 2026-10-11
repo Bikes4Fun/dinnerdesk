@@ -27,6 +27,7 @@ export function Recipe({ id }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const added = week?.weekIds?.has(Number(id)) ?? false;
+  const [tags, setTags] = useState("");
   const [photoData, setPhotoData] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
   const [name, setName] = useState("");
@@ -70,6 +71,7 @@ export function Recipe({ id }) {
   function startEdit() {
     if (!admin) return;
     setPhotoData(null);
+    setTags((recipe.tags || []).join(", "));
     setName(recipe.name);
     setServings(recipe.servings);
     setMinutes(recipe.cooking_minutes == null ? "" : String(recipe.cooking_minutes));
@@ -106,6 +108,7 @@ export function Recipe({ id }) {
   function editPayload() {
     return {
       ...(photoData ? { photo_data: photoData } : {}),
+      tags: [...new Set(tags.split(",").map((tag) => tag.trim()).filter(Boolean))],
       name: name.trim(),
       servings: Number(servings) || 4,
       cooking_minutes: minutes === "" ? null : Number(minutes),
@@ -354,6 +357,10 @@ export function Recipe({ id }) {
               <input id="recipe-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || photoLoading} onChange={selectPhoto} />
               <p className="help">Choose your own JPEG, PNG, or WebP photo under 5 MB. {recipe.catalog ? "Save updates the catalog photo for everyone. Save as copy uses it only on the new recipe." : "The photo is saved with this recipe."}</p>
               {photoData && <img src={photoData} alt="New recipe photo preview" style={{ width: "100%", maxWidth: 320, aspectRatio: "1", objectFit: "cover" }} />}
+              <label className="block-label" htmlFor="recipe-tags">Tags</label>
+              <input id="recipe-tags" className="field" value={tags} onChange={(e) => setTags(e.target.value)} disabled={busy} placeholder="low carb pasta, quick dinner" />
+              <p className="help">Separate tags with commas. {recipe.catalog ? "Save updates these tags for everyone. Save as copy changes only the new recipe." : "Tags apply to this kitchen recipe."}</p>
+              <p className="help">Diet, allergy, and avoid filters use the recipe name and ingredients automatically. Tags such as “low carb pasta” are labels and do not change those filters.</p>
               <RecipeEditorFields
                 name={name}
                 setName={setName}

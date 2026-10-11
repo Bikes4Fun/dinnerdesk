@@ -875,6 +875,15 @@ def patch_recipe(
             db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
         if catalog and not body.as_copy:
+            if body.tags is not None:
+                db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))
+                for tag in body.tags:
+                    if tag.strip():
+                        db.execute("INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)", (recipe_id, tag.strip()[:40]))
+                provenance = json.loads(row["provenance_json"] or "{}")
+                provenance["admin_tags_edited"] = True
+                db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?", (json.dumps(provenance), now(), recipe_id))
+                row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
             base = _recipe_out(db, row, household_id)
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
             _rebuild_grocery_for_household(db, household_id)
