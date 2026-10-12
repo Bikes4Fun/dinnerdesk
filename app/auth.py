@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import hashlib
 import hmac
 import secrets
@@ -65,7 +66,14 @@ def _check_password_strength(password: str) -> None:
         raise AuthError("password_too_short")
 
 
+def _lock_membership(conn):
+    # Membership changes are rare. Serialize them so concurrent joins/deletions cannot
+    # leave accounts in a household being deleted or bypass successor checks.
+    conn.execute("SELECT pg_advisory_xact_lock(184732901)")
+
+
 def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
+    _lock_membership(conn)
     email = email.strip().lower()
     if not email or "@" not in email:
         raise AuthError("invalid_email")
@@ -98,6 +106,7 @@ def signup(conn: Any, email: str, password: str, household_name: str, guest_hous
         (household_id, email, hash_password(password), ts),
     )
     user_id = cur.lastrowid
+    conn.execute("UPDATE users SET household_role = 'owner' WHERE id = ?", (user_id,))
     conn.commit()
 
     return _create_session(conn, user_id, household_id)
@@ -229,6 +238,10 @@ def logout_everywhere(conn: Any, user_id: int) -> None:
 
 
 def create_invite(conn: Any, household_id: int, invited_by_user_id: int) -> str:
+    _lock_membership(conn)
+    actor = _member(conn, invited_by_user_id)
+    if actor["household_id"] != household_id:
+        raise AuthError("household_forbidden")
     token = secrets.token_urlsafe(24)
     ts = now()
     expires = (datetime.now(timezone.utc) + timedelta(days=INVITE_TTL_DAYS)).replace(
@@ -260,6 +273,7 @@ def invite_info(conn: Any, token: str):
 
 
 def accept_invite(conn: Any, token: str, email: str, password: str) -> str:
+    _lock_membership(conn)
     row = invite_info(conn, token)
     household_id = row["household_id"]
 
@@ -290,18 +304,19 @@ def accept_invite(conn: Any, token: str, email: str, password: str) -> str:
 
 def list_members(conn: Any, household_id: int):
     return conn.execute(
-        "SELECT id, email, created_at FROM users WHERE household_id = ? ORDER BY created_at",
+        "SELECT id, email, created_at, household_role FROM users WHERE household_id = ? ORDER BY created_at",
         (household_id,),
     ).fetchall()
 
 
 def _forget_user(conn: Any, user_id: int) -> None:
     """Remove one person: their login, sessions, reset links and the invites they sent
-    (cascades), plus their Taste Lab answers. An invite they accepted keeps its row, without them."""
+    (cascades), plus identifying Taste Lab records after preserving unlinked votes. An invite they accepted keeps its row, without them."""
     conn.execute("UPDATE household_invites SET used_by = NULL WHERE used_by = ?", (user_id,))
     taste = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
     if taste and taste["present"]:
         account = str(user_id)
+        _archive_taste(conn, account, "individual")
         conn.execute(
             """DELETE FROM taste_events WHERE session_id IN (
                  SELECT s.id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id
@@ -316,9 +331,52 @@ def _forget_user(conn: Any, user_id: int) -> None:
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
 
+def _archive_taste(conn: Any, account: str | list[str], scope: str) -> None:
+    present = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
+    if not present or not present["present"]:
+        return
+    accounts = [account] if isinstance(account, str) else account
+    if not accounts:
+        return
+    marks = ", ".join("?" for _ in accounts)
+    rows = conn.execute(f"""SELECT e.body, p.account_id FROM taste_events e
+        JOIN taste_sessions s ON s.id = e.session_id JOIN taste_people p ON p.id = s.person_id
+        WHERE p.account_id IN ({marks}) AND e.kind = 'snapshot' ORDER BY e.id DESC""", accounts).fetchall()
+    # Latest vote per meal per person. Account IDs exist only in this transaction.
+    histories = {}
+    for row in rows:
+        votes = histories.setdefault(row["account_id"], {})
+        for swipe in json.loads(row["body"]).get("swipes", []):
+            recipe = swipe.get("recipe_id")
+            if recipe is not None and isinstance(swipe.get("liked"), bool):
+                votes.setdefault(str(recipe), "like" if swipe["liked"] else "pass")
+    retained = {}
+    for votes in histories.values():
+        for recipe, vote in votes.items():
+            if scope == "household":
+                counts = retained.setdefault(recipe, {"like": 0, "pass": 0})
+                counts[vote] += 1
+            else:
+                retained[recipe] = vote
+    if retained:
+        conn.execute("INSERT INTO anonymous_taste_history (scope, votes_json) VALUES (?, ?)",
+                     (scope, json.dumps(retained)))
+
+
 def _delete_household(conn: Any, household_id: int) -> None:
     """Everything a household owns. Most tables cascade from households; plans, the pantry and
     the household's own recipes don't, so they go first."""
+    _archive_taste(conn, f"guest:{household_id}", "household")
+    present = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
+    if present and present["present"]:
+        account = f"guest:{household_id}"
+        conn.execute("DELETE FROM taste_events WHERE session_id IN (SELECT s.id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id WHERE p.account_id = ?)", (account,))
+        conn.execute("DELETE FROM taste_sessions WHERE person_id IN (SELECT id FROM taste_people WHERE account_id = ?)", (account,))
+        conn.execute("DELETE FROM taste_people WHERE account_id = ?", (account,))
+    ratings = conn.execute("SELECT recipe_id, rating FROM household_meal_ratings WHERE household_id = ?", (household_id,)).fetchall()
+    if ratings:
+        conn.execute("INSERT INTO anonymous_taste_history (scope, votes_json) VALUES ('household', ?)",
+                     (json.dumps({str(r["recipe_id"]): r["rating"] for r in ratings}),))
     own = "SELECT id FROM recipes WHERE household_id = ?"
     # Another household's copy of one of these recipes keeps its copy, just not the link.
     conn.execute(f"UPDATE recipes SET parent_recipe_id = NULL WHERE parent_recipe_id IN ({own}) AND "
@@ -338,6 +396,7 @@ def delete_account(conn: Any, user_id: int, password: str) -> bool:
     household stays theirs and only this person is removed. Returns True when the household
     was deleted too.
     """
+    _lock_membership(conn)
     row = conn.execute(
         "SELECT household_id, password_hash FROM users WHERE id = ?", (user_id,)
     ).fetchone()
@@ -348,6 +407,7 @@ def delete_account(conn: Any, user_id: int, password: str) -> bool:
         "SELECT COUNT(*) AS n FROM users WHERE household_id = ? AND id <> ?", (household_id, user_id)
     ).fetchone()["n"]
     try:
+        _require_successor(conn, user_id)
         _forget_user(conn, user_id)
         if not others:
             _delete_household(conn, household_id)
@@ -358,20 +418,97 @@ def delete_account(conn: Any, user_id: int, password: str) -> bool:
     return not others
 
 
-def remove_member(conn: Any, household_id: int, target_user_id: int) -> None:
-    members = list_members(conn, household_id)
-    if len(members) <= 1:
-        raise AuthError("last_member")
-    row = conn.execute(
-        "SELECT id FROM users WHERE id = ? AND household_id = ?",
-        (target_user_id, household_id),
-    ).fetchone()
+def _member(conn, user_id):
+    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row:
         raise AuthError("not_found")
-    # An accepted invite points at this person and would block a plain delete.
-    _forget_user(conn, target_user_id)
+    return row
+
+
+def _require_successor(conn, user_id):
+    user = _member(conn, user_id)
+    others = conn.execute("SELECT COUNT(*) AS n FROM users WHERE household_id = ? AND id <> ?",
+                          (user["household_id"], user_id)).fetchone()["n"]
+    if user["household_role"] == "owner" and others:
+        raise AuthError("successor_required")
+
+
+def _solo(conn, user_id):
+    cur = conn.execute("INSERT INTO households (name, prefs_json, created_at) VALUES ('My household', '{}', ?)", (now(),))
+    hid = cur.lastrowid
+    conn.execute("DELETE FROM household_invites WHERE invited_by = ? AND used_at IS NULL", (user_id,))
+    conn.execute("UPDATE users SET household_id = ?, household_role = 'owner' WHERE id = ?", (hid, user_id))
+    conn.execute("UPDATE sessions SET household_id = ? WHERE user_id = ?", (hid, user_id))
+    return hid
+
+
+def manage_member(conn, actor_id, target_id, role):
+    _lock_membership(conn)
+    actor, target = _member(conn, actor_id), _member(conn, target_id)
+    if actor["household_id"] != target["household_id"] or actor["household_role"] != "owner":
+        raise AuthError("household_forbidden")
+    if target_id == actor_id or role not in ("owner", "admin", "member"):
+        raise AuthError("invalid_role")
+    if role == "owner":
+        conn.execute("UPDATE users SET household_role = 'admin' WHERE id = ?", (actor_id,))
+    conn.execute("UPDATE users SET household_role = ? WHERE id = ?", (role, target_id))
     conn.commit()
 
+
+def leave_household(conn, user_id):
+    _lock_membership(conn)
+    user = _member(conn, user_id)
+    _require_successor(conn, user_id)
+    old = user["household_id"]
+    _solo(conn, user_id)
+    if not conn.execute("SELECT id FROM users WHERE household_id = ?", (old,)).fetchone():
+        _delete_household(conn, old)
+    conn.commit()
+
+
+def delete_household(conn, user_id, password):
+    _lock_membership(conn)
+    user = _member(conn, user_id)
+    if user["household_role"] not in ("owner", "admin"):
+        raise AuthError("household_forbidden")
+    if not verify_password(password, user["password_hash"]):
+        raise AuthError("wrong_password")
+    hid = user["household_id"]
+    try:
+        members = list_members(conn, hid)
+        _archive_taste(conn, [str(member["id"]) for member in members], "household")
+        for member in members:
+            _solo(conn, member["id"])
+        _delete_household(conn, hid)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def join_household(conn, user_id, token):
+    _lock_membership(conn)
+    invite = invite_info(conn, token)
+    user = _member(conn, user_id)
+    if user["household_id"] == invite["household_id"]:
+        raise AuthError("already_member")
+    _require_successor(conn, user_id)
+    old = user["household_id"]
+    conn.execute("UPDATE users SET household_id = ?, household_role = 'member' WHERE id = ?", (invite["household_id"], user_id))
+    conn.execute("UPDATE sessions SET household_id = ? WHERE user_id = ?", (invite["household_id"], user_id))
+    conn.execute("UPDATE household_invites SET used_at = ?, used_by = ? WHERE token = ?", (now(), user_id, token))
+    if not conn.execute("SELECT id FROM users WHERE household_id = ?", (old,)).fetchone():
+        _delete_household(conn, old)
+    conn.commit()
+
+
+def remove_member(conn: Any, household_id: int, target_user_id: int, actor_id: int) -> None:
+    _lock_membership(conn)
+    actor, target = _member(conn, actor_id), _member(conn, target_user_id)
+    if actor["household_id"] != household_id or actor["household_role"] not in ("owner", "admin") or target["household_id"] != household_id or target["household_role"] == "owner":
+        raise AuthError("household_forbidden")
+    _solo(conn, target_user_id)
+    conn.commit()
 
 def session_info(conn: Any, token: Optional[str]):
     if not token:

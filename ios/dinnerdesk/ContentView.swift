@@ -17,6 +17,7 @@ extension EnvironmentValues {
 }
 
 struct ContentView: View {
+  @EnvironmentObject private var session: Session
   @StateObject private var store = Store()
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var navigationIDs: [AppTab: UUID] = [:]
@@ -83,7 +84,7 @@ struct ContentView: View {
           showTab(.plan)
         } else if next == .active {
           // Coming back to the app: refetch only data older than Freshness.window.
-          Task { await store.loadAll(onlyIfStale: true) }
+          Task { await session.refresh(); await store.loadAll(onlyIfStale: true) }
         }
       }
     }

@@ -76,6 +76,22 @@ enum KitchenAPI {
     return API.origin.appending(path: "join/\(invite.token)")
   }
 
+  static func leaveHousehold() async throws {
+    let _: Ok = try await API.send("household/leave", method: "POST")
+  }
+
+  static func joinHousehold(_ token: String) async throws {
+    let _: Ok = try await API.send("household/join", method: "POST", body: ["token": token])
+  }
+
+  static func deleteHousehold(password: String) async throws {
+    let _: Ok = try await API.send("household/delete", method: "POST", body: ["password": password])
+  }
+
+  static func setRole(_ id: Int, role: String) async throws {
+    let _: Ok = try await API.send("household/members/\(id)/role", method: "PUT", body: ["role": role])
+  }
+
   static func removeMember(_ id: Int) async throws {
     let _: Ok = try await API.send("household/members/\(id)", method: "DELETE")
   }
@@ -182,6 +198,7 @@ nonisolated struct HouseholdMember: Decodable, Identifiable, Sendable {
   let id: Int
   let email: String
   let joinedAt: String?
+  let householdRole: String?
 }
 
 nonisolated struct HouseholdMembers: Decodable, Sendable {

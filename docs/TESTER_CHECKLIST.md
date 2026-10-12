@@ -30,8 +30,8 @@
 ## Before a release — not daily
 
 - [ ] **Accessibility:** smaller phone, largest text, narrow web window, and VoiceOver. Check recipe, suggestion, Grocery, and Prep screens; no clipped names, overlap, or unreachable decisions.
-- [ ] **Account access:** sign-up/sign-in/out, password reset, invite/join/remove a household member. Removed members lose access; shared data matches across app and web.
-- [ ] **Delete account (#65):** Account & security → Delete account asks for the password; a wrong one is refused. An invited member deleting leaves the household for the owner; the last member deleting removes the household, and the email can sign up again.
+- [ ] **Account access:** sign-up/sign-in/out, password reset, invite/join/leave/remove. Removed members lose shared-kitchen access but can still sign in to a solo household. Shared data matches across app and web.
+- [ ] **Account / household deletion (#65):** Wrong password refused. Creator transfers ownership before leaving/deleting when members remain. Only creator/admin deletes household; every member’s account survives in a solo household. Deleted account sessions fail. Retained meal votes have no account, household, browser or session identifiers.
 - [ ] **Recovery and persistence:** failed requests show readable retry guidance, including missing or unsupported API routes; pending proposals and saved edits survive restart. Verify search, share/print, and tour skip/replay.
 - [ ] **Deployment:** updated API/app ship together, prep completion migration is verified, and catalog/photo paths work. Startup must not overwrite catalog recipes. Revised private instructions need explicit import.
 
