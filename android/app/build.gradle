@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'build.computerscience.dinnerdesk'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'build.computerscience.dinnerdesk'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+        buildConfigField 'String', 'APP_ORIGIN', '"https://dinnerdesk.computerscience.build"'
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildTypes {
+        debug { applicationIdSuffix '.debug'; versionNameSuffix '-debug' }
+        release { minifyEnabled true; shrinkResources true; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
+    }
+    // Set these in your environment, never commit signing keys or passwords.
+    if (System.getenv('DINNERDESK_UPLOAD_KEYSTORE')) {
+        signingConfigs {
+            upload {
+                storeFile file(System.getenv('DINNERDESK_UPLOAD_KEYSTORE'))
+                storePassword System.getenv('DINNERDESK_UPLOAD_STORE_PASSWORD')
+                keyAlias System.getenv('DINNERDESK_UPLOAD_KEY_ALIAS')
+                keyPassword System.getenv('DINNERDESK_UPLOAD_KEY_PASSWORD')
+            }
+        }
+        buildTypes.release.signingConfig = signingConfigs.upload
+    }
+    lint { abortOnError true }
+}
+
+dependencies {
+    implementation 'androidx.activity:activity:1.11.0'
+    testImplementation 'junit:junit:4.13.2'
+}
