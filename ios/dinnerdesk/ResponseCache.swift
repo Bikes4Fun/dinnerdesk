@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
+#if os(iOS)
 import UIKit
+#endif
 
 /// Server responses kept on the device so screens paint instantly, work with a weak signal,
 /// and don't refetch on every visit. Stores the raw JSON bytes of a GET (or of a write that
@@ -69,7 +71,9 @@ enum ResponseCache {
   static func clear() {
     epoch += 1
     try? FileManager.default.removeItem(at: directory)
+    #if os(iOS)
     PhotoCache.clear()
+    #endif
   }
 
   /// Clear the cache when the signed-in account changes, so one kitchen never sees
@@ -98,6 +102,7 @@ extension Notification.Name {
 
 /// Recipe and ingredient photos, kept in memory and on disk. Photo paths change when a photo
 /// is replaced, so a cached file never needs revalidating.
+#if os(iOS)
 enum PhotoCache {
   private static let memory: NSCache<NSString, UIImage> = {
     let cache = NSCache<NSString, UIImage>()
@@ -162,6 +167,8 @@ enum PhotoCache {
     return directory.appending(path: digest)
   }
 }
+
+#endif
 
 /// When each kind of data last came from the server in this launch. Screens skip the network
 /// while their data is fresh; a write that changes the data marks it stale. Kept in memory

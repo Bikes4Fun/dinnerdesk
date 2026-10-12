@@ -109,7 +109,7 @@ final class Store: ObservableObject {
   }
 
   /// Signed in, out or as someone else: forget the previous kitchen and load this one.
-  func switchAccount() async {
+  func switchAccount(load: Bool = true) async {
     generation += 1
     prefetchTask?.cancel()
     prefetchTask = nil
@@ -135,7 +135,7 @@ final class Store: ObservableObject {
     familyPortions = nil
     isAdmin = false
     groceryPrefsLoaded = false
-    await loadAll()
+    if load { await loadAll() }
   }
 
   /// First paint from the device: the last plan, recipes, grocery list and prep.
@@ -174,7 +174,9 @@ final class Store: ObservableObject {
       if age == nil || age! > week {
         let _: RecipeDetail? = try? await API.get("recipes/\(id)", reportErrors: false, cache: true)
       }
+      #if os(iOS)
       await PhotoCache.prefetch(photo)
+      #endif
     }
   }
 

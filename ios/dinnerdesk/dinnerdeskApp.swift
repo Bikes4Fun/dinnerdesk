@@ -1,10 +1,3 @@
-//
-//  dinnerdeskApp.swift
-//  dinnerdesk
-//
-//  Created by Deanna Garrett 2026.
-//
-
 import SwiftUI
 
 @main
@@ -13,6 +6,9 @@ struct dinnerdeskApp: App {
     Theme.registerFonts()
     Theme.configureAppearance()
     Copy.validate()
+    
+    // Initialize the connectivity bridge on app boot-up
+    _ = WatchConnectivityManager.shared
   }
 
   var body: some Scene {
