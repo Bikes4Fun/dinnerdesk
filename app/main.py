@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import logging
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -16,6 +17,7 @@ from app.domain.recipe_photos import photo_allowed
 from app.auth_routes import router as auth_router
 from app.assets import food_dir
 from app.db.database import connect, init_db
+from app.perf import server_timing, start_request
 from app.routes import router
 from app.taste_lab import router as taste_router
 
@@ -55,7 +57,17 @@ def _food_file(name: str) -> Path | None:
     return None
 
 
+def _configure_logging() -> None:
+    # Uvicorn configures only its own loggers, which leaves app INFO logs (the request
+    # and suggestion timings) with nowhere to go. A no-op if a handler is already set.
+    logging.basicConfig(
+        level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
+
+
 def create_app() -> FastAPI:
+    _configure_logging()
     photo_directory()  # Reject invalid configured galleries before accepting requests.
     app = FastAPI(
         title="Dinnerdesk",
@@ -73,6 +85,27 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api")
     app.include_router(taste_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+
+    perf_log = logging.getLogger("dinnerdesk.perf")
+
+    @app.middleware("http")
+    async def time_api(request: Request, call_next):
+        if not request.url.path.startswith("/api/"):
+            return await call_next(request)
+        stats = start_request()
+        started = time.perf_counter()
+        status = 500
+        try:
+            response = await call_next(request)
+            status = response.status_code
+            response.headers["Server-Timing"] = server_timing(stats, (time.perf_counter() - started) * 1000)
+            return response
+        finally:
+            perf_log.info(
+                "%s %s %d %.1fms queries=%d db=%.1fms",
+                request.method, request.url.path, status,
+                (time.perf_counter() - started) * 1000, stats.queries, stats.db_ms,
+            )
 
     @app.middleware("http")
     async def no_cache_api(request: Request, call_next):

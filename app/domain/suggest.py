@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import time
+from app.perf import Laps
 
 from .grocery import grocery_item_name
 from .ingredients import pantry_key
@@ -173,7 +173,7 @@ def pick_suggestions(
     overrides: dict[str, str] | None = None,
     skip: set[str] | None = None,
     to_try: set[int] | None = None,
-    stats: dict | None = None,
+    laps: Laps | None = None,
 ) -> list[dict]:
     """Greedy: each pick updates the plan's ingredient pool so add-ons reuse groceries.
 
@@ -181,11 +181,11 @@ def pick_suggestions(
     eliminated before the greedy loop; each recipe's static bonus is computed exactly once.
     Only score_recipe (pantry/pool overlap) is recomputed per pick as the pool grows.
 
-    If stats is provided it is populated with filter_in, filter_out, filter_ms, greedy_ms.
+    laps, if given, gets "filter" and "greedy" phases and a filtered_out count.
     """
+    laps = laps or Laps()
     # Phase 1: pre-compute shop sets and static bonuses; apply hard filters and rejections.
     # Nothing here depends on which meals have already been picked.
-    _ph0 = time.perf_counter()
     pre: dict[int, tuple[set[str], float, list[str]]] = {}
     for rec in recipes:
         shop = shop_set(rec.get("ingredients") or [], aliases, overrides, skip)
@@ -196,12 +196,8 @@ def pick_suggestions(
         else:
             bonus, extra = 0.0, []
         pre[rec["id"]] = (shop, bonus, extra)
-    _ph1 = time.perf_counter()
-
-    if stats is not None:
-        stats["filter_in"] = len(recipes)
-        stats["filter_out"] = len(recipes) - len(pre)
-        stats["filter_ms"] = (_ph1 - _ph0) * 1000
+    laps.counts["filtered_out"] = len(recipes) - len(pre)
+    laps.lap("filter")
 
     # Phase 2: greedy loop — only score_recipe changes as the pool grows.
     trying = to_try or set()
@@ -240,9 +236,7 @@ def pick_suggestions(
         pool |= best_shop
         remaining.remove(best_id)
 
-    if stats is not None:
-        stats["greedy_ms"] = (time.perf_counter() - _ph1) * 1000
-
+    laps.lap("greedy")
     return picked
 
 

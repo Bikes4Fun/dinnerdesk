@@ -5,9 +5,12 @@ from __future__ import annotations
 import os
 import json
 import re
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+from app.perf import record_query
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -95,6 +98,13 @@ class PgConnection:
 
     def execute(self, sql: str, params: tuple | list = ()):
         sql_pg, returning = _postgres_sql(sql)
+        started = time.perf_counter()
+        try:
+            return self._run(sql_pg, params, returning)
+        finally:
+            record_query((time.perf_counter() - started) * 1000)
+
+    def _run(self, sql_pg: str, params: tuple | list, returning: bool):
         with self._conn.cursor() as cur:
             cur.execute(sql_pg, tuple(params) if params is not None else None)
             lastrowid = None

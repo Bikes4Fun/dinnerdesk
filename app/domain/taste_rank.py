@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from app.perf import Laps
+
 from .families import family_of
 from .neighbors import DIM, cosine, meal_vector, unit
 from .suggest import (
@@ -478,7 +480,7 @@ def pick_meals(
     to_try: set[int] | None = None,
     cooked: set[int] | None = None,
     plan_ings: set[str] | None = None,
-    stats: dict | None = None,
+    laps: Laps | None = None,
 ) -> list[dict]:
     swaps = overrides or {}
     ignored = skip or set()
@@ -487,6 +489,8 @@ def pick_meals(
     for recipe in recipes:
         known[int(recipe["id"])] = recipe
     _fit(taste, list(known.values()), aliases, swaps, ignored)
+    if laps:
+        laps.lap("fit")
 
     def adjust(recipe, shop=None):
         return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop)
@@ -502,7 +506,7 @@ def pick_meals(
         swaps,
         ignored,
         to_try,
-        stats=stats,
+        laps=laps,
     )
 
 
