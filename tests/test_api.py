@@ -1511,3 +1511,24 @@ def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
         assert [m["id"] for m in one] == [2]
         assert [m["id"] for m in two] == [2, 1]
         assert reasons["1"][0] == routes.BACKUP_REASON
+
+
+def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
+    import app.routes as routes
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        recipe = {"slug": "old-salad", "name": "Old Salad", "servings": 4, "photo_path": "food/old.jpg",
+                  "instructions_copied_from_third_party": False, "ingredients": [{"name": "lettuce"}]}
+        db = connect()
+        upsert_catalog_recipe(db, recipe, {})
+        db.commit()
+        rid = db.execute("SELECT id FROM recipes WHERE slug = 'old-salad'").fetchone()["id"]
+        routes._invalidate_all_pools()
+        assert "Old Salad" in {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
+
+        upsert_catalog_recipe(db, {**recipe, "retired": True}, {})
+        db.commit()
+        db.close()
+        routes._invalidate_all_pools()
+        assert "Old Salad" not in {r["name"] for r in client.get("/api/recipes?q=old").json()["recipes"]}
+        assert client.get(f"/api/recipes/{rid}").status_code == 200

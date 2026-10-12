@@ -27,18 +27,20 @@ def parse_servings(raw) -> int:
 
 
 REWRITTEN_MARK = '%"instructions_copied_from_third_party": false%'
+RETIRED_MARK = '%"retired": true%'
 
 
 def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     """Household recipes always. Public catalog recipes only when the steps are
-    ours and a photo path is set. The photo is shown only if that file is tagged
-    usable."""
+    ours, a photo path is set, and the recipe isn't retired. The photo is shown
+    only if that file is tagged usable."""
     sql = (
         f"({alias}.household_id IS NOT NULL OR ("
         f"{alias}.provenance_json LIKE ?"
+        f" AND {alias}.provenance_json NOT LIKE ?"
         f" AND COALESCE({alias}.photo_path, '') <> ''))"
     )
-    return sql, [REWRITTEN_MARK]
+    return sql, [REWRITTEN_MARK, RETIRED_MARK]
 
 
 SKIP_TAGS = {
@@ -102,6 +104,9 @@ def _provenance_json(data: dict) -> str:
             ),
             # Slug of the recipe this is a diet variant of. See app.domain.pool.
             "variant_of": str(data.get("variant_of") or ""),
+            # Kept in the catalog files for reference, but no longer offered anywhere. Plans
+            # and favorites that already point at it still open it.
+            "retired": bool(data.get("retired")),
         }
     )
 
