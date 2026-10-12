@@ -173,6 +173,10 @@ export const api = {
   householdMembers: () => req("/api/household/members"),
   removeHouseholdMember: (userId) =>
     req(`/api/household/members/${userId}`, { method: "DELETE" }),
+  leaveHousehold: () => req("/api/household/leave", { method: "POST" }),
+  joinHousehold: (token) => req("/api/household/join", { method: "POST", body: JSON.stringify({ token }) }),
+  deleteHousehold: (password) => req("/api/household/delete", { method: "POST", body: JSON.stringify({ password }) }),
+  householdRole: (id, role) => req(`/api/household/members/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
   createHouseholdInvite: () => req("/api/household/invites", { method: "POST" }),
   previewInvite: (token) => req(`/api/household/invites/${token}`),
   acceptInvite: (body) =>

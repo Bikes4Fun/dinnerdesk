@@ -284,3 +284,91 @@ def test_guest_tastelab_votes_and_filters_persist(tmp_path):
         assert "cilantro" in guest.get("/api/taste").json()["profile"]["dislikes"]
         guest.post("/api/auth/signup", json={"email": "taste@example.com", "password": "guestguest"})
         assert guest.get("/api/taste").json()["votes"] == [{"recipe_id": "395", "liked": True}]
+
+
+def test_household_separation_roles_and_account_deletion(tmp_path):
+    owner = {"email": "creator@example.com", "password": "correct horse battery staple"}
+    guest = {"email": "member@example.com", "password": "memberpassword"}
+    with _client(tmp_path) as client:
+        client.post('/api/auth/signup', json={**owner, 'household_name': 'Shared'})
+        owner_me = client.get('/api/auth/me').json()
+        token = client.post('/api/household/invites').json()['token']
+        client.post('/api/auth/logout')
+        client.post('/api/household/accept-invite', json={**guest, 'token': token})
+        member_me = client.get('/api/auth/me').json()
+        assert client.post('/api/household/delete', json={'password': guest['password']}).status_code == 400
+        assert client.delete(f"/api/household/members/{owner_me['user_id']}").status_code == 400
+        assert client.post('/api/household/leave').status_code == 200
+        assert client.get('/api/auth/me').json()['household_id'] != owner_me['household_id']
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=owner)
+        token = client.post('/api/household/invites').json()['token']
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=guest)
+        assert client.post('/api/household/join', json={'token': token}).status_code == 200
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=owner)
+        assert client.post('/api/auth/delete-account', json={'password': owner['password']}).json()['detail'] == 'successor_required'
+        assert client.post('/api/household/leave').json()['detail'] == 'successor_required'
+        assert client.put(f"/api/household/members/{member_me['user_id']}/role", json={'role': 'admin'}).status_code == 200
+        assert client.delete(f"/api/household/members/{member_me['user_id']}").status_code == 200
+        client.post('/api/auth/logout')
+        assert client.post('/api/auth/login', json=guest).status_code == 200
+        assert client.get('/api/auth/me').json()['household_id'] != owner_me['household_id']
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=owner)
+        token = client.post('/api/household/invites').json()['token']
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=guest)
+        client.post('/api/household/join', json={'token': token})
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=owner)
+        assert client.put(f"/api/household/members/{member_me['user_id']}/role", json={'role': 'owner'}).status_code == 200
+        assert client.post('/api/household/delete', json={'password': 'wrong'}).status_code == 400
+        assert client.post('/api/household/delete', json={'password': owner['password']}).status_code == 200
+        owner_home = client.get('/api/auth/me').json()['household_id']
+        client.post('/api/auth/logout')
+        assert client.post('/api/auth/login', json=guest).status_code == 200
+        assert client.get('/api/auth/me').json()['household_id'] not in (owner_home, owner_me['household_id'])
+
+
+def test_deleted_account_retains_only_unlinked_votes(tmp_path):
+    import json
+    with _client(tmp_path) as client:
+        client.post('/api/auth/signup', json={'email': 'history@example.com', 'password': 'historypassword'})
+        me = client.get('/api/auth/me').json()
+        from app.taste_lab import taste
+        taste().init_db()
+        with connect() as db:
+            pid = db.execute("INSERT INTO taste_people (anon_id, account_id, created_at) VALUES (?, ?, ?) RETURNING id",
+                             ('old-browser', str(me['user_id']), 'old-time')).fetchone()['id']
+            db.execute("INSERT INTO taste_sessions (id, person_id, created_at, updated_at) VALUES (?, ?, ?, ?)", ('old-session', pid, 'old-time', 'old-time'))
+            db.execute("INSERT INTO taste_events (session_id, t, kind, body) VALUES (?, ?, 'snapshot', ?)",
+                       ('old-session', 'old-time', json.dumps({'id': 'old-session', 'email': 'history@example.com', 'swipes': [{'recipe_id': '42', 'liked': True, 'name': 'secret'}]})))
+            db.commit()
+        assert client.post('/api/auth/delete-account', json={'password': 'historypassword'}).status_code == 200
+        with connect() as db:
+            row = db.execute('SELECT * FROM anonymous_taste_history').fetchone()
+            assert json.loads(row['votes_json']) == {'42': 'like'}
+            assert row['scope'] == 'individual'
+            assert not db.execute('SELECT id FROM taste_people').fetchone()
+            assert not db.execute('SELECT id FROM taste_events').fetchone()
+
+
+def test_creator_can_delete_account_after_choosing_successor(tmp_path):
+    with _client(tmp_path) as client:
+        owner = {'email': 'owner-transfer@example.com', 'password': 'ownerpassword'}
+        guest = {'email': 'successor@example.com', 'password': 'memberpassword'}
+        client.post('/api/auth/signup', json=owner)
+        home = client.get('/api/auth/me').json()['household_id']
+        token = client.post('/api/household/invites').json()['token']
+        client.post('/api/auth/logout')
+        client.post('/api/household/accept-invite', json={**guest, 'token': token})
+        successor_id = client.get('/api/auth/me').json()['user_id']
+        client.post('/api/auth/logout')
+        client.post('/api/auth/login', json=owner)
+        assert client.put(f'/api/household/members/{successor_id}/role', json={'role': 'owner'}).status_code == 200
+        assert client.post('/api/auth/delete-account', json={'password': owner['password']}).json()['household_deleted'] is False
+        assert client.post('/api/auth/login', json=guest).status_code == 200
+        assert client.get('/api/auth/me').json()['household_id'] == home
+        assert client.get('/api/household/members').json()['members'][0]['household_role'] == 'owner'

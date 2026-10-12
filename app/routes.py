@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from app.db.database import PgConnection
 from datetime import date, timedelta
 
@@ -69,6 +71,8 @@ from app.models import (
     SlotsPut,
     SubmissionCreate,
 )
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -579,12 +583,15 @@ def list_recipes(
     if tag.strip():
         sql += " AND t.tag = ?"
         args.append(tag.strip())
+    _t0 = time.perf_counter()
     diets, avoids, _ = _filter_prefs(db, household_id)
     groups = [] if hidden_only else blocks_for(diets, avoids)
+    pre_filter_count: int | None = None
     if groups:
         # Diet and avoid filters need ingredients, so filter before paging.
         sql += " ORDER BY r.name"
         candidates = db.execute(sql, args).fetchall()
+        pre_filter_count = len(candidates)
         rows = _diet_filtered(db, household_id, candidates, groups)[offset:offset + limit]
     else:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
@@ -593,12 +600,25 @@ def list_recipes(
     favs = _favorite_ids(db, household_id)
     later = _try_ids(db, household_id)
     hidden_ids = _hidden_recipe_ids(db, household_id)
-    return {
+    result = {
         "recipes": [
             _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
             for r in rows
         ]
     }
+    _log.info(
+        "recipes hh=%d q=%r tag=%r hidden=%s filters=%d pre_filter=%s results=%d offset=%d %.1fms",
+        household_id,
+        q.strip() or None,
+        tag.strip() or None,
+        hidden_only,
+        len(groups),
+        pre_filter_count,
+        len(rows),
+        offset,
+        (time.perf_counter() - _t0) * 1000,
+    )
+    return result
 
 
 @router.get("/tags")
@@ -662,6 +682,7 @@ def create_recipe(
                 (rid, tag[:40]),
             )
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
+    _invalidate_candidate_cache(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -724,6 +745,7 @@ def put_hidden(
                 "DELETE FROM household_hidden_recipes WHERE household_id = ? AND recipe_id = ?",
                 (household_id, recipe_id),
             )
+    _invalidate_candidate_cache(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -889,6 +911,12 @@ def patch_recipe(
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
             _rebuild_grocery_for_household(db, household_id)
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+            # recipe_tags has no household_id — a tag change on a catalog recipe affects every
+            # household's candidate list (TASTE_SKIP filtering depends on tags). Clear all.
+            if body.tags is not None:
+                _invalidate_all_candidate_caches()
+            else:
+                _invalidate_candidate_cache(household_id)
             return _recipe_out(db, row, household_id)
         copied = catalog and body.as_copy
         target = recipe_id
@@ -935,6 +963,7 @@ def patch_recipe(
         if not copied:
             _rebuild_grocery_for_household(db, household_id)
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
+    _invalidate_candidate_cache(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -954,6 +983,7 @@ def delete_recipe(
             "DELETE FROM recipes WHERE id = ? AND household_id = ?",
             (recipe_id, household_id),
         )
+    _invalidate_candidate_cache(household_id)
     return {"ok": True}
 
 
@@ -2542,7 +2572,18 @@ def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, int 
     return filters["diets"], [*filters["allergens"], *filters["avoids"]], max_minutes
 
 
+# Per-household TTL cache for candidate meals. Avoids re-loading recipes, tags, and
+# ingredients on every suggestion call. Invalidated by _invalidate_candidate_cache.
+_CANDIDATE_CACHE: dict[int, tuple[float, list[dict]]] = {}
+_CANDIDATE_TTL = 60.0  # seconds; short enough that catalog edits are visible quickly
+
+
 def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
+    now = time.monotonic()
+    entry = _CANDIDATE_CACHE.get(household_id)
+    if entry and (now - entry[0]) < _CANDIDATE_TTL:
+        return entry[1]
+
     public_sql, public_args = public_recipe_sql("r")
     rows = db.execute(
         f"""SELECT r.id, r.name, r.slug, r.source_url,
@@ -2558,17 +2599,32 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
               )""",
         (household_id, household_id, *public_args, household_id),
     ).fetchall()
+
+    if not rows:
+        _CANDIDATE_CACHE[household_id] = (now, [])
+        return []
+
+    rid_list = [int(row["id"]) for row in rows]
+    marks = ",".join("?" for _ in rid_list)
+
     tags_by: dict[int, set[str]] = {}
-    for tag in db.execute("SELECT recipe_id, tag FROM recipe_tags"):
+    for tag in db.execute(
+        f"SELECT recipe_id, tag FROM recipe_tags WHERE recipe_id IN ({marks})",
+        rid_list,
+    ):
         tags_by.setdefault(int(tag["recipe_id"]), set()).add(tag["tag"])
+
     ings_by: dict[int, list[str]] = {}
     for item in db.execute(
-        """SELECT ri.recipe_id, i.canonical_name
+        f"""SELECT ri.recipe_id, i.canonical_name
            FROM recipe_ingredients ri
            JOIN ingredients i ON i.id = ri.ingredient_id
-           ORDER BY ri.recipe_id, ri.sort"""
+           WHERE ri.recipe_id IN ({marks})
+           ORDER BY ri.recipe_id, ri.sort""",
+        rid_list,
     ):
         ings_by.setdefault(int(item["recipe_id"]), []).append(item["canonical_name"])
+
     meals = []
     for row in rows:
         rid = int(row["id"])
@@ -2592,12 +2648,35 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
                 "cooking_minutes": row["minutes"],
             }
         )
+
+    # Prune expired entries on every cache write so the dict doesn't grow unboundedly.
+    expired = [hid for hid, (ts, _) in _CANDIDATE_CACHE.items() if (now - ts) >= _CANDIDATE_TTL]
+    for hid in expired:
+        _CANDIDATE_CACHE.pop(hid, None)
+
+    _CANDIDATE_CACHE[household_id] = (now, meals)
     return meals
+
+
+def _invalidate_candidate_cache(household_id: int) -> None:
+    """Clear one household's candidate cache after its own recipe data changes."""
+    _CANDIDATE_CACHE.pop(household_id, None)
+
+
+def _invalidate_all_candidate_caches() -> None:
+    """Clear every household's candidate cache after a global catalog change."""
+    _CANDIDATE_CACHE.clear()
 
 
 def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
     kept = kept_recipe_ids or set()
+    _cache_hit = (
+        household_id in _CANDIDATE_CACHE
+        and (time.monotonic() - _CANDIDATE_CACHE[household_id][0]) < _CANDIDATE_TTL
+    )
+    _t0 = time.perf_counter()
     recipes = [recipe for recipe in _candidate_meals(db, household_id) if recipe["id"] not in kept]
+    _t1 = time.perf_counter()
     selected_ingredients = []
     for rid in sorted(kept):
         row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
@@ -2645,6 +2724,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     snapshots.append({"account_id": f"household-{household_id}-suggestions", "plans": [
         {"verdict": "up", "recipe_ids": h.get("suggested_recipe_ids", [])}
         for h in history if h.get("decision") == "approve"]})
+    _t2 = time.perf_counter()
     taste = learn(
         snapshots,
         recipes,
@@ -2657,6 +2737,8 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     )
     taste.suggestion_penalties = suggestion_penalties(history)
     promote(taste, recipes, {rid for rid, up in rated.items() if up > 0})
+    _t3 = time.perf_counter()
+    _pick_stats: dict = {}
     picked = pick_meals(
         recipes,
         taste,
@@ -2677,12 +2759,26 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
             )
         },
         plan_ings=norm_pantry(selected_ingredients, aliases, swaps),
+        stats=_pick_stats,
     )
+    _t4 = time.perf_counter()
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
     summary = reasons_summary([row.get("reasons", []) for row in picked])
     if summary:
         note = f"{note} {summary[0].upper()}{summary[1:]}."
+    _t5 = time.perf_counter()
+    _log.info(
+        "suggest hh=%d want=%d candidates=%d filter_out=%d picked=%d cache=%s "
+        "load=%.1fms history=%.1fms learn=%.1fms "
+        "filter=%.1fms greedy=%.1fms assemble=%.1fms total=%.1fms",
+        household_id, want, len(recipes),
+        _pick_stats.get("filter_out", 0), len(picked),
+        "hit" if _cache_hit else "miss",
+        (_t1 - _t0) * 1000, (_t2 - _t1) * 1000, (_t3 - _t2) * 1000,
+        _pick_stats.get("filter_ms", 0.0), _pick_stats.get("greedy_ms", 0.0),
+        (_t5 - _t4) * 1000, (_t5 - _t0) * 1000,
+    )
     return picked, note, reasons
 
 
