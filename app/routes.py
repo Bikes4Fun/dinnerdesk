@@ -911,7 +911,12 @@ def patch_recipe(
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
             _rebuild_grocery_for_household(db, household_id)
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-            _invalidate_candidate_cache(household_id)
+            # recipe_tags has no household_id — a tag change on a catalog recipe affects every
+            # household's candidate list (TASTE_SKIP filtering depends on tags). Clear all.
+            if body.tags is not None:
+                _invalidate_all_candidate_caches()
+            else:
+                _invalidate_candidate_cache(household_id)
             return _recipe_out(db, row, household_id)
         copied = catalog and body.as_copy
         target = recipe_id
@@ -2644,13 +2649,23 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
             }
         )
 
+    # Prune expired entries on every cache write so the dict doesn't grow unboundedly.
+    expired = [hid for hid, (ts, _) in _CANDIDATE_CACHE.items() if (now - ts) >= _CANDIDATE_TTL]
+    for hid in expired:
+        _CANDIDATE_CACHE.pop(hid, None)
+
     _CANDIDATE_CACHE[household_id] = (now, meals)
     return meals
 
 
 def _invalidate_candidate_cache(household_id: int) -> None:
-    """Clear the candidate cache for a household after its recipe data changes."""
+    """Clear one household's candidate cache after its own recipe data changes."""
     _CANDIDATE_CACHE.pop(household_id, None)
+
+
+def _invalidate_all_candidate_caches() -> None:
+    """Clear every household's candidate cache after a global catalog change."""
+    _CANDIDATE_CACHE.clear()
 
 
 def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
