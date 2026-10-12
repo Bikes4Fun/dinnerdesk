@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">Dinnerdesk</string>
+    <string name="app_menu">Dinnerdesk menu</string>
+    <string name="offline_title">Couldn’t reach Dinnerdesk</string>
+    <string name="offline_message">Check your connection and try again. Your saved meals are kept in your kitchen.</string>
+    <string name="retry">Try again</string>
+    <string name="reload">Reload</string>
+    <string name="share_groceries">Share grocery list</string>
+    <string name="export_data">Download my data</string>
+    <string name="privacy">Privacy</string>
+    <string name="support">Help and support</string>
+    <string name="preparing">Preparing…</string>
+    <string name="export_unavailable">Data export needs the updated Dinnerdesk server. Please try again after the server update.</string>
+    <string name="sign_in_again">Please sign in again to continue.</string>
+    <string name="download_failed">Couldn’t download your data. Please try again.</string>
+    <string name="save_failed">Couldn’t save this file. Please try again.</string>
+    <string name="saved">File saved</string>
+    <string name="share_failed">Couldn’t prepare your grocery list. Please try again.</string>
+    <string name="no_groceries">Your grocery list is empty.</string>
+    <string name="picker_unavailable">A file picker isn’t available on this device.</string>
+    <string name="choose_photo">Choose a JPEG, PNG, or WebP photo.</string>
+    <string name="external_unavailable">No app is available to open this link.</string>
+    <string name="photo_picker_lost">Please choose your photo again.</string>
+</resources>
