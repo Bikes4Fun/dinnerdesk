@@ -151,7 +151,7 @@ Hearts, To try, and hides belong to this kitchen.
   into the household's once and no longer apply on their own. Lists live in
   `app/domain/diet_filter.py`; a test keeps the web, iOS, and Taste Lab copies equal.
 - **Must:** pick one of omnivore, pescatarian, vegetarian, or vegan; gluten-free and dairy-free
-  add on. Allergies: soy, peanut, tree nuts, dairy, egg, gluten, sesame, fish, shellfish, Other,
+  add on. Allergies: soy, peanut, tree nuts, dairy, egg, gluten, sesame, fish, shellfish, poultry, red meat, Other,
   or None. Avoids: Taste Lab's full list plus spicy, Other, or None.
 - **Must:** diets and avoids hide recipes in Recipes *and* in suggestions, matching the name and
   ingredients (including this kitchen's edits). Plant-based items such as peanut butter, coconut

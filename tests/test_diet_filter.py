@@ -31,6 +31,26 @@ def test_pescatarian_allows_fish_not_meat():
     assert not ok("Pepperoni Pizza", ["pepperoni"], diets=["pescatarian"])
 
 
+def test_poultry_allergy():
+    assert not ok("Chicken Fajitas", ["chicken breast", "peppers"], avoids=["poultry"])
+    assert not ok("Turkey Burger", ["ground turkey", "buns"], avoids=["poultry"])
+    assert not ok("Roast Duck", ["duck legs"], avoids=["poultry"])
+    assert ok("Chickpea Curry", ["chickpeas", "rice"], avoids=["poultry"])
+    assert ok("Beef Chili", ["ground beef", "beans"], avoids=["poultry"])
+
+
+def test_red_meat_allergy():
+    assert not ok("Steak Salad", ["sirloin steak", "arugula"], avoids=["red-meat"])
+    assert not ok("Ham & Broccoli Frittata", ["ham", "eggs", "broccoli"], avoids=["red-meat"])
+    assert not ok("Carbonara", ["pancetta", "spaghetti"], avoids=["red-meat"])
+    assert not ok("Panna Cotta", ["cream", "gelatin"], avoids=["red-meat"])
+    assert ok("Chicken Fajitas", ["chicken breast", "peppers"], avoids=["red-meat"])
+    assert ok("Cheesecake Bars", ["graham crackers", "cream cheese"], avoids=["red-meat"])
+    assert ok("Shallot Vinaigrette", ["champagne vinegar", "shallot"], avoids=["red-meat"])
+    assert ok("Tomato Salad", ["beefsteak tomato", "basil"], avoids=["red-meat"])
+    assert ok("Tacos", ["vegan sausage", "tortillas"], avoids=["red-meat"])
+
+
 def test_avoids_and_none():
     assert not ok("Salmon Bowl", ["salmon"], avoids=["fish"])
     assert not ok("Shrimp Scampi", ["shrimp"], avoids=["shellfish"])

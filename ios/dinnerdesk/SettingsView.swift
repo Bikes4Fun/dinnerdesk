@@ -71,6 +71,7 @@ struct FiltersView: View {
   static let allergens = [
     ("soy", "Soy"), ("peanut", "Peanut"), ("tree-nuts", "Tree nuts"), ("dairy", "Dairy"), ("egg", "Egg"),
     ("gluten", "Gluten"), ("sesame", "Sesame"), ("fish", "Fish"), ("shellfish", "Shellfish"),
+    ("poultry", "Poultry"), ("red-meat", "Red meat"),
   ]
   static let avoids = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",

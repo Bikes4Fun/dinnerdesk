@@ -74,7 +74,7 @@ def allowed(name: str, ingredients: list[str], groups: list[list[str]]) -> bool:
 # The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these
 # (web/src/diet.js, tastelab/web/app.js and ios FiltersView copy them; a test keeps them equal).
 DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
-ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish"]
+ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish", "poultry", "red-meat"]
 AVOIDS = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
     "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
