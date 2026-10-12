@@ -6,27 +6,75 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		E5CF9200307C6A5700D9ECC5 /* DinnerdeskWatch.app in CopyFiles */ = {isa = PBXBuildFile; fileRef = A13100000000000000000001 /* DinnerdeskWatch.app */; };
+		E5CF9202307C6A9700D9ECC5 /* DinnerdeskWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = A13100000000000000000001 /* DinnerdeskWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		E5CF9203307C6A9700D9ECC5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E52561C33072F28800164594 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A13100000000000000000003;
+			remoteInfo = DinnerdeskWatch;
+		};
+		E5CF9206307C6AA300D9ECC5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E52561C33072F28800164594 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A13100000000000000000003;
+			remoteInfo = DinnerdeskWatch;
+		};
+		E5CF9208307C6AEB00D9ECC5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E52561C33072F28800164594 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A13100000000000000000003;
+			remoteInfo = DinnerdeskWatch;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E5CF91FF307C6A3A00D9ECC5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 16;
+			files = (
+				E5CF9200307C6A5700D9ECC5 /* DinnerdeskWatch.app in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E5CF9205307C6A9700D9ECC5 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				E5CF9202307C6A9700D9ECC5 /* DinnerdeskWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		A13100000000000000000001 /* DinnerdeskWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DinnerdeskWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E52561CB3072F28800164594 /* dinnerdesk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = dinnerdesk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		E5F0A2D53079ADD00045F7E4 /* Exceptions for "dinnerdesk" folder in "dinnerdesk" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = E52561CA3072F28800164594 /* dinnerdesk */;
-		};
-		A13100000000000000000010 /* iPhone-only files excluded from watch target */ = {
+		A13100000000000000000010 /* Exceptions for "dinnerdesk" folder in "DinnerdeskWatch" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				AppWebView.swift,
 				Assets.xcassets,
 				AuthView.swift,
 				ContentView.swift,
+				copy.json,
 				Copy.swift,
+				dinnerdeskApp.swift,
 				EmptyState.swift,
 				ErrorBanner.swift,
 				GroceryStoreView.swift,
@@ -51,13 +99,10 @@
 				ThumbsControl.swift,
 				TourScreenPicture.swift,
 				TourView.swift,
-				copy.json,
-				dinnerdeskApp.swift,
-				fonts,
 			);
 			target = A13100000000000000000003 /* DinnerdeskWatch */;
 		};
-		A13100000000000000000011 /* Watch views excluded from iPhone target */ = {
+		A13100000000000000000011 /* Exceptions for "dinnerdeskWatch" folder in "dinnerdesk" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				ContentView.swift,
@@ -67,13 +112,20 @@
 			);
 			target = E52561CA3072F28800164594 /* dinnerdesk */;
 		};
+		E5F0A2D53079ADD00045F7E4 /* Exceptions for "dinnerdesk" folder in "dinnerdesk" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = E52561CA3072F28800164594 /* dinnerdesk */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A13100000000000000000002 /* DinnerdeskWatch */ = {
+		A13100000000000000000002 /* dinnerdeskWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				A13100000000000000000011 /* Watch views excluded from iPhone target */,
+				A13100000000000000000011 /* Exceptions for "dinnerdeskWatch" folder in "dinnerdesk" target */,
 			);
 			path = dinnerdeskWatch;
 			sourceTree = "<group>";
@@ -81,7 +133,7 @@
 		E52561CD3072F28800164594 /* dinnerdesk */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				A13100000000000000000010 /* iPhone-only files excluded from watch target */,
+				A13100000000000000000010 /* Exceptions for "dinnerdesk" folder in "DinnerdeskWatch" target */,
 				E5F0A2D53079ADD00045F7E4 /* Exceptions for "dinnerdesk" folder in "dinnerdesk" target */,
 			);
 			path = dinnerdesk;
@@ -111,7 +163,8 @@
 			isa = PBXGroup;
 			children = (
 				E52561CD3072F28800164594 /* dinnerdesk */,
-				A13100000000000000000002 /* DinnerdeskWatch */,
+				A13100000000000000000002 /* dinnerdeskWatch */,
+				E5CF9201307C6A9700D9ECC5 /* Frameworks */,
 				E52561CC3072F28800164594 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -123,6 +176,13 @@
 				A13100000000000000000001 /* DinnerdeskWatch.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		E5CF9201307C6A9700D9ECC5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -141,7 +201,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				A13100000000000000000002 /* DinnerdeskWatch */,
+				A13100000000000000000002 /* dinnerdeskWatch */,
 				E52561CD3072F28800164594 /* dinnerdesk */,
 			);
 			name = DinnerdeskWatch;
@@ -156,13 +216,18 @@
 				E52561C73072F28800164594 /* Sources */,
 				E52561C83072F28800164594 /* Frameworks */,
 				E52561C93072F28800164594 /* Resources */,
+				E5CF91FF307C6A3A00D9ECC5 /* CopyFiles */,
+				E5CF9205307C6A9700D9ECC5 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				E5CF9204307C6A9700D9ECC5 /* PBXTargetDependency */,
+				E5CF9207307C6AA300D9ECC5 /* PBXTargetDependency */,
+				E5CF9209307C6AEB00D9ECC5 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				A13100000000000000000002 /* DinnerdeskWatch */,
+				A13100000000000000000002 /* dinnerdeskWatch */,
 				E52561CD3072F28800164594 /* dinnerdesk */,
 			);
 			name = dinnerdesk;
@@ -240,6 +305,24 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E5CF9204307C6A9700D9ECC5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A13100000000000000000003 /* DinnerdeskWatch */;
+			targetProxy = E5CF9203307C6A9700D9ECC5 /* PBXContainerItemProxy */;
+		};
+		E5CF9207307C6AA300D9ECC5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A13100000000000000000003 /* DinnerdeskWatch */;
+			targetProxy = E5CF9206307C6AA300D9ECC5 /* PBXContainerItemProxy */;
+		};
+		E5CF9209307C6AEB00D9ECC5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A13100000000000000000003 /* DinnerdeskWatch */;
+			targetProxy = E5CF9208307C6AEB00D9ECC5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A13100000000000000000008 /* Debug */ = {
