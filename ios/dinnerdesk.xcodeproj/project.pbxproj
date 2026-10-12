@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		A13100000000000000000001 /* DinnerdeskWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DinnerdeskWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E52561CB3072F28800164594 /* dinnerdesk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = dinnerdesk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -18,12 +19,69 @@
 			);
 			target = E52561CA3072F28800164594 /* dinnerdesk */;
 		};
+		A13100000000000000000010 /* iPhone-only files excluded from watch target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				AppWebView.swift,
+				Assets.xcassets,
+				AuthView.swift,
+				ContentView.swift,
+				Copy.swift,
+				EmptyState.swift,
+				ErrorBanner.swift,
+				GroceryStoreView.swift,
+				GroceryView.swift,
+				Info.plist,
+				KitchenAPI.swift,
+				KitchenView.swift,
+				MenuSheet.swift,
+				MoreView.swift,
+				PantryMatch.swift,
+				PantryView.swift,
+				PlanView.swift,
+				PrepView.swift,
+				PrivacyInfo.xcprivacy,
+				Quantity.swift,
+				RecipePhoto.swift,
+				RecipesView.swift,
+				SettingsView.swift,
+				StarTip.swift,
+				StepTimer.swift,
+				Theme.swift,
+				ThumbsControl.swift,
+				TourScreenPicture.swift,
+				TourView.swift,
+				copy.json,
+				dinnerdeskApp.swift,
+				fonts,
+			);
+			target = A13100000000000000000003 /* DinnerdeskWatch */;
+		};
+		A13100000000000000000011 /* Watch views excluded from iPhone target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ContentView.swift,
+				DinnerdeskWatchApp.swift,
+				WatchGroceryView.swift,
+				WatchPlanView.swift,
+			);
+			target = E52561CA3072F28800164594 /* dinnerdesk */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A13100000000000000000002 /* DinnerdeskWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A13100000000000000000011 /* Watch views excluded from iPhone target */,
+			);
+			path = dinnerdeskWatch;
+			sourceTree = "<group>";
+		};
 		E52561CD3072F28800164594 /* dinnerdesk */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				A13100000000000000000010 /* iPhone-only files excluded from watch target */,
 				E5F0A2D53079ADD00045F7E4 /* Exceptions for "dinnerdesk" folder in "dinnerdesk" target */,
 			);
 			path = dinnerdesk;
@@ -32,6 +90,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A13100000000000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E52561C83072F28800164594 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -46,6 +111,7 @@
 			isa = PBXGroup;
 			children = (
 				E52561CD3072F28800164594 /* dinnerdesk */,
+				A13100000000000000000002 /* DinnerdeskWatch */,
 				E52561CC3072F28800164594 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -54,6 +120,7 @@
 			isa = PBXGroup;
 			children = (
 				E52561CB3072F28800164594 /* dinnerdesk.app */,
+				A13100000000000000000001 /* DinnerdeskWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -61,6 +128,27 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A13100000000000000000003 /* DinnerdeskWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A13100000000000000000007 /* Build configuration list for PBXNativeTarget "DinnerdeskWatch" */;
+			buildPhases = (
+				A13100000000000000000004 /* Sources */,
+				A13100000000000000000005 /* Frameworks */,
+				A13100000000000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A13100000000000000000002 /* DinnerdeskWatch */,
+				E52561CD3072F28800164594 /* dinnerdesk */,
+			);
+			name = DinnerdeskWatch;
+			productName = DinnerdeskWatch;
+			productReference = A13100000000000000000001 /* DinnerdeskWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 		E52561CA3072F28800164594 /* dinnerdesk */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E52561D63072F28A00164594 /* Build configuration list for PBXNativeTarget "dinnerdesk" */;
@@ -74,6 +162,7 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
+				A13100000000000000000002 /* DinnerdeskWatch */,
 				E52561CD3072F28800164594 /* dinnerdesk */,
 			);
 			name = dinnerdesk;
@@ -112,12 +201,20 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				A13100000000000000000003 /* DinnerdeskWatch */,
 				E52561CA3072F28800164594 /* dinnerdesk */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A13100000000000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E52561C93072F28800164594 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -128,6 +225,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A13100000000000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E52561C73072F28800164594 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -138,6 +242,48 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
+		A13100000000000000000008 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Dinnerdesk;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = dinnerdesk.dinnerdesk;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				MARKETING_VERSION = 1.0.3;
+				PRODUCT_BUNDLE_IDENTIFIER = dinnerdesk.dinnerdesk.watchapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
+		A13100000000000000000009 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Dinnerdesk;
+				INFOPLIST_KEY_WKApplication = YES;
+				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = dinnerdesk.dinnerdesk;
+				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
+				MARKETING_VERSION = 1.0.3;
+				PRODUCT_BUNDLE_IDENTIFIER = dinnerdesk.dinnerdesk.watchapp;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		E52561D43072F28A00164594 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -344,6 +490,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A13100000000000000000007 /* Build configuration list for PBXNativeTarget "DinnerdeskWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A13100000000000000000008 /* Debug */,
+				A13100000000000000000009 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		E52561C63072F28800164594 /* Build configuration list for PBXProject "dinnerdesk" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
