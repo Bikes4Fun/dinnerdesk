@@ -439,13 +439,14 @@ def _reason(reasons: list[str], text: str | None) -> None:
         reasons.append(text)
 
 
-def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str], shop: set[str] | None = None):
+def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str],
+            shop: set[str] | None = None, allow_downvoted: bool = False):
     keys = _keys(recipe)
-    if keys & taste.passed:
+    if keys & taste.passed and not allow_downvoted:
         return 0.0, [], True
-    blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
-    for group in taste.blocks:
-        if hits(blob, group):
+    if taste.blocks:
+        blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
+        if any(hits(blob, group) for group in taste.blocks):
             return 0.0, [], True
     bonus, direct = _direct_bonus(keys, taste)
     bonus -= getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
@@ -481,7 +482,9 @@ def pick_meals(
     cooked: set[int] | None = None,
     plan_ings: set[str] | None = None,
     laps: Laps | None = None,
+    allow_downvoted: bool = False,
 ) -> list[dict]:
+    """allow_downvoted keeps meals the household passed on or rated 👎, for a backup pick."""
     swaps = overrides or {}
     ignored = skip or set()
     _apply_household(taste, recipes, favorites, cooked or set())
@@ -493,7 +496,7 @@ def pick_meals(
         laps.lap("fit")
 
     def adjust(recipe, shop=None):
-        return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop)
+        return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop, allow_downvoted=allow_downvoted)
 
     return pick_suggestions(
         recipes,

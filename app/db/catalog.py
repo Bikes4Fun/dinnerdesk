@@ -100,6 +100,8 @@ def _provenance_json(data: dict) -> str:
             "instructions_copied_from_third_party": bool(
                 data.get("instructions_copied_from_third_party")
             ),
+            # Slug of the recipe this is a diet variant of. See app.domain.pool.
+            "variant_of": str(data.get("variant_of") or ""),
         }
     )
 
