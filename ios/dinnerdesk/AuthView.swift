@@ -43,7 +43,7 @@ final class Session: ObservableObject {
     do {
       let next = try await AuthAPI.status()
       // Clear saved plans and recipes before showing a different account's data.
-      ResponseCache.noteAccount(next.authenticated ? next.email : nil)
+      ResponseCache.noteAccount(next.authenticated ? "\(next.email ?? ""):\(next.householdId ?? 0)" : nil)
       WatchConnectivityManager.shared.publishSession()
       status = next
       loadError = nil

@@ -67,10 +67,7 @@ export function Privacy() {
 
         <h2>Deleting data</h2>
         <p>
-          Delete your account any time from Account &amp; security. Your password is asked for first. If you are the
-          last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If
-          others are still in the household, it stays for them. You can also remove other people from Account &amp;
-          security.
+          Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
         </p>
 
         <h2>Questions</h2>

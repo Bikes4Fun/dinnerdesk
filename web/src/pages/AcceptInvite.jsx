@@ -6,6 +6,7 @@ function friendlyError(e) {
 }
 
 export function AcceptInvite({ token, onAuthed }) {
+  const [signedIn, setSignedIn] = useState(false);
   const [preview, setPreview] = useState(null);
   const [previewErr, setPreviewErr] = useState("");
   const [email, setEmail] = useState("");
@@ -14,6 +15,7 @@ export function AcceptInvite({ token, onAuthed }) {
   const [err, setErr] = useState("");
 
   useEffect(() => {
+    api.auth.status().then((s) => setSignedIn(s.authenticated)).catch(() => {});
     api.previewInvite(token).then(setPreview).catch((e) => setPreviewErr(friendlyError(e)));
   }, [token]);
 
@@ -22,7 +24,10 @@ export function AcceptInvite({ token, onAuthed }) {
     setErr("");
     setBusy(true);
     try {
-      await api.acceptInvite({ token, email, password });
+      if (signedIn) {
+        if (!confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) return;
+        await api.joinHousehold(token);
+      } else await api.acceptInvite({ token, email, password });
       const me = await api.auth.me();
       onAuthed(me);
     } catch (e) {
@@ -47,6 +52,7 @@ export function AcceptInvite({ token, onAuthed }) {
               <h1 className="auth-title">Join {preview.household_name}</h1>
               {err ? <p className="banner err">{err}</p> : null}
               <form onSubmit={submit}>
+                {!signedIn && <>
                 <label className="block-label" htmlFor="email">
                   Your email
                 </label>
@@ -73,6 +79,7 @@ export function AcceptInvite({ token, onAuthed }) {
                   autoComplete="new-password"
                 />
                 <p className="help">At least 8 characters.</p>
+                </>}
                 <button type="submit" className="btn-primary block" disabled={busy}>
                   {busy ? "Joining…" : `Join ${preview.household_name}`}
                 </button>

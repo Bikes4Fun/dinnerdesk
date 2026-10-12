@@ -414,6 +414,7 @@ private struct FilterChip: View {
 
 /// Sign in/out, password, household invites and members.
 struct AccountView: View {
+  @EnvironmentObject private var store: Store
   @EnvironmentObject private var session: Session
   @State private var members: [HouseholdMember] = []
   @State private var householdName = ""
@@ -421,12 +422,20 @@ struct AccountView: View {
   @State private var signingIn = false
   @State private var confirmEverywhere = false
   @State private var deletingAccount = false
+  @State private var joinToken = ""
+  @State private var homePassword = ""
+  @State private var confirmLeave = false
+  @State private var confirmJoin = false
+  @State private var deletingHome = false
+  @State private var successor: HouseholdMember?
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
 
   private var otherMembers: [HouseholdMember] { members.filter { $0.email != session.status?.email } }
 
+  private var myRole: String? { members.first { $0.email == session.status?.email }?.householdRole }
+  private var canManage: Bool { myRole == "owner" || myRole == "admin" }
   private var signedIn: Bool { session.status?.authenticated == true }
 
   var body: some View {
@@ -477,7 +486,17 @@ struct AccountView: View {
               .disabled(busy)
           }
           ForEach(otherMembers) { member in
-            Text(member.email).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading) {
+              Text(member.email).fixedSize(horizontal: false, vertical: true)
+              Text(member.householdRole ?? "member").font(Theme.subtitle).foregroundStyle(Theme.muted)
+              if myRole == "owner" {
+                Button("Transfer ownership") { successor = member }
+                Button(member.householdRole == "admin" ? "Remove admin role" : "Make admin") {
+                  Task { await householdAction { try await KitchenAPI.setRole(member.id, role: member.householdRole == "admin" ? "member" : "admin") } }
+                }
+              }
+            }
+            .deleteDisabled(!canManage || member.householdRole == "owner")
           }
           .onDelete { offsets in
             let doomed = offsets.map { otherMembers[$0] }
@@ -497,6 +516,22 @@ struct AccountView: View {
         }
         .themeRows()
 
+        ThemeSection("Household membership") {
+          Text("Leaving creates an empty solo household. Your account stays active. Shared plans and kitchen data stay with the household.").font(Theme.subtitle)
+          Button("Leave household") { confirmLeave = true }.disabled(busy)
+          TextField("Invite link or token", text: $joinToken).textInputAutocapitalization(.never).autocorrectionDisabled()
+          Button("Join household") { confirmJoin = true }.disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+          if canManage {
+            Button("Delete household", role: .destructive) { deletingHome.toggle() }
+            if deletingHome {
+              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.").font(Theme.subtitle)
+              SecureField("Your password", text: $homePassword).textContentType(.password)
+              Button("Confirm household deletion", role: .destructive) {
+                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
+              }.disabled(busy || homePassword.isEmpty)
+            }
+          }
+        }.themeRows()
         Section {
           Button("Delete account", role: .destructive) { deletingAccount = true }
         } footer: {
@@ -530,6 +565,16 @@ struct AccountView: View {
       AuthView(isSheet: true)
         .environmentObject(session)
     }
+    .confirmationDialog("Leave this household and start an empty solo household?", isPresented: $confirmLeave, titleVisibility: .visible) {
+      Button("Leave household", role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
+    }
+    .confirmationDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", isPresented: $confirmJoin, titleVisibility: .visible) {
+      Button("Join household") { Task { await householdAction { try await KitchenAPI.joinHousehold(joinToken.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/").last.map(String.init) ?? "") } } }
+    }
+    .alert("Transfer household ownership?", isPresented: Binding(get: { successor != nil }, set: { if !$0 { successor = nil } })) {
+      Button("Transfer") { if let member = successor { Task { await householdAction { try await KitchenAPI.setRole(member.id, role: "owner") } } }; successor = nil }
+      Button("Cancel", role: .cancel) { successor = nil }
+    } message: { Text("The selected member becomes the creator. You become an admin.") }
     .sheet(isPresented: $deletingAccount) {
       DeleteAccountSheet(alone: otherMembers.isEmpty) {
         deletingAccount = false
@@ -589,6 +634,24 @@ struct AccountView: View {
     }
   }
 
+  private func householdAction(_ action: () async throws -> Void) async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await action()
+      joinToken = ""
+      homePassword = ""
+      deletingHome = false
+      ResponseCache.clear()
+      await session.refresh()
+      await loadMembers()
+      await store.switchAccount()
+      error = nil
+      message = "Household updated."
+    }
+    catch { self.error = KitchenAPI.message(error) }
+  }
+
   private func remove(_ member: HouseholdMember) async {
     members.removeAll { $0.id == member.id }
     do {
@@ -628,6 +691,7 @@ private struct DeleteAccountSheet: View {
             : "This deletes your account and your sign-ins. The household and its plans stay for the other members.")
             .font(Theme.body).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
+          Text("Anonymous meal votes are retained without account identifiers.").font(Theme.subtitle)
           SecureField("Your password", text: $password)
             .textContentType(.password)
             .onSubmit { Task { await delete() } }
@@ -836,7 +900,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Download a copy of your data at the top of this page. Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
+          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
           """)
       }
       .font(Theme.body)

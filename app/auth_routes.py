@@ -5,6 +5,7 @@ import os
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
+from app.auth import leave_household, join_household, delete_household, manage_member
 from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, is_admin_email, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
@@ -40,6 +41,10 @@ ERROR_MESSAGES = {
     "not_found": "That member wasn't found.",
     "reset_invalid": "This reset link isn't valid or was already used. Ask for a new one.",
     "reset_expired": "This reset link has expired. Ask for a new one.",
+    "household_forbidden": "Only the household creator or an admin can do this.",
+    "successor_required": "Choose a new household creator before leaving or deleting your account.",
+    "invalid_role": "Choose another member and a valid role.",
+    "already_member": "You already belong to this household.",
     "wrong_password": "That password isn't right.",
 }
 
@@ -175,6 +180,7 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
     return {
         "required": auth_required(),
         "authenticated": row is not None,
+        "household_id": household_id,
         "email": email,
         "admin": is_admin_email(email),
     }
@@ -187,6 +193,7 @@ def me(request: Request, conn=DbDep):
     if row is None:
         raise HTTPException(401, {"error": "auth", "detail": "not_authenticated"})
     return {
+        "user_id": row["user_id"],
         "household_id": row["household_id"],
         "email": row["email"],
         "admin": is_admin_email(row["email"]),
@@ -227,7 +234,10 @@ def reset_password(body: ResetPasswordBody, response: Response, conn=DbDep):
 
 @router.post("/household/invites")
 def create_invite(conn=DbDep, household_id=HhDep, user_id=UserDep):
-    token = do_create_invite(conn, household_id, user_id)
+    try:
+        token = do_create_invite(conn, household_id, user_id)
+    except AuthError as e:
+        raise _auth_error(e, 400)
     return {"token": token, "expires_in_days": 7}
 
 
@@ -255,7 +265,7 @@ def members(conn=DbDep, household_id=HhDep):
     rows = do_list_members(conn, household_id)
     return {
         "members": [
-            {"id": r["id"], "email": r["email"], "joined_at": r["created_at"]} for r in rows
+            {"id": r["id"], "email": r["email"], "joined_at": r["created_at"], "household_role": r["household_role"]} for r in rows
         ]
     }
 
@@ -268,11 +278,55 @@ def remove_member(target_user_id: int, conn=DbDep, household_id=HhDep, user_id=U
             {
                 "error": "auth",
                 "detail": "cant_remove_self",
-                "message": "Use 'Sign out' to leave, not remove.",
+                "message": "Use Leave household to keep your account and start a solo household.",
             },
         )
     try:
-        do_remove_member(conn, household_id, target_user_id)
+        do_remove_member(conn, household_id, target_user_id, user_id)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
+class JoinHouseholdBody(BaseModel):
+    token: str
+
+
+class HouseholdRoleBody(BaseModel):
+    role: str
+
+
+@router.post("/household/leave")
+def leave(conn=DbDep, user_id=UserDep):
+    try:
+        leave_household(conn, user_id)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
+@router.post("/household/join")
+def join(body: JoinHouseholdBody, conn=DbDep, user_id=UserDep):
+    try:
+        join_household(conn, user_id, body.token)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
+@router.post("/household/delete")
+def delete_home(body: DeleteAccountBody, conn=DbDep, user_id=UserDep):
+    try:
+        delete_household(conn, user_id, body.password)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
+@router.put("/household/members/{target_user_id}/role")
+def change_role(target_user_id: int, body: HouseholdRoleBody, conn=DbDep, user_id=UserDep):
+    try:
+        manage_member(conn, user_id, target_user_id, body.role)
     except AuthError as e:
         raise _auth_error(e, 400)
     return {"ok": True}

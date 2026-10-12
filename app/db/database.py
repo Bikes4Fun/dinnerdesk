@@ -223,6 +223,13 @@ def init_db(conn) -> None:
     _add_column(conn, "users", "locked_until", "TEXT")
     _add_column(conn, "prep_step_feedback", "category", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "prep_step_feedback", "note", "TEXT NOT NULL DEFAULT ''")
+    _add_column(conn, "users", "household_role", "TEXT NOT NULL DEFAULT 'member'")
+    # Existing households: earliest member becomes creator unless an owner already exists.
+    conn.execute("""UPDATE users SET household_role = 'owner' WHERE id IN (
+        SELECT DISTINCT ON (household_id) id FROM users u
+        WHERE NOT EXISTS (SELECT 1 FROM users o WHERE o.household_id = u.household_id
+                          AND o.household_role = 'owner')
+        ORDER BY household_id, created_at, id)""")
     migrate_prep_completion(conn)
     from app.db.seed import apply_seeds
 
