@@ -927,7 +927,7 @@ def test_real_suggestions_load_contextual_feedback(tmp_path, monkeypatch):
     import json
     import app.routes as routes
     monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
-    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: [{"id": 1, "keys": ["1"], "name": "Chicken soup", "ingredients": ["chicken", "carrot"], "tags": [], "cooking_minutes": 20}])
+    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: ([{"id": 1, "keys": ["1"], "name": "Chicken soup", "ingredients": ["chicken", "carrot"], "tags": [], "cooking_minutes": 20}], False))
     with _client(tmp_path) as client:
         current = client.get("/api/plans/current").json()
         db = connect()
@@ -1208,10 +1208,10 @@ def test_settings_and_taste_lab_share_one_filter_system(tmp_path, monkeypatch):
     }]
     monkeypatch.setattr(taste_lab, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
     monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
-    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: [
+    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: ([
         {"id": 1, "keys": ["1"], "name": "Olive tapenade pasta", "ingredients": ["olives", "pasta"], "tags": [], "cooking_minutes": 20},
         {"id": 2, "keys": ["2"], "name": "Sesame chicken", "ingredients": ["chicken", "sesame seeds"], "tags": [], "cooking_minutes": 20},
-    ])
+    ], False))
     with _client(tmp_path) as client:
         signup = client.post("/api/auth/signup", json={
             "email": "one@example.com", "password": "correct horse battery staple", "household_name": "One"})
@@ -1392,10 +1392,10 @@ def test_fill_plan_uses_edited_ingredients_and_excludes_kept_recipes(tmp_path, m
         active = client.get('/api/plans/current').json()
         client.put(f"/api/plans/{active['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 6}]})
         client.patch('/api/recipes/1', json={'ingredients': [{'name': 'bell pepper', 'quantity': '2'}]})
-        monkeypatch.setattr(routes, '_candidate_meals', lambda *args: [
+        monkeypatch.setattr(routes, '_candidate_meals', lambda *args: ([
             {'id': 1, 'name': 'Soup', 'ingredients': ['onion'], 'tags': []},
             {'id': 2, 'name': 'Pepper bowl', 'ingredients': ['bell pepper'], 'tags': []},
-        ])
+        ], False))
         captured = {}
         def pick(recipes, *args, **kwargs):
             captured['recipes'] = recipes
@@ -1440,3 +1440,33 @@ def test_admin_catalog_tags_are_global_and_survive_import(tmp_path):
 def test_catalog_tags_require_admin(tmp_path):
     with _client(tmp_path, admin=False) as client:
         assert client.patch('/api/recipes/1', json={'tags': ['changed']}).status_code == 403
+
+
+def test_candidate_cache_drops_loads_that_race_an_invalidation():
+    import app.routes as routes
+    routes._invalidate_all_candidate_caches()
+    gen = routes._candidate_generation(7)
+    routes._invalidate_candidate_cache(7)  # a write commits while the load is in flight
+    routes._store_candidates(7, gen, 0.0, [{"id": 1}])
+    assert 7 not in routes._CANDIDATE_CACHE
+
+    gen = routes._candidate_generation(8)
+    routes._invalidate_all_candidate_caches()  # a catalog-wide change also outdates it
+    routes._store_candidates(8, gen, 0.0, [{"id": 1}])
+    assert 8 not in routes._CANDIDATE_CACHE
+
+    gen = routes._candidate_generation(9)
+    routes._store_candidates(9, gen, 0.0, [{"id": 1}])
+    assert routes._CANDIDATE_CACHE[9][1] == [{"id": 1}]
+    routes._invalidate_all_candidate_caches()
+
+
+def test_api_responses_report_server_timing(tmp_path):
+    with _client(tmp_path) as client:
+        response = client.get("/api/suggestions/recipes")
+        assert response.status_code == 200
+        timing = response.headers["Server-Timing"]
+        assert timing.startswith("app;dur=")
+        assert "queries" in timing.split("db;dur=", 1)[1].split(",", 1)[0]
+        for phase in ("load", "learn", "fit", "filter", "greedy", "notes"):
+            assert f"suggest.{phase};dur=" in timing

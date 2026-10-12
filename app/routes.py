@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from app.db.database import PgConnection
 from datetime import date, timedelta
@@ -12,6 +13,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from app.db.catalog import public_recipe_sql
+from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, now, transaction
 from app.assets import catalog_dir
@@ -583,42 +585,32 @@ def list_recipes(
     if tag.strip():
         sql += " AND t.tag = ?"
         args.append(tag.strip())
-    _t0 = time.perf_counter()
+    laps = Laps()
     diets, avoids, _ = _filter_prefs(db, household_id)
     groups = [] if hidden_only else blocks_for(diets, avoids)
-    pre_filter_count: int | None = None
     if groups:
         # Diet and avoid filters need ingredients, so filter before paging.
         sql += " ORDER BY r.name"
         candidates = db.execute(sql, args).fetchall()
-        pre_filter_count = len(candidates)
+        laps.counts["pre_filter"] = len(candidates)
         rows = _diet_filtered(db, household_id, candidates, groups)[offset:offset + limit]
     else:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
         args.extend([limit, offset])
         rows = db.execute(sql, args).fetchall()
+    laps.counts.update(filters=len(groups), results=len(rows), offset=offset)
+    laps.lap("query")
     favs = _favorite_ids(db, household_id)
     later = _try_ids(db, household_id)
     hidden_ids = _hidden_recipe_ids(db, household_id)
-    result = {
-        "recipes": [
-            _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
-            for r in rows
-        ]
-    }
-    _log.info(
-        "recipes hh=%d q=%r tag=%r hidden=%s filters=%d pre_filter=%s results=%d offset=%d %.1fms",
-        household_id,
-        q.strip() or None,
-        tag.strip() or None,
-        hidden_only,
-        len(groups),
-        pre_filter_count,
-        len(rows),
-        offset,
-        (time.perf_counter() - _t0) * 1000,
-    )
-    return result
+    cards = [
+        _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
+        for r in rows
+    ]
+    laps.lap("cards")
+    laps.publish("recipes")
+    _log.debug("recipes hh=%d q=%r tag=%r %s", household_id, q.strip() or None, tag.strip() or None, laps.fmt())
+    return {"recipes": cards}
 
 
 @router.get("/tags")
@@ -769,6 +761,7 @@ def revert_recipe_edit(
             (household_id, recipe_id),
         )
         _rebuild_grocery_for_household(db, household_id)
+    _invalidate_candidate_cache(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -891,13 +884,17 @@ def patch_recipe(
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
         raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    catalog = row["household_id"] is None
+    # recipe_tags has no household_id, and photo_path gates public_recipe_sql eligibility,
+    # so a tag or photo change on a shared catalog row affects every household's candidates.
+    global_change = catalog and not body.as_copy and (body.tags is not None or body.photo_data is not None)
+    target = recipe_id
     with transaction(db):
-        catalog = row["household_id"] is None
-        if catalog and not body.as_copy and body.photo_data is not None:
-            photo = save_photo(body.photo_data)
-            db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
-            row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
         if catalog and not body.as_copy:
+            if body.photo_data is not None:
+                photo = save_photo(body.photo_data)
+                db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
+                row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
             if body.tags is not None:
                 db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))
                 for tag in body.tags:
@@ -910,60 +907,56 @@ def patch_recipe(
             base = _recipe_out(db, row, household_id)
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
             _rebuild_grocery_for_household(db, household_id)
-            row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-            # recipe_tags has no household_id — a tag change on a catalog recipe affects every
-            # household's candidate list (TASTE_SKIP filtering depends on tags). Clear all.
+        else:
+            copied = catalog and body.as_copy
+            if copied:
+                target = _copy_recipe(db, row, household_id)
+                row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
+            fields = []
+            args = []
+            if body.photo_data is not None:
+                fields.append("photo_path = ?")
+                args.append(save_photo(body.photo_data))
+            if body.name is not None:
+                fields.append("name = ?")
+                args.append(body.name.strip())
+            if body.servings is not None:
+                fields.append("servings = ?")
+                args.append(body.servings)
+            if "cooking_minutes" in body.model_fields_set:
+                fields.append("cooking_minutes = ?")
+                args.append(body.cooking_minutes)
+            if body.instructions is not None:
+                fields.append("instructions_json = ?")
+                args.append(json.dumps(body.instructions))
+            if body.cookware is not None:
+                fields.append("cookware_json = ?")
+                args.append(json.dumps(body.cookware))
             if body.tags is not None:
-                _invalidate_all_candidate_caches()
-            else:
-                _invalidate_candidate_cache(household_id)
-            return _recipe_out(db, row, household_id)
-        copied = catalog and body.as_copy
-        target = recipe_id
-        if copied:
-            target = _copy_recipe(db, row, household_id)
-            row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
-        fields = []
-        args = []
-        if body.photo_data is not None:
-            fields.append("photo_path = ?")
-            args.append(save_photo(body.photo_data))
-        if body.name is not None:
-            fields.append("name = ?")
-            args.append(body.name.strip())
-        if body.servings is not None:
-            fields.append("servings = ?")
-            args.append(body.servings)
-        if "cooking_minutes" in body.model_fields_set:
-            fields.append("cooking_minutes = ?")
-            args.append(body.cooking_minutes)
-        if body.instructions is not None:
-            fields.append("instructions_json = ?")
-            args.append(json.dumps(body.instructions))
-        if body.cookware is not None:
-            fields.append("cookware_json = ?")
-            args.append(json.dumps(body.cookware))
-        if body.tags is not None:
-            db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (target,))
-            for tag in body.tags:
+                db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (target,))
+                for tag in body.tags:
+                    db.execute(
+                        "INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)",
+                        (target, tag[:40]),
+                    )
+            if body.ingredients is not None:
+                _set_recipe_ingredients(db, target, body.ingredients)
+            if fields or body.tags is not None or body.ingredients is not None:
+                fields.append("updated_at = ?")
+                args.append(now())
+                args.append(target)
                 db.execute(
-                    "INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)",
-                    (target, tag[:40]),
+                    f"UPDATE recipes SET {', '.join(fields)} WHERE id = ? AND household_id = ?",
+                    (*args, household_id),
                 )
-        if body.ingredients is not None:
-            _set_recipe_ingredients(db, target, body.ingredients)
-        if fields or body.tags is not None or body.ingredients is not None:
-            fields.append("updated_at = ?")
-            args.append(now())
-            args.append(target)
-            db.execute(
-                f"UPDATE recipes SET {', '.join(fields)} WHERE id = ? AND household_id = ?",
-                (*args, household_id),
-            )
-        if not copied:
-            _rebuild_grocery_for_household(db, household_id)
+            if not copied:
+                _rebuild_grocery_for_household(db, household_id)
+    # Invalidate only after commit, so a concurrent load can't re-cache pre-commit rows.
+    if global_change:
+        _invalidate_all_candidate_caches()
+    else:
+        _invalidate_candidate_cache(household_id)
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
-    _invalidate_candidate_cache(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -2573,16 +2566,40 @@ def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, int 
 
 
 # Per-household TTL cache for candidate meals. Avoids re-loading recipes, tags, and
-# ingredients on every suggestion call. Invalidated by _invalidate_candidate_cache.
+# ingredients on every suggestion call. Invalidated by _invalidate_candidate_cache,
+# which callers must run after their transaction commits. Sync routes run on a thread
+# pool, so every access holds _CANDIDATE_LOCK. The generation counters stop a load that
+# began before an invalidation from caching the rows it read before that commit.
 _CANDIDATE_CACHE: dict[int, tuple[float, list[dict]]] = {}
 _CANDIDATE_TTL = 60.0  # seconds; short enough that catalog edits are visible quickly
+_CANDIDATE_LOCK = threading.Lock()
+_CANDIDATE_GEN: dict[int, int] = {}
+_CANDIDATE_GLOBAL_GEN = 0
 
 
-def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
+def _candidate_generation(household_id: int) -> tuple[int, int]:
+    return _CANDIDATE_GLOBAL_GEN, _CANDIDATE_GEN.get(household_id, 0)
+
+
+def _store_candidates(household_id: int, gen: tuple[int, int], loaded_at: float, meals: list[dict]) -> None:
+    with _CANDIDATE_LOCK:
+        if _candidate_generation(household_id) != gen:
+            return  # invalidated mid-load; what we read may predate that commit
+        # Prune expired entries on every cache write so the dict doesn't grow unboundedly.
+        expired = [hid for hid, (ts, _) in _CANDIDATE_CACHE.items() if (loaded_at - ts) >= _CANDIDATE_TTL]
+        for hid in expired:
+            del _CANDIDATE_CACHE[hid]
+        _CANDIDATE_CACHE[household_id] = (loaded_at, meals)
+
+
+def _candidate_meals(db: PgConnection, household_id: int) -> tuple[list[dict], bool]:
+    """Candidate meals for a household, and whether they came from the cache."""
     now = time.monotonic()
-    entry = _CANDIDATE_CACHE.get(household_id)
-    if entry and (now - entry[0]) < _CANDIDATE_TTL:
-        return entry[1]
+    with _CANDIDATE_LOCK:
+        entry = _CANDIDATE_CACHE.get(household_id)
+        if entry and (now - entry[0]) < _CANDIDATE_TTL:
+            return entry[1], True
+        gen = _candidate_generation(household_id)
 
     public_sql, public_args = public_recipe_sql("r")
     rows = db.execute(
@@ -2601,8 +2618,8 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
     ).fetchall()
 
     if not rows:
-        _CANDIDATE_CACHE[household_id] = (now, [])
-        return []
+        _store_candidates(household_id, gen, now, [])
+        return [], False
 
     rid_list = [int(row["id"]) for row in rows]
     marks = ",".join("?" for _ in rid_list)
@@ -2649,39 +2666,39 @@ def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
             }
         )
 
-    # Prune expired entries on every cache write so the dict doesn't grow unboundedly.
-    expired = [hid for hid, (ts, _) in _CANDIDATE_CACHE.items() if (now - ts) >= _CANDIDATE_TTL]
-    for hid in expired:
-        _CANDIDATE_CACHE.pop(hid, None)
-
-    _CANDIDATE_CACHE[household_id] = (now, meals)
-    return meals
+    _store_candidates(household_id, gen, now, meals)
+    return meals, False
 
 
 def _invalidate_candidate_cache(household_id: int) -> None:
-    """Clear one household's candidate cache after its own recipe data changes."""
-    _CANDIDATE_CACHE.pop(household_id, None)
+    """Clear one household's candidate cache after its own recipe data changes commit."""
+    with _CANDIDATE_LOCK:
+        _CANDIDATE_GEN[household_id] = _CANDIDATE_GEN.get(household_id, 0) + 1
+        _CANDIDATE_CACHE.pop(household_id, None)
 
 
 def _invalidate_all_candidate_caches() -> None:
-    """Clear every household's candidate cache after a global catalog change."""
-    _CANDIDATE_CACHE.clear()
+    """Clear every household's candidate cache after a global catalog change commits."""
+    global _CANDIDATE_GLOBAL_GEN
+    with _CANDIDATE_LOCK:
+        _CANDIDATE_GLOBAL_GEN += 1
+        _CANDIDATE_GEN.clear()  # the global bump already outdates every in-flight load
+        _CANDIDATE_CACHE.clear()
 
 
 def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
     kept = kept_recipe_ids or set()
-    _cache_hit = (
-        household_id in _CANDIDATE_CACHE
-        and (time.monotonic() - _CANDIDATE_CACHE[household_id][0]) < _CANDIDATE_TTL
-    )
-    _t0 = time.perf_counter()
-    recipes = [recipe for recipe in _candidate_meals(db, household_id) if recipe["id"] not in kept]
-    _t1 = time.perf_counter()
+    laps = Laps()
+    candidates, cache_hit = _candidate_meals(db, household_id)
+    recipes = [recipe for recipe in candidates if recipe["id"] not in kept]
+    laps.counts.update(want=want, candidates=len(recipes), cache="hit" if cache_hit else "miss")
+    laps.lap("load")
     selected_ingredients = []
     for rid in sorted(kept):
         row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
         if row and _recipe_visible(row, household_id):
             selected_ingredients.extend(i["name"] for i in _recipe_out(db, row, household_id)["ingredients"])
+    laps.lap("kept")
     aliases = _aliases(db)
     swaps = _overrides(db, household_id)
     pantry = norm_pantry(
@@ -2701,6 +2718,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         swaps,
     )
     diets, avoids, max_minutes = _filter_prefs(db, household_id)
+    laps.lap("pantry_prefs")
     accounts = [
         str(r["id"])
         for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))
@@ -2711,6 +2729,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     snapshots = [
         {k: v for k, v in snap.items() if k != "profile"} for snap in snapshots_for_accounts(accounts)
     ]
+    laps.lap("snapshots")
     # Plan thumbs count like Taste Lab swipes: a 👎 drops the meal, a 👍 boosts it and similar meals.
     rated = _meal_ratings(db, household_id)
     if rated:
@@ -2724,7 +2743,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     snapshots.append({"account_id": f"household-{household_id}-suggestions", "plans": [
         {"verdict": "up", "recipe_ids": h.get("suggested_recipe_ids", [])}
         for h in history if h.get("decision") == "approve"]})
-    _t2 = time.perf_counter()
+    laps.lap("history")
     taste = learn(
         snapshots,
         recipes,
@@ -2737,48 +2756,43 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     )
     taste.suggestion_penalties = suggestion_penalties(history)
     promote(taste, recipes, {rid for rid, up in rated.items() if up > 0})
-    _t3 = time.perf_counter()
-    _pick_stats: dict = {}
+    laps.lap("learn")
+    favorites = _favorite_ids(db, household_id)
+    to_try = _try_ids(db, household_id)
+    cooked = {
+        int(row["recipe_id"])
+        for row in db.execute(
+            """SELECT DISTINCT s.recipe_id FROM plan_slots s
+               JOIN plans p ON p.id = s.plan_id
+               WHERE p.household_id = ? AND s.cooked = 1""",
+            (household_id,),
+        )
+    }
+    plan_ings = norm_pantry(selected_ingredients, aliases, swaps)
+    laps.lap("pick_inputs")
     picked = pick_meals(
         recipes,
         taste,
         pantry,
-        _favorite_ids(db, household_id),
+        favorites,
         aliases,
         want,
         swaps,
         ignored,
-        _try_ids(db, household_id),
-        {
-            int(row["recipe_id"])
-            for row in db.execute(
-                """SELECT DISTINCT s.recipe_id FROM plan_slots s
-                   JOIN plans p ON p.id = s.plan_id
-                   WHERE p.household_id = ? AND s.cooked = 1""",
-                (household_id,),
-            )
-        },
-        plan_ings=norm_pantry(selected_ingredients, aliases, swaps),
-        stats=_pick_stats,
+        to_try,
+        cooked,
+        plan_ings=plan_ings,
+        laps=laps,
     )
-    _t4 = time.perf_counter()
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
     summary = reasons_summary([row.get("reasons", []) for row in picked])
     if summary:
         note = f"{note} {summary[0].upper()}{summary[1:]}."
-    _t5 = time.perf_counter()
-    _log.info(
-        "suggest hh=%d want=%d candidates=%d filter_out=%d picked=%d cache=%s "
-        "load=%.1fms history=%.1fms learn=%.1fms "
-        "filter=%.1fms greedy=%.1fms assemble=%.1fms total=%.1fms",
-        household_id, want, len(recipes),
-        _pick_stats.get("filter_out", 0), len(picked),
-        "hit" if _cache_hit else "miss",
-        (_t1 - _t0) * 1000, (_t2 - _t1) * 1000, (_t3 - _t2) * 1000,
-        _pick_stats.get("filter_ms", 0.0), _pick_stats.get("greedy_ms", 0.0),
-        (_t5 - _t4) * 1000, (_t5 - _t0) * 1000,
-    )
+    laps.lap("notes")
+    laps.counts["picked"] = len(picked)
+    laps.publish("suggest")
+    _log.info("suggest hh=%d %s", household_id, laps.fmt())
     return picked, note, reasons
 
 
