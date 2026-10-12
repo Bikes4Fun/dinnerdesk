@@ -31,6 +31,9 @@ PLANT_PHRASES = [
 ]
 # "vegan sausage", "plant-based chicken", "dairy-free cheese": the label and the next word go.
 PLANT_LABEL = re.compile(r"\b(?:vegan|plant[- ]based|dairy[- ]free|egg[- ]free|meatless|meat[- ]free)\s+[a-z]+")
+# "gluten-free panko bread crumbs": the rest of that one item goes. Applied to the name and
+# each ingredient on its own, so it can never reach into the next ingredient.
+GLUTEN_FREE_LABEL = re.compile(r"\bgluten[- ]free\s+.*", re.I)
 
 
 def _clean(blob: str) -> str:
@@ -67,7 +70,8 @@ def allowed(name: str, ingredients: list[str], groups: list[list[str]]) -> bool:
     """True when no blocked word appears in the recipe name or its ingredients."""
     if not groups:
         return True
-    blob = _clean(recipe_text(name or "", [i for i in ingredients if i]))
+    name, *items = [GLUTEN_FREE_LABEL.sub(" ", part) for part in [name or "", *(i for i in ingredients if i)]]
+    blob = _clean(recipe_text(name, items))
     return not any(hits(blob, group) for group in groups)
 
 

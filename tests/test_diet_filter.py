@@ -21,6 +21,16 @@ def test_plant_based_words_are_not_dairy_or_meat():
     assert ok("Lettuce Wraps", ["butter (boston) lettuce", "tofu"], diets=["vegan"])
 
 
+def test_gluten_free_labeled_ingredients_pass_gluten_filters():
+    assert ok("Pork Burger", ["ground pork", "gluten-free panko bread crumbs"], diets=["gluten-free"])
+    assert ok("Pork Burger", ["ground pork", "gluten-free panko bread crumbs"], avoids=["gluten"])
+    assert not ok("Pork Burger", ["gluten-free panko bread crumbs", "soy sauce"], diets=["gluten-free"])
+    assert not ok("Pork Burger", ["ground pork", "panko bread crumbs"], diets=["gluten-free"])
+    # The label covers only its own item, even when it's the recipe name.
+    assert not ok("Gluten-Free Brownies", ["all-purpose flour", "cocoa"], diets=["gluten-free"])
+    assert ok("Gluten-Free Pasta Bake", ["gluten-free penne", "marinara"], diets=["gluten-free"])
+
+
 def test_vegetarian_allows_dairy_but_not_fish():
     assert ok("Mac and Cheese", ["pasta", "cheddar", "milk"], diets=["vegetarian"])
     assert not ok("Fish Tacos", ["cod", "tortillas"], diets=["vegetarian"])
