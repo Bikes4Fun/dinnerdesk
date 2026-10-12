@@ -25,7 +25,7 @@ MORE_MEAT = [
 # They are removed before matching so a vegan or dairy-free kitchen still sees them.
 PLANT_PHRASES = [
     "peanut butter", "almond butter", "cashew butter", "sunflower butter", "nut butter",
-    "apple butter", "cocoa butter", "butternut", "butter lettuce", "butter bean",
+    "apple butter", "cocoa butter", "butternut", "butter (boston) lettuce", "butter lettuce", "butter bean",
     "coconut milk", "almond milk", "oat milk", "soy milk", "rice milk", "cashew milk",
     "coconut cream", "cream of tartar", "coconut yogurt", "beefsteak tomato",
 ]

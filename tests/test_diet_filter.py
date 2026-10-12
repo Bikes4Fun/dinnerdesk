@@ -18,6 +18,7 @@ def test_plant_based_words_are_not_dairy_or_meat():
     assert ok("Squash Soup", ["butternut squash", "coconut cream"], diets=["dairy-free"])
     assert ok("Tacos", ["vegan sausage", "tortillas"], diets=["vegan"])
     assert ok("Eggplant Parm", ["eggplant", "vegan cheese"], diets=["vegan"])
+    assert ok("Lettuce Wraps", ["butter (boston) lettuce", "tofu"], diets=["vegan"])
 
 
 def test_vegetarian_allows_dairy_but_not_fish():
