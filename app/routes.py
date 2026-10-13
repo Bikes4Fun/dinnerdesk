@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
+from collections import OrderedDict
 import time
 from app.db.database import PgConnection
 from datetime import date, timedelta
@@ -36,7 +37,8 @@ from app.domain.ingredient_review import (
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots, step_key, step_sentences
-from app.domain.diet_filter import allowed as diet_allowed, blocks_for, merge_filters
+from app.domain.diet_filter import blocks_for, merge_filters
+from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
 from app.domain.suggest import norm_pantry
 from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, suggestion_note, suggestion_penalties
@@ -509,46 +511,6 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
     }
 
 
-def _diet_filtered(db: PgConnection, household_id: int, rows: list, groups: list[list[str]]) -> list:
-    """Rows that pass the kitchen's diet/avoid filters. Two queries, not one per recipe.
-
-    Uses this kitchen's edited name and ingredients when it has edited a recipe.
-    Recipes this kitchen wrote itself always show.
-    """
-    ings: dict[int, list[str]] = {}
-    for r in db.execute(
-        """SELECT ri.recipe_id, i.canonical_name FROM recipe_ingredients ri
-           JOIN ingredients i ON i.id = ri.ingredient_id
-           JOIN recipes rc ON rc.id = ri.recipe_id
-           WHERE rc.household_id IS NULL OR rc.household_id = ?""",
-        (household_id,),
-    ):
-        ings.setdefault(int(r["recipe_id"]), []).append(r["canonical_name"])
-    edits = {
-        int(e["recipe_id"]): e
-        for e in db.execute(
-            "SELECT recipe_id, name, ingredients_json FROM household_recipe_edits WHERE household_id = ?",
-            (household_id,),
-        )
-    }
-    out = []
-    for row in rows:
-        rid = int(row["id"])
-        if row["household_id"] == household_id:
-            out.append(row)
-            continue
-        name, names = row["name"], ings.get(rid, [])
-        edit = edits.get(rid)
-        if edit:
-            name = edit["name"] or name
-            edited = [i.get("name") or "" for i in json.loads(edit["ingredients_json"] or "[]")]
-            if edited:
-                names = edited
-        if diet_allowed(name, names, groups):
-            out.append(row)
-    return out
-
-
 @router.get("/recipes")
 def list_recipes(
     db: PgConnection = DbDep,
@@ -572,11 +534,7 @@ def list_recipes(
         sql += """ AND r.id IN (
                  SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
                )"""
-    else:
-        sql += """ AND r.id NOT IN (
-                 SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
-               )"""
-    args.append(household_id)
+        args.append(household_id)
     if q.strip():
         needed = hard_tokens(q) or search_tokens(q)
         for tok in needed:
@@ -586,19 +544,27 @@ def list_recipes(
         sql += " AND t.tag = ?"
         args.append(tag.strip())
     laps = Laps()
-    diets, avoids, _ = _filter_prefs(db, household_id)
-    groups = [] if hidden_only else blocks_for(diets, avoids)
-    if groups:
-        # Diet and avoid filters need ingredients, so filter before paging.
-        sql += " ORDER BY r.name"
-        candidates = db.execute(sql, args).fetchall()
-        laps.counts["pre_filter"] = len(candidates)
-        rows = _diet_filtered(db, household_id, candidates, groups)[offset:offset + limit]
-    else:
+    if hidden_only:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
         args.extend([limit, offset])
         rows = db.execute(sql, args).fetchall()
-    laps.counts.update(filters=len(groups), results=len(rows), offset=offset)
+    else:
+        diets, allergens, avoids, _ = _filter_prefs(db, household_id)
+        pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
+        downvoted = {rid for rid, rating in _meal_ratings(db, household_id).items() if rating < 0}
+        sql += " ORDER BY r.name"
+        matches = [r for r in db.execute(sql, args).fetchall() if r["id"] in pool.allowed]
+        # Priority first: no avoided, hidden or downvoted recipes, and variants only when
+        # searched for. A search that the priority ones don't fill a page for gets the rest
+        # after them; plain browsing never shows them, so a recipe just hidden stays gone.
+        searching = bool(q.strip())
+        held = pool.demoted | downvoted | (frozenset() if searching else pool.variants)
+        priority = [r for r in matches if r["id"] not in held]
+        if searching and len(priority) < limit:
+            priority += [r for r in matches if r["id"] in held]
+        rows = priority[offset:offset + limit]
+        laps.counts.update(pool="hit" if pool_hit else "built", matches=len(matches))
+    laps.counts.update(results=len(rows), offset=offset)
     laps.lap("query")
     favs = _favorite_ids(db, household_id)
     later = _try_ids(db, household_id)
@@ -674,7 +640,7 @@ def create_recipe(
                 (rid, tag[:40]),
             )
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
-    _invalidate_candidate_cache(household_id)
+    _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -737,7 +703,7 @@ def put_hidden(
                 "DELETE FROM household_hidden_recipes WHERE household_id = ? AND recipe_id = ?",
                 (household_id, recipe_id),
             )
-    _invalidate_candidate_cache(household_id)
+    _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -761,7 +727,7 @@ def revert_recipe_edit(
             (household_id, recipe_id),
         )
         _rebuild_grocery_for_household(db, household_id)
-    _invalidate_candidate_cache(household_id)
+    _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -953,9 +919,9 @@ def patch_recipe(
                 _rebuild_grocery_for_household(db, household_id)
     # Invalidate only after commit, so a concurrent load can't re-cache pre-commit rows.
     if global_change:
-        _invalidate_all_candidate_caches()
+        _invalidate_all_pools()
     else:
-        _invalidate_candidate_cache(household_id)
+        _invalidate_pool(household_id)
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
     return _recipe_out(db, row, household_id)
 
@@ -976,7 +942,7 @@ def delete_recipe(
             "DELETE FROM recipes WHERE id = ? AND household_id = ?",
             (recipe_id, household_id),
         )
-    _invalidate_candidate_cache(household_id)
+    _invalidate_pool(household_id)
     return {"ok": True}
 
 
@@ -2557,69 +2523,79 @@ def list_templates(db: PgConnection = DbDep):
     return {"families": families}
 
 
-def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, int | None]:
-    """Diets, everything to keep out (allergies and avoids), and max cook time."""
+def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, list, int | None]:
+    """Diets and allergies (hard rules), avoids (soft), and max cook time."""
     filters = household_filters(db, household_id)
     time = filters.get("time")
     max_minutes = int(time) if str(time or "").isdigit() else None
-    return filters["diets"], [*filters["allergens"], *filters["avoids"]], max_minutes
+    return filters["diets"], filters["allergens"], filters["avoids"], max_minutes
 
 
-# Per-household TTL cache for candidate meals. Avoids re-loading recipes, tags, and
-# ingredients on every suggestion call. Invalidated by _invalidate_candidate_cache,
-# which callers must run after their transaction commits. Sync routes run on a thread
-# pool, so every access holds _CANDIDATE_LOCK. The generation counters stop a load that
-# began before an invalidation from caching the rows it read before that commit.
-_CANDIDATE_CACHE: dict[int, tuple[float, list[dict]]] = {}
-_CANDIDATE_TTL = 60.0  # seconds; short enough that catalog edits are visible quickly
-_CANDIDATE_LOCK = threading.Lock()
-_CANDIDATE_GEN: dict[int, int] = {}
-_CANDIDATE_GLOBAL_GEN = 0
+# Per-household recipe pools (app.domain.pool). Built once and kept until the household's
+# filters change (the key no longer matches) or its recipes or the catalog change
+# (_invalidate_pool, which callers must run after their transaction commits). Sync routes
+# run on a thread pool, so every access holds _POOL_LOCK. The generation counters stop a
+# build that began before an invalidation from storing rows read before that commit.
+_POOLS: OrderedDict[int, tuple[tuple, Pool]] = OrderedDict()
+_POOL_MAX = 1000  # households kept; the least recently used is dropped past this
+_POOL_LOCK = threading.Lock()
+_POOL_GEN: dict[int, int] = {}
+_POOL_GLOBAL_GEN = 0
 
 
-def _candidate_generation(household_id: int) -> tuple[int, int]:
-    return _CANDIDATE_GLOBAL_GEN, _CANDIDATE_GEN.get(household_id, 0)
+def _pool_generation(household_id: int) -> tuple[int, int]:
+    return _POOL_GLOBAL_GEN, _POOL_GEN.get(household_id, 0)
 
 
-def _store_candidates(household_id: int, gen: tuple[int, int], loaded_at: float, meals: list[dict]) -> None:
-    with _CANDIDATE_LOCK:
-        if _candidate_generation(household_id) != gen:
-            return  # invalidated mid-load; what we read may predate that commit
-        # Prune expired entries on every cache write so the dict doesn't grow unboundedly.
-        expired = [hid for hid, (ts, _) in _CANDIDATE_CACHE.items() if (loaded_at - ts) >= _CANDIDATE_TTL]
-        for hid in expired:
-            del _CANDIDATE_CACHE[hid]
-        _CANDIDATE_CACHE[household_id] = (loaded_at, meals)
+def _store_pool(household_id: int, gen: tuple[int, int], key: tuple, pool: Pool) -> None:
+    with _POOL_LOCK:
+        if _pool_generation(household_id) != gen:
+            return  # invalidated mid-build; what we read may predate that commit
+        _POOLS[household_id] = (key, pool)
+        _POOLS.move_to_end(household_id)
+        while len(_POOLS) > _POOL_MAX:
+            _POOLS.popitem(last=False)
 
 
-def _candidate_meals(db: PgConnection, household_id: int) -> tuple[list[dict], bool]:
-    """Candidate meals for a household, and whether they came from the cache."""
-    now = time.monotonic()
-    with _CANDIDATE_LOCK:
-        entry = _CANDIDATE_CACHE.get(household_id)
-        if entry and (now - entry[0]) < _CANDIDATE_TTL:
+def _household_pool(db: PgConnection, household_id: int, diets: list, allergens: list, avoids: list) -> tuple[Pool, bool]:
+    """This household's recipe pool, and whether it was already built."""
+    key = filters_key(diets, allergens, avoids)
+    with _POOL_LOCK:
+        entry = _POOLS.get(household_id)
+        if entry and entry[0] == key:
+            _POOLS.move_to_end(household_id)
             return entry[1], True
-        gen = _candidate_generation(household_id)
+        gen = _pool_generation(household_id)
+    pool = build_pool(
+        _load_household_recipes(db, household_id),
+        blocks_for(diets, allergens),
+        blocks_for([], avoids),
+        TASTE_SKIP,
+    )
+    _store_pool(household_id, gen, key, pool)
+    return pool, False
 
+
+def _load_household_recipes(db: PgConnection, household_id: int) -> list[dict]:
+    """Every recipe this household can see, with what build_pool needs to sort it."""
     public_sql, public_args = public_recipe_sql("r")
     rows = db.execute(
-        f"""SELECT r.id, r.name, r.slug, r.source_url,
+        f"""SELECT r.id, r.name, r.slug, r.source_url, r.household_id, r.provenance_json,
                    COALESCE(NULLIF(e.name, ''), r.name) AS display_name,
-                   COALESCE(e.cooking_minutes, r.cooking_minutes) AS minutes
+                   COALESCE(e.cooking_minutes, r.cooking_minutes) AS minutes,
+                   e.ingredients_json AS edited_ingredients,
+                   h.recipe_id IS NOT NULL AS hidden
             FROM recipes r
             LEFT JOIN household_recipe_edits e
               ON e.recipe_id = r.id AND e.household_id = ?
+            LEFT JOIN household_hidden_recipes h
+              ON h.recipe_id = r.id AND h.household_id = ?
             WHERE (r.household_id IS NULL OR r.household_id = ?)
-              AND {public_sql}
-              AND r.id NOT IN (
-                SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
-              )""",
-        (household_id, household_id, *public_args, household_id),
+              AND {public_sql}""",
+        (household_id, household_id, household_id, *public_args),
     ).fetchall()
-
     if not rows:
-        _store_candidates(household_id, gen, now, [])
-        return [], False
+        return []
 
     rid_list = [int(row["id"]) for row in rows]
     marks = ",".join("?" for _ in rid_list)
@@ -2642,57 +2618,62 @@ def _candidate_meals(db: PgConnection, household_id: int) -> tuple[list[dict], b
     ):
         ings_by.setdefault(int(item["recipe_id"]), []).append(item["canonical_name"])
 
-    meals = []
+    recipes = []
     for row in rows:
         rid = int(row["id"])
-        tags = tags_by.get(rid, set())
-        if tags & TASTE_SKIP and "full_meal" not in tags and "main_dish" not in tags:
-            continue
-        ingredients = ings_by.get(rid) or []
-        if not ingredients:
-            continue
         key = archive_id(row)
         keys = [str(rid)]
         if key not in keys:
             keys.append(key)
-        meals.append(
+        # Filters check this kitchen's edited ingredient list when it has one.
+        edited = [i.get("name") or "" for i in json.loads(row["edited_ingredients"] or "[]")]
+        recipes.append(
             {
                 "id": rid,
                 "keys": keys,
+                "slug": row["slug"],
                 "name": row["display_name"],
-                "ingredients": ingredients,
-                "tags": sorted(tags),
+                "ingredients": ings_by.get(rid) or [],
+                "filter_ingredients": [i for i in edited if i],
+                "tags": sorted(tags_by.get(rid, set())),
                 "cooking_minutes": row["minutes"],
+                "own": row["household_id"] == household_id,
+                "hidden": bool(row["hidden"]),
+                "variant_of": json.loads(row["provenance_json"] or "{}").get("variant_of") or None,
             }
         )
-
-    _store_candidates(household_id, gen, now, meals)
-    return meals, False
+    return recipes
 
 
-def _invalidate_candidate_cache(household_id: int) -> None:
-    """Clear one household's candidate cache after its own recipe data changes commit."""
-    with _CANDIDATE_LOCK:
-        _CANDIDATE_GEN[household_id] = _CANDIDATE_GEN.get(household_id, 0) + 1
-        _CANDIDATE_CACHE.pop(household_id, None)
+def _invalidate_pool(household_id: int) -> None:
+    """Drop one household's pool after its own recipe data changes commit."""
+    with _POOL_LOCK:
+        _POOL_GEN[household_id] = _POOL_GEN.get(household_id, 0) + 1
+        _POOLS.pop(household_id, None)
 
 
-def _invalidate_all_candidate_caches() -> None:
-    """Clear every household's candidate cache after a global catalog change commits."""
-    global _CANDIDATE_GLOBAL_GEN
-    with _CANDIDATE_LOCK:
-        _CANDIDATE_GLOBAL_GEN += 1
-        _CANDIDATE_GEN.clear()  # the global bump already outdates every in-flight load
-        _CANDIDATE_CACHE.clear()
+def _invalidate_all_pools() -> None:
+    """Drop every household's pool after a global catalog change commits."""
+    global _POOL_GLOBAL_GEN
+    with _POOL_LOCK:
+        _POOL_GLOBAL_GEN += 1
+        _POOL_GEN.clear()  # the global bump already outdates every in-flight build
+        _POOLS.clear()
+
+
+# Shown on a meal picked from the backup tier, when too few meals keep every preference.
+BACKUP_REASON = "backup pick: not enough meals fit all your preferences"
 
 
 def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
     kept = kept_recipe_ids or set()
     laps = Laps()
-    candidates, cache_hit = _candidate_meals(db, household_id)
-    recipes = [recipe for recipe in candidates if recipe["id"] not in kept]
-    laps.counts.update(want=want, candidates=len(recipes), cache="hit" if cache_hit else "miss")
-    laps.lap("load")
+    diets, allergens, avoids, max_minutes = _filter_prefs(db, household_id)
+    pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
+    recipes = [recipe for recipe in pool.meals if recipe["id"] not in kept]
+    backup = [recipe for recipe in pool.backup_meals if recipe["id"] not in kept]
+    laps.counts.update(want=want, candidates=len(recipes), backup=len(backup), pool="hit" if pool_hit else "built")
+    laps.lap("pool")
     selected_ingredients = []
     for rid in sorted(kept):
         row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
@@ -2717,8 +2698,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         aliases,
         swaps,
     )
-    diets, avoids, max_minutes = _filter_prefs(db, household_id)
-    laps.lap("pantry_prefs")
+    laps.lap("pantry")
     accounts = [
         str(r["id"])
         for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))
@@ -2744,18 +2724,17 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         {"verdict": "up", "recipe_ids": h.get("suggested_recipe_ids", [])}
         for h in history if h.get("decision") == "approve"]})
     laps.lap("history")
+    # Diets, allergies and avoids are already applied by the pool, so learn gets none of them.
     taste = learn(
         snapshots,
-        recipes,
-        diets=diets,
-        avoids=avoids,
+        recipes + backup,
         max_minutes=max_minutes,
         aliases=aliases,
         overrides=swaps,
         skip=ignored,
     )
     taste.suggestion_penalties = suggestion_penalties(history)
-    promote(taste, recipes, {rid for rid, up in rated.items() if up > 0})
+    promote(taste, recipes + backup, {rid for rid, up in rated.items() if up > 0})
     laps.lap("learn")
     favorites = _favorite_ids(db, household_id)
     to_try = _try_ids(db, household_id)
@@ -2784,6 +2763,31 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         plan_ings=plan_ings,
         laps=laps,
     )
+    if len(picked) < want:
+        # Not enough meals keep every preference. Fill the rest from the backup tier: avoided,
+        # hidden and downvoted meals and variants, still never breaking a diet or allergy.
+        # Every priority meal not picked by now was rejected as downvoted.
+        chosen = {row["id"] for row in picked}
+        fallback = backup + [recipe for recipe in recipes if recipe["id"] not in chosen]
+        extra = pick_meals(
+            fallback,
+            taste,
+            pantry,
+            favorites,
+            aliases,
+            want - len(picked),
+            swaps,
+            ignored,
+            to_try,
+            cooked,
+            plan_ings=norm_pantry(selected_ingredients + [i for row in picked for i in row["ingredients"]], aliases, swaps),
+            laps=laps,
+            allow_downvoted=True,
+        )
+        for row in extra:
+            row["reasons"] = [BACKUP_REASON, *row.get("reasons", [])]
+        picked += extra
+        laps.counts["backup_picked"] = len(extra)
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
     summary = reasons_summary([row.get("reasons", []) for row in picked])

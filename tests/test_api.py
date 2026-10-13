@@ -927,7 +927,7 @@ def test_real_suggestions_load_contextual_feedback(tmp_path, monkeypatch):
     import json
     import app.routes as routes
     monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
-    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: ([{"id": 1, "keys": ["1"], "name": "Chicken soup", "ingredients": ["chicken", "carrot"], "tags": [], "cooking_minutes": 20}], False))
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [{"id": 1, "keys": ["1"], "name": "Chicken soup", "ingredients": ["chicken", "carrot"], "tags": [], "cooking_minutes": 20}])
     with _client(tmp_path) as client:
         current = client.get("/api/plans/current").json()
         db = connect()
@@ -1208,10 +1208,10 @@ def test_settings_and_taste_lab_share_one_filter_system(tmp_path, monkeypatch):
     }]
     monkeypatch.setattr(taste_lab, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
     monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
-    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: ([
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
         {"id": 1, "keys": ["1"], "name": "Olive tapenade pasta", "ingredients": ["olives", "pasta"], "tags": [], "cooking_minutes": 20},
         {"id": 2, "keys": ["2"], "name": "Sesame chicken", "ingredients": ["chicken", "sesame seeds"], "tags": [], "cooking_minutes": 20},
-    ], False))
+    ])
     with _client(tmp_path) as client:
         signup = client.post("/api/auth/signup", json={
             "email": "one@example.com", "password": "correct horse battery staple", "household_name": "One"})
@@ -1392,10 +1392,11 @@ def test_fill_plan_uses_edited_ingredients_and_excludes_kept_recipes(tmp_path, m
         active = client.get('/api/plans/current').json()
         client.put(f"/api/plans/{active['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 6}]})
         client.patch('/api/recipes/1', json={'ingredients': [{'name': 'bell pepper', 'quantity': '2'}]})
-        monkeypatch.setattr(routes, '_candidate_meals', lambda *args: ([
+        monkeypatch.setattr(routes, '_load_household_recipes', lambda *args: [
             {'id': 1, 'name': 'Soup', 'ingredients': ['onion'], 'tags': []},
             {'id': 2, 'name': 'Pepper bowl', 'ingredients': ['bell pepper'], 'tags': []},
-        ], False))
+        ])
+        routes._invalidate_all_pools()
         captured = {}
         def pick(recipes, *args, **kwargs):
             captured['recipes'] = recipes
@@ -1442,23 +1443,25 @@ def test_catalog_tags_require_admin(tmp_path):
         assert client.patch('/api/recipes/1', json={'tags': ['changed']}).status_code == 403
 
 
-def test_candidate_cache_drops_loads_that_race_an_invalidation():
+def test_pool_drops_builds_that_race_an_invalidation():
     import app.routes as routes
-    routes._invalidate_all_candidate_caches()
-    gen = routes._candidate_generation(7)
-    routes._invalidate_candidate_cache(7)  # a write commits while the load is in flight
-    routes._store_candidates(7, gen, 0.0, [{"id": 1}])
-    assert 7 not in routes._CANDIDATE_CACHE
+    from app.domain.pool import build_pool
+    pool = build_pool([], [], [], set())
+    routes._invalidate_all_pools()
+    gen = routes._pool_generation(7)
+    routes._invalidate_pool(7)  # a write commits while the build is in flight
+    routes._store_pool(7, gen, (), pool)
+    assert 7 not in routes._POOLS
 
-    gen = routes._candidate_generation(8)
-    routes._invalidate_all_candidate_caches()  # a catalog-wide change also outdates it
-    routes._store_candidates(8, gen, 0.0, [{"id": 1}])
-    assert 8 not in routes._CANDIDATE_CACHE
+    gen = routes._pool_generation(8)
+    routes._invalidate_all_pools()  # a catalog-wide change also outdates it
+    routes._store_pool(8, gen, (), pool)
+    assert 8 not in routes._POOLS
 
-    gen = routes._candidate_generation(9)
-    routes._store_candidates(9, gen, 0.0, [{"id": 1}])
-    assert routes._CANDIDATE_CACHE[9][1] == [{"id": 1}]
-    routes._invalidate_all_candidate_caches()
+    gen = routes._pool_generation(9)
+    routes._store_pool(9, gen, (), pool)
+    assert routes._POOLS[9] == ((), pool)
+    routes._invalidate_all_pools()
 
 
 def test_api_responses_report_server_timing(tmp_path):
@@ -1468,5 +1471,64 @@ def test_api_responses_report_server_timing(tmp_path):
         timing = response.headers["Server-Timing"]
         assert timing.startswith("app;dur=")
         assert "queries" in timing.split("db;dur=", 1)[1].split(",", 1)[0]
-        for phase in ("load", "learn", "fit", "filter", "greedy", "notes"):
+        for phase in ("pool", "learn", "fit", "filter", "greedy", "notes"):
             assert f"suggest.{phase};dur=" in timing
+
+
+def test_pool_is_built_once_and_rebuilt_only_when_filters_change(tmp_path, monkeypatch):
+    import app.routes as routes
+    builds = []
+    load = routes._load_household_recipes
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: builds.append(1) or load(*args))
+    with _client(tmp_path) as client:
+        for _ in range(3):
+            assert client.get("/api/suggestions/recipes").status_code == 200
+            assert client.get("/api/recipes").status_code == 200
+        assert len(builds) == 1
+        client.put("/api/household", json={"prefs": {"name_only": True}})
+        client.get("/api/suggestions/recipes")
+        assert len(builds) == 1  # saving other settings doesn't touch the hard filters
+        client.put("/api/household", json={"prefs": {"filters": {"allergens": ["sesame"]}}})
+        client.get("/api/suggestions/recipes")
+        assert len(builds) == 2
+
+
+def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Olive pasta", "ingredients": ["olives", "pasta"], "tags": [], "cooking_minutes": 20},
+        {"id": 2, "keys": ["2"], "name": "Bean chili", "ingredients": ["beans", "tomato"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        db = connect()
+        try:
+            one, _, _ = routes._suggest_meals(db, 1, 1)
+            two, _, reasons = routes._suggest_meals(db, 1, 2)
+        finally:
+            db.close()
+        assert [m["id"] for m in one] == [2]
+        assert [m["id"] for m in two] == [2, 1]
+        assert reasons["1"][0] == routes.BACKUP_REASON
+
+
+def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
+    import app.routes as routes
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        recipe = {"slug": "old-salad", "name": "Old Salad", "servings": 4, "photo_path": "food/old.jpg",
+                  "instructions_copied_from_third_party": False, "ingredients": [{"name": "lettuce"}]}
+        db = connect()
+        upsert_catalog_recipe(db, recipe, {})
+        db.commit()
+        rid = db.execute("SELECT id FROM recipes WHERE slug = 'old-salad'").fetchone()["id"]
+        routes._invalidate_all_pools()
+        assert "Old Salad" in {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
+
+        upsert_catalog_recipe(db, {**recipe, "retired": True}, {})
+        db.commit()
+        db.close()
+        routes._invalidate_all_pools()
+        assert "Old Salad" not in {r["name"] for r in client.get("/api/recipes?q=old").json()["recipes"]}
+        assert client.get(f"/api/recipes/{rid}").status_code == 200
