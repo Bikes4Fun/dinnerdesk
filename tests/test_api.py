@@ -1532,3 +1532,33 @@ def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
         routes._invalidate_all_pools()
         assert "Old Salad" not in {r["name"] for r in client.get("/api/recipes?q=old").json()["recipes"]}
         assert client.get(f"/api/recipes/{rid}").status_code == 200
+
+
+def test_test_households_are_left_out_of_cross_household_learning(tmp_path, monkeypatch, capsys):
+    import sys
+    from app.insights import is_test_household, real_households_sql
+    with _client(tmp_path) as client:
+        signup = client.post("/api/auth/signup", json={
+            "email": "Tester@Example.com", "password": "correct horse battery staple", "household_name": "Tester"})
+        assert signup.status_code == 200
+        db = connect()
+        hid = db.execute("SELECT household_id FROM users WHERE email = 'tester@example.com'").fetchone()["household_id"]
+        assert not is_test_household(db, hid)
+
+        import scripts.set_test_household as script
+        monkeypatch.setattr(sys, "argv", ["set_test_household.py", "TESTER@example.com"])
+        script.main()
+        assert f"Household {hid} (Tester, 1 member(s)) is now a test household." in capsys.readouterr().out
+        assert is_test_household(db, hid)
+        real = {r["id"] for r in db.execute(f"SELECT id FROM households WHERE {real_households_sql('id')}")}
+        assert hid not in real and real  # other households still count
+
+        # The household still works normally, and the flag can't be set from the app.
+        assert client.get("/api/suggestions/recipes").status_code == 200
+        client.put("/api/household", json={"prefs": {"is_test": 0}, "name": "Tester"})
+        assert is_test_household(db, hid)
+
+        monkeypatch.setattr(sys, "argv", ["set_test_household.py", "tester@example.com", "--real"])
+        script.main()
+        assert not is_test_household(db, hid)
+        db.close()
