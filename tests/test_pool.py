@@ -58,3 +58,12 @@ def test_own_recipes_always_keep_the_hard_rules():
 def test_filters_key_ignores_order_and_case():
     assert filters_key(["Vegan"], ["soy", "egg"], []) == filters_key(["vegan"], ["egg", "soy"], [])
     assert filters_key(["vegan"], [], []) != filters_key(["vegan"], [], ["tofu"])
+
+
+def test_diet_tags_never_override_the_ingredient_checks():
+    mislabeled = [recipe(1, "Cheesy Bowl", ["cheddar cheese", "rice"], tags=["vegan", "dairy_free", "gluten_free"]),
+                  recipe(2, "Bread Bowl", ["sourdough bread", "soup"], tags=["gluten_free", "grain_free"])]
+    vegan = build_pool(mislabeled, blocks_for(["vegan"], []), [], set())
+    assert 1 not in vegan.allowed
+    gluten = build_pool(mislabeled, blocks_for([], ["gluten"]), [], set())
+    assert 2 not in gluten.allowed
