@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
 import logging
 import threading
@@ -46,6 +47,7 @@ from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
     PrepMissingPut,
+    PlanReportCreate,
     PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
@@ -2206,6 +2208,7 @@ _EXPORT_TABLES = [
     ("prep_feedback", "prep_step_feedback"), ("pantry", "pantry_items"),
     ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
     ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
+    ("plan_reports", "plan_reports"),
 ]
 _EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
 
@@ -2345,6 +2348,35 @@ def get_prep_feedback(_admin=AdminDep, db: PgConnection = DbDep):
         tally = by_category.setdefault(row["category"] or "(none)", {"up": 0, "down": 0})
         tally["up" if row["rating"] > 0 else "down"] += 1
     return {"votes": rows, "by_category": by_category}
+
+
+@router.post("/plans/{plan_id}/report")
+def report_plan(plan_id: int, body: PlanReportCreate, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a bad suggestion. Saves the note with the plan as it is now and its suggestion
+    context (filters, pantry, taste, each meal's score and reasons when it was suggested)."""
+    if not db.execute("SELECT id FROM plans WHERE id = ? AND household_id = ?", (plan_id, household_id)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "plan"})
+    snapshot = {"plan": _plan_out(db, plan_id, household_id), "filters_when_reported": household_filters(db, household_id)}
+    with transaction(db):
+        cur = db.execute(
+            "INSERT INTO plan_reports (household_id, plan_id, note, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?)",
+            (household_id, plan_id, body.note.strip(), json.dumps(snapshot), now()),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.get("/dev/plan-reports")
+def get_plan_reports(_admin=AdminDep, db: PgConnection = DbDep):
+    """Every meal plan report across households, newest first, for deciding what to fix."""
+    return {"reports": [
+        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
+         "plan_id": r["plan_id"], "note": r["note"], "created_at": r["created_at"],
+         "snapshot": json.loads(r["snapshot_json"] or "{}")}
+        for r in db.execute(
+            """SELECT p.*, h.name AS household_name FROM plan_reports p
+               LEFT JOIN households h ON h.id = p.household_id ORDER BY p.created_at DESC"""
+        )
+    ]}
 
 
 @router.get("/dev/ingredient-review")
@@ -2665,6 +2697,12 @@ def _invalidate_all_pools() -> None:
 BACKUP_REASON = "backup pick: not enough meals fit all your preferences"
 
 
+# What the latest _suggest_meals call in this request worked with, so the plan it becomes can
+# keep the why: the filters, pantry and taste then, and each meal's score and reasons. A plan
+# report (#141 follow-up) shows it next to the cook's complaint.
+_SUGGEST_CONTEXT: contextvars.ContextVar[dict | None] = contextvars.ContextVar("suggest_context", default=None)
+
+
 def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
     kept = kept_recipe_ids or set()
     laps = Laps()
@@ -2797,6 +2835,25 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     laps.counts["picked"] = len(picked)
     laps.publish("suggest")
     _log.info("suggest hh=%d %s", household_id, laps.fmt())
+    _SUGGEST_CONTEXT.set({
+        "at": now(),
+        "filters": {"diets": diets, "allergens": allergens, "avoids": avoids, "max_minutes": max_minutes},
+        "pantry": sorted(pantry),
+        "never_shop": sorted(ignored),
+        "kept_recipe_ids": sorted(kept),
+        "pool": {"priority": len(recipes), "backup": len(backup), "built_now": not pool_hit},
+        "taste": {
+            "liked": len(taste.liked), "passed": len(taste.passed), "favorites": len(favorites),
+            "to_try": len(to_try), "cooked": len(cooked),
+            "thumbs_up": sum(1 for up in rated.values() if up > 0), "thumbs_down": sum(1 for up in rated.values() if up < 0),
+        },
+        "steps_ms": {name: round(ms, 1) for name, ms in laps.ms.items()},
+        "counts": dict(laps.counts),
+        # Ranked order, so a report can show where each picked meal stood.
+        "ranked": [{"id": row["id"], "name": row.get("name"), "score": row.get("score"),
+                    "reasons": row.get("reasons", []), "backup": BACKUP_REASON in (row.get("reasons") or [])}
+                   for row in picked],
+    })
     return picked, note, reasons
 
 
@@ -2808,6 +2865,19 @@ def _proposal_note(reasons: dict, recipe_ids: list[int]) -> str:
     return f"{note} {summary}." if summary else note
 
 
+def _plan_context(context: dict | None, picked: list[dict]) -> dict | None:
+    """The suggestion context, keeping only the meals that made the plan, with their rank."""
+    if not context:
+        return None
+    ranks = {row["id"]: i for i, row in enumerate(context["ranked"], start=1)}
+    meals = {row["id"]: row for row in context["ranked"]}
+    return {
+        **{k: v for k, v in context.items() if k != "ranked"},
+        "ranked_out_of": len(context["ranked"]),
+        "meals": [{**meals.get(m["id"], {"id": m["id"]}), "rank": ranks.get(m["id"])} for m in picked],
+    }
+
+
 @router.post("/plans")
 def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = HhDep):
     source_id = _ensure_plan(db, household_id) if body.keep_current else body.source_plan_id
@@ -2815,8 +2885,10 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
     picked: list[dict] = []
     note = None
     reasons = None
+    context = None
     if body.meal_count and not body.draft and (not source or body.keep_current):
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
+        _SUGGEST_CONTEXT.set(None)
         if body.keep_current:
             candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count, kept)
         else:
@@ -2830,6 +2902,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
         # Ranked from 400 candidates; keep reasons and the note to the meals actually picked.
         reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
         note = _proposal_note(reasons, [m["id"] for m in picked])
+        context = _plan_context(_SUGGEST_CONTEXT.get(), picked)
         if not picked:
             raise HTTPException(409, "No matching suggestions. Loosen Settings → Filters or choose meals yourself.")
     with transaction(db):
@@ -2852,7 +2925,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
                     (pid, meal["id"], servings, sort),
                 )
         if picked:
-            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": []}), pid))
+            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": [], "context": context}), pid))
         else:
             _rebuild_grocery(db, pid, household_id)
     out = _plan_out(db, pid, household_id)

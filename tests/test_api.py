@@ -1562,3 +1562,33 @@ def test_test_households_are_left_out_of_cross_household_learning(tmp_path, monk
         script.main()
         assert not is_test_household(db, hid)
         db.close()
+
+
+def test_report_a_suggestion_keeps_why_it_was_suggested(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Soup", "ingredients": ["onion", "carrot"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"allergens": ["sesame"], "avoids": ["olives"]}}})
+        made = client.post("/api/plans", json={"meal_count": 1})
+        assert made.status_code == 200, made.text
+        proposal = made.json()
+        context = proposal["context"]
+        assert context["filters"]["allergens"] == ["sesame"] and context["filters"]["avoids"] == ["olives"]
+        assert context["meals"] and context["meals"][0]["id"] == proposal["suggested_recipe_ids"][0]
+        assert context["meals"][0]["rank"] >= 1 and context["ranked_out_of"] >= 1
+        assert {"priority", "backup"} <= set(context["pool"]) and "liked" in context["taste"]
+
+        sent = client.post(f"/api/plans/{proposal['id']}/report", json={"note": "  Too much chicken  "})
+        assert sent.status_code == 200
+        assert client.post(f"/api/plans/{proposal['id']}/report", json={"note": "x" * 1001}).status_code == 422
+        assert client.post("/api/plans/999999/report", json={"note": "not mine"}).status_code == 404
+
+        reports = client.get("/api/dev/plan-reports").json()["reports"]
+        assert len(reports) == 1 and reports[0]["note"] == "Too much chicken"
+        snap = reports[0]["snapshot"]
+        assert snap["plan"]["id"] == proposal["id"] and snap["plan"]["context"]["filters"]["avoids"] == ["olives"]
+        assert snap["filters_when_reported"]["allergens"] == ["sesame"]
+        assert client.get("/api/household/export").json()["plan_reports"][0]["note"] == "Too much chicken"

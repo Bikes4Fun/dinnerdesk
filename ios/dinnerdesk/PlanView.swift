@@ -697,6 +697,9 @@ struct SuggestedPlanReview: View {
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var swapping: PlanSlot?
   @State private var busy = false
+  @State private var reporting = false
+  @State private var reportNote = ""
+  @State private var reportedId: Int?
   var body: some View {
     NavigationStack {
       GeometryReader { geometry in
@@ -759,14 +762,63 @@ struct SuggestedPlanReview: View {
                 .font(Theme.action).foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
+            if let id = store.proposal?.id, reportedId == id {
+              Text("Thanks. We'll look at why these were suggested.")
+                .font(Theme.subtitle).foregroundStyle(Theme.muted)
+                .frame(maxWidth: .infinity)
+            } else if store.proposal != nil {
+              Button { reportNote = ""; reporting = true } label: {
+                Label("Report this suggestion", systemImage: "flag")
+                  .font(Theme.action).foregroundStyle(Theme.muted)
+                  .frame(maxWidth: .infinity, minHeight: 44)
+              }
+              .buttonStyle(.plain)
+            }
           }.padding().disabled(busy || store.generatingProposal)
         }
       }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }
         .sheet(item: $swapping) { slot in ProposalSwapPicker(slot: slot) }
+        .sheet(isPresented: $reporting) { reportSheet }
         .onDisappear { store.proposalError = nil }
     }.tint(Theme.accent)
   }
+  /// The cook says what's wrong; the server keeps it with why these meals were suggested.
+  private var reportSheet: some View {
+    NavigationStack {
+      VStack(alignment: .leading, spacing: 12) {
+        Text("What's wrong with this plan?").font(Theme.action).foregroundStyle(Theme.ink)
+        TextField("e.g. Three chicken dinners in a row, and none of us eat olives", text: $reportNote, axis: .vertical)
+          .font(Theme.subtitle)
+          .lineLimit(3...8)
+          .padding(12)
+          .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+          .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+        Button {
+          let id = store.proposal?.id
+          run {
+            if await store.reportProposal(reportNote.trimmingCharacters(in: .whitespacesAndNewlines)) {
+              reportedId = id
+              reporting = false
+            }
+          }
+        } label: {
+          Text(busy ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        Spacer()
+      }
+      .padding()
+      .background(Theme.bg)
+      .navigationTitle("Report this suggestion").navigationBarTitleDisplayMode(.inline)
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { reporting = false } } }
+    }
+    .presentationDetents([.medium, .large])
+  }
+
   /// Two equal, full-width buttons: the main choice filled, the other outlined.
   @ViewBuilder private var reviewActions: some View {
     if store.proposal?.status == "suggested" {

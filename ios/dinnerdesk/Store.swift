@@ -927,6 +927,18 @@ extension Store {
     } catch { fail(error) }
   }
 
+  /// "Report this suggestion": the cook's note, saved with why the plan was suggested. True when sent.
+  func reportProposal(_ note: String) async -> Bool {
+    guard let proposal else { return false }
+    do {
+      let _: Ok = try await API.send("plans/\(proposal.id)/report", method: "POST", body: ["note": note])
+      return true
+    } catch {
+      proposalError = error.localizedDescription
+      return false
+    }
+  }
+
   func reviewProposal(_ decision: String) async {
     guard let proposal else { return }
     proposalError = nil

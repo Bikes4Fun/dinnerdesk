@@ -72,6 +72,7 @@ export const api = {
   suggestionCapabilities: () => req("/api/suggestions/capabilities"),
   pendingSuggestion: () => req("/api/suggestions/current"),
   decideSuggestion: (id, decision) => req(`/api/plans/${id}/decision/${decision}`, { method: "POST" }),
+  reportPlan: (id, note) => req(`/api/plans/${id}/report`, { method: "POST", body: JSON.stringify({ note }) }),
   resizeSuggestion: (id, count) => req(`/api/plans/${id}/resize`, { method: "POST", body: JSON.stringify({ meal_count: count }) }),
   swapOptions: (id, slot, q = "") => req(`/api/plans/${id}/swap-options/${slot}?${new URLSearchParams({ q })}`),
   swapSuggestion: (id, slot, recipeId) => req(`/api/plans/${id}/swap/${slot}`, { method: "POST", body: JSON.stringify(recipeId ? { recipe_id: recipeId } : {}) }),
