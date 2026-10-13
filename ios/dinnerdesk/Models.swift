@@ -284,6 +284,24 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   var name: String { title }
 }
 
+/// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
+enum RecipeReportReason: String, CaseIterable, Identifiable, Sendable {
+  case ingredients, steps, diet, photo, duplicate
+  case turnedOut = "turned_out", other
+  var id: String { rawValue }
+  var label: String {
+    switch self {
+    case .ingredients: return "Ingredients are wrong or missing"
+    case .steps: return "Steps are wrong or confusing"
+    case .diet: return "Shows up despite my diet or allergies"
+    case .photo: return "Photo doesn't match"
+    case .duplicate: return "Duplicate of another recipe"
+    case .turnedOut: return "Didn't turn out well"
+    case .other: return "Something else"
+    }
+  }
+}
+
 /// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.
 enum PrepReason: String, CaseIterable, Identifiable, Sendable {
   case dayOf = "day_of", keptBadly = "kept_badly", tooSmall = "too_small"

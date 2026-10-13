@@ -177,6 +177,16 @@ class PrepTaskFeedbackPut(BaseModel):
     note: str = Field(default="", max_length=500)
 
 
+# Why a cook reports a recipe. Same ids in web/src/pages/Recipe.jsx and ios RecipeReportReason.
+RECIPE_REPORT_REASONS = ("ingredients", "steps", "diet", "photo", "duplicate", "turned_out", "other")
+
+
+class RecipeReportCreate(BaseModel):
+    """A cook reporting a problem with a recipe, with a reason and their own words."""
+    reason: str = Field(pattern="^(ingredients|steps|diet|photo|duplicate|turned_out|other)$")
+    note: str = Field(default="", max_length=1000)
+
+
 class PlanReportCreate(BaseModel):
     """A cook reporting a bad meal plan suggestion, in their own words."""
     note: str = Field(default="", max_length=1000)

@@ -454,6 +454,11 @@ struct RecipeDetailView: View {
   @State private var tab: RecipePageTab = .overview
   @State private var nameExpanded = false
   @State private var draftServings: Int?
+  @State private var reporting = false
+  @State private var reportReason: RecipeReportReason?
+  @State private var reportNote = ""
+  @State private var reportSending = false
+  @State private var reported = false
   /// Tagging steps as Prep edits the recipe, which only Dinnerdesk admins may do.
   private var admin: Bool { store.isAdmin }
 
@@ -601,9 +606,18 @@ struct RecipeDetailView: View {
           MenuSheetItem(title: recipe.hidden ? "Unhide recipe" : "Hide recipe", systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
             Task { await hide(on: !recipe.hidden) }
           }
-        ]
+        ] + (recipe.catalog ? [
+          MenuSheetItem(title: reported ? "Reported. Thanks" : "Report a problem", systemImage: "flag") {
+            guard !reported else { return }
+            reportReason = nil
+            reportNote = ""
+            // Let the menu finish closing before the report sheet opens.
+            Task { try? await Task.sleep(for: .milliseconds(350)); reporting = true }
+          }
+        ] : [])
       } else { [] }
     }
+    .sheet(isPresented: $reporting) { reportSheet }
     .task {
       // Show the saved recipe at once; ask the server only when there is none or it's old.
       let key = ResponseCache.key("recipes/\(id)")
@@ -620,6 +634,58 @@ struct RecipeDetailView: View {
       await store.loadGroceryPrefs(onlyIfStale: true)
     }
     .task { await store.loadAdmin() }
+  }
+
+  /// Why the recipe is wrong, in the cook's words. The server keeps it with the recipe as they saw it.
+  private var reportSheet: some View {
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 12) {
+          Text("What's wrong?").font(Theme.action).foregroundStyle(Theme.ink)
+          ForEach(RecipeReportReason.allCases) { reason in
+            Button { reportReason = reason } label: {
+              HStack(spacing: 10) {
+                Image(systemName: reportReason == reason ? "largecircle.fill.circle" : "circle")
+                  .foregroundStyle(reportReason == reason ? Theme.accent : Theme.muted)
+                Text(reason.label).font(Theme.body).foregroundStyle(Theme.ink)
+                Spacer()
+              }
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(reportReason == reason ? .isSelected : [])
+          }
+          Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
+          TextField("e.g. Step 4 says to add the cream but it's not in the ingredients", text: $reportNote, axis: .vertical)
+            .font(Theme.subtitle)
+            .lineLimit(3...8)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+          Button {
+            guard let reason = reportReason else { return }
+            reportSending = true
+            Task {
+              let sent = await store.reportRecipe(id, reason: reason.rawValue,
+                                                  note: reportNote.trimmingCharacters(in: .whitespacesAndNewlines))
+              reportSending = false
+              if sent { reported = true; reporting = false; planNotice = "Thanks. We'll take a look." }
+            }
+          } label: {
+            Text(reportSending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+              .frame(maxWidth: .infinity, minHeight: 50)
+              .background(reportReason == nil ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+          }
+          .buttonStyle(.plain)
+          .disabled(reportReason == nil || reportSending)
+        }
+        .padding()
+      }
+      .background(Theme.bg)
+      .navigationTitle("Report a problem").navigationBarTitleDisplayMode(.inline)
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { reporting = false } } }
+    }
   }
 
   private func ingredientLine(_ ing: IngredientLine, recipe: RecipeDetail) -> some View {

@@ -66,13 +66,23 @@ def blocks_for(diets: list[str] | None, avoids: list[str] | None) -> list[list[s
     return groups
 
 
+def _blob(name: str, ingredients: list[str]) -> str:
+    name, *items = [GLUTEN_FREE_LABEL.sub(" ", part) for part in [name or "", *(i for i in ingredients if i)]]
+    return _clean(recipe_text(name, items))
+
+
 def allowed(name: str, ingredients: list[str], groups: list[list[str]]) -> bool:
     """True when no blocked word appears in the recipe name or its ingredients."""
     if not groups:
         return True
-    name, *items = [GLUTEN_FREE_LABEL.sub(" ", part) for part in [name or "", *(i for i in ingredients if i)]]
-    blob = _clean(recipe_text(name, items))
+    blob = _blob(name, ingredients)
     return not any(hits(blob, group) for group in groups)
+
+
+def matched_words(name: str, ingredients: list[str], groups: list[list[str]]) -> list[str]:
+    """The blocked words a recipe actually contains, read the same way allowed() reads it."""
+    blob = _blob(name, ingredients)
+    return sorted({word.strip() for group in groups for word in group if hits(blob, [word])})
 
 
 # The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these

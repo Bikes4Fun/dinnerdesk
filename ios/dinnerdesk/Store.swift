@@ -931,6 +931,17 @@ extension Store {
     } catch { fail(error) }
   }
 
+  /// "Report a problem with this recipe": why, and the cook's note. True when sent.
+  func reportRecipe(_ recipeId: Int, reason: String, note: String) async -> Bool {
+    do {
+      let _: Ok = try await API.send("recipes/\(recipeId)/report", method: "POST", body: ["reason": reason, "note": note])
+      return true
+    } catch {
+      fail(error)
+      return false
+    }
+  }
+
   /// "Report this suggestion": the cook's note, saved with why the plan was suggested. True when sent.
   func reportProposal(_ note: String) async -> Bool {
     guard let proposal else { return false }
