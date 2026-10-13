@@ -31,6 +31,8 @@
     ["sesame", "Sesame"],
     ["fish", "Fish"],
     ["shellfish", "Shellfish"],
+    ["poultry", "Poultry"],
+    ["red-meat", "Red meat"],
   ];
   // Same lists as Settings → Filters (app/domain/diet_filter.py; a test keeps them equal).
   const DIETS = [
@@ -109,6 +111,10 @@
     sesame: ["sesame", "tahini"],
     fish: ["salmon", "tuna", "cod", "halibut", "tilapia", "trout", "anchovy", "fish"],
     shellfish: ["shrimp", "prawn", "crab", "lobster", "clam", "mussel", "oyster", "scallop"],
+    poultry: ["chicken", "turkey", "duck", "goose", "quail", "pheasant", "cornish hen", "poultry"],
+    "red-meat": ["beef", "steak", "pork", "lamb", "veal", "venison", "bison", "goat meat", "bacon", " ham", "prosciutto",
+      "pancetta", "sausage", "chorizo", "pepperoni", "salami", "hot dog", "bratwurst", "kielbasa",
+      "andouille", "meatball", "ground meat", "lard", "gelatin"],
     cilantro: ["cilantro", "coriander"],
     mushrooms: ["mushroom"],
     onions: ["onion"],

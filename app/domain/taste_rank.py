@@ -44,6 +44,12 @@ KEYS = {
     "sesame": ["sesame", "tahini"],
     "fish": ["salmon", "tuna", "cod", "halibut", "tilapia", "trout", "anchovy", "fish"],
     "shellfish": ["shrimp", "prawn", "crab", "lobster", "clam", "mussel", "oyster", "scallop"],
+    "poultry": ["chicken", "turkey", "duck", "goose", "quail", "pheasant", "cornish hen", "poultry"],
+    # " ham" so graham crackers and champagne vinegar pass. Gelatin and lard for alpha-gal.
+    # Turkey bacon and chicken sausage are blocked too: safer for an allergy than guessing.
+    "red-meat": ["beef", "steak", "pork", "lamb", "veal", "venison", "bison", "goat meat", "bacon", " ham", "prosciutto",
+              "pancetta", "sausage", "chorizo", "pepperoni", "salami", "hot dog", "bratwurst", "kielbasa",
+              "andouille", "meatball", "ground meat", "lard", "gelatin"],
     "cilantro": ["cilantro", "coriander"],
     "mushrooms": ["mushroom"],
     "onions": ["onion"],
