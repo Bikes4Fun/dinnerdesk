@@ -335,6 +335,10 @@ builds → shop → prep → cook.
   store/aisle per item (`grocery_places`), meal 👍/👎 (`household_meal_ratings`), prep step
   votes (`prep_step_feedback`), prep check-offs, and Taste Lab sessions, people, and events.
 - Ingredient photos live outside Git (`GROCERY_PHOTO_DIR`); the repo holds only the name mapping.
+- **Test households** (`households.is_test`, set with `scripts/set_test_household.py`) use the
+  app like anyone else, and their requests count in performance logs and stats. Their food data
+  (recipes, ingredients, shopping, plans, 👍/👎, prep feedback, Taste Lab) is not real eating
+  habits, so anything that learns across households must use `app/insights.py` to leave them out.
 - **iPhone keeps a copy on the device** (`ios/dinnerdesk/ResponseCache.swift`). The plan,
   recipe list, grocery list, prep, household prefs, full recipes for planned meals, favorites
   and To try, and all photos are saved after loading. Screens show the saved copy at once and
