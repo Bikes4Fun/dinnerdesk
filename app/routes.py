@@ -38,7 +38,7 @@ from app.domain.ingredient_review import (
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots, step_key, step_sentences
-from app.domain.diet_filter import blocks_for, merge_filters
+from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
 from app.domain.suggest import norm_pantry
@@ -48,6 +48,7 @@ from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
     PrepMissingPut,
     PlanReportCreate,
+    RecipeReportCreate,
     PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
@@ -2211,7 +2212,7 @@ _EXPORT_TABLES = [
     ("prep_feedback", "prep_step_feedback"), ("pantry", "pantry_items"),
     ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
     ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
-    ("plan_reports", "plan_reports"),
+    ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
 ]
 _EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
 
@@ -2366,6 +2367,48 @@ def report_plan(plan_id: int, body: PlanReportCreate, db: PgConnection = DbDep, 
             (household_id, plan_id, body.note.strip(), json.dumps(snapshot), now()),
         )
     return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.post("/recipes/{recipe_id}/report")
+def report_recipe(recipe_id: int, body: RecipeReportCreate, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a problem with a recipe. Saves the recipe as this household sees it now (with its
+    edits) and how it stands against their filters, so a diet or allergy report shows whether
+    the filter let it through or the recipe is mislabeled."""
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if not row or not _recipe_visible(row, household_id):
+        raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    shown = _recipe_out(db, row, household_id)
+    diets, allergens, avoids, _ = _filter_prefs(db, household_id)
+    name, names = shown.get("name") or "", [i.get("name") or "" for i in shown.get("ingredients") or []]
+    hard, soft = blocks_for(diets, allergens), blocks_for([], avoids)
+    snapshot = {
+        "recipe": shown,
+        "filters": {"diets": diets, "allergens": allergens, "avoids": avoids},
+        "passes_diets_and_allergies": diet_allowed(name, names, hard),
+        "matched_diet_or_allergy_words": matched_words(name, names, hard),
+        "matched_avoid_words": matched_words(name, names, soft),
+    }
+    with transaction(db):
+        cur = db.execute(
+            "INSERT INTO recipe_reports (household_id, recipe_id, reason, note, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (household_id, recipe_id, body.reason, body.note.strip(), json.dumps(snapshot), now()),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.get("/dev/recipe-reports")
+def get_recipe_reports(_admin=AdminDep, db: PgConnection = DbDep):
+    """Every recipe report across households, newest first, for deciding what to fix."""
+    return {"reports": [
+        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
+         "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"], "reason": r["reason"], "note": r["note"],
+         "created_at": r["created_at"], "snapshot": json.loads(r["snapshot_json"] or "{}")}
+        for r in db.execute(
+            """SELECT p.*, h.name AS household_name, rc.name AS recipe_name FROM recipe_reports p
+               LEFT JOIN households h ON h.id = p.household_id
+               LEFT JOIN recipes rc ON rc.id = p.recipe_id ORDER BY p.created_at DESC"""
+        )
+    ]}
 
 
 @router.get("/dev/plan-reports")

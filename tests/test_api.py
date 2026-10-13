@@ -1601,3 +1601,28 @@ def test_report_a_suggestion_keeps_why_it_was_suggested(tmp_path, monkeypatch):
         assert snap["plan"]["id"] == proposal["id"] and snap["plan"]["context"]["filters"]["avoids"] == ["olives"]
         assert snap["filters_when_reported"]["allergens"] == ["sesame"]
         assert client.get("/api/household/export").json()["plan_reports"][0]["note"] == "Too much chicken"
+
+
+def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
+    with _client(tmp_path) as client:
+        # A household edit adds the avoided ingredient; the report sees the recipe as edited.
+        client.patch("/api/recipes/1", json={"ingredients": [{"name": "kalamata olives", "quantity": "1 cup"}]})
+        recipe = client.get("/api/recipes/1").json()
+        word = "olives"
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": [word]}}})
+        sent = client.post("/api/recipes/1/report", json={"reason": "diet", "note": "  Has something we avoid  "})
+        assert sent.status_code == 200
+        assert client.post("/api/recipes/1/report", json={"reason": "nope"}).status_code == 422
+        assert client.post("/api/recipes/1/report", json={"reason": "other", "note": "x" * 1001}).status_code == 422
+        assert client.post("/api/recipes/999999/report", json={"reason": "other"}).status_code == 404
+
+        reports = client.get("/api/dev/recipe-reports").json()["reports"]
+        assert len(reports) == 1
+        r = reports[0]
+        assert (r["recipe_id"], r["reason"], r["note"]) == (1, "diet", "Has something we avoid")
+        snap = r["snapshot"]
+        assert snap["recipe"]["name"] == recipe["name"] and snap["filters"]["avoids"] == [word]
+        assert snap["passes_diets_and_allergies"] is True
+        assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
+        assert "olive" in snap["matched_avoid_words"]
+        assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"

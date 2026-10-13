@@ -17,6 +17,17 @@ function ingLines(recipe) {
     .join("\n");
 }
 
+// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
+const REPORT_REASONS = [
+  ["ingredients", "Ingredients are wrong or missing"],
+  ["steps", "Steps are wrong or confusing"],
+  ["diet", "Shows up despite my diet or allergies"],
+  ["photo", "Photo doesn't match"],
+  ["duplicate", "Duplicate of another recipe"],
+  ["turned_out", "Didn't turn out well"],
+  ["other", "Something else"],
+];
+
 export function Recipe({ id }) {
   const week = useWeek();
   const [recipe, setRecipe] = useState(null);
@@ -38,6 +49,9 @@ export function Recipe({ id }) {
   const [draftServings, setDraftServings] = useState(null);
   const [familyPortions, setFamilyPortions] = useState(null);
   const [showMore, setShowMore] = useState(false);
+  // "Report a problem": null closed, { reason, note } while writing; reportedId once sent.
+  const [report, setReport] = useState(null);
+  const [reportedId, setReportedId] = useState(null);
   const moreRef = useRef(null);
 
   useEffect(() => {
@@ -447,6 +461,38 @@ export function Recipe({ id }) {
               )}
             </>
           )}
+          {recipe.catalog && !editing && (reportedId === recipe.id
+            ? <p className="muted recipe-report-done" role="status">Thanks. We'll take a look at this recipe.</p>
+            : report === null
+              ? <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>Report a problem with this recipe</button>
+              : <form className="recipe-report-form" onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!report.reason) return;
+                  setBusy(true);
+                  api.reportRecipe(recipe.id, report.reason, report.note.trim())
+                    .then(() => { setReportedId(recipe.id); setReport(null); })
+                    .catch((error) => setErr(error.message))
+                    .finally(() => setBusy(false));
+                }}>
+                  <fieldset>
+                    <legend>What's wrong?</legend>
+                    {REPORT_REASONS.map(([key, label]) => (
+                      <label key={key} className="recipe-report-reason">
+                        <input type="radio" name="report-reason" value={key} checked={report.reason === key}
+                          onChange={() => setReport({ ...report, reason: key })} />
+                        {label}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <label htmlFor="recipe-report-note">Anything to add? (optional)</label>
+                  <textarea id="recipe-report-note" className="field" rows={3} maxLength={1000} value={report.note}
+                    placeholder="e.g. Step 4 says to add the cream but it's not in the ingredients"
+                    onChange={(e) => setReport({ ...report, note: e.target.value })} />
+                  <div className="recipe-report-actions">
+                    <button type="submit" className="btn-primary" disabled={busy || !report.reason}>Send report</button>
+                    <button type="button" className="btn-secondary" disabled={busy} onClick={() => setReport(null)}>Cancel</button>
+                  </div>
+                </form>)}
         </div>
       </div>
       <footer className="dock">
