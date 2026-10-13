@@ -21,6 +21,7 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 _INSERT_TABLE = re.compile(r"^\s*INSERT(?:\s+OR\s+IGNORE)?\s+INTO\s+(\w+)", re.I)
 _ID_TABLES = {
     "households",
+    "plan_reports",
     "ingredients",
     "recipes",
     "plans",

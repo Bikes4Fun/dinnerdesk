@@ -177,6 +177,11 @@ class PrepTaskFeedbackPut(BaseModel):
     note: str = Field(default="", max_length=500)
 
 
+class PlanReportCreate(BaseModel):
+    """A cook reporting a bad meal plan suggestion, in their own words."""
+    note: str = Field(default="", max_length=1000)
+
+
 class PrepMissingPut(BaseModel):
     """A recipe step the household says belongs in Weekend prep but wasn't listed (#21).
     added=False takes the suggestion back."""
