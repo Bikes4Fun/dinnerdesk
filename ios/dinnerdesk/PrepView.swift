@@ -14,6 +14,7 @@ struct PrepView: View {
   @AppStorage("prep.showDone") private var showDone = false
   @AppStorage("prep.closed") private var closedRaw = ""
   @State private var whyOpen: Int?
+  @State private var whyNote = ""
   @State private var detailsOpen: Set<Int> = []
   @State private var toast: Int?
   @State private var missingOpen = false
@@ -273,6 +274,7 @@ struct PrepView: View {
         if open {
           ThumbsControl(rating: task.rating ?? 0, subject: "prepping \(task.name) ahead") { next in
             whyOpen = next < 0 ? task.id : nil
+            whyNote = task.reasonNote ?? ""
             Task { await store.ratePrepTask(task.id, next, reason: next < 0 ? (task.reason ?? "") : "") }
           }
         }
@@ -300,18 +302,38 @@ struct PrepView: View {
             KitchenFlow(spacing: 6) {
               ForEach(PrepReason.allCases) { reason in
                 chip(reason.label, on: task.reason == reason.rawValue) {
-                  whyOpen = nil
                   Task { await store.ratePrepTask(task.id, -1, reason: reason.rawValue) }
                 }
               }
             }
+            // Same as "Missing a prep step?": the cook's own words go with the 👎.
+            Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
+            TextField("What would you do instead?", text: $whyNote, axis: .vertical)
+              .font(Theme.subtitle)
+              .lineLimit(2...5)
+              .padding(12)
+              .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+              .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+              .accessibilityLabel("Anything to add? Optional")
+            chip("Done", on: false) {
+              let words = whyNote.trimmingCharacters(in: .whitespacesAndNewlines)
+              whyOpen = nil
+              Task { await store.ratePrepTask(task.id, -1, reason: task.reason ?? "", note: words) }
+            }
           }
           .padding(.leading, 54)
-        } else if (task.rating ?? 0) < 0, let id = task.reason, let reason = PrepReason(rawValue: id) {
-          Text(reason.label).font(Theme.count.weight(.semibold)).foregroundStyle(Self.coralInk)
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(Self.coralTint, in: RoundedRectangle(cornerRadius: 6))
-            .padding(.leading, 54)
+        } else if (task.rating ?? 0) < 0, task.reason?.isEmpty == false || task.reasonNote?.isEmpty == false {
+          VStack(alignment: .leading, spacing: 4) {
+            if let id = task.reason, let reason = PrepReason(rawValue: id) {
+              Text(reason.label).font(Theme.count.weight(.semibold)).foregroundStyle(Self.coralInk)
+                .padding(.horizontal, 8).padding(.vertical, 3)
+                .background(Self.coralTint, in: RoundedRectangle(cornerRadius: 6))
+            }
+            if let words = task.reasonNote, !words.isEmpty {
+              Text("“\(words)”").font(Theme.subtitle).italic().foregroundStyle(Theme.muted)
+            }
+          }
+          .padding(.leading, 54)
         }
         if open {
           // #78 D: the cook day on the left, the step, then each meal as a light pill link.

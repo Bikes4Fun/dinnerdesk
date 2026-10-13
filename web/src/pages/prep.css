@@ -38,6 +38,8 @@
 .prep-screen .pz-tag { display: inline-block; padding: 3px 8px; border-radius: 6px; background: var(--coral-tint); color: #8a3a22; font-size: 0.8rem; font-weight: 600; }
 .prep-screen .pz-why { display: flex; flex-direction: column; gap: 8px; }
 .prep-screen .pz-why-q { font-weight: 700; font-size: 0.9rem; color: var(--brand); }
+.prep-screen .pz-why-text { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font: inherit; }
+.prep-screen .pz-why-note { margin-left: 8px; font-size: 0.85rem; font-style: italic; color: var(--muted, #6b6560); }
 .prep-screen .pz-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .prep-screen .pz-chip { min-height: 44px; padding: 0 14px; border-radius: 22px; border: 1px solid var(--line); background: var(--surface); color: var(--brand); font-size: 0.9rem; font-weight: 600; }
 .prep-screen .pz-chip[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--surface); }
