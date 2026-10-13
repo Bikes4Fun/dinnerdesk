@@ -57,6 +57,9 @@ export function Plan() {
   const [swapError, setSwapError] = useState("");
   const [swapLoading, setSwapLoading] = useState(false);
   const [proposal, setProposal] = useState(null);
+  // "Report this suggestion": null closed, a string while writing; reportedId once sent.
+  const [reportNote, setReportNote] = useState(null);
+  const [reportedId, setReportedId] = useState(null);
   const [plan, setPlan] = useState(null);
   const [editing, setEditing] = useState(false);
   const [grid, setGrid] = useState(false);
@@ -189,6 +192,20 @@ export function Plan() {
         <button type="button" className="sp-another" disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids?.length || proposal.slots.length), proposal.slots.some((slot) => !proposal.suggested_recipe_ids?.includes(slot.recipe_id))); })} aria-label={proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}>{proposal.status === "suggested" ? "Suggest another" : "Try another suggestion"}</button>
         </div>
         <button type="button" className="text-link sp-improve" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
+        {reportedId === proposal.id
+          ? <p className="muted sp-report-done" role="status">Thanks. We'll look at why these were suggested.</p>
+          : reportNote === null
+            ? <button type="button" className="text-link sp-report" onClick={() => setReportNote("")}>Report this suggestion</button>
+            : <form className="sp-report-form" onSubmit={(e) => { e.preventDefault(); act(async () => { await api.reportPlan(proposal.id, reportNote.trim()); setReportedId(proposal.id); setReportNote(null); }); }}>
+                <label htmlFor="sp-report-note">What's wrong with this plan?</label>
+                <textarea id="sp-report-note" rows={3} maxLength={1000} value={reportNote} autoFocus
+                  placeholder="e.g. Three chicken dinners in a row, and none of us eat olives"
+                  onChange={(e) => setReportNote(e.target.value)} />
+                <div className="sp-report-actions">
+                  <button type="submit" className="sp-approve" disabled={busy}>Send report</button>
+                  <button type="button" className="sp-another" disabled={busy} onClick={() => setReportNote(null)}>Cancel</button>
+                </div>
+              </form>}
       </section>}
       {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
       {saved && <section className="saved-plans">

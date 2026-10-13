@@ -171,9 +171,15 @@ PREP_REASONS = ("day_of", "kept_badly", "too_small", "prep_differently", "not_pr
 
 
 class PrepTaskFeedbackPut(BaseModel):
-    """👍/👎 on a whole prep item (every meal's step in it), with an optional reason for a 👎."""
+    """👍/👎 on a whole prep item (every meal's step in it), with an optional reason and note for a 👎."""
     rating: int = Field(ge=-1, le=1)
     reason: str = Field(default="", pattern="^(|day_of|kept_badly|too_small|prep_differently|not_prep)$")
+    note: str = Field(default="", max_length=500)
+
+
+class PlanReportCreate(BaseModel):
+    """A cook reporting a bad meal plan suggestion, in their own words."""
+    note: str = Field(default="", max_length=1000)
 
 
 class PrepMissingPut(BaseModel):

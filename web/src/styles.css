@@ -1526,6 +1526,12 @@ img { display: block; max-width: 100%; }
 .sp-another { background: var(--surface); color: var(--ink); border: 1.5px solid var(--line); }
 .proposal-actions > :only-child { grid-column: 1 / -1; }
 .sp-improve { align-self: center; min-height: 44px; }
+.sp-report { align-self: center; min-height: 44px; color: var(--muted, #6b6560); }
+.sp-report-done { align-self: center; text-align: center; }
+.sp-report-form { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+.sp-report-form label { font-weight: 700; }
+.sp-report-form textarea { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); font: inherit; }
+.sp-report-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 360px) { .sp-grid, .suggested-plan .proposal-actions { grid-template-columns: minmax(0, 1fr); } }
 
 .ai-photo-tip { margin: 8px 0 12px; }

@@ -720,20 +720,24 @@ final class Store: ObservableObject {
     }
   }
 
-  /// 👍/👎 on a whole prep item, with an optional reason for a 👎. Logged for review.
-  func ratePrepTask(_ taskId: Int, _ rating: Int, reason: String = "") async {
+  /// 👍/👎 on a whole prep item, with an optional reason and note for a 👎. Logged for review.
+  /// A nil note keeps the one already saved.
+  func ratePrepTask(_ taskId: Int, _ rating: Int, reason: String = "", note: String? = nil) async {
     guard let i = prepTasks.firstIndex(where: { $0.id == taskId }) else { return }
-    let before = (prepTasks[i].rating, prepTasks[i].reason)
+    let before = (prepTasks[i].rating, prepTasks[i].reason, prepTasks[i].reasonNote)
     let why = rating < 0 ? reason : ""
+    let words = rating < 0 ? (note ?? prepTasks[i].reasonNote ?? "") : ""
     prepTasks[i].rating = rating
     prepTasks[i].reason = why
+    prepTasks[i].reasonNote = words
     do {
       let _: Ok = try await API.send(
-        "prep/\(taskId)/feedback", method: "PUT", body: ["rating": rating, "reason": why])
+        "prep/\(taskId)/feedback", method: "PUT", body: ["rating": rating, "reason": why, "note": words])
     } catch {
       if let i = prepTasks.firstIndex(where: { $0.id == taskId }) {
         prepTasks[i].rating = before.0
         prepTasks[i].reason = before.1
+        prepTasks[i].reasonNote = before.2
       }
       fail(error)
     }
@@ -925,6 +929,18 @@ extension Store {
           "title": title.isEmpty ? "Saved plan" : title, "draft": true, "source_plan_id": plan.id,
         ])
     } catch { fail(error) }
+  }
+
+  /// "Report this suggestion": the cook's note, saved with why the plan was suggested. True when sent.
+  func reportProposal(_ note: String) async -> Bool {
+    guard let proposal else { return false }
+    do {
+      let _: Ok = try await API.send("plans/\(proposal.id)/report", method: "POST", body: ["note": note])
+      return true
+    } catch {
+      proposalError = error.localizedDescription
+      return false
+    }
   }
 
   func reviewProposal(_ decision: String) async {

@@ -1043,6 +1043,15 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert (voted["rating"], voted["reason"]) == (-1, "kept_badly")
         assert voted["section"] and voted["item"]
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "nope"}).status_code == 422
+        # A 👎 can carry the cook's own words, like a missing step's note. A 👍 drops them.
+        noted = client.put(f"/api/prep/{task['id']}/feedback",
+                           json={"rating": -1, "reason": "prep_differently", "note": "  Make the sauce the night before  "})
+        assert noted.json()["note"] == "Make the sauce the night before"
+        shown = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        assert (shown["reason"], shown["reason_note"]) == ("prep_differently", "Make the sauce the night before")
+        assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "note": "x" * 501}).status_code == 422
+        client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 1, "note": "ignored"})
+        assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["reason_note"] == ""
         client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 0})
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["rating"] == 0
 
@@ -1532,3 +1541,63 @@ def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
         routes._invalidate_all_pools()
         assert "Old Salad" not in {r["name"] for r in client.get("/api/recipes?q=old").json()["recipes"]}
         assert client.get(f"/api/recipes/{rid}").status_code == 200
+
+
+def test_test_households_are_left_out_of_cross_household_learning(tmp_path, monkeypatch, capsys):
+    import sys
+    from app.insights import is_test_household, real_households_sql
+    with _client(tmp_path) as client:
+        signup = client.post("/api/auth/signup", json={
+            "email": "Tester@Example.com", "password": "correct horse battery staple", "household_name": "Tester"})
+        assert signup.status_code == 200
+        db = connect()
+        hid = db.execute("SELECT household_id FROM users WHERE email = 'tester@example.com'").fetchone()["household_id"]
+        assert not is_test_household(db, hid)
+
+        import scripts.set_test_household as script
+        monkeypatch.setattr(sys, "argv", ["set_test_household.py", "TESTER@example.com"])
+        script.main()
+        assert f"Household {hid} (Tester, 1 member(s)) is now a test household." in capsys.readouterr().out
+        assert is_test_household(db, hid)
+        real = {r["id"] for r in db.execute(f"SELECT id FROM households WHERE {real_households_sql('id')}")}
+        assert hid not in real and real  # other households still count
+
+        # The household still works normally, and the flag can't be set from the app.
+        assert client.get("/api/suggestions/recipes").status_code == 200
+        client.put("/api/household", json={"prefs": {"is_test": 0}, "name": "Tester"})
+        assert is_test_household(db, hid)
+
+        monkeypatch.setattr(sys, "argv", ["set_test_household.py", "tester@example.com", "--real"])
+        script.main()
+        assert not is_test_household(db, hid)
+        db.close()
+
+
+def test_report_a_suggestion_keeps_why_it_was_suggested(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Soup", "ingredients": ["onion", "carrot"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"allergens": ["sesame"], "avoids": ["olives"]}}})
+        made = client.post("/api/plans", json={"meal_count": 1})
+        assert made.status_code == 200, made.text
+        proposal = made.json()
+        context = proposal["context"]
+        assert context["filters"]["allergens"] == ["sesame"] and context["filters"]["avoids"] == ["olives"]
+        assert context["meals"] and context["meals"][0]["id"] == proposal["suggested_recipe_ids"][0]
+        assert context["meals"][0]["rank"] >= 1 and context["ranked_out_of"] >= 1
+        assert {"priority", "backup"} <= set(context["pool"]) and "liked" in context["taste"]
+
+        sent = client.post(f"/api/plans/{proposal['id']}/report", json={"note": "  Too much chicken  "})
+        assert sent.status_code == 200
+        assert client.post(f"/api/plans/{proposal['id']}/report", json={"note": "x" * 1001}).status_code == 422
+        assert client.post("/api/plans/999999/report", json={"note": "not mine"}).status_code == 404
+
+        reports = client.get("/api/dev/plan-reports").json()["reports"]
+        assert len(reports) == 1 and reports[0]["note"] == "Too much chicken"
+        snap = reports[0]["snapshot"]
+        assert snap["plan"]["id"] == proposal["id"] and snap["plan"]["context"]["filters"]["avoids"] == ["olives"]
+        assert snap["filters_when_reported"]["allergens"] == ["sesame"]
+        assert client.get("/api/household/export").json()["plan_reports"][0]["note"] == "Too much chicken"
