@@ -1,4 +1,4 @@
-from app.domain.diet_filter import allowed, blocks_for, clean_filters, fold_profiles, merge_filters, normalize_diets
+from app.domain.diet_filter import allowed, blocks_for, clean_filters, fold_profiles, matched_words, merge_filters, normalize_diets
 
 
 def ok(name, ings, diets=(), avoids=()):
@@ -261,3 +261,9 @@ def test_gluten_free_catches_buns_gnocchi_pita_and_other_pastas():
         assert not allowed("Dinner", [ing], gf), ing
     # "bunch" is not a bun, and corn tortillas and rice stay gluten-free.
     assert allowed("Tacos", ["1 small bunch cilantro", "small corn tortillas", "basmati rice"], gf)
+
+
+def test_matched_words_reads_the_recipe_like_allowed_does():
+    groups = blocks_for(["vegan"], [])
+    assert "cheddar" in matched_words("Mac and Cheese", ["cheddar", "pasta"], groups)
+    assert matched_words("Peanut Noodles", ["peanut butter", "rice noodles"], groups) == []
