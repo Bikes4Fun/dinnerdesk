@@ -14,6 +14,8 @@ export const ALLERGENS = [
   ["sesame", "Sesame"],
   ["fish", "Fish"],
   ["shellfish", "Shellfish"],
+  ["poultry", "Poultry"],
+  ["red-meat", "Red meat"],
 ];
 export const AVOIDS = [
   "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",

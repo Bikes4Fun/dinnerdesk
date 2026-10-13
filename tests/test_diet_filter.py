@@ -18,6 +18,17 @@ def test_plant_based_words_are_not_dairy_or_meat():
     assert ok("Squash Soup", ["butternut squash", "coconut cream"], diets=["dairy-free"])
     assert ok("Tacos", ["vegan sausage", "tortillas"], diets=["vegan"])
     assert ok("Eggplant Parm", ["eggplant", "vegan cheese"], diets=["vegan"])
+    assert ok("Lettuce Wraps", ["butter (boston) lettuce", "tofu"], diets=["vegan"])
+
+
+def test_gluten_free_labeled_ingredients_pass_gluten_filters():
+    assert ok("Pork Burger", ["ground pork", "gluten-free panko bread crumbs"], diets=["gluten-free"])
+    assert ok("Pork Burger", ["ground pork", "gluten-free panko bread crumbs"], avoids=["gluten"])
+    assert not ok("Pork Burger", ["gluten-free panko bread crumbs", "soy sauce"], diets=["gluten-free"])
+    assert not ok("Pork Burger", ["ground pork", "panko bread crumbs"], diets=["gluten-free"])
+    # The label covers only its own item, even when it's the recipe name.
+    assert not ok("Gluten-Free Brownies", ["all-purpose flour", "cocoa"], diets=["gluten-free"])
+    assert ok("Gluten-Free Pasta Bake", ["gluten-free penne", "marinara"], diets=["gluten-free"])
 
 
 def test_vegetarian_allows_dairy_but_not_fish():
@@ -29,6 +40,26 @@ def test_vegetarian_allows_dairy_but_not_fish():
 def test_pescatarian_allows_fish_not_meat():
     assert ok("Salmon Bowl", ["salmon"], diets=["pescatarian"])
     assert not ok("Pepperoni Pizza", ["pepperoni"], diets=["pescatarian"])
+
+
+def test_poultry_allergy():
+    assert not ok("Chicken Fajitas", ["chicken breast", "peppers"], avoids=["poultry"])
+    assert not ok("Turkey Burger", ["ground turkey", "buns"], avoids=["poultry"])
+    assert not ok("Roast Duck", ["duck legs"], avoids=["poultry"])
+    assert ok("Chickpea Curry", ["chickpeas", "rice"], avoids=["poultry"])
+    assert ok("Beef Chili", ["ground beef", "beans"], avoids=["poultry"])
+
+
+def test_red_meat_allergy():
+    assert not ok("Steak Salad", ["sirloin steak", "arugula"], avoids=["red-meat"])
+    assert not ok("Ham & Broccoli Frittata", ["ham", "eggs", "broccoli"], avoids=["red-meat"])
+    assert not ok("Carbonara", ["pancetta", "spaghetti"], avoids=["red-meat"])
+    assert not ok("Panna Cotta", ["cream", "gelatin"], avoids=["red-meat"])
+    assert ok("Chicken Fajitas", ["chicken breast", "peppers"], avoids=["red-meat"])
+    assert ok("Cheesecake Bars", ["graham crackers", "cream cheese"], avoids=["red-meat"])
+    assert ok("Shallot Vinaigrette", ["champagne vinegar", "shallot"], avoids=["red-meat"])
+    assert ok("Tomato Salad", ["beefsteak tomato", "basil"], avoids=["red-meat"])
+    assert ok("Tacos", ["vegan sausage", "tortillas"], avoids=["red-meat"])
 
 
 def test_avoids_and_none():
