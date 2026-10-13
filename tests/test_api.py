@@ -1043,6 +1043,15 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert (voted["rating"], voted["reason"]) == (-1, "kept_badly")
         assert voted["section"] and voted["item"]
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "nope"}).status_code == 422
+        # A 👎 can carry the cook's own words, like a missing step's note. A 👍 drops them.
+        noted = client.put(f"/api/prep/{task['id']}/feedback",
+                           json={"rating": -1, "reason": "prep_differently", "note": "  Make the sauce the night before  "})
+        assert noted.json()["note"] == "Make the sauce the night before"
+        shown = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        assert (shown["reason"], shown["reason_note"]) == ("prep_differently", "Make the sauce the night before")
+        assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "note": "x" * 501}).status_code == 422
+        client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 1, "note": "ignored"})
+        assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["reason_note"] == ""
         client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 0})
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["rating"] == 0
 

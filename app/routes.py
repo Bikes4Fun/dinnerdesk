@@ -1915,10 +1915,10 @@ def list_prep(
     with transaction(db):
         _refresh_prep(db, plan_id, household_id)
     feedback = {
-        (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "")
+        (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "", r["note"] or "")
         for r in db.execute(
             # A step the household added (#21) isn't a 👍/👎; it is taken back on its own sheet.
-            "SELECT recipe_id, step_key, rating, reason FROM prep_step_feedback WHERE household_id = ? AND reason <> 'missing'",
+            "SELECT recipe_id, step_key, rating, reason, note FROM prep_step_feedback WHERE household_id = ? AND reason <> 'missing'",
             (household_id,),
         )
     }
@@ -1933,15 +1933,17 @@ def list_prep(
         for meal in details.get("meals") or []:
             meal.update(days.get(int(meal["id"]), {"day": None, "day_index": None}))
             for step in meal.get("steps") or []:
-                rating, reason = feedback.get((int(meal["id"]), step["key"]), (0, ""))
+                rating, reason, note = feedback.get((int(meal["id"]), step["key"]), (0, "", ""))
                 step["rating"] = rating
                 step["done"] = bool(r["done"]) or f"{meal['id']}:{step['key']}" in json.loads(r["completed_steps_json"])
-                votes.append((rating, reason))
+                votes.append((rating, reason, note))
         # The item's own 👍/👎: what every step in it says, or nothing when they disagree.
         rating = votes[0][0] if votes and all(v[0] == votes[0][0] for v in votes) else 0
-        reason = next((why for value, why in votes if value == rating and why), "") if rating < 0 else ""
+        reason = next((why for value, why, _ in votes if value == rating and why), "") if rating < 0 else ""
+        # The cook's own words on a 👎 ("notes" is the task's recipe summary).
+        reason_note = next((n for value, _, n in votes if value == rating and n), "") if rating < 0 else ""
         tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
-                      "rating": rating, "reason": reason, "section": "other", "item": r["title"],
+                      "rating": rating, "reason": reason, "reason_note": reason_note, "section": "other", "item": r["title"],
                       "action": "", **details})
     return {"tasks": tasks}
 
@@ -2118,27 +2120,28 @@ def put_prep_task_feedback(
         row = _owned_prep_task(db, task_id, household_id)
         details = json.loads(row["details_json"] or "{}")
         reason = body.reason if body.rating < 0 else ""
+        note = body.note.strip() if body.rating < 0 else ""
         for meal in details.get("meals") or []:
             for step in meal.get("steps") or []:
                 if body.rating:
                     db.execute(
                         """INSERT INTO prep_step_feedback
-                           (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, note, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                            ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
                              step_text = excluded.step_text, category = excluded.category,
                              auto = excluded.auto, rating = excluded.rating, reason = excluded.reason,
-                             updated_at = excluded.updated_at
+                             note = excluded.note, updated_at = excluded.updated_at
                              WHERE prep_step_feedback.reason <> 'missing'""",
                         (household_id, int(meal["id"]), step["key"], step.get("text") or "", row["title"],
-                         1 if step.get("auto", True) else 0, body.rating, reason, now()),
+                         1 if step.get("auto", True) else 0, body.rating, reason, note, now()),
                     )
                 else:
                     db.execute(
                         "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ? AND reason <> 'missing'",
                         (household_id, int(meal["id"]), step["key"]),
                     )
-    return {"ok": True, "rating": body.rating, "reason": reason}
+    return {"ok": True, "rating": body.rating, "reason": reason, "note": note}
 
 
 @router.patch("/prep/{task_id}")
