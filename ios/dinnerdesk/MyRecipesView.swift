@@ -82,7 +82,8 @@ struct MyRecipesView: View {
   private func load() async {
     do {
       let box: RecipeList = try await API.get("recipes", query: ["mine": "true", "limit": "500"])
-      recipes = box.recipes
+      // A server without the `mine` filter sends every recipe; keep only the kitchen's own.
+      recipes = box.recipes.filter { !$0.catalog }
       error = nil
     } catch {
       if !API.isCancellation(error) { self.error = KitchenAPI.message(error) }
