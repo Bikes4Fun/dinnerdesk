@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -204,6 +205,8 @@ class FeedbackCreate(BaseModel):
     note: str = Field(min_length=1, max_length=2000)
     # Where they were in the app, if the client knows (e.g. "recipes/12").
     screen: str = Field(default="", max_length=200)
+    # Up to 3 screenshots as data URLs (JPEG, PNG or WebP, 5 MB each before encoding).
+    screenshots: list[Annotated[str, Field(max_length=7_000_000)]] = Field(default_factory=list, max_length=3)
 
 
 class FeedbackStatusPut(BaseModel):

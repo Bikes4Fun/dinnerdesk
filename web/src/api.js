@@ -74,7 +74,8 @@ export const api = {
   suggestionCapabilities: () => req("/api/suggestions/capabilities"),
   pendingSuggestion: () => req("/api/suggestions/current"),
   decideSuggestion: (id, decision) => req(`/api/plans/${id}/decision/${decision}`, { method: "POST" }),
-  sendFeedback: (kind, note) => req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen: "settings" }) }),
+  sendFeedback: (kind, note, screenshots = []) =>
+    req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen: "settings", screenshots }) }),
   feedbackList: () => req("/api/dev/feedback"),
   setFeedbackStatus: (id, status) => req(`/api/dev/feedback/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   reportRecipe: (id, reason, note) => req(`/api/recipes/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),

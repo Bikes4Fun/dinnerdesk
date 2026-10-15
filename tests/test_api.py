@@ -1719,3 +1719,32 @@ def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
         assert len(body["recipes"]) == 1
         assert body["total"] >= 1
         assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]
+
+
+def test_bug_reports_can_carry_private_screenshots(tmp_path, monkeypatch):
+    import os
+    shots_dir = tmp_path / "shots"
+    monkeypatch.setenv("FEEDBACK_DIR", str(shots_dir))
+    with _client(tmp_path) as client:
+        shot = _upload_photo_data()
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "Button overlaps", "screenshots": [shot, shot]})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": [shot] * 4}).status_code == 422
+        bad = client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": ["data:image/png;base64,bm90IGFuIGltYWdl"]})
+        assert bad.status_code == 400
+
+        item = client.get("/api/dev/feedback").json()["feedback"][0]
+        assert len(item["screenshots"]) == 2
+        image = client.get(item["screenshots"][0])
+        assert image.status_code == 200 and image.headers["content-type"] == "image/jpeg"
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/2").status_code == 404
+
+        # Stored privately: not in the public photo folder, and not reachable as a food photo.
+        names = item["snapshot"]["screenshots"]
+        assert sorted(os.listdir(shots_dir)) == sorted(names)
+        assert not any(n in os.listdir(os.environ["FOOD_DIR"]) for n in names)
+        assert client.get(f"/food/{names[0]}").status_code == 404
+
+        # Only admins can see them.
+        client.app.dependency_overrides.clear()
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/0").status_code in (401, 403)

@@ -12,18 +12,18 @@ from app.db.database import PgConnection
 from datetime import date, timedelta
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import public_recipe_sql
 from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, now, transaction
-from app.assets import catalog_dir
+from app.assets import catalog_dir, feedback_dir
 from app.auth import SESSION_COOKIE, session_info
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
-from app.domain.photo_uploads import save_photo
+from app.domain.photo_uploads import save_photo, save_screenshot
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, import_recipe
 from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
@@ -2459,10 +2459,13 @@ def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbD
     if not note:
         raise HTTPException(422, {"error": "invalid", "detail": "note"})
     account = session_info(db, request.cookies.get(SESSION_COOKIE))
+    # Saved before the row; a bad image stops the report with a clear message instead.
+    screenshots = [save_screenshot(data) for data in body.screenshots]
     snapshot = {
         "app": request.headers.get("x-dinnerdesk-app", ""),
         "user_agent": request.headers.get("user-agent", "")[:300],
         "screen": body.screen.strip(),
+        "screenshots": screenshots,
     }
     ts = now()
     with transaction(db):
@@ -2481,13 +2484,28 @@ def get_feedback(_admin=AdminDep, db: PgConnection = DbDep):
         {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
          "email": r["email"], "kind": r["kind"], "note": r["note"], "status": r["status"],
          "created_at": r["created_at"], "updated_at": r["updated_at"],
-         "snapshot": json.loads(r["snapshot_json"] or "{}")}
+         "snapshot": json.loads(r["snapshot_json"] or "{}"),
+         "screenshots": [f"/api/dev/feedback/{r['id']}/screenshots/{i}"
+                         for i in range(len(json.loads(r["snapshot_json"] or "{}").get("screenshots") or []))]}
         for r in db.execute(
             """SELECT f.*, h.name AS household_name, u.email AS email FROM feedback f
                LEFT JOIN households h ON h.id = f.household_id
                LEFT JOIN users u ON u.id = f.user_id ORDER BY f.created_at DESC, f.id DESC"""
         )
     ]}
+
+
+@router.get("/dev/feedback/{feedback_id}/screenshots/{index}")
+def get_feedback_screenshot(feedback_id: int, index: int, _admin=AdminDep, db: PgConnection = DbDep):
+    """A screenshot sent with a report. Admins only: screenshots can show private details."""
+    row = db.execute("SELECT snapshot_json FROM feedback WHERE id = ?", (feedback_id,)).fetchone()
+    names = json.loads(row["snapshot_json"] or "{}").get("screenshots") or [] if row else []
+    if not 0 <= index < len(names):
+        raise HTTPException(404, {"error": "not_found", "detail": "screenshot"})
+    path = feedback_dir() / names[index]
+    if not path.is_file():
+        raise HTTPException(404, {"error": "not_found", "detail": "screenshot"})
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
 
 
 @router.put("/dev/feedback/{feedback_id}/status")

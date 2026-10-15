@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import UIKit
+import PhotosUI
 
 /// Settings: food filters, account & household, Taste Lab. Push it from a NavigationStack (More tab).
 struct SettingsView: View {
@@ -886,6 +887,10 @@ private struct FeedbackView: View {
   @State private var sending = false
   @State private var sent: FeedbackKind?
   @State private var error: String?
+  /// Up to 3 screenshots from Photos, shrunk to JPEG before sending.
+  @State private var shots: [UIImage] = []
+  @State private var picked: [PhotosPickerItem] = []
+  private static let maxShots = 3
 
   private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
 
@@ -926,6 +931,7 @@ private struct FeedbackView: View {
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
             .onChange(of: note) { _, value in if value.count > 2000 { note = String(value.prefix(2000)) } }
+          screenshots
           Button {
             Task { await send() }
           } label: {
@@ -944,14 +950,80 @@ private struct FeedbackView: View {
     .navigationBarTitleDisplayMode(.inline)
   }
 
+  /// Thumbnails with a remove button, then "Add a screenshot" from Photos.
+  private var screenshots: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if !shots.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 10) {
+            ForEach(Array(shots.enumerated()), id: \.offset) { index, image in
+              Image(uiImage: image)
+                .resizable().scaledToFill()
+                .frame(width: 80, height: 110)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line))
+                .overlay(alignment: .topTrailing) {
+                  Button { shots.remove(at: index) } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 22))
+                      .foregroundStyle(Theme.ink, Theme.surface)
+                      .frame(width: 44, height: 44)
+                  }
+                  .buttonStyle(.plain)
+                  .offset(x: 14, y: -14)
+                  .accessibilityLabel("Remove screenshot \(index + 1)")
+                }
+                .accessibilityLabel("Screenshot \(index + 1)")
+            }
+          }
+          .padding(.top, 14).padding(.trailing, 14)
+        }
+      }
+      if shots.count < Self.maxShots {
+        PhotosPicker(selection: $picked, maxSelectionCount: Self.maxShots - shots.count, matching: .images) {
+          Label(shots.isEmpty ? "Add a screenshot (optional)" : "Add another screenshot", systemImage: "photo.badge.plus")
+            .font(Theme.action).foregroundStyle(Theme.accent)
+            .frame(minHeight: 44)
+        }
+        .onChange(of: picked) { _, items in
+          Task { await load(items) }
+        }
+      }
+    }
+  }
+
+  private func load(_ items: [PhotosPickerItem]) async {
+    guard !items.isEmpty else { return }
+    for item in items where shots.count < Self.maxShots {
+      if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+        shots.append(image)
+      }
+    }
+    picked = []
+  }
+
+  /// A JPEG data URL at most 2000px on its long side, well under the server's 5 MB limit.
+  private static func dataURL(_ image: UIImage) -> String? {
+    let longest = max(image.size.width, image.size.height)
+    let scale = min(1, 2000 / max(longest, 1))
+    let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = 1
+    let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+    guard let jpeg = resized.jpegData(compressionQuality: 0.85) else { return nil }
+    return "data:image/jpeg;base64," + jpeg.base64EncodedString()
+  }
+
   private func send() async {
     sending = true
     defer { sending = false }
     do {
+      let images = shots.compactMap(Self.dataURL)
       let _: Ok = try await API.send(
-        "feedback", method: "POST", body: ["kind": kind.rawValue, "note": trimmed, "screen": "settings"])
+        "feedback", method: "POST",
+        body: ["kind": kind.rawValue, "note": trimmed, "screen": "settings", "screenshots": images])
       error = nil
       note = ""
+      shots = []
       sent = kind
     } catch {
       self.error = KitchenAPI.message(error)

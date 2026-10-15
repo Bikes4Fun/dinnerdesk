@@ -18,6 +18,28 @@ const PLACEHOLDER = {
   feature: "e.g. Let me plan lunches too, not just dinners.",
 };
 
+const MAX_SHOTS = 3;
+
+// A screenshot as a JPEG data URL, at most 2000px on its long side, so phone screenshots stay
+// well under the server's 5 MB limit.
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, 2000 / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("That file isn't an image we can read.")); };
+    img.src = url;
+  });
+}
+
 function Header({ title, back }) {
   return (
     <header className="top sub">
@@ -34,9 +56,18 @@ function Header({ title, back }) {
 export function Feedback() {
   const [kind, setKind] = useState("bug");
   const [note, setNote] = useState("");
+  const [shots, setShots] = useState([]);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState("");
   const [err, setErr] = useState("");
+
+  function addShots(e) {
+    const files = [...e.target.files].slice(0, MAX_SHOTS - shots.length);
+    e.target.value = "";
+    Promise.all(files.map(shrink))
+      .then((added) => setShots((cur) => [...cur, ...added].slice(0, MAX_SHOTS)))
+      .catch((error) => setErr(error.message));
+  }
 
   function send(e) {
     e.preventDefault();
@@ -44,10 +75,11 @@ export function Feedback() {
     setBusy(true);
     setErr("");
     api
-      .sendFeedback(kind, note.trim())
+      .sendFeedback(kind, note.trim(), shots)
       .then(() => {
         setSent(kind);
         setNote("");
+        setShots([]);
       })
       .catch((error) => setErr(error.message))
       .finally(() => setBusy(false));
@@ -86,6 +118,21 @@ export function Feedback() {
             </label>
             <textarea id="feedback-note" className="field" rows={5} maxLength={2000} value={note}
               placeholder={PLACEHOLDER[kind]} onChange={(e) => setNote(e.target.value)} />
+            <div className="feedback-shots">
+              {shots.map((src, i) => (
+                <div key={i} className="feedback-shot">
+                  <img src={src} alt={`Screenshot ${i + 1}`} />
+                  <button type="button" aria-label={`Remove screenshot ${i + 1}`}
+                    onClick={() => setShots((cur) => cur.filter((_, j) => j !== i))}>✕</button>
+                </div>
+              ))}
+              {shots.length < MAX_SHOTS && (
+                <label className="btn-secondary feedback-add-shot">
+                  {shots.length ? "Add another screenshot" : "Add a screenshot (optional)"}
+                  <input type="file" accept="image/*" multiple hidden onChange={addShots} />
+                </label>
+              )}
+            </div>
             <button type="submit" className="btn-primary block" disabled={busy || !note.trim()}>
               {busy ? "Sending…" : "Send"}
             </button>
@@ -151,6 +198,15 @@ export function FeedbackInbox() {
               </small>
             </div>
             <p className="feedback-note">{item.note}</p>
+            {item.screenshots?.length > 0 && (
+              <div className="feedback-shots">
+                {item.screenshots.map((src, i) => (
+                  <a key={src} href={src} target="_blank" rel="noopener" className="feedback-shot">
+                    <img src={src} alt={`Screenshot ${i + 1}`} />
+                  </a>
+                ))}
+              </div>
+            )}
             <select className="field" value={item.status} onChange={(e) => setStatus(item, e.target.value)}
               aria-label="Status">
               {STATUSES.map(([key, label]) => (
