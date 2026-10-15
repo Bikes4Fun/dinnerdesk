@@ -1044,7 +1044,7 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert (voted["rating"], voted["reason"]) == (-1, "kept_badly")
         assert voted["section"] and voted["item"]
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "nope"}).status_code == 422
-        # A 👎 can carry the cook's own words, like a missing step's note. A 👍 drops them.
+        # A 👎 can carry the user's own words, like a missing step's note. A 👍 drops them.
         noted = client.put(f"/api/prep/{task['id']}/feedback",
                            json={"rating": -1, "reason": "prep_differently", "note": "  Make the sauce the night before  "})
         assert noted.json()["note"] == "Make the sauce the night before"
@@ -1628,35 +1628,6 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
 
-
-def test_bug_reports_and_feature_requests(tmp_path):
-    with _client(tmp_path) as client:
-        sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
-                           headers={"X-Dinnerdesk-App": "ios 1.2 (34)"})
-        assert sent.status_code == 200
-        assert client.post("/api/feedback", json={"kind": "feature", "note": "Dark mode please"}).status_code == 200
-        assert client.post("/api/feedback", json={"kind": "praise", "note": "hi"}).status_code == 422
-        assert client.post("/api/feedback", json={"kind": "bug", "note": ""}).status_code == 422
-        assert client.post("/api/feedback", json={"kind": "bug", "note": "   "}).status_code == 422
-        assert client.post("/api/feedback", json={"kind": "bug", "note": "x" * 2001}).status_code == 422
-
-        items = client.get("/api/dev/feedback").json()["feedback"]
-        assert [i["kind"] for i in items] == ["feature", "bug"]
-        bug = items[1]
-        assert (bug["note"], bug["status"]) == ("Grocery list froze", "new")
-        assert bug["snapshot"]["app"] == "ios 1.2 (34)" and bug["snapshot"]["screen"] == "grocery"
-
-        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "planned"}).status_code == 200
-        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "maybe"}).status_code == 422
-        assert client.put("/api/dev/feedback/999999/status", json={"status": "done"}).status_code == 404
-        assert client.get("/api/dev/feedback").json()["feedback"][1]["status"] == "planned"
-        assert {f["kind"] for f in client.get("/api/household/export").json()["feedback"]} == {"bug", "feature"}
-
-        client.app.dependency_overrides.clear()
-        assert client.get("/api/dev/feedback").status_code == 403
-        assert client.put("/api/dev/feedback/1/status", json={"status": "done"}).status_code == 403
-
-
 def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
     from app.domain import recipe_import
 
@@ -1715,43 +1686,6 @@ def test_cooks_edit_their_own_recipes_but_not_the_catalog(tmp_path):
         assert client.delete(f"/api/recipes/{made['id']}").status_code == 200
 
 
-def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
-    with _client(tmp_path) as client:
-        body = client.get("/api/recipes", params={"limit": 1}).json()
-        assert len(body["recipes"]) == 1
-        assert body["total"] >= 1
-        assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]
-
-
-def test_bug_reports_can_carry_private_screenshots(tmp_path, monkeypatch):
-    import os
-    shots_dir = tmp_path / "shots"
-    monkeypatch.setenv("FEEDBACK_DIR", str(shots_dir))
-    with _client(tmp_path) as client:
-        shot = _upload_photo_data()
-        sent = client.post("/api/feedback", json={"kind": "bug", "note": "Button overlaps", "screenshots": [shot, shot]})
-        assert sent.status_code == 200
-        assert client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": [shot] * 4}).status_code == 422
-        bad = client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": ["data:image/png;base64,bm90IGFuIGltYWdl"]})
-        assert bad.status_code == 400
-
-        item = client.get("/api/dev/feedback").json()["feedback"][0]
-        assert len(item["screenshots"]) == 2
-        image = client.get(item["screenshots"][0])
-        assert image.status_code == 200 and image.headers["content-type"] == "image/jpeg"
-        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/2").status_code == 404
-
-        # Stored privately: not in the public photo folder, and not reachable as a food photo.
-        names = item["snapshot"]["screenshots"]
-        assert sorted(os.listdir(shots_dir)) == sorted(names)
-        assert not any(n in os.listdir(os.environ["FOOD_DIR"]) for n in names)
-        assert client.get(f"/food/{names[0]}").status_code == 404
-
-        # Only admins can see them.
-        client.app.dependency_overrides.clear()
-        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/0").status_code in (401, 403)
-
-
 def _png() -> bytes:
     from io import BytesIO
     from PIL import Image
@@ -1807,3 +1741,74 @@ def test_cooks_own_photo_wins_over_the_sites(tmp_path, monkeypatch):
         assert made["photo_path"].startswith("food/admin-upload-")
         assert made["photo_source_url"] == "https://example.com/r.jpg"
         assert client.post("/api/recipes", json={"name": "Bad", "photo_data": "data:text/plain;base64,aGk="}).status_code == 400
+
+
+def test_bug_reports_and_feature_requests(tmp_path):
+    with _client(tmp_path) as client:
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
+                           headers={"X-Dinnerdesk-App": "ios 1.2 (34)"})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "feature", "note": "Dark mode please"}).status_code == 200
+        assert client.post("/api/feedback", json={"kind": "praise", "note": "hi"}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": ""}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "   "}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x" * 2001}).status_code == 422
+
+        items = client.get("/api/dev/feedback").json()["feedback"]
+        assert [i["kind"] for i in items] == ["feature", "bug"]
+        bug = items[1]
+        assert (bug["note"], bug["status"]) == ("Grocery list froze", "new")
+        assert bug["snapshot"]["app"] == "ios 1.2 (34)" and bug["snapshot"]["screen"] == "grocery"
+
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "planned"}).status_code == 200
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "maybe"}).status_code == 422
+        assert client.put("/api/dev/feedback/999999/status", json={"status": "done"}).status_code == 404
+        assert client.get("/api/dev/feedback").json()["feedback"][1]["status"] == "planned"
+        assert {f["kind"] for f in client.get("/api/household/export").json()["feedback"]} == {"bug", "feature"}
+
+        client.app.dependency_overrides.clear()
+        assert client.get("/api/dev/feedback").status_code == 403
+        assert client.put("/api/dev/feedback/1/status", json={"status": "done"}).status_code == 403
+
+
+
+
+def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
+    with _client(tmp_path) as client:
+        body = client.get("/api/recipes", params={"limit": 1}).json()
+        assert len(body["recipes"]) == 1
+        assert body["total"] >= 1
+        assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]
+
+
+
+
+def test_bug_reports_can_carry_private_screenshots(tmp_path, monkeypatch):
+    import os
+    shots_dir = tmp_path / "shots"
+    monkeypatch.setenv("FEEDBACK_DIR", str(shots_dir))
+    with _client(tmp_path) as client:
+        shot = _upload_photo_data()
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "Button overlaps", "screenshots": [shot, shot]})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": [shot] * 4}).status_code == 422
+        bad = client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": ["data:image/png;base64,bm90IGFuIGltYWdl"]})
+        assert bad.status_code == 400
+
+        item = client.get("/api/dev/feedback").json()["feedback"][0]
+        assert len(item["screenshots"]) == 2
+        image = client.get(item["screenshots"][0])
+        assert image.status_code == 200 and image.headers["content-type"] == "image/jpeg"
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/2").status_code == 404
+
+        # Stored privately: not in the public photo folder, and not reachable as a food photo.
+        names = item["snapshot"]["screenshots"]
+        assert sorted(os.listdir(shots_dir)) == sorted(names)
+        assert not any(n in os.listdir(os.environ["FOOD_DIR"]) for n in names)
+        assert client.get(f"/food/{names[0]}").status_code == 404
+
+        # Only admins can see them.
+        client.app.dependency_overrides.clear()
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/0").status_code in (401, 403)
+
+

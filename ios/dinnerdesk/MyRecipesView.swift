@@ -131,7 +131,7 @@ struct RecipeFormView: View {
   /// The imported page's photo, copied for this kitchen on save (its link is kept too).
   @State private var siteImage = ""
   @State private var photoPick: PhotosPickerItem?
-  /// The cook's own photo, used instead of the site's.
+  /// The user's own photo, used instead of the site's.
   @State private var ownPhoto: UIImage?
 
   struct StepDraft: Identifiable {

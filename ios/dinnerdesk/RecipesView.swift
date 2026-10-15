@@ -642,7 +642,7 @@ struct RecipeDetailView: View {
     .task { await store.loadAdmin() }
   }
 
-  /// Why the recipe is wrong, in the cook's words. The server keeps it with the recipe as they saw it.
+  /// Why the recipe is wrong, in the user's words. The server keeps it with the recipe as they saw it.
   private var reportSheet: some View {
     NavigationStack {
       ScrollView {

@@ -288,7 +288,7 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   /// 👍/👎 on the whole item (1, -1, 0) and why a 👎 (a PrepReason id, or "").
   var rating: Int?
   var reason: String?
-  /// The cook's own words on a 👎, like the note on a missing prep step.
+  /// The user's own words on a 👎, like the note on a missing prep step.
   var reasonNote: String?
 
   /// What the row says: "Peel and mince garlic". The server names it from the recipe steps.
