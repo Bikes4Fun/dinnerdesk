@@ -30,7 +30,7 @@ enum AuthAPI {
     let _: Ok = try await API.send("auth/logout-everywhere", method: "POST")
   }
 
-  /// Deletes the signed-in account (#65). The last member's household and kitchen go with it.
+  /// Deletes this account; shared-household creators must transfer ownership first.
   static func deleteAccount(password: String) async throws {
     let _: Ok = try await API.send("auth/delete-account", method: "POST", body: ["password": password])
   }
@@ -46,6 +46,7 @@ enum AuthAPI {
 
 nonisolated struct AuthStatus: Decodable, Sendable {
   let required: Bool
+  let householdId: Int?
   let authenticated: Bool
   let email: String?
   let admin: Bool?

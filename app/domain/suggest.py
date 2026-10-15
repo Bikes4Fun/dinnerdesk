@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from app.perf import Laps
+
 from .grocery import grocery_item_name
 from .ingredients import pantry_key
 
@@ -31,6 +33,9 @@ NEIGHBOR_FLOOR = 0.30
 NEIGHBOR_BONUS = 4.0
 # Recipe is tagged popular.
 POPULAR_BONUS = 0.35
+# Extra bonus per perishable (or fixed-quantity) ingredient shared across meals.
+# Buying heavy cream for one meal wastes the rest; two meals using it cuts that waste.
+PERISHABLE_REUSE_BONUS = 0.5
 
 # Taste evidence and contextual plan feedback. Keep all tuning in this module.
 COOKED_WEIGHT = 2.0
@@ -59,8 +64,34 @@ STAPLES = frozenset(
         "oil",
         "water",
         "cooking spray",
+        "kosher salt",
+        "sea salt",
+        "white pepper",
+        "sugar",
+        "granulated sugar",
+        "brown sugar",
+        "powdered sugar",
+        "confectioners sugar",
+        "baking powder",
+        "baking soda",
+        "vanilla extract",
+        "cornstarch",
     }
 )
+
+# Substring keywords for perishables or fixed-quantity ingredients. Matched against
+# normalized shop keys. A plan hit on one of these gets PERISHABLE_REUSE_BONUS extra.
+_PERISHABLE_KEYWORDS: tuple[str, ...] = (
+    "heavy cream", "sour cream", "buttermilk", "cream cheese", "ricotta", "mascarpone",
+    "spinach", "kale", "arugula", "swiss chard", "bok choy",
+    "cilantro", "parsley", "basil", "mint", "dill", "thyme", "rosemary", "sage", "chives",
+    "coconut milk", "tahini", "miso", "fish sauce", "oyster sauce", "chipotle",
+    "sun-dried tomato",
+)
+
+
+def _perishable_hits(ings: set[str]) -> int:
+    return sum(1 for ing in ings if any(kw in ing for kw in _PERISHABLE_KEYWORDS))
 
 
 def scored_name(raw: str, aliases: dict[str, str], overrides: dict[str, str] | None = None) -> str:
@@ -107,6 +138,8 @@ def score_recipe(
     reuse_frac = len(plan_hit) / len(shop)
     new_frac = len(new_shop) / len(shop)
     score = pantry_frac * PANTRY_BONUS + reuse_frac * REUSE_BONUS - new_frac * NEW_SHOP_PENALTY
+    if plan_hit:
+        score += _perishable_hits(plan_hit) * PERISHABLE_REUSE_BONUS
     if favorited:
         score += FAVORITE_BONUS
     if to_try:
@@ -140,41 +173,70 @@ def pick_suggestions(
     overrides: dict[str, str] | None = None,
     skip: set[str] | None = None,
     to_try: set[int] | None = None,
+    laps: Laps | None = None,
 ) -> list[dict]:
     """Greedy: each pick updates the plan's ingredient pool so add-ons reuse groceries.
 
-    adjust(recipe) may return (bonus, reasons, reject). Rejected recipes are skipped.
+    adjust(recipe, shop) may return (bonus, reasons, reject). Rejected recipes are
+    eliminated before the greedy loop; each recipe's static bonus is computed exactly once.
+    Only score_recipe (pantry/pool overlap) is recomputed per pick as the pool grows.
+
+    laps, if given, gets "filter" and "greedy" phases and a filtered_out count.
     """
-    remaining = list(recipes)
-    pool = set(plan_ings)
+    laps = laps or Laps()
+    # Phase 1: pre-compute shop sets and static bonuses; apply hard filters and rejections.
+    # Nothing here depends on which meals have already been picked.
+    pre: dict[int, tuple[set[str], float, list[str]]] = {}
+    for rec in recipes:
+        shop = shop_set(rec.get("ingredients") or [], aliases, overrides, skip)
+        if adjust:
+            bonus, extra, reject = adjust(rec, shop)
+            if reject:
+                continue
+        else:
+            bonus, extra = 0.0, []
+        pre[rec["id"]] = (shop, bonus, extra)
+    laps.counts["filtered_out"] = len(recipes) - len(pre)
+    laps.lap("filter")
+
+    # Phase 2: greedy loop — only score_recipe changes as the pool grows.
     trying = to_try or set()
+    pool = set(plan_ings)
+    id_to_rec = {rec["id"]: rec for rec in recipes if rec["id"] in pre}
+    remaining = list(pre.keys())
     picked = []
+
     while remaining and len(picked) < want:
-        best = None
-        best_key = None
-        for rec in remaining:
-            shop = shop_set(rec.get("ingredients") or [], aliases, overrides, skip)
+        best_id = None
+        best_key: tuple | None = None
+        best_reasons: list[str] = []
+        best_shop: set[str] = set()
+
+        for rid in remaining:
+            shop, bonus, extra = pre[rid]
+            rec = id_to_rec[rid]
             favorited = rec["id"] in favorites
             on_try = rec["id"] in trying
             popular = "popular" in (rec.get("tags") or [])
             score, reasons = score_recipe(shop, pantry, pool, favorited, popular, on_try)
-            if adjust:
-                bonus, extra, reject = adjust(rec)
-                if reject:
-                    continue
-                score += bonus
-                reasons = extra + reasons
+            score += bonus
+            reasons = extra + reasons
             key = (score, 1 if on_try else 0, 1 if favorited else 0, -len(shop))
-            if best is None or key > best_key:
-                best = {**rec, "score": round(score, 3), "reasons": reasons, "shop": shop}
+            if best_id is None or key > best_key:
+                best_id = rid
                 best_key = key
-        if best is None:
+                best_reasons = reasons
+                best_shop = shop
+
+        if best_id is None:
             break
-        picked.append(best)
-        pool |= best["shop"]
-        remaining = [r for r in remaining if r["id"] != best["id"]]
-    for row in picked:
-        row.pop("shop", None)
+
+        rec = id_to_rec[best_id]
+        picked.append({**rec, "score": round(best_key[0], 3), "reasons": best_reasons})
+        pool |= best_shop
+        remaining.remove(best_id)
+
+    laps.lap("greedy")
     return picked
 
 

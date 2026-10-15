@@ -25,12 +25,15 @@ MORE_MEAT = [
 # They are removed before matching so a vegan or dairy-free kitchen still sees them.
 PLANT_PHRASES = [
     "peanut butter", "almond butter", "cashew butter", "sunflower butter", "nut butter",
-    "apple butter", "cocoa butter", "butternut", "butter lettuce", "butter bean",
+    "apple butter", "cocoa butter", "butternut", "butter (boston) lettuce", "butter lettuce", "butter bean",
     "coconut milk", "almond milk", "oat milk", "soy milk", "rice milk", "cashew milk",
     "coconut cream", "cream of tartar", "coconut yogurt", "beefsteak tomato",
 ]
 # "vegan sausage", "plant-based chicken", "dairy-free cheese": the label and the next word go.
 PLANT_LABEL = re.compile(r"\b(?:vegan|plant[- ]based|dairy[- ]free|egg[- ]free|meatless|meat[- ]free)\s+[a-z]+")
+# "gluten-free panko bread crumbs": the rest of that one item goes. Applied to the name and
+# each ingredient on its own, so it can never reach into the next ingredient.
+GLUTEN_FREE_LABEL = re.compile(r"\bgluten[- ]free\s+.*", re.I)
 
 
 def _clean(blob: str) -> str:
@@ -63,18 +66,29 @@ def blocks_for(diets: list[str] | None, avoids: list[str] | None) -> list[list[s
     return groups
 
 
+def _blob(name: str, ingredients: list[str]) -> str:
+    name, *items = [GLUTEN_FREE_LABEL.sub(" ", part) for part in [name or "", *(i for i in ingredients if i)]]
+    return _clean(recipe_text(name, items))
+
+
 def allowed(name: str, ingredients: list[str], groups: list[list[str]]) -> bool:
     """True when no blocked word appears in the recipe name or its ingredients."""
     if not groups:
         return True
-    blob = _clean(recipe_text(name or "", [i for i in ingredients if i]))
+    blob = _blob(name, ingredients)
     return not any(hits(blob, group) for group in groups)
+
+
+def matched_words(name: str, ingredients: list[str], groups: list[list[str]]) -> list[str]:
+    """The blocked words a recipe actually contains, read the same way allowed() reads it."""
+    blob = _blob(name, ingredients)
+    return sorted({word.strip() for group in groups for word in group if hits(blob, [word])})
 
 
 # The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these
 # (web/src/diet.js, tastelab/web/app.js and ios FiltersView copy them; a test keeps them equal).
 DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
-ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish"]
+ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish", "poultry", "red-meat"]
 AVOIDS = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
     "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import re
 
+from app.perf import Laps
+
 from .families import family_of
 from .neighbors import DIM, cosine, meal_vector, unit
 from .suggest import (
@@ -42,6 +44,12 @@ KEYS = {
     "sesame": ["sesame", "tahini"],
     "fish": ["salmon", "tuna", "cod", "halibut", "tilapia", "trout", "anchovy", "fish"],
     "shellfish": ["shrimp", "prawn", "crab", "lobster", "clam", "mussel", "oyster", "scallop"],
+    "poultry": ["chicken", "turkey", "duck", "goose", "quail", "pheasant", "cornish hen", "poultry"],
+    # " ham" so graham crackers and champagne vinegar pass. Gelatin and lard for alpha-gal.
+    # Turkey bacon and chicken sausage are blocked too: safer for an allergy than guessing.
+    "red-meat": ["beef", "steak", "pork", "lamb", "veal", "venison", "bison", "goat meat", "bacon", " ham", "prosciutto",
+              "pancetta", "sausage", "chorizo", "pepperoni", "salami", "hot dog", "bratwurst", "kielbasa",
+              "andouille", "meatball", "ground meat", "lard", "gelatin"],
     "cilantro": ["cilantro", "coriander"],
     "mushrooms": ["mushroom"],
     "onions": ["onion"],
@@ -437,19 +445,21 @@ def _reason(reasons: list[str], text: str | None) -> None:
         reasons.append(text)
 
 
-def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str]):
+def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str],
+            shop: set[str] | None = None, allow_downvoted: bool = False):
     keys = _keys(recipe)
-    if keys & taste.passed:
+    if keys & taste.passed and not allow_downvoted:
         return 0.0, [], True
-    blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
-    for group in taste.blocks:
-        if hits(blob, group):
+    if taste.blocks:
+        blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
+        if any(hits(blob, group) for group in taste.blocks):
             return 0.0, [], True
     bonus, direct = _direct_bonus(keys, taste)
     bonus -= getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
     reasons: list[str] = []
     _reason(reasons, direct)
-    shop = _shop(recipe, aliases, overrides, skip)
+    if shop is None:
+        shop = _shop(recipe, aliases, overrides, skip)
     ing_bonus, ing_reason = _ingredient_bonus(shop, taste)
     bonus += ing_bonus
     if not reasons:
@@ -477,7 +487,10 @@ def pick_meals(
     to_try: set[int] | None = None,
     cooked: set[int] | None = None,
     plan_ings: set[str] | None = None,
+    laps: Laps | None = None,
+    allow_downvoted: bool = False,
 ) -> list[dict]:
+    """allow_downvoted keeps meals the household passed on or rated 👎, for a backup pick."""
     swaps = overrides or {}
     ignored = skip or set()
     _apply_household(taste, recipes, favorites, cooked or set())
@@ -485,9 +498,11 @@ def pick_meals(
     for recipe in recipes:
         known[int(recipe["id"])] = recipe
     _fit(taste, list(known.values()), aliases, swaps, ignored)
+    if laps:
+        laps.lap("fit")
 
-    def adjust(recipe):
-        return _adjust(recipe, taste, aliases, swaps, ignored)
+    def adjust(recipe, shop=None):
+        return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop, allow_downvoted=allow_downvoted)
 
     return pick_suggestions(
         recipes,
@@ -500,6 +515,7 @@ def pick_meals(
         swaps,
         ignored,
         to_try,
+        laps=laps,
     )
 
 

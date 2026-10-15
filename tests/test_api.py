@@ -63,8 +63,9 @@ def _client(tmp_path: Path, admin: bool = True) -> TestClient:
     _seed(tmp_path)
     app = create_app()
     if admin:
-        from app.deps import require_admin
+        from app.deps import optional_admin, require_admin
         app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
+        app.dependency_overrides[optional_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
     return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
 
 
@@ -927,7 +928,7 @@ def test_real_suggestions_load_contextual_feedback(tmp_path, monkeypatch):
     import json
     import app.routes as routes
     monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
-    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: [{"id": 1, "keys": ["1"], "name": "Chicken soup", "ingredients": ["chicken", "carrot"], "tags": [], "cooking_minutes": 20}])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [{"id": 1, "keys": ["1"], "name": "Chicken soup", "ingredients": ["chicken", "carrot"], "tags": [], "cooking_minutes": 20}])
     with _client(tmp_path) as client:
         current = client.get("/api/plans/current").json()
         db = connect()
@@ -1043,6 +1044,15 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert (voted["rating"], voted["reason"]) == (-1, "kept_badly")
         assert voted["section"] and voted["item"]
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "nope"}).status_code == 422
+        # A 👎 can carry the user's own words, like a missing step's note. A 👍 drops them.
+        noted = client.put(f"/api/prep/{task['id']}/feedback",
+                           json={"rating": -1, "reason": "prep_differently", "note": "  Make the sauce the night before  "})
+        assert noted.json()["note"] == "Make the sauce the night before"
+        shown = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        assert (shown["reason"], shown["reason_note"]) == ("prep_differently", "Make the sauce the night before")
+        assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "note": "x" * 501}).status_code == 422
+        client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 1, "note": "ignored"})
+        assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["reason_note"] == ""
         client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 0})
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["rating"] == 0
 
@@ -1208,7 +1218,7 @@ def test_settings_and_taste_lab_share_one_filter_system(tmp_path, monkeypatch):
     }]
     monkeypatch.setattr(taste_lab, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
     monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
-    monkeypatch.setattr(routes, "_candidate_meals", lambda *args: [
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
         {"id": 1, "keys": ["1"], "name": "Olive tapenade pasta", "ingredients": ["olives", "pasta"], "tags": [], "cooking_minutes": 20},
         {"id": 2, "keys": ["2"], "name": "Sesame chicken", "ingredients": ["chicken", "sesame seeds"], "tags": [], "cooking_minutes": 20},
     ])
@@ -1392,10 +1402,11 @@ def test_fill_plan_uses_edited_ingredients_and_excludes_kept_recipes(tmp_path, m
         active = client.get('/api/plans/current').json()
         client.put(f"/api/plans/{active['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 6}]})
         client.patch('/api/recipes/1', json={'ingredients': [{'name': 'bell pepper', 'quantity': '2'}]})
-        monkeypatch.setattr(routes, '_candidate_meals', lambda *args: [
+        monkeypatch.setattr(routes, '_load_household_recipes', lambda *args: [
             {'id': 1, 'name': 'Soup', 'ingredients': ['onion'], 'tags': []},
             {'id': 2, 'name': 'Pepper bowl', 'ingredients': ['bell pepper'], 'tags': []},
         ])
+        routes._invalidate_all_pools()
         captured = {}
         def pick(recipes, *args, **kwargs):
             captured['recipes'] = recipes
@@ -1440,3 +1451,364 @@ def test_admin_catalog_tags_are_global_and_survive_import(tmp_path):
 def test_catalog_tags_require_admin(tmp_path):
     with _client(tmp_path, admin=False) as client:
         assert client.patch('/api/recipes/1', json={'tags': ['changed']}).status_code == 403
+
+
+def test_pool_drops_builds_that_race_an_invalidation():
+    import app.routes as routes
+    from app.domain.pool import build_pool
+    pool = build_pool([], [], [], set())
+    routes._invalidate_all_pools()
+    gen = routes._pool_generation(7)
+    routes._invalidate_pool(7)  # a write commits while the build is in flight
+    routes._store_pool(7, gen, (), pool)
+    assert 7 not in routes._POOLS
+
+    gen = routes._pool_generation(8)
+    routes._invalidate_all_pools()  # a catalog-wide change also outdates it
+    routes._store_pool(8, gen, (), pool)
+    assert 8 not in routes._POOLS
+
+    gen = routes._pool_generation(9)
+    routes._store_pool(9, gen, (), pool)
+    assert routes._POOLS[9] == ((), pool)
+    routes._invalidate_all_pools()
+
+
+def test_api_responses_report_server_timing(tmp_path):
+    with _client(tmp_path) as client:
+        response = client.get("/api/suggestions/recipes")
+        assert response.status_code == 200
+        timing = response.headers["Server-Timing"]
+        assert timing.startswith("app;dur=")
+        assert "queries" in timing.split("db;dur=", 1)[1].split(",", 1)[0]
+        for phase in ("pool", "learn", "fit", "filter", "greedy", "notes"):
+            assert f"suggest.{phase};dur=" in timing
+
+
+def test_pool_is_built_once_and_rebuilt_only_when_filters_change(tmp_path, monkeypatch):
+    import app.routes as routes
+    builds = []
+    load = routes._load_household_recipes
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: builds.append(1) or load(*args))
+    with _client(tmp_path) as client:
+        for _ in range(3):
+            assert client.get("/api/suggestions/recipes").status_code == 200
+            assert client.get("/api/recipes").status_code == 200
+        assert len(builds) == 1
+        client.put("/api/household", json={"prefs": {"name_only": True}})
+        client.get("/api/suggestions/recipes")
+        assert len(builds) == 1  # saving other settings doesn't touch the hard filters
+        client.put("/api/household", json={"prefs": {"filters": {"allergens": ["sesame"]}}})
+        client.get("/api/suggestions/recipes")
+        assert len(builds) == 2
+
+
+def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Olive pasta", "ingredients": ["olives", "pasta"], "tags": [], "cooking_minutes": 20},
+        {"id": 2, "keys": ["2"], "name": "Bean chili", "ingredients": ["beans", "tomato"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        db = connect()
+        try:
+            one, _, _ = routes._suggest_meals(db, 1, 1)
+            two, _, reasons = routes._suggest_meals(db, 1, 2)
+        finally:
+            db.close()
+        assert [m["id"] for m in one] == [2]
+        assert [m["id"] for m in two] == [2, 1]
+        assert reasons["1"][0] == routes.BACKUP_REASON
+
+
+def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
+    import app.routes as routes
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        recipe = {"slug": "old-salad", "name": "Old Salad", "servings": 4, "photo_path": "food/old.jpg",
+                  "instructions_copied_from_third_party": False, "ingredients": [{"name": "lettuce"}]}
+        db = connect()
+        upsert_catalog_recipe(db, recipe, {})
+        db.commit()
+        rid = db.execute("SELECT id FROM recipes WHERE slug = 'old-salad'").fetchone()["id"]
+        routes._invalidate_all_pools()
+        assert "Old Salad" in {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
+
+        upsert_catalog_recipe(db, {**recipe, "retired": True}, {})
+        db.commit()
+        db.close()
+        routes._invalidate_all_pools()
+        assert "Old Salad" not in {r["name"] for r in client.get("/api/recipes?q=old").json()["recipes"]}
+        assert client.get(f"/api/recipes/{rid}").status_code == 200
+
+
+def test_test_households_are_left_out_of_cross_household_learning(tmp_path, monkeypatch, capsys):
+    import sys
+    from app.insights import is_test_household, real_households_sql
+    with _client(tmp_path) as client:
+        signup = client.post("/api/auth/signup", json={
+            "email": "Tester@Example.com", "password": "correct horse battery staple", "household_name": "Tester"})
+        assert signup.status_code == 200
+        db = connect()
+        hid = db.execute("SELECT household_id FROM users WHERE email = 'tester@example.com'").fetchone()["household_id"]
+        assert not is_test_household(db, hid)
+
+        import scripts.set_test_household as script
+        monkeypatch.setattr(sys, "argv", ["set_test_household.py", "TESTER@example.com"])
+        script.main()
+        assert f"Household {hid} (Tester, 1 member(s)) is now a test household." in capsys.readouterr().out
+        assert is_test_household(db, hid)
+        real = {r["id"] for r in db.execute(f"SELECT id FROM households WHERE {real_households_sql('id')}")}
+        assert hid not in real and real  # other households still count
+
+        # The household still works normally, and the flag can't be set from the app.
+        assert client.get("/api/suggestions/recipes").status_code == 200
+        client.put("/api/household", json={"prefs": {"is_test": 0}, "name": "Tester"})
+        assert is_test_household(db, hid)
+
+        monkeypatch.setattr(sys, "argv", ["set_test_household.py", "tester@example.com", "--real"])
+        script.main()
+        assert not is_test_household(db, hid)
+        db.close()
+
+
+def test_report_a_suggestion_keeps_why_it_was_suggested(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Soup", "ingredients": ["onion", "carrot"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"allergens": ["sesame"], "avoids": ["olives"]}}})
+        made = client.post("/api/plans", json={"meal_count": 1})
+        assert made.status_code == 200, made.text
+        proposal = made.json()
+        context = proposal["context"]
+        assert context["filters"]["allergens"] == ["sesame"] and context["filters"]["avoids"] == ["olives"]
+        assert context["meals"] and context["meals"][0]["id"] == proposal["suggested_recipe_ids"][0]
+        assert context["meals"][0]["rank"] >= 1 and context["ranked_out_of"] >= 1
+        assert {"priority", "backup"} <= set(context["pool"]) and "liked" in context["taste"]
+
+        sent = client.post(f"/api/plans/{proposal['id']}/report", json={"note": "  Too much chicken  "})
+        assert sent.status_code == 200
+        assert client.post(f"/api/plans/{proposal['id']}/report", json={"note": "x" * 1001}).status_code == 422
+        assert client.post("/api/plans/999999/report", json={"note": "not mine"}).status_code == 404
+
+        reports = client.get("/api/dev/plan-reports").json()["reports"]
+        assert len(reports) == 1 and reports[0]["note"] == "Too much chicken"
+        snap = reports[0]["snapshot"]
+        assert snap["plan"]["id"] == proposal["id"] and snap["plan"]["context"]["filters"]["avoids"] == ["olives"]
+        assert snap["filters_when_reported"]["allergens"] == ["sesame"]
+        assert client.get("/api/household/export").json()["plan_reports"][0]["note"] == "Too much chicken"
+
+
+def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
+    with _client(tmp_path) as client:
+        # A household edit adds the avoided ingredient; the report sees the recipe as edited.
+        client.patch("/api/recipes/1", json={"ingredients": [{"name": "kalamata olives", "quantity": "1 cup"}]})
+        recipe = client.get("/api/recipes/1").json()
+        word = "olives"
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": [word]}}})
+        sent = client.post("/api/recipes/1/report", json={"reason": "diet", "note": "  Has something we avoid  "})
+        assert sent.status_code == 200
+        assert client.post("/api/recipes/1/report", json={"reason": "nope"}).status_code == 422
+        assert client.post("/api/recipes/1/report", json={"reason": "other", "note": "x" * 1001}).status_code == 422
+        assert client.post("/api/recipes/999999/report", json={"reason": "other"}).status_code == 404
+
+        reports = client.get("/api/dev/recipe-reports").json()["reports"]
+        assert len(reports) == 1
+        r = reports[0]
+        assert (r["recipe_id"], r["reason"], r["note"]) == (1, "diet", "Has something we avoid")
+        snap = r["snapshot"]
+        assert snap["recipe"]["name"] == recipe["name"] and snap["filters"]["avoids"] == [word]
+        assert snap["passes_diets_and_allergies"] is True
+        assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
+        assert "olive" in snap["matched_avoid_words"]
+        assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
+
+def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    page = """<script type="application/ld+json">{"@type": "Recipe", "name": "Weeknight dal",
+      "recipeYield": "6", "totalTime": "PT40M", "recipeIngredient": ["1 cup red lentils", "2 tsp cumin"],
+      "recipeInstructions": [{"@type": "HowToStep", "text": "Simmer the lentils."}]}</script>"""
+    monkeypatch.setattr(recipe_import, "fetch_page", lambda url: (page, url))
+    with _client(tmp_path, admin=False) as client:
+        before = len(client.get("/api/recipes", params={"mine": "true"}).json()["recipes"])
+        draft = client.post("/api/recipes/import", json={"url": "https://example.com/dal"})
+        assert draft.status_code == 200
+        body = draft.json()
+        assert body["name"] == "Weeknight dal"
+        assert body["servings"] == 6
+        assert body["cooking_minutes"] == 40
+        assert body["ingredient_lines"] == ["1 cup red lentils", "2 tsp cumin"]
+        assert len(client.get("/api/recipes", params={"mine": "true"}).json()["recipes"]) == before
+
+        saved = client.post("/api/recipes", json={**body, "imported": True, "tags": ["imported"]})
+        assert saved.status_code == 200
+        assert saved.json()["instructions_source"] == "import"
+        assert saved.json()["source_url"] == "https://example.com/dal"
+        mine = client.get("/api/recipes", params={"mine": "true"}).json()["recipes"]
+        assert [r["name"] for r in mine if r["name"] == "Weeknight dal"] == ["Weeknight dal"]
+        assert all(not r["catalog"] for r in mine)
+
+
+def test_import_recipe_reports_a_page_without_one(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    real_fetch = recipe_import.fetch_page
+    monkeypatch.setattr(recipe_import, "fetch_page", lambda url: ("<html>no recipe</html>", url))
+    with _client(tmp_path, admin=False) as client:
+        res = client.post("/api/recipes/import", json={"url": "https://example.com/blog"})
+        assert res.status_code == 422
+        assert res.json()["error"] == "no_recipe"
+        monkeypatch.setattr(recipe_import, "fetch_page", real_fetch)
+        assert client.post("/api/recipes/import", json={"url": "http://127.0.0.1/"}).json()["error"] == "bad_url"
+
+
+def test_cooks_edit_their_own_recipes_but_not_the_catalog(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        made = client.post(
+            "/api/recipes",
+            json={"name": "Our tacos", "ingredients": [{"quantity": "", "name": "1 lb ground beef"}],
+                  "instructions": [{"text": "Brown the beef", "prep": False, "ings": ""}]},
+        ).json()
+        assert made["instructions_source"] == "household"
+        assert made["ingredients"][0]["quantity"] == "1 lb"
+        patched = client.patch(f"/api/recipes/{made['id']}", json={"name": "Our fish tacos"})
+        assert patched.status_code == 200
+        assert patched.json()["name"] == "Our fish tacos"
+        assert client.patch(f"/api/recipes/{made['id']}", json={"as_copy": True}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"name": "Not ours"}).status_code == 403
+        assert client.patch("/api/recipes/2", json={"name": "Not ours"}).status_code == 404
+        assert client.delete(f"/api/recipes/{made['id']}").status_code == 200
+
+
+def _png() -> bytes:
+    from io import BytesIO
+    from PIL import Image
+
+    out = BytesIO()
+    Image.new("RGB", (8, 8), (200, 80, 40)).save(out, "PNG")
+    return out.getvalue()
+
+
+def test_imported_recipe_keeps_a_copy_of_its_photo_and_the_link(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    monkeypatch.setattr(recipe_import, "fetch_image", lambda url: _png())
+    import app.routes
+    monkeypatch.setattr(app.routes, "fetch_image", lambda url: _png())
+    with _client(tmp_path, admin=False) as client:
+        made = client.post("/api/recipes", json={
+            "name": "Marry me chicken", "imported": True, "source_url": "https://example.com/r",
+            "photo_url": "https://example.com/r.jpg",
+        }).json()
+        assert made["photo_path"].startswith("food/admin-upload-")
+        assert made["photo_source_url"] == "https://example.com/r.jpg"
+        assert client.get(f"/{made['photo_path']}").status_code == 200
+
+
+def test_imported_recipe_falls_back_to_the_photo_link(tmp_path, monkeypatch):
+    import app.routes
+    from app.domain.recipe_import import RecipeImportError
+
+    def blocked(url):
+        raise RecipeImportError("blocked", "no")
+
+    monkeypatch.setattr(app.routes, "fetch_image", blocked)
+    with _client(tmp_path, admin=False) as client:
+        made = client.post("/api/recipes", json={
+            "name": "Linked photo", "imported": True, "photo_url": "https://example.com/r.jpg",
+        }).json()
+        assert made["photo_path"] == "https://example.com/r.jpg"
+        card = next(r for r in client.get("/api/recipes", params={"mine": "true"}).json()["recipes"] if r["id"] == made["id"])
+        assert card["photo_path"] == "https://example.com/r.jpg"
+
+
+def test_cooks_own_photo_wins_over_the_sites(tmp_path, monkeypatch):
+    import base64
+    import app.routes
+
+    monkeypatch.setattr(app.routes, "fetch_image", lambda url: (_ for _ in ()).throw(AssertionError("not fetched")))
+    own = "data:image/png;base64," + base64.b64encode(_png()).decode()
+    with _client(tmp_path, admin=False) as client:
+        made = client.post("/api/recipes", json={
+            "name": "My photo", "imported": True, "photo_url": "https://example.com/r.jpg", "photo_data": own,
+        }).json()
+        assert made["photo_path"].startswith("food/admin-upload-")
+        assert made["photo_source_url"] == "https://example.com/r.jpg"
+        assert client.post("/api/recipes", json={"name": "Bad", "photo_data": "data:text/plain;base64,aGk="}).status_code == 400
+
+
+def test_bug_reports_and_feature_requests(tmp_path):
+    with _client(tmp_path) as client:
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
+                           headers={"X-Dinnerdesk-App": "ios 1.2 (34)"})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "feature", "note": "Dark mode please"}).status_code == 200
+        assert client.post("/api/feedback", json={"kind": "praise", "note": "hi"}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": ""}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "   "}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x" * 2001}).status_code == 422
+
+        items = client.get("/api/dev/feedback").json()["feedback"]
+        assert [i["kind"] for i in items] == ["feature", "bug"]
+        bug = items[1]
+        assert (bug["note"], bug["status"]) == ("Grocery list froze", "new")
+        assert bug["snapshot"]["app"] == "ios 1.2 (34)" and bug["snapshot"]["screen"] == "grocery"
+
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "planned"}).status_code == 200
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "maybe"}).status_code == 422
+        assert client.put("/api/dev/feedback/999999/status", json={"status": "done"}).status_code == 404
+        assert client.get("/api/dev/feedback").json()["feedback"][1]["status"] == "planned"
+        assert {f["kind"] for f in client.get("/api/household/export").json()["feedback"]} == {"bug", "feature"}
+
+        client.app.dependency_overrides.clear()
+        assert client.get("/api/dev/feedback").status_code == 403
+        assert client.put("/api/dev/feedback/1/status", json={"status": "done"}).status_code == 403
+
+
+
+
+def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
+    with _client(tmp_path) as client:
+        body = client.get("/api/recipes", params={"limit": 1}).json()
+        assert len(body["recipes"]) == 1
+        assert body["total"] >= 1
+        assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]
+
+
+
+
+def test_bug_reports_can_carry_private_screenshots(tmp_path, monkeypatch):
+    import os
+    shots_dir = tmp_path / "shots"
+    monkeypatch.setenv("FEEDBACK_DIR", str(shots_dir))
+    with _client(tmp_path) as client:
+        shot = _upload_photo_data()
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "Button overlaps", "screenshots": [shot, shot]})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": [shot] * 4}).status_code == 422
+        bad = client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": ["data:image/png;base64,bm90IGFuIGltYWdl"]})
+        assert bad.status_code == 400
+
+        item = client.get("/api/dev/feedback").json()["feedback"][0]
+        assert len(item["screenshots"]) == 2
+        image = client.get(item["screenshots"][0])
+        assert image.status_code == 200 and image.headers["content-type"] == "image/jpeg"
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/2").status_code == 404
+
+        # Stored privately: not in the public photo folder, and not reachable as a food photo.
+        names = item["snapshot"]["screenshots"]
+        assert sorted(os.listdir(shots_dir)) == sorted(names)
+        assert not any(n in os.listdir(os.environ["FOOD_DIR"]) for n in names)
+        assert client.get(f"/food/{names[0]}").status_code == 404
+
+        # Only admins can see them.
+        client.app.dependency_overrides.clear()
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/0").status_code in (401, 403)
+
+

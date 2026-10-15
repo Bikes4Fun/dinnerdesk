@@ -83,6 +83,7 @@
 				KitchenView.swift,
 				MenuSheet.swift,
 				MoreView.swift,
+				MyRecipesView.swift,
 				PantryMatch.swift,
 				PantryView.swift,
 				PlanView.swift,

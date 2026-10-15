@@ -34,5 +34,9 @@ def isolated_database(request, monkeypatch):
         # fresh schema, so the module must initialize against that schema as well.
         import app.taste_lab
         monkeypatch.setattr(app.taste_lab, '_mod', None)
+        # Recipe pools live in memory for the server's life, keyed by household id. Each test's
+        # fresh schema reuses those ids, so start every test with no pools.
+        import app.routes
+        app.routes._invalidate_all_pools()
         yield
         admin.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))

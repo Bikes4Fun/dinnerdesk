@@ -17,13 +17,36 @@ function ingLines(recipe) {
     .join("\n");
 }
 
+// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
+const REPORT_REASONS = [
+  ["ingredients", "Ingredients are wrong or missing"],
+  ["steps", "Steps are wrong or confusing"],
+  ["diet", "Shows up despite my diet or allergies"],
+  ["photo", "Photo doesn't match"],
+  ["duplicate", "Duplicate of another recipe"],
+  ["turned_out", "Didn't turn out well"],
+  ["other", "Something else"],
+];
+
+/** The site a kitchen recipe came from, for its credit link; only http(s) links count. */
+function sourceHost(url) {
+  try {
+    const u = new URL(url || "");
+    return u.protocol === "http:" || u.protocol === "https:" ? u.hostname.replace(/^www\./, "") : "";
+  } catch {
+    return "";
+  }
+}
+
 export function Recipe({ id }) {
   const week = useWeek();
   const [recipe, setRecipe] = useState(null);
   const [tab, setTab] = useState("overview");
   const [editing, setEditing] = useState(false);
-  // Editing recipes is for Dinnerdesk admins only; the server refuses everyone else too.
+  // A kitchen edits its own recipes; catalog edits are for Dinnerdesk admins only, and the
+  // server refuses everyone else too.
   const [admin, setAdmin] = useState(false);
+  const canEdit = admin || recipe?.catalog === false;
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const added = week?.weekIds?.has(Number(id)) ?? false;
@@ -38,6 +61,9 @@ export function Recipe({ id }) {
   const [draftServings, setDraftServings] = useState(null);
   const [familyPortions, setFamilyPortions] = useState(null);
   const [showMore, setShowMore] = useState(false);
+  // "Report a problem": null closed, { reason, note } while writing; reportedId once sent.
+  const [report, setReport] = useState(null);
+  const [reportedId, setReportedId] = useState(null);
   const moreRef = useRef(null);
 
   useEffect(() => {
@@ -69,7 +95,7 @@ export function Recipe({ id }) {
   }, [showMore]);
 
   function startEdit() {
-    if (!admin) return;
+    if (!canEdit) return;
     setPhotoData(null);
     setTags((recipe.tags || []).join(", "));
     setName(recipe.name);
@@ -140,6 +166,19 @@ export function Recipe({ id }) {
     } catch (e) {
       setErr(e.message);
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteOwn() {
+    setShowMore(false);
+    if (!window.confirm(`Delete “${recipe.name}” from your recipes?`)) return;
+    setBusy(true);
+    try {
+      await api.deleteRecipe(recipe.id);
+      go("/recipes?list=mine");
+    } catch (e) {
+      setErr(e.message);
       setBusy(false);
     }
   }
@@ -308,6 +347,11 @@ export function Recipe({ id }) {
                   >
                     {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
                   </button>
+                  {!recipe.catalog ? (
+                    <button type="button" role="menuitem" onClick={deleteOwn} disabled={busy}>
+                      Delete recipe
+                    </button>
+                  ) : null}
                   {admin && recipe.catalog && recipe.edited ? (
                     <button type="button" role="menuitem" onClick={restoreOriginal} disabled={busy || photoLoading}>
                       Restore original
@@ -326,7 +370,7 @@ export function Recipe({ id }) {
               {t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
-          {admin && (
+          {canEdit && (
             <button type="button" className="tab-btn" onClick={startEdit}>
               Edit
             </button>
@@ -350,7 +394,7 @@ export function Recipe({ id }) {
         )}
         <div className="scroll pad recipe-body">
           {err && <p className="banner err">{err}</p>}
-          {editing && admin ? (
+          {editing && canEdit ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
               <label className="block-label" htmlFor="recipe-photo">Recipe photo</label>
               <FoodPhoto path={recipe.photo_path} hideUnavailable />
@@ -422,6 +466,12 @@ export function Recipe({ id }) {
               {tab === "cook" && (
                 <>
                 {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinnerdesk</p>}
+                {sourceHost(recipe.source_url) && !recipe.catalog && (
+                  <p className="muted">
+                    {recipe.instructions_source === "import" ? "Steps from " : "Original recipe: "}
+                    <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{sourceHost(recipe.source_url)}</a>
+                  </p>
+                )}
                 <ol className="steps">
                   {cookSteps.map((s, i) => (
                     <li key={i}>
@@ -447,10 +497,42 @@ export function Recipe({ id }) {
               )}
             </>
           )}
+          {recipe.catalog && !editing && (reportedId === recipe.id
+            ? <p className="muted recipe-report-done" role="status">Thanks. We'll take a look at this recipe.</p>
+            : report === null
+              ? <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>Report a problem with this recipe</button>
+              : <form className="recipe-report-form" onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!report.reason) return;
+                  setBusy(true);
+                  api.reportRecipe(recipe.id, report.reason, report.note.trim())
+                    .then(() => { setReportedId(recipe.id); setReport(null); })
+                    .catch((error) => setErr(error.message))
+                    .finally(() => setBusy(false));
+                }}>
+                  <fieldset>
+                    <legend>What's wrong?</legend>
+                    {REPORT_REASONS.map(([key, label]) => (
+                      <label key={key} className="recipe-report-reason">
+                        <input type="radio" name="report-reason" value={key} checked={report.reason === key}
+                          onChange={() => setReport({ ...report, reason: key })} />
+                        {label}
+                      </label>
+                    ))}
+                  </fieldset>
+                  <label htmlFor="recipe-report-note">Anything to add? (optional)</label>
+                  <textarea id="recipe-report-note" className="field" rows={3} maxLength={1000} value={report.note}
+                    placeholder="e.g. Step 4 says to add the cream but it's not in the ingredients"
+                    onChange={(e) => setReport({ ...report, note: e.target.value })} />
+                  <div className="recipe-report-actions">
+                    <button type="submit" className="btn-primary" disabled={busy || !report.reason}>Send report</button>
+                    <button type="button" className="btn-secondary" disabled={busy} onClick={() => setReport(null)}>Cancel</button>
+                  </div>
+                </form>)}
         </div>
       </div>
       <footer className="dock">
-        {editing && admin ? (
+        {editing && canEdit ? (
           <>
             <button type="submit" form="recipe-edit" className="btn-primary block" disabled={busy || photoLoading}>
               {busy ? "Saving…" : "Save"}

@@ -65,6 +65,8 @@ export const api = {
   recipe: (id) => req(`/api/recipes/${id}`),
   support: () => req("/api/support"),
   createRecipe: (body) => req("/api/recipes", { method: "POST", body: JSON.stringify(body) }),
+  importRecipe: (url) => req("/api/recipes/import", { method: "POST", body: JSON.stringify({ url }) }),
+  deleteRecipe: (id) => req(`/api/recipes/${id}`, { method: "DELETE" }),
   tags: () => req("/api/tags"),
   plan: () => req("/api/plans/current"),
   plans: () => req("/api/plans"),
@@ -72,6 +74,12 @@ export const api = {
   suggestionCapabilities: () => req("/api/suggestions/capabilities"),
   pendingSuggestion: () => req("/api/suggestions/current"),
   decideSuggestion: (id, decision) => req(`/api/plans/${id}/decision/${decision}`, { method: "POST" }),
+  sendFeedback: (kind, note, screenshots = []) =>
+    req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen: "settings", screenshots }) }),
+  feedbackList: () => req("/api/dev/feedback"),
+  setFeedbackStatus: (id, status) => req(`/api/dev/feedback/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  reportRecipe: (id, reason, note) => req(`/api/recipes/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
+  reportPlan: (id, note) => req(`/api/plans/${id}/report`, { method: "POST", body: JSON.stringify({ note }) }),
   resizeSuggestion: (id, count) => req(`/api/plans/${id}/resize`, { method: "POST", body: JSON.stringify({ meal_count: count }) }),
   swapOptions: (id, slot, q = "") => req(`/api/plans/${id}/swap-options/${slot}?${new URLSearchParams({ q })}`),
   swapSuggestion: (id, slot, recipeId) => req(`/api/plans/${id}/swap/${slot}`, { method: "POST", body: JSON.stringify(recipeId ? { recipe_id: recipeId } : {}) }),
@@ -173,6 +181,10 @@ export const api = {
   householdMembers: () => req("/api/household/members"),
   removeHouseholdMember: (userId) =>
     req(`/api/household/members/${userId}`, { method: "DELETE" }),
+  leaveHousehold: () => req("/api/household/leave", { method: "POST" }),
+  joinHousehold: (token) => req("/api/household/join", { method: "POST", body: JSON.stringify({ token }) }),
+  deleteHousehold: (password) => req("/api/household/delete", { method: "POST", body: JSON.stringify({ password }) }),
+  householdRole: (id, role) => req(`/api/household/members/${id}/role`, { method: "PUT", body: JSON.stringify({ role }) }),
   createHouseholdInvite: () => req("/api/household/invites", { method: "POST" }),
   previewInvite: (token) => req(`/api/household/invites/${token}`),
   acceptInvite: (body) =>
@@ -181,5 +193,6 @@ export const api = {
 
 export function photoSrc(path) {
   if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path; // an imported recipe's photo link (fallback)
   return path.startsWith("/") ? path : `/${path}`;
 }

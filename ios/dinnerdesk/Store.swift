@@ -17,6 +17,8 @@ final class Store: ObservableObject {
     }
   }
   @Published var recipes: [RecipeSummary] = []
+  /// How many recipes search covers, shown in the search box placeholder.
+  @Published var recipeTotal: Int?
   /// Saved on every change (checking items off in the store), so a relaunch with no signal
   /// still shows the list as the person left it.
   @Published var grocery: [GroceryLine] = [] {
@@ -96,6 +98,7 @@ final class Store: ObservableObject {
       let recipeList = try await recipeBox
       guard gen == generation else { return }
       recipes = recipeList.recipes
+      recipeTotal = recipeList.total ?? recipeTotal
       Freshness.mark(Freshness.recipes)
       await reloadGrocery()
       await loadGroceryPrefs(onlyIfStale: onlyIfStale)
@@ -145,6 +148,7 @@ final class Store: ObservableObject {
     if plan == nil, let saved: Plan = API.cached("plans/current") { plan = saved }
     if recipes.isEmpty, let saved: RecipeList = API.cached("recipes", query: ["limit": "400"]) {
       recipes = saved.recipes
+      recipeTotal = saved.total
     }
     if let plan {
       if grocery.isEmpty, let saved: GroceryList = API.cached("plans/\(plan.id)/grocery") { grocery = saved.lines }
@@ -720,20 +724,24 @@ final class Store: ObservableObject {
     }
   }
 
-  /// 👍/👎 on a whole prep item, with an optional reason for a 👎. Logged for review.
-  func ratePrepTask(_ taskId: Int, _ rating: Int, reason: String = "") async {
+  /// 👍/👎 on a whole prep item, with an optional reason and note for a 👎. Logged for review.
+  /// A nil note keeps the one already saved.
+  func ratePrepTask(_ taskId: Int, _ rating: Int, reason: String = "", note: String? = nil) async {
     guard let i = prepTasks.firstIndex(where: { $0.id == taskId }) else { return }
-    let before = (prepTasks[i].rating, prepTasks[i].reason)
+    let before = (prepTasks[i].rating, prepTasks[i].reason, prepTasks[i].reasonNote)
     let why = rating < 0 ? reason : ""
+    let words = rating < 0 ? (note ?? prepTasks[i].reasonNote ?? "") : ""
     prepTasks[i].rating = rating
     prepTasks[i].reason = why
+    prepTasks[i].reasonNote = words
     do {
       let _: Ok = try await API.send(
-        "prep/\(taskId)/feedback", method: "PUT", body: ["rating": rating, "reason": why])
+        "prep/\(taskId)/feedback", method: "PUT", body: ["rating": rating, "reason": why, "note": words])
     } catch {
       if let i = prepTasks.firstIndex(where: { $0.id == taskId }) {
         prepTasks[i].rating = before.0
         prepTasks[i].reason = before.1
+        prepTasks[i].reasonNote = before.2
       }
       fail(error)
     }
@@ -925,6 +933,29 @@ extension Store {
           "title": title.isEmpty ? "Saved plan" : title, "draft": true, "source_plan_id": plan.id,
         ])
     } catch { fail(error) }
+  }
+
+  /// "Report a problem with this recipe": why, and the user's note. True when sent.
+  func reportRecipe(_ recipeId: Int, reason: String, note: String) async -> Bool {
+    do {
+      let _: Ok = try await API.send("recipes/\(recipeId)/report", method: "POST", body: ["reason": reason, "note": note])
+      return true
+    } catch {
+      fail(error)
+      return false
+    }
+  }
+
+  /// "Report this suggestion": the user's note, saved with why the plan was suggested. True when sent.
+  func reportProposal(_ note: String) async -> Bool {
+    guard let proposal else { return false }
+    do {
+      let _: Ok = try await API.send("plans/\(proposal.id)/report", method: "POST", body: ["note": note])
+      return true
+    } catch {
+      proposalError = error.localizedDescription
+      return false
+    }
   }
 
   func reviewProposal(_ decision: String) async {

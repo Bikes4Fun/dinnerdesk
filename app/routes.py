@@ -2,22 +2,30 @@
 
 from __future__ import annotations
 
+import contextvars
 import json
+import logging
+import threading
+from collections import OrderedDict
+import time
 from app.db.database import PgConnection
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import public_recipe_sql
+from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, now, transaction
-from app.assets import catalog_dir
-from app.deps import AdminDep, DbDep, HhDep
+from app.assets import catalog_dir, feedback_dir
+from app.auth import SESSION_COOKIE, session_info
+from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
-from app.domain.photo_uploads import save_photo
+from app.domain.photo_uploads import save_photo, save_screenshot, save_photo_bytes
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
+from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -32,7 +40,8 @@ from app.domain.ingredient_review import (
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots, step_key, step_sentences
-from app.domain.diet_filter import allowed as diet_allowed, blocks_for, merge_filters
+from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
+from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
 from app.domain.suggest import norm_pantry
 from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, suggestion_note, suggestion_penalties
@@ -40,6 +49,10 @@ from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
     PrepMissingPut,
+    PlanReportCreate,
+    RecipeReportCreate,
+    FeedbackCreate,
+    FeedbackStatusPut,
     PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
@@ -64,11 +77,14 @@ from app.models import (
     PrepStepFeedbackPut,
     RatingPut,
     RecipeCreate,
+    RecipeImport,
     RecipePatch,
     SlotPatch,
     SlotsPut,
     SubmissionCreate,
 )
+
+_log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -340,7 +356,7 @@ def _recipe_card(
         "slug": row["slug"],
         "servings": row["servings"],
         "cooking_minutes": row["cooking_minutes"],
-        "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
+        "photo_path": _shown_photo(row),
         "catalog": row["household_id"] is None,
         "favorited": favorited,
         "to_try": to_try,
@@ -394,13 +410,14 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "slug": row["slug"],
         "servings": row["servings"],
         "cooking_minutes": row["cooking_minutes"],
-        "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
+        "photo_path": _shown_photo(row),
         "photo_ai": photo_is_ai(usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])),
         "photo_shared": photo_is_borrowed(
             usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
             archive_id_of(row["source_url"], row["slug"]),
         ),
         "source_url": row["source_url"],
+        "photo_source_url": provenance.get("photo_url") or "",
         "instructions_source": provenance.get("instructions_source"),
         "instructions_copied_from_third_party": provenance.get("instructions_copied_from_third_party"),
         "parent_recipe_id": row["parent_recipe_id"],
@@ -503,46 +520,6 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
     }
 
 
-def _diet_filtered(db: PgConnection, household_id: int, rows: list, groups: list[list[str]]) -> list:
-    """Rows that pass the kitchen's diet/avoid filters. Two queries, not one per recipe.
-
-    Uses this kitchen's edited name and ingredients when it has edited a recipe.
-    Recipes this kitchen wrote itself always show.
-    """
-    ings: dict[int, list[str]] = {}
-    for r in db.execute(
-        """SELECT ri.recipe_id, i.canonical_name FROM recipe_ingredients ri
-           JOIN ingredients i ON i.id = ri.ingredient_id
-           JOIN recipes rc ON rc.id = ri.recipe_id
-           WHERE rc.household_id IS NULL OR rc.household_id = ?""",
-        (household_id,),
-    ):
-        ings.setdefault(int(r["recipe_id"]), []).append(r["canonical_name"])
-    edits = {
-        int(e["recipe_id"]): e
-        for e in db.execute(
-            "SELECT recipe_id, name, ingredients_json FROM household_recipe_edits WHERE household_id = ?",
-            (household_id,),
-        )
-    }
-    out = []
-    for row in rows:
-        rid = int(row["id"])
-        if row["household_id"] == household_id:
-            out.append(row)
-            continue
-        name, names = row["name"], ings.get(rid, [])
-        edit = edits.get(rid)
-        if edit:
-            name = edit["name"] or name
-            edited = [i.get("name") or "" for i in json.loads(edit["ingredients_json"] or "[]")]
-            if edited:
-                names = edited
-        if diet_allowed(name, names, groups):
-            out.append(row)
-    return out
-
-
 @router.get("/recipes")
 def list_recipes(
     db: PgConnection = DbDep,
@@ -550,6 +527,7 @@ def list_recipes(
     q: str = "",
     tag: str = "",
     hidden_only: bool = Query(default=False, alias="hidden"),
+    mine: bool = False,
     limit: int = Query(default=60, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
@@ -566,11 +544,11 @@ def list_recipes(
         sql += """ AND r.id IN (
                  SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
                )"""
-    else:
-        sql += """ AND r.id NOT IN (
-                 SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
-               )"""
-    args.append(household_id)
+        args.append(household_id)
+    if mine:
+        # The kitchen's own recipes (made, imported or copied), whatever the filters say.
+        sql += " AND r.household_id = ?"
+        args.append(household_id)
     if q.strip():
         needed = hard_tokens(q) or search_tokens(q)
         for tok in needed:
@@ -579,26 +557,45 @@ def list_recipes(
     if tag.strip():
         sql += " AND t.tag = ?"
         args.append(tag.strip())
-    diets, avoids, _ = _filter_prefs(db, household_id)
-    groups = [] if hidden_only else blocks_for(diets, avoids)
-    if groups:
-        # Diet and avoid filters need ingredients, so filter before paging.
-        sql += " ORDER BY r.name"
-        candidates = db.execute(sql, args).fetchall()
-        rows = _diet_filtered(db, household_id, candidates, groups)[offset:offset + limit]
-    else:
+    laps = Laps()
+    if hidden_only or mine:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
         args.extend([limit, offset])
         rows = db.execute(sql, args).fetchall()
+    else:
+        diets, allergens, avoids, _ = _filter_prefs(db, household_id)
+        pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
+        downvoted = {rid for rid, rating in _meal_ratings(db, household_id).items() if rating < 0}
+        sql += " ORDER BY r.name"
+        matches = [r for r in db.execute(sql, args).fetchall() if r["id"] in pool.allowed]
+        # Priority first: no avoided, hidden or downvoted recipes, and variants only when
+        # searched for. A search that the priority ones don't fill a page for gets the rest
+        # after them; plain browsing never shows them, so a recipe just hidden stays gone.
+        searching = bool(q.strip())
+        held = pool.demoted | downvoted | (frozenset() if searching else pool.variants)
+        priority = [r for r in matches if r["id"] not in held]
+        if searching and len(priority) < limit:
+            priority += [r for r in matches if r["id"] in held]
+        rows = priority[offset:offset + limit]
+        laps.counts.update(pool="hit" if pool_hit else "built", matches=len(matches))
+    laps.counts.update(results=len(rows), offset=offset)
+    laps.lap("query")
     favs = _favorite_ids(db, household_id)
     later = _try_ids(db, household_id)
     hidden_ids = _hidden_recipe_ids(db, household_id)
-    return {
-        "recipes": [
-            _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
-            for r in rows
-        ]
-    }
+    cards = [
+        _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
+        for r in rows
+    ]
+    laps.lap("cards")
+    laps.publish("recipes")
+    _log.debug("recipes hh=%d q=%r tag=%r %s", household_id, q.strip() or None, tag.strip() or None, laps.fmt())
+    # Every recipe this kitchen could find, before filters: shown in the search box placeholder.
+    total = db.execute(
+        f"SELECT COUNT(*) AS n FROM recipes r WHERE (r.household_id IS NULL OR r.household_id = ?) AND {public_sql}",
+        (household_id, *public_args),
+    ).fetchone()["n"]
+    return {"recipes": cards, "total": int(total)}
 
 
 @router.get("/tags")
@@ -618,6 +615,35 @@ def list_tags(db: PgConnection = DbDep, household_id: int = HhDep):
     return {"tags": [{"tag": r["tag"], "count": r["n"]} for r in rows]}
 
 
+def _web_link(url: str | None) -> str:
+    url = (url or "").strip()[:2000]
+    return url if url.lower().startswith(("http://", "https://")) else ""
+
+
+def _copy_site_photo(url: str, household_id: int) -> str:
+    """The kitchen's private copy of an imported page's photo, or '' to fall back to the link."""
+    if not url:
+        return ""
+    try:
+        return save_photo_bytes(fetch_image(url))
+    except RecipeImportError as exc:
+        _log.info("recipe photo copy hh=%d failed %s", household_id, exc.code)
+    except HTTPException:
+        _log.info("recipe photo copy hh=%d failed not_a_usable_image", household_id)
+    return ""
+
+
+def _shown_photo(row) -> str:
+    """A recipe's stored photo; a kitchen's imported recipe falls back to its page's photo link."""
+    stored = usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])
+    if stored or row["household_id"] is None:
+        return stored
+    try:
+        return _web_link(json.loads(row["provenance_json"] or "{}").get("photo_url"))
+    except (json.JSONDecodeError, AttributeError):
+        return ""
+
+
 @router.post("/recipes")
 def create_recipe(
     body: RecipeCreate,
@@ -625,13 +651,22 @@ def create_recipe(
     household_id: int = HhDep,
 ):
     ts = now()
+    source_url = (body.source_url or "").strip()[:2000]
+    provenance = {
+        "instructions_source": "import" if body.imported else "household",
+        "instructions_copied_from_third_party": bool(body.imported),
+    }
+    photo_link = _web_link(body.photo_url)
+    if photo_link:
+        provenance["photo_url"] = photo_link
+    photo = save_photo(body.photo_data) if body.photo_data else _copy_site_photo(photo_link, household_id)
     with transaction(db):
         cur = db.execute(
             """INSERT INTO recipes (
                 household_id, slug, name, servings, cooking_minutes,
                 instructions_json, cookware_json, source_url, provenance_json,
                 photo_path, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', '', ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 household_id,
                 pantry_key(body.name).replace(" ", "-")[:80],
@@ -640,29 +675,33 @@ def create_recipe(
                 body.cooking_minutes,
                 json.dumps(body.instructions),
                 json.dumps(body.cookware),
-                (body.source_url or "").strip()[:2000],
+                source_url,
+                json.dumps(provenance),
+                photo,
                 ts,
                 ts,
             ),
         )
         rid = int(cur.lastrowid)
-        for i, ing in enumerate(body.ingredients):
-            name = ing.get("name") if isinstance(ing, dict) else str(ing)
-            qty = ing.get("quantity", "") if isinstance(ing, dict) else ""
-            iid = _get_or_create_ingredient(db, name)
-            db.execute(
-                """INSERT INTO recipe_ingredients
-                   (recipe_id, ingredient_id, quantity, unit, note, sort)
-                   VALUES (?, ?, ?, '', '', ?)""",
-                (rid, iid, qty or "", i),
-            )
+        _set_recipe_ingredients(db, rid, body.ingredients)
         for tag in body.tags:
             db.execute(
                 "INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)",
                 (rid, tag[:40]),
             )
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
+    _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
+
+
+@router.post("/recipes/import")
+def import_recipe_draft(body: RecipeImport, household_id: int = HhDep):
+    """Read a public recipe page into a draft for the cook to check. Saves nothing."""
+    try:
+        return import_recipe(body.url)
+    except RecipeImportError as exc:
+        _log.info("recipe import hh=%d failed %s", household_id, exc.code)
+        raise HTTPException(422, {"error": exc.code, "detail": exc.message})
 
 
 @router.get("/recipes/{recipe_id}")
@@ -724,6 +763,7 @@ def put_hidden(
                 "DELETE FROM household_hidden_recipes WHERE household_id = ? AND recipe_id = ?",
                 (household_id, recipe_id),
             )
+    _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -747,6 +787,7 @@ def revert_recipe_edit(
             (household_id, recipe_id),
         )
         _rebuild_grocery_for_household(db, household_id)
+    _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
 
 
@@ -864,18 +905,25 @@ def patch_recipe(
     body: RecipePatch,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
-    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
+    admin=OptionalAdminDep,
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
         raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    # A kitchen edits its own recipes; everything else is for the Dinnerdesk admins only.
+    if admin is None and (row["household_id"] != household_id or body.as_copy):
+        raise HTTPException(403, {"error": "forbidden", "detail": "admin"})
+    catalog = row["household_id"] is None
+    # recipe_tags has no household_id, and photo_path gates public_recipe_sql eligibility,
+    # so a tag or photo change on a shared catalog row affects every household's candidates.
+    global_change = catalog and not body.as_copy and (body.tags is not None or body.photo_data is not None)
+    target = recipe_id
     with transaction(db):
-        catalog = row["household_id"] is None
-        if catalog and not body.as_copy and body.photo_data is not None:
-            photo = save_photo(body.photo_data)
-            db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
-            row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
         if catalog and not body.as_copy:
+            if body.photo_data is not None:
+                photo = save_photo(body.photo_data)
+                db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
+                row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
             if body.tags is not None:
                 db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (recipe_id,))
                 for tag in body.tags:
@@ -888,52 +936,55 @@ def patch_recipe(
             base = _recipe_out(db, row, household_id)
             _upsert_recipe_edit(db, household_id, recipe_id, body, base)
             _rebuild_grocery_for_household(db, household_id)
-            row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-            return _recipe_out(db, row, household_id)
-        copied = catalog and body.as_copy
-        target = recipe_id
-        if copied:
-            target = _copy_recipe(db, row, household_id)
-            row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
-        fields = []
-        args = []
-        if body.photo_data is not None:
-            fields.append("photo_path = ?")
-            args.append(save_photo(body.photo_data))
-        if body.name is not None:
-            fields.append("name = ?")
-            args.append(body.name.strip())
-        if body.servings is not None:
-            fields.append("servings = ?")
-            args.append(body.servings)
-        if "cooking_minutes" in body.model_fields_set:
-            fields.append("cooking_minutes = ?")
-            args.append(body.cooking_minutes)
-        if body.instructions is not None:
-            fields.append("instructions_json = ?")
-            args.append(json.dumps(body.instructions))
-        if body.cookware is not None:
-            fields.append("cookware_json = ?")
-            args.append(json.dumps(body.cookware))
-        if body.tags is not None:
-            db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (target,))
-            for tag in body.tags:
+        else:
+            copied = catalog and body.as_copy
+            if copied:
+                target = _copy_recipe(db, row, household_id)
+                row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
+            fields = []
+            args = []
+            if body.photo_data is not None:
+                fields.append("photo_path = ?")
+                args.append(save_photo(body.photo_data))
+            if body.name is not None:
+                fields.append("name = ?")
+                args.append(body.name.strip())
+            if body.servings is not None:
+                fields.append("servings = ?")
+                args.append(body.servings)
+            if "cooking_minutes" in body.model_fields_set:
+                fields.append("cooking_minutes = ?")
+                args.append(body.cooking_minutes)
+            if body.instructions is not None:
+                fields.append("instructions_json = ?")
+                args.append(json.dumps(body.instructions))
+            if body.cookware is not None:
+                fields.append("cookware_json = ?")
+                args.append(json.dumps(body.cookware))
+            if body.tags is not None:
+                db.execute("DELETE FROM recipe_tags WHERE recipe_id = ?", (target,))
+                for tag in body.tags:
+                    db.execute(
+                        "INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)",
+                        (target, tag[:40]),
+                    )
+            if body.ingredients is not None:
+                _set_recipe_ingredients(db, target, body.ingredients)
+            if fields or body.tags is not None or body.ingredients is not None:
+                fields.append("updated_at = ?")
+                args.append(now())
+                args.append(target)
                 db.execute(
-                    "INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)",
-                    (target, tag[:40]),
+                    f"UPDATE recipes SET {', '.join(fields)} WHERE id = ? AND household_id = ?",
+                    (*args, household_id),
                 )
-        if body.ingredients is not None:
-            _set_recipe_ingredients(db, target, body.ingredients)
-        if fields or body.tags is not None or body.ingredients is not None:
-            fields.append("updated_at = ?")
-            args.append(now())
-            args.append(target)
-            db.execute(
-                f"UPDATE recipes SET {', '.join(fields)} WHERE id = ? AND household_id = ?",
-                (*args, household_id),
-            )
-        if not copied:
-            _rebuild_grocery_for_household(db, household_id)
+            if not copied:
+                _rebuild_grocery_for_household(db, household_id)
+    # Invalidate only after commit, so a concurrent load can't re-cache pre-commit rows.
+    if global_change:
+        _invalidate_all_pools()
+    else:
+        _invalidate_pool(household_id)
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
     return _recipe_out(db, row, household_id)
 
@@ -954,6 +1005,7 @@ def delete_recipe(
             "DELETE FROM recipes WHERE id = ? AND household_id = ?",
             (recipe_id, household_id),
         )
+    _invalidate_pool(household_id)
     return {"ok": True}
 
 
@@ -1926,10 +1978,10 @@ def list_prep(
     with transaction(db):
         _refresh_prep(db, plan_id, household_id)
     feedback = {
-        (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "")
+        (int(r["recipe_id"]), r["step_key"]): (int(r["rating"]), r["reason"] or "", r["note"] or "")
         for r in db.execute(
             # A step the household added (#21) isn't a 👍/👎; it is taken back on its own sheet.
-            "SELECT recipe_id, step_key, rating, reason FROM prep_step_feedback WHERE household_id = ? AND reason <> 'missing'",
+            "SELECT recipe_id, step_key, rating, reason, note FROM prep_step_feedback WHERE household_id = ? AND reason <> 'missing'",
             (household_id,),
         )
     }
@@ -1944,15 +1996,17 @@ def list_prep(
         for meal in details.get("meals") or []:
             meal.update(days.get(int(meal["id"]), {"day": None, "day_index": None}))
             for step in meal.get("steps") or []:
-                rating, reason = feedback.get((int(meal["id"]), step["key"]), (0, ""))
+                rating, reason, note = feedback.get((int(meal["id"]), step["key"]), (0, "", ""))
                 step["rating"] = rating
                 step["done"] = bool(r["done"]) or f"{meal['id']}:{step['key']}" in json.loads(r["completed_steps_json"])
-                votes.append((rating, reason))
+                votes.append((rating, reason, note))
         # The item's own 👍/👎: what every step in it says, or nothing when they disagree.
         rating = votes[0][0] if votes and all(v[0] == votes[0][0] for v in votes) else 0
-        reason = next((why for value, why in votes if value == rating and why), "") if rating < 0 else ""
+        reason = next((why for value, why, _ in votes if value == rating and why), "") if rating < 0 else ""
+        # The cook's own words on a 👎 ("notes" is the task's recipe summary).
+        reason_note = next((n for value, _, n in votes if value == rating and n), "") if rating < 0 else ""
         tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
-                      "rating": rating, "reason": reason, "section": "other", "item": r["title"],
+                      "rating": rating, "reason": reason, "reason_note": reason_note, "section": "other", "item": r["title"],
                       "action": "", **details})
     return {"tasks": tasks}
 
@@ -2129,27 +2183,28 @@ def put_prep_task_feedback(
         row = _owned_prep_task(db, task_id, household_id)
         details = json.loads(row["details_json"] or "{}")
         reason = body.reason if body.rating < 0 else ""
+        note = body.note.strip() if body.rating < 0 else ""
         for meal in details.get("meals") or []:
             for step in meal.get("steps") or []:
                 if body.rating:
                     db.execute(
                         """INSERT INTO prep_step_feedback
-                           (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                           (household_id, recipe_id, step_key, step_text, category, auto, rating, reason, note, updated_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                            ON CONFLICT(household_id, recipe_id, step_key) DO UPDATE SET
                              step_text = excluded.step_text, category = excluded.category,
                              auto = excluded.auto, rating = excluded.rating, reason = excluded.reason,
-                             updated_at = excluded.updated_at
+                             note = excluded.note, updated_at = excluded.updated_at
                              WHERE prep_step_feedback.reason <> 'missing'""",
                         (household_id, int(meal["id"]), step["key"], step.get("text") or "", row["title"],
-                         1 if step.get("auto", True) else 0, body.rating, reason, now()),
+                         1 if step.get("auto", True) else 0, body.rating, reason, note, now()),
                     )
                 else:
                     db.execute(
                         "DELETE FROM prep_step_feedback WHERE household_id = ? AND recipe_id = ? AND step_key = ? AND reason <> 'missing'",
                         (household_id, int(meal["id"]), step["key"]),
                     )
-    return {"ok": True, "rating": body.rating, "reason": reason}
+    return {"ok": True, "rating": body.rating, "reason": reason, "note": note}
 
 
 @router.patch("/prep/{task_id}")
@@ -2217,6 +2272,8 @@ _EXPORT_TABLES = [
     ("prep_feedback", "prep_step_feedback"), ("pantry", "pantry_items"),
     ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
     ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
+    ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
+    ("feedback", "feedback"),
 ]
 _EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
 
@@ -2356,6 +2413,144 @@ def get_prep_feedback(_admin=AdminDep, db: PgConnection = DbDep):
         tally = by_category.setdefault(row["category"] or "(none)", {"up": 0, "down": 0})
         tally["up" if row["rating"] > 0 else "down"] += 1
     return {"votes": rows, "by_category": by_category}
+
+
+@router.post("/plans/{plan_id}/report")
+def report_plan(plan_id: int, body: PlanReportCreate, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a bad suggestion. Saves the note with the plan as it is now and its suggestion
+    context (filters, pantry, taste, each meal's score and reasons when it was suggested)."""
+    if not db.execute("SELECT id FROM plans WHERE id = ? AND household_id = ?", (plan_id, household_id)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "plan"})
+    snapshot = {"plan": _plan_out(db, plan_id, household_id), "filters_when_reported": household_filters(db, household_id)}
+    with transaction(db):
+        cur = db.execute(
+            "INSERT INTO plan_reports (household_id, plan_id, note, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?)",
+            (household_id, plan_id, body.note.strip(), json.dumps(snapshot), now()),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.post("/recipes/{recipe_id}/report")
+def report_recipe(recipe_id: int, body: RecipeReportCreate, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a problem with a recipe. Saves the recipe as this household sees it now (with its
+    edits) and how it stands against their filters, so a diet or allergy report shows whether
+    the filter let it through or the recipe is mislabeled."""
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if not row or not _recipe_visible(row, household_id):
+        raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    shown = _recipe_out(db, row, household_id)
+    diets, allergens, avoids, _ = _filter_prefs(db, household_id)
+    name, names = shown.get("name") or "", [i.get("name") or "" for i in shown.get("ingredients") or []]
+    hard, soft = blocks_for(diets, allergens), blocks_for([], avoids)
+    snapshot = {
+        "recipe": shown,
+        "filters": {"diets": diets, "allergens": allergens, "avoids": avoids},
+        "passes_diets_and_allergies": diet_allowed(name, names, hard),
+        "matched_diet_or_allergy_words": matched_words(name, names, hard),
+        "matched_avoid_words": matched_words(name, names, soft),
+    }
+    with transaction(db):
+        cur = db.execute(
+            "INSERT INTO recipe_reports (household_id, recipe_id, reason, note, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+            (household_id, recipe_id, body.reason, body.note.strip(), json.dumps(snapshot), now()),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.get("/dev/recipe-reports")
+def get_recipe_reports(_admin=AdminDep, db: PgConnection = DbDep):
+    """Every recipe report across households, newest first, for deciding what to fix."""
+    return {"reports": [
+        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
+         "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"], "reason": r["reason"], "note": r["note"],
+         "created_at": r["created_at"], "snapshot": json.loads(r["snapshot_json"] or "{}")}
+        for r in db.execute(
+            """SELECT p.*, h.name AS household_name, rc.name AS recipe_name FROM recipe_reports p
+               LEFT JOIN households h ON h.id = p.household_id
+               LEFT JOIN recipes rc ON rc.id = p.recipe_id ORDER BY p.created_at DESC"""
+        )
+    ]}
+
+
+@router.get("/dev/plan-reports")
+def get_plan_reports(_admin=AdminDep, db: PgConnection = DbDep):
+    """Every meal plan report across households, newest first, for deciding what to fix."""
+    return {"reports": [
+        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
+         "plan_id": r["plan_id"], "note": r["note"], "created_at": r["created_at"],
+         "snapshot": json.loads(r["snapshot_json"] or "{}")}
+        for r in db.execute(
+            """SELECT p.*, h.name AS household_name FROM plan_reports p
+               LEFT JOIN households h ON h.id = p.household_id ORDER BY p.created_at DESC"""
+        )
+    ]}
+
+
+@router.post("/feedback")
+def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a bug or suggest a feature (#145). Keeps which app and build sent it, so a bug
+    can be matched to the version that had it."""
+    note = body.note.strip()
+    if not note:
+        raise HTTPException(422, {"error": "invalid", "detail": "note"})
+    account = session_info(db, request.cookies.get(SESSION_COOKIE))
+    # Saved before the row; a bad image stops the report with a clear message instead.
+    screenshots = [save_screenshot(data) for data in body.screenshots]
+    snapshot = {
+        "app": request.headers.get("x-dinnerdesk-app", ""),
+        "user_agent": request.headers.get("user-agent", "")[:300],
+        "screen": body.screen.strip(),
+        "screenshots": screenshots,
+    }
+    ts = now()
+    with transaction(db):
+        cur = db.execute(
+            "INSERT INTO feedback (household_id, user_id, kind, note, status, snapshot_json, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, 'new', ?, ?, ?)",
+            (household_id, account["user_id"] if account else None, body.kind, note, json.dumps(snapshot), ts, ts),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.get("/dev/feedback")
+def get_feedback(_admin=AdminDep, db: PgConnection = DbDep):
+    """Every bug report and feature request across households, newest first."""
+    return {"feedback": [
+        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
+         "email": r["email"], "kind": r["kind"], "note": r["note"], "status": r["status"],
+         "created_at": r["created_at"], "updated_at": r["updated_at"],
+         "snapshot": json.loads(r["snapshot_json"] or "{}"),
+         "screenshots": [f"/api/dev/feedback/{r['id']}/screenshots/{i}"
+                         for i in range(len(json.loads(r["snapshot_json"] or "{}").get("screenshots") or []))]}
+        for r in db.execute(
+            """SELECT f.*, h.name AS household_name, u.email AS email FROM feedback f
+               LEFT JOIN households h ON h.id = f.household_id
+               LEFT JOIN users u ON u.id = f.user_id ORDER BY f.created_at DESC, f.id DESC"""
+        )
+    ]}
+
+
+@router.get("/dev/feedback/{feedback_id}/screenshots/{index}")
+def get_feedback_screenshot(feedback_id: int, index: int, _admin=AdminDep, db: PgConnection = DbDep):
+    """A screenshot sent with a report. Admins only: screenshots can show private details."""
+    row = db.execute("SELECT snapshot_json FROM feedback WHERE id = ?", (feedback_id,)).fetchone()
+    names = json.loads(row["snapshot_json"] or "{}").get("screenshots") or [] if row else []
+    if not 0 <= index < len(names):
+        raise HTTPException(404, {"error": "not_found", "detail": "screenshot"})
+    path = feedback_dir() / names[index]
+    if not path.is_file():
+        raise HTTPException(404, {"error": "not_found", "detail": "screenshot"})
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, no-store"})
+
+
+@router.put("/dev/feedback/{feedback_id}/status")
+def set_feedback_status(feedback_id: int, body: FeedbackStatusPut, _admin=AdminDep, db: PgConnection = DbDep):
+    """Mark a report or request new, planned, done, or declined."""
+    if not db.execute("SELECT id FROM feedback WHERE id = ?", (feedback_id,)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "feedback"})
+    with transaction(db):
+        db.execute("UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?", (body.status, now(), feedback_id))
+    return {"ok": True}
 
 
 @router.get("/dev/ingredient-review")
@@ -2534,75 +2729,169 @@ def list_templates(db: PgConnection = DbDep):
     return {"families": families}
 
 
-def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, int | None]:
-    """Diets, everything to keep out (allergies and avoids), and max cook time."""
+def _filter_prefs(db: PgConnection, household_id: int) -> tuple[list, list, list, int | None]:
+    """Diets and allergies (hard rules), avoids (soft), and max cook time."""
     filters = household_filters(db, household_id)
     time = filters.get("time")
     max_minutes = int(time) if str(time or "").isdigit() else None
-    return filters["diets"], [*filters["allergens"], *filters["avoids"]], max_minutes
+    return filters["diets"], filters["allergens"], filters["avoids"], max_minutes
 
 
-def _candidate_meals(db: PgConnection, household_id: int) -> list[dict]:
+# Per-household recipe pools (app.domain.pool). Built once and kept until the household's
+# filters change (the key no longer matches) or its recipes or the catalog change
+# (_invalidate_pool, which callers must run after their transaction commits). Sync routes
+# run on a thread pool, so every access holds _POOL_LOCK. The generation counters stop a
+# build that began before an invalidation from storing rows read before that commit.
+_POOLS: OrderedDict[int, tuple[tuple, Pool]] = OrderedDict()
+_POOL_MAX = 1000  # households kept; the least recently used is dropped past this
+_POOL_LOCK = threading.Lock()
+_POOL_GEN: dict[int, int] = {}
+_POOL_GLOBAL_GEN = 0
+
+
+def _pool_generation(household_id: int) -> tuple[int, int]:
+    return _POOL_GLOBAL_GEN, _POOL_GEN.get(household_id, 0)
+
+
+def _store_pool(household_id: int, gen: tuple[int, int], key: tuple, pool: Pool) -> None:
+    with _POOL_LOCK:
+        if _pool_generation(household_id) != gen:
+            return  # invalidated mid-build; what we read may predate that commit
+        _POOLS[household_id] = (key, pool)
+        _POOLS.move_to_end(household_id)
+        while len(_POOLS) > _POOL_MAX:
+            _POOLS.popitem(last=False)
+
+
+def _household_pool(db: PgConnection, household_id: int, diets: list, allergens: list, avoids: list) -> tuple[Pool, bool]:
+    """This household's recipe pool, and whether it was already built."""
+    key = filters_key(diets, allergens, avoids)
+    with _POOL_LOCK:
+        entry = _POOLS.get(household_id)
+        if entry and entry[0] == key:
+            _POOLS.move_to_end(household_id)
+            return entry[1], True
+        gen = _pool_generation(household_id)
+    pool = build_pool(
+        _load_household_recipes(db, household_id),
+        blocks_for(diets, allergens),
+        blocks_for([], avoids),
+        TASTE_SKIP,
+    )
+    _store_pool(household_id, gen, key, pool)
+    return pool, False
+
+
+def _load_household_recipes(db: PgConnection, household_id: int) -> list[dict]:
+    """Every recipe this household can see, with what build_pool needs to sort it."""
     public_sql, public_args = public_recipe_sql("r")
     rows = db.execute(
-        f"""SELECT r.id, r.name, r.slug, r.source_url,
+        f"""SELECT r.id, r.name, r.slug, r.source_url, r.household_id, r.provenance_json,
                    COALESCE(NULLIF(e.name, ''), r.name) AS display_name,
-                   COALESCE(e.cooking_minutes, r.cooking_minutes) AS minutes
+                   COALESCE(e.cooking_minutes, r.cooking_minutes) AS minutes,
+                   e.ingredients_json AS edited_ingredients,
+                   h.recipe_id IS NOT NULL AS hidden
             FROM recipes r
             LEFT JOIN household_recipe_edits e
               ON e.recipe_id = r.id AND e.household_id = ?
+            LEFT JOIN household_hidden_recipes h
+              ON h.recipe_id = r.id AND h.household_id = ?
             WHERE (r.household_id IS NULL OR r.household_id = ?)
-              AND {public_sql}
-              AND r.id NOT IN (
-                SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
-              )""",
-        (household_id, household_id, *public_args, household_id),
+              AND {public_sql}""",
+        (household_id, household_id, household_id, *public_args),
     ).fetchall()
+    if not rows:
+        return []
+
+    rid_list = [int(row["id"]) for row in rows]
+    marks = ",".join("?" for _ in rid_list)
+
     tags_by: dict[int, set[str]] = {}
-    for tag in db.execute("SELECT recipe_id, tag FROM recipe_tags"):
+    for tag in db.execute(
+        f"SELECT recipe_id, tag FROM recipe_tags WHERE recipe_id IN ({marks})",
+        rid_list,
+    ):
         tags_by.setdefault(int(tag["recipe_id"]), set()).add(tag["tag"])
+
     ings_by: dict[int, list[str]] = {}
     for item in db.execute(
-        """SELECT ri.recipe_id, i.canonical_name
+        f"""SELECT ri.recipe_id, i.canonical_name
            FROM recipe_ingredients ri
            JOIN ingredients i ON i.id = ri.ingredient_id
-           ORDER BY ri.recipe_id, ri.sort"""
+           WHERE ri.recipe_id IN ({marks})
+           ORDER BY ri.recipe_id, ri.sort""",
+        rid_list,
     ):
         ings_by.setdefault(int(item["recipe_id"]), []).append(item["canonical_name"])
-    meals = []
+
+    recipes = []
     for row in rows:
         rid = int(row["id"])
-        tags = tags_by.get(rid, set())
-        if tags & TASTE_SKIP and "full_meal" not in tags and "main_dish" not in tags:
-            continue
-        ingredients = ings_by.get(rid) or []
-        if not ingredients:
-            continue
         key = archive_id(row)
         keys = [str(rid)]
         if key not in keys:
             keys.append(key)
-        meals.append(
+        # Filters check this kitchen's edited ingredient list when it has one.
+        edited = [i.get("name") or "" for i in json.loads(row["edited_ingredients"] or "[]")]
+        recipes.append(
             {
                 "id": rid,
                 "keys": keys,
+                "slug": row["slug"],
                 "name": row["display_name"],
-                "ingredients": ingredients,
-                "tags": sorted(tags),
+                "ingredients": ings_by.get(rid) or [],
+                "filter_ingredients": [i for i in edited if i],
+                "tags": sorted(tags_by.get(rid, set())),
                 "cooking_minutes": row["minutes"],
+                "own": row["household_id"] == household_id,
+                "hidden": bool(row["hidden"]),
+                "variant_of": json.loads(row["provenance_json"] or "{}").get("variant_of") or None,
             }
         )
-    return meals
+    return recipes
+
+
+def _invalidate_pool(household_id: int) -> None:
+    """Drop one household's pool after its own recipe data changes commit."""
+    with _POOL_LOCK:
+        _POOL_GEN[household_id] = _POOL_GEN.get(household_id, 0) + 1
+        _POOLS.pop(household_id, None)
+
+
+def _invalidate_all_pools() -> None:
+    """Drop every household's pool after a global catalog change commits."""
+    global _POOL_GLOBAL_GEN
+    with _POOL_LOCK:
+        _POOL_GLOBAL_GEN += 1
+        _POOL_GEN.clear()  # the global bump already outdates every in-flight build
+        _POOLS.clear()
+
+
+# Shown on a meal picked from the backup tier, when too few meals keep every preference.
+BACKUP_REASON = "backup pick: not enough meals fit all your preferences"
+
+
+# What the latest _suggest_meals call in this request worked with, so the plan it becomes can
+# keep the why: the filters, pantry and taste then, and each meal's score and reasons. A plan
+# report (#141 follow-up) shows it next to the cook's complaint.
+_SUGGEST_CONTEXT: contextvars.ContextVar[dict | None] = contextvars.ContextVar("suggest_context", default=None)
 
 
 def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
     kept = kept_recipe_ids or set()
-    recipes = [recipe for recipe in _candidate_meals(db, household_id) if recipe["id"] not in kept]
+    laps = Laps()
+    diets, allergens, avoids, max_minutes = _filter_prefs(db, household_id)
+    pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
+    recipes = [recipe for recipe in pool.meals if recipe["id"] not in kept]
+    backup = [recipe for recipe in pool.backup_meals if recipe["id"] not in kept]
+    laps.counts.update(want=want, candidates=len(recipes), backup=len(backup), pool="hit" if pool_hit else "built")
+    laps.lap("pool")
     selected_ingredients = []
     for rid in sorted(kept):
         row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
         if row and _recipe_visible(row, household_id):
             selected_ingredients.extend(i["name"] for i in _recipe_out(db, row, household_id)["ingredients"])
+    laps.lap("kept")
     aliases = _aliases(db)
     swaps = _overrides(db, household_id)
     pantry = norm_pantry(
@@ -2621,7 +2910,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         aliases,
         swaps,
     )
-    diets, avoids, max_minutes = _filter_prefs(db, household_id)
+    laps.lap("pantry")
     accounts = [
         str(r["id"])
         for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))
@@ -2632,6 +2921,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     snapshots = [
         {k: v for k, v in snap.items() if k != "profile"} for snap in snapshots_for_accounts(accounts)
     ]
+    laps.lap("snapshots")
     # Plan thumbs count like Taste Lab swipes: a 👎 drops the meal, a 👍 boosts it and similar meals.
     rated = _meal_ratings(db, household_id)
     if rated:
@@ -2645,44 +2935,99 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     snapshots.append({"account_id": f"household-{household_id}-suggestions", "plans": [
         {"verdict": "up", "recipe_ids": h.get("suggested_recipe_ids", [])}
         for h in history if h.get("decision") == "approve"]})
+    laps.lap("history")
+    # Diets, allergies and avoids are already applied by the pool, so learn gets none of them.
     taste = learn(
         snapshots,
-        recipes,
-        diets=diets,
-        avoids=avoids,
+        recipes + backup,
         max_minutes=max_minutes,
         aliases=aliases,
         overrides=swaps,
         skip=ignored,
     )
     taste.suggestion_penalties = suggestion_penalties(history)
-    promote(taste, recipes, {rid for rid, up in rated.items() if up > 0})
+    promote(taste, recipes + backup, {rid for rid, up in rated.items() if up > 0})
+    laps.lap("learn")
+    favorites = _favorite_ids(db, household_id)
+    to_try = _try_ids(db, household_id)
+    cooked = {
+        int(row["recipe_id"])
+        for row in db.execute(
+            """SELECT DISTINCT s.recipe_id FROM plan_slots s
+               JOIN plans p ON p.id = s.plan_id
+               WHERE p.household_id = ? AND s.cooked = 1""",
+            (household_id,),
+        )
+    }
+    plan_ings = norm_pantry(selected_ingredients, aliases, swaps)
+    laps.lap("pick_inputs")
     picked = pick_meals(
         recipes,
         taste,
         pantry,
-        _favorite_ids(db, household_id),
+        favorites,
         aliases,
         want,
         swaps,
         ignored,
-        _try_ids(db, household_id),
-        {
-            int(row["recipe_id"])
-            for row in db.execute(
-                """SELECT DISTINCT s.recipe_id FROM plan_slots s
-                   JOIN plans p ON p.id = s.plan_id
-                   WHERE p.household_id = ? AND s.cooked = 1""",
-                (household_id,),
-            )
-        },
-        plan_ings=norm_pantry(selected_ingredients, aliases, swaps),
+        to_try,
+        cooked,
+        plan_ings=plan_ings,
+        laps=laps,
     )
+    if len(picked) < want:
+        # Not enough meals keep every preference. Fill the rest from the backup tier: avoided,
+        # hidden and downvoted meals and variants, still never breaking a diet or allergy.
+        # Every priority meal not picked by now was rejected as downvoted.
+        chosen = {row["id"] for row in picked}
+        fallback = backup + [recipe for recipe in recipes if recipe["id"] not in chosen]
+        extra = pick_meals(
+            fallback,
+            taste,
+            pantry,
+            favorites,
+            aliases,
+            want - len(picked),
+            swaps,
+            ignored,
+            to_try,
+            cooked,
+            plan_ings=norm_pantry(selected_ingredients + [i for row in picked for i in row["ingredients"]], aliases, swaps),
+            laps=laps,
+            allow_downvoted=True,
+        )
+        for row in extra:
+            row["reasons"] = [BACKUP_REASON, *row.get("reasons", [])]
+        picked += extra
+        laps.counts["backup_picked"] = len(extra)
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
     summary = reasons_summary([row.get("reasons", []) for row in picked])
     if summary:
         note = f"{note} {summary[0].upper()}{summary[1:]}."
+    laps.lap("notes")
+    laps.counts["picked"] = len(picked)
+    laps.publish("suggest")
+    _log.info("suggest hh=%d %s", household_id, laps.fmt())
+    _SUGGEST_CONTEXT.set({
+        "at": now(),
+        "filters": {"diets": diets, "allergens": allergens, "avoids": avoids, "max_minutes": max_minutes},
+        "pantry": sorted(pantry),
+        "never_shop": sorted(ignored),
+        "kept_recipe_ids": sorted(kept),
+        "pool": {"priority": len(recipes), "backup": len(backup), "built_now": not pool_hit},
+        "taste": {
+            "liked": len(taste.liked), "passed": len(taste.passed), "favorites": len(favorites),
+            "to_try": len(to_try), "cooked": len(cooked),
+            "thumbs_up": sum(1 for up in rated.values() if up > 0), "thumbs_down": sum(1 for up in rated.values() if up < 0),
+        },
+        "steps_ms": {name: round(ms, 1) for name, ms in laps.ms.items()},
+        "counts": dict(laps.counts),
+        # Ranked order, so a report can show where each picked meal stood.
+        "ranked": [{"id": row["id"], "name": row.get("name"), "score": row.get("score"),
+                    "reasons": row.get("reasons", []), "backup": BACKUP_REASON in (row.get("reasons") or [])}
+                   for row in picked],
+    })
     return picked, note, reasons
 
 
@@ -2694,6 +3039,19 @@ def _proposal_note(reasons: dict, recipe_ids: list[int]) -> str:
     return f"{note} {summary}." if summary else note
 
 
+def _plan_context(context: dict | None, picked: list[dict]) -> dict | None:
+    """The suggestion context, keeping only the meals that made the plan, with their rank."""
+    if not context:
+        return None
+    ranks = {row["id"]: i for i, row in enumerate(context["ranked"], start=1)}
+    meals = {row["id"]: row for row in context["ranked"]}
+    return {
+        **{k: v for k, v in context.items() if k != "ranked"},
+        "ranked_out_of": len(context["ranked"]),
+        "meals": [{**meals.get(m["id"], {"id": m["id"]}), "rank": ranks.get(m["id"])} for m in picked],
+    }
+
+
 @router.post("/plans")
 def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = HhDep):
     source_id = _ensure_plan(db, household_id) if body.keep_current else body.source_plan_id
@@ -2701,8 +3059,10 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
     picked: list[dict] = []
     note = None
     reasons = None
+    context = None
     if body.meal_count and not body.draft and (not source or body.keep_current):
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
+        _SUGGEST_CONTEXT.set(None)
         if body.keep_current:
             candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count, kept)
         else:
@@ -2716,6 +3076,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
         # Ranked from 400 candidates; keep reasons and the note to the meals actually picked.
         reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
         note = _proposal_note(reasons, [m["id"] for m in picked])
+        context = _plan_context(_SUGGEST_CONTEXT.get(), picked)
         if not picked:
             raise HTTPException(409, "No matching suggestions. Loosen Settings → Filters or choose meals yourself.")
     with transaction(db):
@@ -2738,7 +3099,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
                     (pid, meal["id"], servings, sort),
                 )
         if picked:
-            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": []}), pid))
+            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": [], "context": context}), pid))
         else:
             _rebuild_grocery(db, pid, household_id)
     out = _plan_out(db, pid, household_id)

@@ -47,6 +47,8 @@ nonisolated struct PlanSlot: Codable, Identifiable, Sendable {
 
 nonisolated struct RecipeList: Decodable, Sendable {
   let recipes: [RecipeSummary]
+  /// Every recipe this kitchen can search, before filters. Missing from older saved copies.
+  let total: Int?
 }
 
 nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
@@ -125,6 +127,14 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   var instructions: [InstructionStep]
   let instructionsSource: String?
   let instructionsCopiedFromThirdParty: Bool?
+  /// Where a kitchen's own recipe came from, when it has a web link.
+  let sourceUrl: String?
+  var sourceLink: URL? {
+    guard !catalog, let raw = sourceUrl, let url = URL(string: raw),
+      ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+    else { return nil }
+    return url
+  }
   var instructionsCustomized: Bool {
     instructionsSource == "dinnerdesk" && instructionsCopiedFromThirdParty == false
   }
@@ -132,7 +142,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath, photoAi, photoShared
     case favorited, toTry, hidden, catalog, tags, ingredients, instructions
-    case instructionsSource, instructionsCopiedFromThirdParty
+    case instructionsSource, instructionsCopiedFromThirdParty, sourceUrl
   }
 
   init(from decoder: Decoder) throws {
@@ -153,6 +163,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     instructions = try c.decode([InstructionStep].self, forKey: .instructions)
     instructionsSource = try c.decodeIfPresent(String.self, forKey: .instructionsSource)
     instructionsCopiedFromThirdParty = try c.decodeIfPresent(Bool.self, forKey: .instructionsCopiedFromThirdParty)
+    sourceUrl = try c.decodeIfPresent(String.self, forKey: .sourceUrl)
   }
 
   var prettyTags: String {
@@ -277,9 +288,29 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   /// 👍/👎 on the whole item (1, -1, 0) and why a 👎 (a PrepReason id, or "").
   var rating: Int?
   var reason: String?
+  /// The user's own words on a 👎, like the note on a missing prep step.
+  var reasonNote: String?
 
   /// What the row says: "Peel and mince garlic". The server names it from the recipe steps.
   var name: String { title }
+}
+
+/// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
+enum RecipeReportReason: String, CaseIterable, Identifiable, Sendable {
+  case ingredients, steps, diet, photo, duplicate
+  case turnedOut = "turned_out", other
+  var id: String { rawValue }
+  var label: String {
+    switch self {
+    case .ingredients: return "Ingredients are wrong or missing"
+    case .steps: return "Steps are wrong or confusing"
+    case .diet: return "Shows up despite my diet or allergies"
+    case .photo: return "Photo doesn't match"
+    case .duplicate: return "Duplicate of another recipe"
+    case .turnedOut: return "Didn't turn out well"
+    case .other: return "Something else"
+    }
+  }
 }
 
 /// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.

@@ -70,11 +70,12 @@ export function Prep() {
     }
   }
 
-  async function rate(task, rating, reason = "") {
-    const before = { rating: task.rating || 0, reason: task.reason || "" };
-    patchLocal(task.id, { rating, reason: rating < 0 ? reason : "" });
+  async function rate(task, rating, reason = "", note = task.reason_note || "") {
+    const before = { rating: task.rating || 0, reason: task.reason || "", reason_note: task.reason_note || "" };
+    const down = rating < 0;
+    patchLocal(task.id, { rating, reason: down ? reason : "", reason_note: down ? note : "" });
     try {
-      await api.ratePrepTask(task.id, { rating, reason: rating < 0 ? reason : "" });
+      await api.ratePrepTask(task.id, { rating, reason: down ? reason : "", note: down ? note : "" });
     } catch (e) {
       patchLocal(task.id, before);
       setErr(e.message);
@@ -172,7 +173,8 @@ export function Prep() {
                           why={why === t.id} details={open.has(t.id)}
                           onToggle={() => toggle(t)}
                           onRate={(next) => thumbsOnRow(t, next)}
-                          onReason={(reason) => { rate(t, -1, reason); setWhy(null); }}
+                          onReason={(reason) => rate(t, -1, reason)}
+                          onNote={(note) => { rate(t, -1, t.reason || "", note); setWhy(null); }}
                           onDetails={() => setOpen((cur) => { const n = new Set(cur); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })} />
                       ))}
                     </ul>)}
@@ -216,7 +218,8 @@ export function Prep() {
   );
 }
 
-function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails }) {
+function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onNote, onDetails }) {
+  const [note, setNote] = useState(t.reason_note || "");
   const sub = (t.quantities || []).filter(Boolean).join(" · ");
   // Each different step once, with the meals that use it as light pill links (#78 D).
   const groups = [];
@@ -245,7 +248,12 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
         </button>
       </div>
-      {t.rating < 0 && t.reason && !why && <div className="pz-indent"><span className="pz-tag">{reasonLabel(t.reason)}</span></div>}
+      {t.rating < 0 && (t.reason || t.reason_note) && !why && (
+        <div className="pz-indent">
+          {t.reason && <span className="pz-tag">{reasonLabel(t.reason)}</span>}
+          {t.reason_note && <span className="pz-why-note">“{t.reason_note}”</span>}
+        </div>
+      )}
       {why && (
         <div className="pz-indent pz-why">
           <span className="pz-why-q">Why not?</span>
@@ -254,6 +262,11 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onDetails 
               <button key={id} type="button" className="pz-chip" aria-pressed={t.reason === id} onClick={() => onReason(id)}>{label}</button>
             ))}
           </div>
+          {/* Same as "Missing a prep step?": the user's own words go with the 👎. */}
+          <label className="pz-why-q" htmlFor={`pz-why-note-${t.id}`}>Anything to add? (optional)</label>
+          <textarea id={`pz-why-note-${t.id}`} className="pz-why-text" rows={2} maxLength={500} value={note}
+            placeholder="What would you do instead?" onChange={(e) => setNote(e.target.value)} />
+          <div><button type="button" className="pz-chip" onClick={() => onNote(note.trim())}>Done</button></div>
         </div>
       )}
       {details && (

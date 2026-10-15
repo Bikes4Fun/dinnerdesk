@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import UIKit
+import PhotosUI
 
 /// Settings: food filters, account & household, Taste Lab. Push it from a NavigationStack (More tab).
 struct SettingsView: View {
@@ -33,6 +34,11 @@ struct SettingsView: View {
           ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
         .accessibilityHint("Opens the support page in Safari")
+        NavigationLink {
+          FeedbackView()
+        } label: {
+          ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
+        }
 
           if let url = URL(string: "https://dinnerdesk.computerscience.build") {
             Link(destination: url) {
@@ -71,6 +77,7 @@ struct FiltersView: View {
   static let allergens = [
     ("soy", "Soy"), ("peanut", "Peanut"), ("tree-nuts", "Tree nuts"), ("dairy", "Dairy"), ("egg", "Egg"),
     ("gluten", "Gluten"), ("sesame", "Sesame"), ("fish", "Fish"), ("shellfish", "Shellfish"),
+    ("poultry", "Poultry"), ("red-meat", "Red meat"),
   ]
   static let avoids = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
@@ -414,6 +421,7 @@ private struct FilterChip: View {
 
 /// Sign in/out, password, household invites and members.
 struct AccountView: View {
+  @EnvironmentObject private var store: Store
   @EnvironmentObject private var session: Session
   @State private var members: [HouseholdMember] = []
   @State private var householdName = ""
@@ -421,12 +429,20 @@ struct AccountView: View {
   @State private var signingIn = false
   @State private var confirmEverywhere = false
   @State private var deletingAccount = false
+  @State private var joinToken = ""
+  @State private var homePassword = ""
+  @State private var confirmLeave = false
+  @State private var confirmJoin = false
+  @State private var deletingHome = false
+  @State private var successor: HouseholdMember?
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
 
   private var otherMembers: [HouseholdMember] { members.filter { $0.email != session.status?.email } }
 
+  private var myRole: String? { members.first { $0.email == session.status?.email }?.householdRole }
+  private var canManage: Bool { myRole == "owner" || myRole == "admin" }
   private var signedIn: Bool { session.status?.authenticated == true }
 
   var body: some View {
@@ -477,7 +493,17 @@ struct AccountView: View {
               .disabled(busy)
           }
           ForEach(otherMembers) { member in
-            Text(member.email).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading) {
+              Text(member.email).fixedSize(horizontal: false, vertical: true)
+              Text(member.householdRole ?? "member").font(Theme.subtitle).foregroundStyle(Theme.muted)
+              if myRole == "owner" {
+                Button("Transfer ownership") { successor = member }
+                Button(member.householdRole == "admin" ? "Remove admin role" : "Make admin") {
+                  Task { await householdAction { try await KitchenAPI.setRole(member.id, role: member.householdRole == "admin" ? "member" : "admin") } }
+                }
+              }
+            }
+            .deleteDisabled(!canManage || member.householdRole == "owner")
           }
           .onDelete { offsets in
             let doomed = offsets.map { otherMembers[$0] }
@@ -497,6 +523,22 @@ struct AccountView: View {
         }
         .themeRows()
 
+        ThemeSection("Household membership") {
+          Text("Leaving creates an empty solo household. Your account stays active. Shared plans and kitchen data stay with the household.").font(Theme.subtitle)
+          Button("Leave household") { confirmLeave = true }.disabled(busy)
+          TextField("Invite link or token", text: $joinToken).textInputAutocapitalization(.never).autocorrectionDisabled()
+          Button("Join household") { confirmJoin = true }.disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+          if canManage {
+            Button("Delete household", role: .destructive) { deletingHome.toggle() }
+            if deletingHome {
+              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.").font(Theme.subtitle)
+              SecureField("Your password", text: $homePassword).textContentType(.password)
+              Button("Confirm household deletion", role: .destructive) {
+                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
+              }.disabled(busy || homePassword.isEmpty)
+            }
+          }
+        }.themeRows()
         Section {
           Button("Delete account", role: .destructive) { deletingAccount = true }
         } footer: {
@@ -530,6 +572,16 @@ struct AccountView: View {
       AuthView(isSheet: true)
         .environmentObject(session)
     }
+    .confirmationDialog("Leave this household and start an empty solo household?", isPresented: $confirmLeave, titleVisibility: .visible) {
+      Button("Leave household", role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
+    }
+    .confirmationDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", isPresented: $confirmJoin, titleVisibility: .visible) {
+      Button("Join household") { Task { await householdAction { try await KitchenAPI.joinHousehold(joinToken.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/").last.map(String.init) ?? "") } } }
+    }
+    .alert("Transfer household ownership?", isPresented: Binding(get: { successor != nil }, set: { if !$0 { successor = nil } })) {
+      Button("Transfer") { if let member = successor { Task { await householdAction { try await KitchenAPI.setRole(member.id, role: "owner") } } }; successor = nil }
+      Button("Cancel", role: .cancel) { successor = nil }
+    } message: { Text("The selected member becomes the creator. You become an admin.") }
     .sheet(isPresented: $deletingAccount) {
       DeleteAccountSheet(alone: otherMembers.isEmpty) {
         deletingAccount = false
@@ -589,6 +641,24 @@ struct AccountView: View {
     }
   }
 
+  private func householdAction(_ action: () async throws -> Void) async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await action()
+      joinToken = ""
+      homePassword = ""
+      deletingHome = false
+      ResponseCache.clear()
+      await session.refresh()
+      await loadMembers()
+      await store.switchAccount()
+      error = nil
+      message = "Household updated."
+    }
+    catch { self.error = KitchenAPI.message(error) }
+  }
+
   private func remove(_ member: HouseholdMember) async {
     members.removeAll { $0.id == member.id }
     do {
@@ -628,6 +698,7 @@ private struct DeleteAccountSheet: View {
             : "This deletes your account and your sign-ins. The household and its plans stay for the other members.")
             .font(Theme.body).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
+          Text("Anonymous meal votes are retained without account identifiers.").font(Theme.subtitle)
           SecureField("Your password", text: $password)
             .textContentType(.password)
             .onSubmit { Task { await delete() } }
@@ -793,6 +864,173 @@ private struct TasteLabWebView: UIViewRepresentable {
   }
 }
 
+/// Bug reports and feature requests (#145). Ids match app/models.py FEEDBACK_KINDS.
+enum FeedbackKind: String, CaseIterable, Identifiable {
+  case bug, feature
+  var id: String { rawValue }
+  var label: String { self == .bug ? "Report a bug" : "Suggest a feature" }
+  var help: String {
+    self == .bug ? "Something broke or didn't work the way it should." : "Something you wish \(Copy.appName) did."
+  }
+  var prompt: String { self == .bug ? "What went wrong?" : "What would you like?" }
+  var placeholder: String {
+    self == .bug
+      ? "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh."
+      : "e.g. Let me plan lunches too, not just dinners."
+  }
+}
+
+/// "Report a bug or suggest a feature". The server keeps it with the app build that sent it.
+private struct FeedbackView: View {
+  @State private var kind = FeedbackKind.bug
+  @State private var note = ""
+  @State private var sending = false
+  @State private var sent: FeedbackKind?
+  @State private var error: String?
+  /// Up to 3 screenshots from Photos, shrunk to JPEG before sending.
+  @State private var shots: [UIImage] = []
+  @State private var picked: [PhotosPickerItem] = []
+  private static let maxShots = 3
+
+  private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 12) {
+        if let error { ErrorBanner(message: error) }
+        if let sent {
+          Text(sent == .bug ? "Thanks. We'll look into it." : "Thanks for the idea. We read every one.")
+            .font(Theme.body).foregroundStyle(Theme.ink)
+          Button("Send another") { self.sent = nil }
+            .font(Theme.action)
+            .frame(minHeight: 44)
+        } else {
+          Text("What's this about?").font(Theme.action).foregroundStyle(Theme.ink)
+          ForEach(FeedbackKind.allCases) { option in
+            Button { kind = option } label: {
+              HStack(alignment: .top, spacing: 10) {
+                Image(systemName: kind == option ? "largecircle.fill.circle" : "circle")
+                  .foregroundStyle(kind == option ? Theme.accent : Theme.muted)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(option.label).font(Theme.body).foregroundStyle(Theme.ink)
+                  Text(option.help).font(Theme.subtitle).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+              }
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(kind == option ? .isSelected : [])
+          }
+          Text(kind.prompt).font(Theme.action).foregroundStyle(Theme.ink)
+          TextField(kind.placeholder, text: $note, axis: .vertical)
+            .font(Theme.subtitle)
+            .lineLimit(4...10)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+            .onChange(of: note) { _, value in if value.count > 2000 { note = String(value.prefix(2000)) } }
+          screenshots
+          Button {
+            Task { await send() }
+          } label: {
+            Text(sending ? "Sending…" : "Send").font(Theme.action).foregroundStyle(Theme.bg)
+              .frame(maxWidth: .infinity, minHeight: 50)
+              .background(trimmed.isEmpty ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+          }
+          .buttonStyle(.plain)
+          .disabled(trimmed.isEmpty || sending)
+        }
+      }
+      .padding()
+    }
+    .background(Theme.bg)
+    .navigationTitle("Bugs & ideas")
+    .navigationBarTitleDisplayMode(.inline)
+  }
+
+  /// Thumbnails with a remove button, then "Add a screenshot" from Photos.
+  private var screenshots: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if !shots.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 10) {
+            ForEach(Array(shots.enumerated()), id: \.offset) { index, image in
+              Image(uiImage: image)
+                .resizable().scaledToFill()
+                .frame(width: 80, height: 110)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line))
+                .overlay(alignment: .topTrailing) {
+                  Button { shots.remove(at: index) } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 22))
+                      .foregroundStyle(Theme.ink, Theme.surface)
+                      .frame(width: 44, height: 44)
+                  }
+                  .buttonStyle(.plain)
+                  .offset(x: 14, y: -14)
+                  .accessibilityLabel("Remove screenshot \(index + 1)")
+                }
+                .accessibilityLabel("Screenshot \(index + 1)")
+            }
+          }
+          .padding(.top, 14).padding(.trailing, 14)
+        }
+      }
+      if shots.count < Self.maxShots {
+        PhotosPicker(selection: $picked, maxSelectionCount: Self.maxShots - shots.count, matching: .images) {
+          Label(shots.isEmpty ? "Add a screenshot (optional)" : "Add another screenshot", systemImage: "photo.badge.plus")
+            .font(Theme.action).foregroundStyle(Theme.accent)
+            .frame(minHeight: 44)
+        }
+        .onChange(of: picked) { _, items in
+          Task { await load(items) }
+        }
+      }
+    }
+  }
+
+  private func load(_ items: [PhotosPickerItem]) async {
+    guard !items.isEmpty else { return }
+    for item in items where shots.count < Self.maxShots {
+      if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+        shots.append(image)
+      }
+    }
+    picked = []
+  }
+
+  /// A JPEG data URL at most 2000px on its long side, well under the server's 5 MB limit.
+  private static func dataURL(_ image: UIImage) -> String? {
+    let longest = max(image.size.width, image.size.height)
+    let scale = min(1, 2000 / max(longest, 1))
+    let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = 1
+    let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+    guard let jpeg = resized.jpegData(compressionQuality: 0.85) else { return nil }
+    return "data:image/jpeg;base64," + jpeg.base64EncodedString()
+  }
+
+  private func send() async {
+    sending = true
+    defer { sending = false }
+    do {
+      let images = shots.compactMap(Self.dataURL)
+      let _: Ok = try await API.send(
+        "feedback", method: "POST",
+        body: ["kind": kind.rawValue, "note": trimmed, "screen": "settings", "screenshots": images])
+      error = nil
+      note = ""
+      shots = []
+      sent = kind
+    } catch {
+      self.error = KitchenAPI.message(error)
+    }
+  }
+}
+
 private struct PrivacyView: View {
   @State private var exportFile: URL?
   @State private var exporting = false
@@ -836,7 +1074,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Download a copy of your data at the top of this page. Delete your account any time from Account & security. Your password is asked for first. If you are the last member, the household goes too: its plans, pantry, grocery list, ratings and the recipes you added. If others are still in the household, it stays for them. You can also remove other people from Account & security.
+          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
           """)
       }
       .font(Theme.body)

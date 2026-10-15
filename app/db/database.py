@@ -5,9 +5,12 @@ from __future__ import annotations
 import os
 import json
 import re
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
+
+from app.perf import record_query
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -18,6 +21,9 @@ SCHEMA_PATH = Path(__file__).resolve().parent / "schema.sql"
 _INSERT_TABLE = re.compile(r"^\s*INSERT(?:\s+OR\s+IGNORE)?\s+INTO\s+(\w+)", re.I)
 _ID_TABLES = {
     "households",
+    "plan_reports",
+    "recipe_reports",
+    "feedback",
     "ingredients",
     "recipes",
     "plans",
@@ -95,6 +101,13 @@ class PgConnection:
 
     def execute(self, sql: str, params: tuple | list = ()):
         sql_pg, returning = _postgres_sql(sql)
+        started = time.perf_counter()
+        try:
+            return self._run(sql_pg, params, returning)
+        finally:
+            record_query((time.perf_counter() - started) * 1000)
+
+    def _run(self, sql_pg: str, params: tuple | list, returning: bool):
         with self._conn.cursor() as cur:
             cur.execute(sql_pg, tuple(params) if params is not None else None)
             lastrowid = None
@@ -223,6 +236,14 @@ def init_db(conn) -> None:
     _add_column(conn, "users", "locked_until", "TEXT")
     _add_column(conn, "prep_step_feedback", "category", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "prep_step_feedback", "note", "TEXT NOT NULL DEFAULT ''")
+    _add_column(conn, "users", "household_role", "TEXT NOT NULL DEFAULT 'member'")
+    _add_column(conn, "households", "is_test", "INTEGER NOT NULL DEFAULT 0")
+    # Existing households: earliest member becomes creator unless an owner already exists.
+    conn.execute("""UPDATE users SET household_role = 'owner' WHERE id IN (
+        SELECT DISTINCT ON (household_id) id FROM users u
+        WHERE NOT EXISTS (SELECT 1 FROM users o WHERE o.household_id = u.household_id
+                          AND o.household_role = 'owner')
+        ORDER BY household_id, created_at, id)""")
     migrate_prep_completion(conn)
     from app.db.seed import apply_seeds
 

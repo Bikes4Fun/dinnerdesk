@@ -58,6 +58,7 @@ export function Settings() {
         <Link href="/settings/social">Social</Link>
         <Link href="/settings/newsletter">Email newsletter</Link>
         <Link href="/support">Help &amp; support</Link>
+        <Link href="/settings/feedback">Report a bug or suggest a feature</Link>
         <Link href="/privacy">Privacy</Link>
         <a className="list-link" href="https://x.com/DinnerDesk" target="_blank" rel="noopener noreferrer">
           Twitter
@@ -70,6 +71,9 @@ export function Settings() {
             </Link>
             <Link href="/settings/recipe-flags" extra="Manual edits">
               Recipes to edit
+            </Link>
+            <Link href="/settings/feedback-inbox" extra="Admin">
+              Bugs &amp; ideas inbox
             </Link>
           </>
         ) : null}
@@ -375,6 +379,9 @@ export function AccountSecurity() {
   const [householdName, setHouseholdName] = useState("");
   const [inviteLink, setInviteLink] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [joinToken, setJoinToken] = useState("");
+  const [homePassword, setHomePassword] = useState("");
+  const [deletingHome, setDeletingHome] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
 
   useEffect(() => {
@@ -440,6 +447,13 @@ export function AccountSecurity() {
     setToast("Invite link copied.");
   }
 
+  async function householdAction(action) {
+    setErr(""); setBusy(true);
+    try { await action(); window.location.assign("/settings/account"); }
+    catch (e) { setErr((e.body && e.body.message) || e.message); }
+    finally { setBusy(false); }
+  }
+
   async function removeMember(id) {
     if (!confirm("Remove this person from the household? They'll lose access immediately.")) return;
     try {
@@ -477,6 +491,8 @@ export function AccountSecurity() {
   }
 
   if (!status) return null;
+  const myRole = members.find((m) => m.email === status.email)?.household_role;
+  const canManage = ["owner", "admin"].includes(myRole);
   const alone = members.filter((m) => m.email !== status.email).length === 0;
 
   return (
@@ -512,8 +528,12 @@ export function AccountSecurity() {
             <label className="block-label">Household members</label>
             {members.filter((m) => m.email !== status.email).map((m) => (
               <div key={m.id} className="list-link">
-                <span>{m.email}</span>
-                {members.length > 1 && (
+                <span>{m.email} · {m.household_role}</span>
+                {myRole === "owner" && <>
+                  <button className="btn-secondary" disabled={busy} onClick={() => { if (confirm("Make this member the household creator? You become an admin.")) householdAction(() => api.householdRole(m.id, "owner")); }}>Transfer ownership</button>
+                  <button className="btn-secondary" disabled={busy} onClick={() => householdAction(() => api.householdRole(m.id, m.household_role === "admin" ? "member" : "admin"))}>{m.household_role === "admin" ? "Remove admin role" : "Make admin"}</button>
+                </>}
+                {canManage && m.household_role !== "owner" && (
                   <button
                     type="button"
                     className="icon-btn"
@@ -558,6 +578,20 @@ export function AccountSecurity() {
               or you just changed your password and want to be sure.
             </p>
 
+            <label className="block-label">Household membership</label>
+            <p className="help">Leaving creates an empty solo household. Your account stays active. Shared plans and kitchen data stay with the household.</p>
+            <button className="btn-secondary block" disabled={busy} onClick={() => { if (confirm("Leave this household and start an empty solo household?")) householdAction(() => api.leaveHousehold()); }}>Leave household</button>
+            <label className="block-label" htmlFor="join-household">Join with an invite link or token</label>
+            <input id="join-household" className="field" value={joinToken} onChange={(e) => setJoinToken(e.target.value)} />
+            <button className="btn-secondary block" disabled={busy || !joinToken.trim()} onClick={() => { if (confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) householdAction(() => api.joinHousehold(joinToken.trim().split("/").pop())); }}>Join household</button>
+            {canManage && <>
+              <button className="btn-secondary block danger" onClick={() => setDeletingHome(!deletingHome)}>Delete household</button>
+              {deletingHome && <>
+                <p className="help">Permanently removes this shared kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.</p>
+                <input className="field" type="password" autoComplete="current-password" aria-label="Password to delete household" value={homePassword} onChange={(e) => setHomePassword(e.target.value)} />
+                <button className="btn-secondary block danger" disabled={busy || !homePassword} onClick={() => householdAction(() => api.deleteHousehold(homePassword))}>Confirm household deletion</button>
+              </>}
+            </>}
             <label className="block-label">Delete account</label>
             {!deleting ? (
               <button type="button" className="btn-secondary block danger" onClick={() => setDeleting(true)}>
@@ -565,6 +599,7 @@ export function AccountSecurity() {
               </button>
             ) : (
               <form onSubmit={deleteAccount}>
+                <p className="help">Anonymous meal votes are retained without account identifiers.</p>
                 <p className="help">
                   {alone
                     ? "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
