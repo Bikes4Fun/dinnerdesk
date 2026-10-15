@@ -1,4 +1,4 @@
-"""Validate admin photos and store normalized images on the persistent food volume."""
+"""Validate uploaded photos (admins' and kitchens') and store normalized images on the persistent food volume."""
 import base64
 import binascii
 from io import BytesIO
@@ -10,11 +10,20 @@ from app.assets import food_dir
 
 
 def save_photo(data: str) -> str:
+    """Store a photo sent as a data: URL."""
     try:
         header, encoded = data.split(",", 1)
         if header not in {"data:image/jpeg;base64", "data:image/png;base64", "data:image/webp;base64"}:
             raise ValueError()
         raw = base64.b64decode(encoded, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(400, "Choose a JPEG, PNG, or WebP photo under 5 MB and 25 megapixels.") from exc
+    return save_photo_bytes(raw)
+
+
+def save_photo_bytes(raw: bytes) -> str:
+    """Store JPEG, PNG or WebP bytes as a normalized JPEG on the food volume."""
+    try:
         if not raw or len(raw) > 5_000_000:
             raise ValueError()
         with Image.open(BytesIO(raw)) as image:

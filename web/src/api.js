@@ -189,5 +189,6 @@ export const api = {
 
 export function photoSrc(path) {
   if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path; // an imported recipe's photo link (fallback)
   return path.startsWith("/") ? path : `/${path}`;
 }

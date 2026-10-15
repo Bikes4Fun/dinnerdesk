@@ -18,6 +18,10 @@ class RecipeCreate(BaseModel):
     tags: list[str] = Field(default_factory=list)
     # Read off source_url by POST /recipes/import; the steps came from that site.
     imported: bool = False
+    # The cook's own photo (a data: URL), or else the imported page's photo to copy. The
+    # page's photo link is kept either way as a fallback.
+    photo_data: str | None = Field(default=None, max_length=7_000_000)
+    photo_url: str = Field(default="", max_length=2000)
 
 
 class RecipeImport(BaseModel):

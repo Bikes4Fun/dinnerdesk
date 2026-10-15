@@ -22,9 +22,9 @@ from app.assets import catalog_dir
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
-from app.domain.photo_uploads import save_photo
+from app.domain.photo_uploads import save_photo, save_photo_bytes
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
-from app.domain.recipe_import import RecipeImportError, import_recipe
+from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -353,7 +353,7 @@ def _recipe_card(
         "slug": row["slug"],
         "servings": row["servings"],
         "cooking_minutes": row["cooking_minutes"],
-        "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
+        "photo_path": _shown_photo(row),
         "catalog": row["household_id"] is None,
         "favorited": favorited,
         "to_try": to_try,
@@ -407,13 +407,14 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "slug": row["slug"],
         "servings": row["servings"],
         "cooking_minutes": row["cooking_minutes"],
-        "photo_path": usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
+        "photo_path": _shown_photo(row),
         "photo_ai": photo_is_ai(usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])),
         "photo_shared": photo_is_borrowed(
             usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
             archive_id_of(row["source_url"], row["slug"]),
         ),
         "source_url": row["source_url"],
+        "photo_source_url": provenance.get("photo_url") or "",
         "instructions_source": provenance.get("instructions_source"),
         "instructions_copied_from_third_party": provenance.get("instructions_copied_from_third_party"),
         "parent_recipe_id": row["parent_recipe_id"],
@@ -606,6 +607,35 @@ def list_tags(db: PgConnection = DbDep, household_id: int = HhDep):
     return {"tags": [{"tag": r["tag"], "count": r["n"]} for r in rows]}
 
 
+def _web_link(url: str | None) -> str:
+    url = (url or "").strip()[:2000]
+    return url if url.lower().startswith(("http://", "https://")) else ""
+
+
+def _copy_site_photo(url: str, household_id: int) -> str:
+    """The kitchen's private copy of an imported page's photo, or '' to fall back to the link."""
+    if not url:
+        return ""
+    try:
+        return save_photo_bytes(fetch_image(url))
+    except RecipeImportError as exc:
+        _log.info("recipe photo copy hh=%d failed %s", household_id, exc.code)
+    except HTTPException:
+        _log.info("recipe photo copy hh=%d failed not_a_usable_image", household_id)
+    return ""
+
+
+def _shown_photo(row) -> str:
+    """A recipe's stored photo; a kitchen's imported recipe falls back to its page's photo link."""
+    stored = usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])
+    if stored or row["household_id"] is None:
+        return stored
+    try:
+        return _web_link(json.loads(row["provenance_json"] or "{}").get("photo_url"))
+    except (json.JSONDecodeError, AttributeError):
+        return ""
+
+
 @router.post("/recipes")
 def create_recipe(
     body: RecipeCreate,
@@ -618,13 +648,17 @@ def create_recipe(
         "instructions_source": "import" if body.imported else "household",
         "instructions_copied_from_third_party": bool(body.imported),
     }
+    photo_link = _web_link(body.photo_url)
+    if photo_link:
+        provenance["photo_url"] = photo_link
+    photo = save_photo(body.photo_data) if body.photo_data else _copy_site_photo(photo_link, household_id)
     with transaction(db):
         cur = db.execute(
             """INSERT INTO recipes (
                 household_id, slug, name, servings, cooking_minutes,
                 instructions_json, cookware_json, source_url, provenance_json,
                 photo_path, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 household_id,
                 pantry_key(body.name).replace(" ", "-")[:80],
@@ -635,6 +669,7 @@ def create_recipe(
                 json.dumps(body.cookware),
                 source_url,
                 json.dumps(provenance),
+                photo,
                 ts,
                 ts,
             ),

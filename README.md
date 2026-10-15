@@ -69,6 +69,9 @@ Database tests create and drop their own schema. They never fall back to `DATABA
 **Recipes and photos (legal)**
 - Recipes themselves (ingredients, amounts, steps, times) aren't copyrightable and can be reused.
 - Never use third-party **photos** or **stories**. Image URLs in the archive are reference only.
+- One exception: when a cook imports a recipe into their own kitchen, the page's photo is copied
+  for that kitchen only (never the catalog), and its link is kept as a fallback. Cooks can use
+  their own photo instead; what they upload is their responsibility.
 - A catalog recipe shows in the app only once its steps are rewritten
   (`instructions_copied_from_third_party: false`) and it has a photo listed as usable in
   `recipe_photos.json` in `DINNERDESK_CATALOG_DIR`. Kitchens' own recipes always show.

@@ -528,6 +528,12 @@ struct RecipeDetailView: View {
                 Text("Instructions customized by Dinnerdesk")
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
               }
+              if let link = recipe.sourceLink {
+                Link(destination: link) {
+                  Text("\(recipe.instructionsSource == "import" ? "Steps from" : "Source:") \((link.host() ?? "").replacingOccurrences(of: "www.", with: ""))")
+                    .font(Theme.subtitle).foregroundStyle(Theme.accent)
+                }
+              }
               ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
                 CookStepRow(index: i, step: step, onPrep: admin ? { Task { await togglePrep(at: i) } } : nil)
               }
