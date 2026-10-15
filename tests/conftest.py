@@ -10,6 +10,7 @@ import pytest
 _TEST_PHOTOS = TemporaryDirectory(prefix="dinnerdesk-test-photos-")
 os.environ["DINNERDESK_CATALOG_DIR"] = str(Path(__file__).parent / "fixtures" / "catalog")
 os.environ["FOOD_DIR"] = _TEST_PHOTOS.name
+os.environ["ADMIN_EMAIL"] = "admin@example.test"
 
 
 @pytest.fixture(autouse=True)

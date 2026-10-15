@@ -89,7 +89,7 @@ def test_admin_flag_for_tagged_emails(tmp_path):
         client.post(
             "/api/auth/signup",
             json={
-                "email": "garrett.deanna@gmail.com",
+                "email": "admin@example.test",
                 "password": "correct horse battery staple",
                 "household_name": "Dev",
             },
