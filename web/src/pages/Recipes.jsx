@@ -213,6 +213,8 @@ export function Recipes() {
   const [list, setList] = useState(null);
   const [suggestedIds, setSuggestedIds] = useState([]);
   const [recipes, setRecipes] = useState([]);
+  // How many recipes search covers, shown in the search box placeholder.
+  const [recipeTotal, setRecipeTotal] = useState(null);
   const [hiddenRecipes, setHiddenRecipes] = useState([]);
   const [families, setFamilies] = useState([]);
   const [familyId, setFamilyId] = useState(null);
@@ -255,6 +257,7 @@ export function Recipes() {
     ])
       .then(([rec, hidden, pantry, tmpl]) => {
         setRecipes(rec.recipes);
+        if (rec.total) setRecipeTotal(rec.total);
         setHiddenRecipes(hidden.recipes || []);
         setFamilies(tmpl.families || []);
         setPantryHave(
@@ -500,7 +503,7 @@ export function Recipes() {
           <input
             ref={searchRef}
             className="field-input tight"
-            placeholder="Search recipes or ingredients"
+            placeholder={recipeTotal ? `Search ${recipeTotal} recipes or ingredients` : "Search recipes or ingredients"}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />

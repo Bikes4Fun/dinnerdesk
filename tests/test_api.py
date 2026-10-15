@@ -1044,7 +1044,7 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert (voted["rating"], voted["reason"]) == (-1, "kept_badly")
         assert voted["section"] and voted["item"]
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "reason": "nope"}).status_code == 422
-        # A 👎 can carry the cook's own words, like a missing step's note. A 👍 drops them.
+        # A 👎 can carry the user's own words, like a missing step's note. A 👍 drops them.
         noted = client.put(f"/api/prep/{task['id']}/feedback",
                            json={"rating": -1, "reason": "prep_differently", "note": "  Make the sauce the night before  "})
         assert noted.json()["note"] == "Make the sauce the night before"
@@ -1627,7 +1627,6 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
-
 
 def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
     from app.domain import recipe_import

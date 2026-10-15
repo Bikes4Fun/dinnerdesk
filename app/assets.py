@@ -15,6 +15,15 @@ def catalog_dir() -> Path:
     return path
 
 
+def feedback_dir() -> Path:
+    """Private screenshots sent with bug reports. Never served publicly: next to the photo
+    folder on the same volume, read only through the admin API. FEEDBACK_DIR overrides."""
+    value = os.environ.get("FEEDBACK_DIR", "").strip()
+    path = Path(value).expanduser() if value else food_dir().parent / "feedback-screenshots"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
 def food_dir() -> Path:
     value = os.environ.get("FOOD_DIR", "").strip()
     if not value:

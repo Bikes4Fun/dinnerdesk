@@ -47,6 +47,8 @@ nonisolated struct PlanSlot: Codable, Identifiable, Sendable {
 
 nonisolated struct RecipeList: Decodable, Sendable {
   let recipes: [RecipeSummary]
+  /// Every recipe this kitchen can search, before filters. Missing from older saved copies.
+  let total: Int?
 }
 
 nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {

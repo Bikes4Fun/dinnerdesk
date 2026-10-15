@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 from fastapi import HTTPException
-from app.assets import food_dir
+from app.assets import feedback_dir, food_dir
 
 
 def save_photo(data: str) -> str:
@@ -35,7 +35,20 @@ def save_photo_bytes(raw: bytes) -> str:
             output = BytesIO()
             image.save(output, "JPEG", quality=90)
     except (ValueError, binascii.Error, UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
-        raise HTTPException(400, "Choose a JPEG, PNG, or WebP photo under 5 MB and 25 megapixels.") from exc
+        raise HTTPException(400, message) from exc
+    return output.getvalue()
+
+
+def save_photo(data: str) -> str:
+    jpeg = _jpeg(data, "Choose a JPEG, PNG, or WebP photo under 5 MB and 25 megapixels.")
     name = f"admin-upload-{uuid4().hex}.jpg"
-    (food_dir() / name).write_bytes(output.getvalue())
+    (food_dir() / name).write_bytes(jpeg)
     return f"food/{name}"
+
+
+def save_screenshot(data: str) -> str:
+    """A bug report screenshot, stored privately. Returns its file name."""
+    jpeg = _jpeg(data, "Screenshots must be JPEG, PNG, or WebP images under 5 MB.")
+    name = f"feedback-{uuid4().hex}.jpg"
+    (feedback_dir() / name).write_bytes(jpeg)
+    return name
