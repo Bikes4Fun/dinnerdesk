@@ -142,11 +142,8 @@ async def save_session(request: Request, db: PgConnection = DbDep, household_id:
     if not isinstance(body, dict):
         raise HTTPException(400, {"error": "bad_json", "detail": "object"})
     row = session_info(db, request.cookies.get(SESSION_COOKIE))
-    if row:
-        body["account_id"] = str(row["user_id"])
-    else:
-        body["account_id"] = f"guest:{household_id}"
-        body["anon_id"] = f"guest-{household_id}"
+    body.pop("anon_id", None)
+    body["account_id"] = str(row["user_id"]) if row else f"guest:{household_id}"
     sid = taste().save_event(body)
     return {"ok": True, "id": sid}
 

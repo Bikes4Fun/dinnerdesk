@@ -431,3 +431,14 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
         reset = client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"})
         assert reset.status_code == 400
         assert reset.json()["detail"] == "no_email"
+
+def test_tastelab_saves_only_to_own_history(tmp_path):
+    vote = lambda rid: {"id": "shared-session", "anon_id": "guest-1", "kind": "snapshot",
+                        "body": {"swipes": [{"recipe_id": rid, "liked": True}]}}
+    with _client(tmp_path) as victim, TestClient(create_app()) as attacker:
+        victim.get("/api/auth/status")
+        attacker.get("/api/auth/status")
+        assert victim.post("/api/sessions", json=vote("1")).status_code == 200
+        assert attacker.post("/api/sessions", json=vote("2")).status_code == 200
+        assert victim.get("/api/taste").json()["votes"] == [{"recipe_id": "1", "liked": True}]
+        assert attacker.get("/api/taste").json()["votes"] == [{"recipe_id": "2", "liked": True}]
