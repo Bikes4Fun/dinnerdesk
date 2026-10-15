@@ -164,7 +164,13 @@ struct AuthView: View {
   }
 
   private var canSubmit: Bool {
-    !busy && email.contains("@") && password.count >= (mode == .signUp ? 8 : 1)
+    !busy && email.trimmingCharacters(in: .whitespaces).count >= 3
+      && password.count >= (mode == .signUp ? 8 : 1)
+  }
+
+  /// Signing up with a username instead of an email.
+  private var usernameOnly: Bool {
+    mode == .signUp && !email.trimmingCharacters(in: .whitespaces).isEmpty && !email.contains("@")
   }
 
   var body: some View {
@@ -191,8 +197,8 @@ struct AuthView: View {
         }
 
         Section {
-          TextField("Email", text: $email)
-            .textContentType(.emailAddress)
+          TextField("Email or username", text: $email)
+            .textContentType(.username)
             .keyboardType(.emailAddress)
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
@@ -204,7 +210,13 @@ struct AuthView: View {
           }
         } footer: {
           if mode == .signUp {
-            Text("At least 8 characters.")
+            VStack(alignment: .leading, spacing: 6) {
+              Text("At least 8 characters.")
+              if usernameOnly {
+                Text("No email means no password reset. If you forget your password, this account can't be recovered.")
+                  .foregroundStyle(Theme.accent)
+              }
+            }
           } else {
             Button("Forgot password?") { forgot = true }
               .font(Theme.action)

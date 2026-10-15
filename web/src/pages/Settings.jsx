@@ -561,10 +561,16 @@ export function AccountSecurity() {
               </>
             )}
 
-            <button type="button" className="btn-secondary block" disabled={busy} onClick={emailResetLink}>
-              Reset password
-            </button>
-            <p className="help">Email a reset link to your signed-in address.</p>
+            {status.has_email === false ? (
+              <p className="help">This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.</p>
+            ) : (
+              <>
+                <button type="button" className="btn-secondary block" disabled={busy} onClick={emailResetLink}>
+                  Reset password
+                </button>
+                <p className="help">Email a reset link to your signed-in address.</p>
+              </>
+            )}
 
             <label className="block-label">Sessions</label>
             <button type="button" className="btn-secondary block" onClick={signOut}>

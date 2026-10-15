@@ -22,7 +22,7 @@ export function Privacy() {
 
         <h2>Account</h2>
         <p>
-          If you create an account we store your email, a hash of your password (not the password), and your
+          If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your
           household name. A cookie named wp_session keeps you signed in for 30 days. You can sign out of this
           device, or every device, from Account &amp; security.
         </p>

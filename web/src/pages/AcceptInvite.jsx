@@ -54,17 +54,22 @@ export function AcceptInvite({ token, onAuthed }) {
               <form onSubmit={submit}>
                 {!signedIn && <>
                 <label className="block-label" htmlFor="email">
-                  Your email
+                  Your email or a username
                 </label>
                 <input
                   id="email"
                   className="field"
-                  type="email"
+                  type="text"
                   required
+                  autoCapitalize="none"
+                  spellCheck={false}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  autoComplete="email"
+                  autoComplete="username"
                 />
+                {email.trim() && !email.includes("@") && (
+                  <p className="banner warn">No email means no password reset. If you forget your password, this account can't be recovered.</p>
+                )}
                 <label className="block-label" htmlFor="password">
                   Choose a password
                 </label>

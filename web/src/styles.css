@@ -217,6 +217,7 @@ img { display: block; max-width: 100%; }
 .banner { padding: 0.7rem 0.85rem; border-radius: 10px; }
 .banner.err { background: #f8e4e0; color: var(--heart); }
 .banner.ok { background: #e4efe6; color: var(--ok); }
+.banner.warn { background: #fbf0d9; color: #7a5410; }
 .banner.review-only { background: #eee8f6; color: #57476e; }
 .tour-scrim {
   position: fixed;
