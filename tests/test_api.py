@@ -63,8 +63,9 @@ def _client(tmp_path: Path, admin: bool = True) -> TestClient:
     _seed(tmp_path)
     app = create_app()
     if admin:
-        from app.deps import require_admin
+        from app.deps import optional_admin, require_admin
         app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
+        app.dependency_overrides[optional_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
     return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
 
 
@@ -1654,3 +1655,61 @@ def test_bug_reports_and_feature_requests(tmp_path):
         client.app.dependency_overrides.clear()
         assert client.get("/api/dev/feedback").status_code == 403
         assert client.put("/api/dev/feedback/1/status", json={"status": "done"}).status_code == 403
+
+
+def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    page = """<script type="application/ld+json">{"@type": "Recipe", "name": "Weeknight dal",
+      "recipeYield": "6", "totalTime": "PT40M", "recipeIngredient": ["1 cup red lentils", "2 tsp cumin"],
+      "recipeInstructions": [{"@type": "HowToStep", "text": "Simmer the lentils."}]}</script>"""
+    monkeypatch.setattr(recipe_import, "fetch_page", lambda url: (page, url))
+    with _client(tmp_path, admin=False) as client:
+        before = len(client.get("/api/recipes", params={"mine": "true"}).json()["recipes"])
+        draft = client.post("/api/recipes/import", json={"url": "https://example.com/dal"})
+        assert draft.status_code == 200
+        body = draft.json()
+        assert body["name"] == "Weeknight dal"
+        assert body["servings"] == 6
+        assert body["cooking_minutes"] == 40
+        assert body["ingredient_lines"] == ["1 cup red lentils", "2 tsp cumin"]
+        assert len(client.get("/api/recipes", params={"mine": "true"}).json()["recipes"]) == before
+
+        saved = client.post("/api/recipes", json={**body, "imported": True, "tags": ["imported"]})
+        assert saved.status_code == 200
+        assert saved.json()["instructions_source"] == "import"
+        assert saved.json()["source_url"] == "https://example.com/dal"
+        mine = client.get("/api/recipes", params={"mine": "true"}).json()["recipes"]
+        assert [r["name"] for r in mine if r["name"] == "Weeknight dal"] == ["Weeknight dal"]
+        assert all(not r["catalog"] for r in mine)
+
+
+def test_import_recipe_reports_a_page_without_one(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    real_fetch = recipe_import.fetch_page
+    monkeypatch.setattr(recipe_import, "fetch_page", lambda url: ("<html>no recipe</html>", url))
+    with _client(tmp_path, admin=False) as client:
+        res = client.post("/api/recipes/import", json={"url": "https://example.com/blog"})
+        assert res.status_code == 422
+        assert res.json()["error"] == "no_recipe"
+        monkeypatch.setattr(recipe_import, "fetch_page", real_fetch)
+        assert client.post("/api/recipes/import", json={"url": "http://127.0.0.1/"}).json()["error"] == "bad_url"
+
+
+def test_cooks_edit_their_own_recipes_but_not_the_catalog(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        made = client.post(
+            "/api/recipes",
+            json={"name": "Our tacos", "ingredients": [{"quantity": "", "name": "1 lb ground beef"}],
+                  "instructions": [{"text": "Brown the beef", "prep": False, "ings": ""}]},
+        ).json()
+        assert made["instructions_source"] == "household"
+        assert made["ingredients"][0]["quantity"] == "1 lb"
+        patched = client.patch(f"/api/recipes/{made['id']}", json={"name": "Our fish tacos"})
+        assert patched.status_code == 200
+        assert patched.json()["name"] == "Our fish tacos"
+        assert client.patch(f"/api/recipes/{made['id']}", json={"as_copy": True}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"name": "Not ours"}).status_code == 403
+        assert client.patch("/api/recipes/2", json={"name": "Not ours"}).status_code == 404
+        assert client.delete(f"/api/recipes/{made['id']}").status_code == 200

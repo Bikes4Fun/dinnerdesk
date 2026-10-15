@@ -20,11 +20,12 @@ from app.db.seed import pantry_catalog
 from app.db.database import ROOT, now, transaction
 from app.assets import catalog_dir
 from app.auth import SESSION_COOKIE, session_info
-from app.deps import AdminDep, DbDep, HhDep
+from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
 from app.domain.photo_uploads import save_photo
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
+from app.domain.recipe_import import RecipeImportError, import_recipe
 from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -76,6 +77,7 @@ from app.models import (
     PrepStepFeedbackPut,
     RatingPut,
     RecipeCreate,
+    RecipeImport,
     RecipePatch,
     SlotPatch,
     SlotsPut,
@@ -524,6 +526,7 @@ def list_recipes(
     q: str = "",
     tag: str = "",
     hidden_only: bool = Query(default=False, alias="hidden"),
+    mine: bool = False,
     limit: int = Query(default=60, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
@@ -541,6 +544,10 @@ def list_recipes(
                  SELECT recipe_id FROM household_hidden_recipes WHERE household_id = ?
                )"""
         args.append(household_id)
+    if mine:
+        # The kitchen's own recipes (made, imported or copied), whatever the filters say.
+        sql += " AND r.household_id = ?"
+        args.append(household_id)
     if q.strip():
         needed = hard_tokens(q) or search_tokens(q)
         for tok in needed:
@@ -550,7 +557,7 @@ def list_recipes(
         sql += " AND t.tag = ?"
         args.append(tag.strip())
     laps = Laps()
-    if hidden_only:
+    if hidden_only or mine:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
         args.extend([limit, offset])
         rows = db.execute(sql, args).fetchall()
@@ -609,13 +616,18 @@ def create_recipe(
     household_id: int = HhDep,
 ):
     ts = now()
+    source_url = (body.source_url or "").strip()[:2000]
+    provenance = {
+        "instructions_source": "import" if body.imported else "household",
+        "instructions_copied_from_third_party": bool(body.imported),
+    }
     with transaction(db):
         cur = db.execute(
             """INSERT INTO recipes (
                 household_id, slug, name, servings, cooking_minutes,
                 instructions_json, cookware_json, source_url, provenance_json,
                 photo_path, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', '', ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)""",
             (
                 household_id,
                 pantry_key(body.name).replace(" ", "-")[:80],
@@ -624,22 +636,14 @@ def create_recipe(
                 body.cooking_minutes,
                 json.dumps(body.instructions),
                 json.dumps(body.cookware),
-                (body.source_url or "").strip()[:2000],
+                source_url,
+                json.dumps(provenance),
                 ts,
                 ts,
             ),
         )
         rid = int(cur.lastrowid)
-        for i, ing in enumerate(body.ingredients):
-            name = ing.get("name") if isinstance(ing, dict) else str(ing)
-            qty = ing.get("quantity", "") if isinstance(ing, dict) else ""
-            iid = _get_or_create_ingredient(db, name)
-            db.execute(
-                """INSERT INTO recipe_ingredients
-                   (recipe_id, ingredient_id, quantity, unit, note, sort)
-                   VALUES (?, ?, ?, '', '', ?)""",
-                (rid, iid, qty or "", i),
-            )
+        _set_recipe_ingredients(db, rid, body.ingredients)
         for tag in body.tags:
             db.execute(
                 "INSERT OR IGNORE INTO recipe_tags (recipe_id, tag) VALUES (?, ?)",
@@ -648,6 +652,16 @@ def create_recipe(
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (rid,)).fetchone()
     _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id)
+
+
+@router.post("/recipes/import")
+def import_recipe_draft(body: RecipeImport, household_id: int = HhDep):
+    """Read a public recipe page into a draft for the cook to check. Saves nothing."""
+    try:
+        return import_recipe(body.url)
+    except RecipeImportError as exc:
+        _log.info("recipe import hh=%d failed %s", household_id, exc.code)
+        raise HTTPException(422, {"error": exc.code, "detail": exc.message})
 
 
 @router.get("/recipes/{recipe_id}")
@@ -851,11 +865,14 @@ def patch_recipe(
     body: RecipePatch,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
-    _admin=AdminDep,  # recipe editing is for the Dinnerdesk admins only
+    admin=OptionalAdminDep,
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
         raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    # A kitchen edits its own recipes; everything else is for the Dinnerdesk admins only.
+    if admin is None and (row["household_id"] != household_id or body.as_copy):
+        raise HTTPException(403, {"error": "forbidden", "detail": "admin"})
     catalog = row["household_id"] is None
     # recipe_tags has no household_id, and photo_path gates public_recipe_sql eligibility,
     # so a tag or photo change on a shared catalog row affects every household's candidates.

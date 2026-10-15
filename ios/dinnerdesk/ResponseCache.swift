@@ -218,6 +218,8 @@ enum Freshness {
     } else if path.hasPrefix("pantry") || path.hasPrefix("overrides") || path.hasPrefix("grocery/places") {
       invalidate(grocery)
     } else if parts.first == "recipes" {
+      // Reading a web page into a draft saves nothing.
+      if parts.count == 2 && parts[1] == "import" { return }
       let flagOnly = parts.count == 3 && ["favorite", "try", "hidden", "rating", "dev-notes"].contains(parts[2])
       // Favorite, To try and Hide are applied to the Store's list as they're tapped.
       if !flagOnly {
