@@ -1527,6 +1527,27 @@ def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
         assert reasons["1"][0] == routes.BACKUP_REASON
 
 
+def test_diet_outside_meals_fill_in_last_and_allergens_never(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Bean chili", "ingredients": ["beans", "tomato"], "tags": [], "cooking_minutes": 20},
+        {"id": 2, "keys": ["2"], "name": "Chicken rice", "ingredients": ["chicken thighs", "rice"], "tags": [], "cooking_minutes": 20},
+        {"id": 3, "keys": ["3"], "name": "Peanut noodles", "ingredients": ["peanut butter", "noodles"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"diets": ["vegetarian"], "allergens": ["peanut"]}}})
+        db = connect()
+        try:
+            picked, _, reasons = routes._suggest_meals(db, 1, 3)
+        finally:
+            db.close()
+        ids = [m["id"] for m in picked]
+        assert 3 not in ids
+        assert set(ids) == {1, 2}
+        assert reasons["2"][0] in (routes.OUTSIDE_REASON, routes.STANDOUT_REASON)
+
+
 def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
     import app.routes as routes
     from app.db.catalog import upsert_catalog_recipe

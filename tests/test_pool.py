@@ -67,3 +67,9 @@ def test_diet_tags_never_override_the_ingredient_checks():
     assert 1 not in vegan.allowed
     gluten = build_pool(mislabeled, blocks_for([], ["gluten"]), [], set())
     assert 2 not in gluten.allowed
+
+
+def test_outside_meals_break_a_diet_but_never_an_allergy():
+    pool = build_pool(RECIPES, blocks_for(["vegan"], ["peanut"]), [], set(), allergy=blocks_for([], ["peanut"]))
+    assert ids(pool.outside_meals) == [1, 3]  # cheesy and chicken break vegan; peanut noodles never
+    assert ids(build_pool(RECIPES, blocks_for(["vegan"], []), [], set()).outside_meals) == []
