@@ -589,7 +589,12 @@ def list_recipes(
     laps.lap("cards")
     laps.publish("recipes")
     _log.debug("recipes hh=%d q=%r tag=%r %s", household_id, q.strip() or None, tag.strip() or None, laps.fmt())
-    return {"recipes": cards}
+    # Every recipe this kitchen could find, before filters: shown in the search box placeholder.
+    total = db.execute(
+        f"SELECT COUNT(*) AS n FROM recipes r WHERE (r.household_id IS NULL OR r.household_id = ?) AND {public_sql}",
+        (household_id, *public_args),
+    ).fetchone()["n"]
+    return {"recipes": cards, "total": int(total)}
 
 
 @router.get("/tags")

@@ -1713,3 +1713,9 @@ def test_cooks_edit_their_own_recipes_but_not_the_catalog(tmp_path):
         assert client.patch("/api/recipes/1", json={"name": "Not ours"}).status_code == 403
         assert client.patch("/api/recipes/2", json={"name": "Not ours"}).status_code == 404
         assert client.delete(f"/api/recipes/{made['id']}").status_code == 200
+def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
+    with _client(tmp_path) as client:
+        body = client.get("/api/recipes", params={"limit": 1}).json()
+        assert len(body["recipes"]) == 1
+        assert body["total"] >= 1
+        assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]

@@ -17,6 +17,8 @@ final class Store: ObservableObject {
     }
   }
   @Published var recipes: [RecipeSummary] = []
+  /// How many recipes search covers, shown in the search box placeholder.
+  @Published var recipeTotal: Int?
   /// Saved on every change (checking items off in the store), so a relaunch with no signal
   /// still shows the list as the person left it.
   @Published var grocery: [GroceryLine] = [] {
@@ -96,6 +98,7 @@ final class Store: ObservableObject {
       let recipeList = try await recipeBox
       guard gen == generation else { return }
       recipes = recipeList.recipes
+      recipeTotal = recipeList.total ?? recipeTotal
       Freshness.mark(Freshness.recipes)
       await reloadGrocery()
       await loadGroceryPrefs(onlyIfStale: onlyIfStale)
@@ -145,6 +148,7 @@ final class Store: ObservableObject {
     if plan == nil, let saved: Plan = API.cached("plans/current") { plan = saved }
     if recipes.isEmpty, let saved: RecipeList = API.cached("recipes", query: ["limit": "400"]) {
       recipes = saved.recipes
+      recipeTotal = saved.total
     }
     if let plan {
       if grocery.isEmpty, let saved: GroceryList = API.cached("plans/\(plan.id)/grocery") { grocery = saved.lines }
