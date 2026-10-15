@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import hashlib
 import hmac
 import secrets
@@ -72,11 +73,29 @@ def _lock_membership(conn):
     conn.execute("SELECT pg_advisory_xact_lock(184732901)")
 
 
+# A username stands in for an email for people who'd rather not share one. It lives in the same
+# column; it can't contain "@", so it never collides with an email. Without an email there's no
+# password reset, so a forgotten password can't be recovered.
+USERNAME = re.compile(r"[a-z0-9._-]{3,30}")
+
+
+def login_name(raw: str) -> str:
+    """An email or username, normalized. Raises invalid_email / invalid_username."""
+    name = (raw or "").strip().lower()
+    if "@" in name:
+        return name
+    if not USERNAME.fullmatch(name):
+        raise AuthError("invalid_username" if name else "invalid_email")
+    return name
+
+
+def has_email(name: str | None) -> bool:
+    return bool(name) and "@" in name
+
+
 def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
     _lock_membership(conn)
-    email = email.strip().lower()
-    if not email or "@" not in email:
-        raise AuthError("invalid_email")
+    email = login_name(email)
     _check_password_strength(password)
 
     existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
@@ -178,6 +197,8 @@ def start_password_reset(conn: Any, email: str) -> Optional[str]:
     Callers must answer the same way either way, so nobody can probe which emails have accounts.
     """
     email = (email or "").strip().lower()
+    if not has_email(email):
+        return None
     row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
     if not row:
         return None
@@ -277,9 +298,7 @@ def accept_invite(conn: Any, token: str, email: str, password: str) -> str:
     row = invite_info(conn, token)
     household_id = row["household_id"]
 
-    email = email.strip().lower()
-    if not email or "@" not in email:
-        raise AuthError("invalid_email")
+    email = login_name(email)
     _check_password_strength(password)
 
     existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()

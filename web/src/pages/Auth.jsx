@@ -131,17 +131,22 @@ export function Auth({ onAuthed }) {
             )}
 
             <label className="block-label" htmlFor="email">
-              Email
+              Email or username
             </label>
             <input
               id="email"
               className="field"
-              type="email"
+              type="text"
               required
+              autoCapitalize="none"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              autoComplete="username"
             />
+            {mode === "signup" && email.trim() && !email.includes("@") && (
+              <p className="banner warn">No email means no password reset. If you forget your password, this account can't be recovered.</p>
+            )}
 
             <label className="block-label" htmlFor="password">
               Password

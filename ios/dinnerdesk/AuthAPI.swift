@@ -49,5 +49,6 @@ nonisolated struct AuthStatus: Decodable, Sendable {
   let householdId: Int?
   let authenticated: Bool
   let email: String?
+  let hasEmail: Bool?
   let admin: Bool?
 }

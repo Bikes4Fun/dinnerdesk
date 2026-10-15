@@ -463,12 +463,18 @@ struct AccountView: View {
         .themeRows()
 
         ThemeSection("Password") {
-          Button { Task { await resetPassword() } } label: {
-            Label("Reset password", systemImage: "key")
+          if session.status?.hasEmail == false {
+            Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.")
+              .font(Theme.subtitle).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+          } else {
+            Button { Task { await resetPassword() } } label: {
+              Label("Reset password", systemImage: "key")
+            }
+            .disabled(busy)
+            Text("Email a reset link to your signed-in address.")
+              .font(Theme.subtitle).foregroundStyle(Theme.muted)
           }
-          .disabled(busy)
-          Text("Email a reset link to your signed-in address.")
-            .font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
         .themeRows()
 
@@ -1046,7 +1052,7 @@ private struct PrivacyView: View {
         section(
           "Account",
           """
-          If you create an account we store your email, a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
+          If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
 
           Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account.
 

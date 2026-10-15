@@ -402,3 +402,32 @@ def test_forgot_password_reports_a_failed_send(tmp_path, monkeypatch):
                                               "household_name": "Our house"})
         assert client.post("/api/auth/forgot-password", json={"email": "you@example.com"}).status_code == 503
         assert client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"}).status_code == 200
+
+
+def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+    with _client(tmp_path) as client:
+        res = client.post("/api/auth/signup", json={
+            "email": " Kitchen.Fan ", "password": "correct horse battery staple", "household_name": "Ours"})
+        assert res.status_code == 200
+        me = client.get("/api/auth/me").json()
+        assert me["email"] == "kitchen.fan"
+        assert me["has_email"] is False
+        client.post("/api/auth/logout")
+        ok = client.post("/api/auth/login", json={"email": "KITCHEN.FAN", "password": "correct horse battery staple"})
+        assert ok.status_code == 200
+
+        taken = client.post("/api/auth/signup", json={
+            "email": "kitchen.fan", "password": "correct horse battery staple", "household_name": "x"})
+        assert taken.json()["detail"] == "email_taken"
+        for bad in ("ab", "has space", "x" * 31):
+            res = client.post("/api/auth/signup", json={
+                "email": bad, "password": "correct horse battery staple", "household_name": "x"})
+            assert res.json()["detail"] == "invalid_username", bad
+
+        # No email means no reset: say so plainly, and never try to send.
+        reset = client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"})
+        assert reset.status_code == 400
+        assert reset.json()["detail"] == "no_email"

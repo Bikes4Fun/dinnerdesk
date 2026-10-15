@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.auth import leave_household, join_household, delete_household, manage_member
-from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, is_admin_email, session_info
+from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin_email, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
 from app.auth import finish_password_reset, start_password_reset
@@ -32,8 +32,10 @@ COOKIE_SECURE = os.environ.get("COOKIE_SECURE", _default_secure) == "1"
 ERROR_MESSAGES = {
     "invalid_email": "Enter a valid email address.",
     "password_too_short": "Password must be at least 8 characters.",
-    "email_taken": "An account with that email already exists.",
-    "invalid_credentials": "That email or password didn't work.",
+    "invalid_username": "Usernames are 3 to 30 letters, numbers, dots, dashes or underscores.",
+    "email_taken": "An account with that email or username already exists.",
+    "invalid_credentials": "That email or username, or the password, didn't work.",
+    "no_email": "Accounts made with a username have no email, so their password can't be reset.",
     "account_locked": "Too many failed attempts. Try again in a few minutes.",
     "not_authenticated": "Please sign in again.",
     "invite_invalid": "This invite link isn't valid.",
@@ -184,6 +186,7 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
         "authenticated": row is not None,
         "household_id": household_id,
         "email": email,
+        "has_email": has_email(email),
         "admin": is_admin_email(email),
     }
 
@@ -198,6 +201,7 @@ def me(request: Request, conn=DbDep):
         "user_id": row["user_id"],
         "household_id": row["household_id"],
         "email": row["email"],
+        "has_email": has_email(row["email"]),
         "admin": is_admin_email(row["email"]),
     }
 
@@ -222,6 +226,8 @@ def forgot_password(body: ForgotPasswordBody, conn=DbDep):
         log.error("Password reset requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
         raise _mail_down()
     email = (body.email or "").strip().lower()
+    if email and not has_email(email):
+        raise _auth_error(AuthError("no_email"), 400)
     token = start_password_reset(conn, email)
     if token:
         try:
