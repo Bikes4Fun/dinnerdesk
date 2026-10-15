@@ -33,6 +33,11 @@ struct SettingsView: View {
           ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
         .accessibilityHint("Opens the support page in Safari")
+        NavigationLink {
+          FeedbackView()
+        } label: {
+          ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
+        }
 
           if let url = URL(string: "https://dinnerdesk.computerscience.build") {
             Link(destination: url) {
@@ -854,6 +859,102 @@ private struct TasteLabWebView: UIViewRepresentable {
       needsRetry = true
       parent.loading = false
       parent.failed = error.localizedDescription
+    }
+  }
+}
+
+/// Bug reports and feature requests (#145). Ids match app/models.py FEEDBACK_KINDS.
+enum FeedbackKind: String, CaseIterable, Identifiable {
+  case bug, feature
+  var id: String { rawValue }
+  var label: String { self == .bug ? "Report a bug" : "Suggest a feature" }
+  var help: String {
+    self == .bug ? "Something broke or didn't work the way it should." : "Something you wish \(Copy.appName) did."
+  }
+  var prompt: String { self == .bug ? "What went wrong?" : "What would you like?" }
+  var placeholder: String {
+    self == .bug
+      ? "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh."
+      : "e.g. Let me plan lunches too, not just dinners."
+  }
+}
+
+/// "Report a bug or suggest a feature". The server keeps it with the app build that sent it.
+private struct FeedbackView: View {
+  @State private var kind = FeedbackKind.bug
+  @State private var note = ""
+  @State private var sending = false
+  @State private var sent: FeedbackKind?
+  @State private var error: String?
+
+  private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 12) {
+        if let error { ErrorBanner(message: error) }
+        if let sent {
+          Text(sent == .bug ? "Thanks. We'll look into it." : "Thanks for the idea. We read every one.")
+            .font(Theme.body).foregroundStyle(Theme.ink)
+          Button("Send another") { self.sent = nil }
+            .font(Theme.action)
+            .frame(minHeight: 44)
+        } else {
+          Text("What's this about?").font(Theme.action).foregroundStyle(Theme.ink)
+          ForEach(FeedbackKind.allCases) { option in
+            Button { kind = option } label: {
+              HStack(alignment: .top, spacing: 10) {
+                Image(systemName: kind == option ? "largecircle.fill.circle" : "circle")
+                  .foregroundStyle(kind == option ? Theme.accent : Theme.muted)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(option.label).font(Theme.body).foregroundStyle(Theme.ink)
+                  Text(option.help).font(Theme.subtitle).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+              }
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(kind == option ? .isSelected : [])
+          }
+          Text(kind.prompt).font(Theme.action).foregroundStyle(Theme.ink)
+          TextField(kind.placeholder, text: $note, axis: .vertical)
+            .font(Theme.subtitle)
+            .lineLimit(4...10)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+            .onChange(of: note) { _, value in if value.count > 2000 { note = String(value.prefix(2000)) } }
+          Button {
+            Task { await send() }
+          } label: {
+            Text(sending ? "Sending…" : "Send").font(Theme.action).foregroundStyle(Theme.bg)
+              .frame(maxWidth: .infinity, minHeight: 50)
+              .background(trimmed.isEmpty ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+          }
+          .buttonStyle(.plain)
+          .disabled(trimmed.isEmpty || sending)
+        }
+      }
+      .padding()
+    }
+    .background(Theme.bg)
+    .navigationTitle("Bugs & ideas")
+    .navigationBarTitleDisplayMode(.inline)
+  }
+
+  private func send() async {
+    sending = true
+    defer { sending = false }
+    do {
+      let _: Ok = try await API.send(
+        "feedback", method: "POST", body: ["kind": kind.rawValue, "note": trimmed, "screen": "settings"])
+      error = nil
+      note = ""
+      sent = kind
+    } catch {
+      self.error = KitchenAPI.message(error)
     }
   }
 }

@@ -11,7 +11,7 @@ import time
 from app.db.database import PgConnection
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.db.catalog import public_recipe_sql
@@ -19,6 +19,7 @@ from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, now, transaction
 from app.assets import catalog_dir
+from app.auth import SESSION_COOKIE, session_info
 from app.deps import AdminDep, DbDep, HhDep
 from fractions import Fraction
 
@@ -49,6 +50,8 @@ from app.models import (
     PrepMissingPut,
     PlanReportCreate,
     RecipeReportCreate,
+    FeedbackCreate,
+    FeedbackStatusPut,
     PrepTaskFeedbackPut,
     PlanCreate,
     SuggestionResize,
@@ -2213,6 +2216,7 @@ _EXPORT_TABLES = [
     ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
     ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
     ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
+    ("feedback", "feedback"),
 ]
 _EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
 
@@ -2423,6 +2427,55 @@ def get_plan_reports(_admin=AdminDep, db: PgConnection = DbDep):
                LEFT JOIN households h ON h.id = p.household_id ORDER BY p.created_at DESC"""
         )
     ]}
+
+
+@router.post("/feedback")
+def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a bug or suggest a feature (#145). Keeps which app and build sent it, so a bug
+    can be matched to the version that had it."""
+    note = body.note.strip()
+    if not note:
+        raise HTTPException(422, {"error": "invalid", "detail": "note"})
+    account = session_info(db, request.cookies.get(SESSION_COOKIE))
+    snapshot = {
+        "app": request.headers.get("x-dinnerdesk-app", ""),
+        "user_agent": request.headers.get("user-agent", "")[:300],
+        "screen": body.screen.strip(),
+    }
+    ts = now()
+    with transaction(db):
+        cur = db.execute(
+            "INSERT INTO feedback (household_id, user_id, kind, note, status, snapshot_json, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, 'new', ?, ?, ?)",
+            (household_id, account["user_id"] if account else None, body.kind, note, json.dumps(snapshot), ts, ts),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.get("/dev/feedback")
+def get_feedback(_admin=AdminDep, db: PgConnection = DbDep):
+    """Every bug report and feature request across households, newest first."""
+    return {"feedback": [
+        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
+         "email": r["email"], "kind": r["kind"], "note": r["note"], "status": r["status"],
+         "created_at": r["created_at"], "updated_at": r["updated_at"],
+         "snapshot": json.loads(r["snapshot_json"] or "{}")}
+        for r in db.execute(
+            """SELECT f.*, h.name AS household_name, u.email AS email FROM feedback f
+               LEFT JOIN households h ON h.id = f.household_id
+               LEFT JOIN users u ON u.id = f.user_id ORDER BY f.created_at DESC, f.id DESC"""
+        )
+    ]}
+
+
+@router.put("/dev/feedback/{feedback_id}/status")
+def set_feedback_status(feedback_id: int, body: FeedbackStatusPut, _admin=AdminDep, db: PgConnection = DbDep):
+    """Mark a report or request new, planned, done, or declined."""
+    if not db.execute("SELECT id FROM feedback WHERE id = ?", (feedback_id,)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "feedback"})
+    with transaction(db):
+        db.execute("UPDATE feedback SET status = ?, updated_at = ? WHERE id = ?", (body.status, now(), feedback_id))
+    return {"ok": True}
 
 
 @router.get("/dev/ingredient-review")

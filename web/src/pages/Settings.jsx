@@ -58,6 +58,7 @@ export function Settings() {
         <Link href="/settings/social">Social</Link>
         <Link href="/settings/newsletter">Email newsletter</Link>
         <Link href="/support">Help &amp; support</Link>
+        <Link href="/settings/feedback">Report a bug or suggest a feature</Link>
         <Link href="/privacy">Privacy</Link>
         <a className="list-link" href="https://x.com/DinnerDesk" target="_blank" rel="noopener noreferrer">
           Twitter
@@ -70,6 +71,9 @@ export function Settings() {
             </Link>
             <Link href="/settings/recipe-flags" extra="Manual edits">
               Recipes to edit
+            </Link>
+            <Link href="/settings/feedback-inbox" extra="Admin">
+              Bugs &amp; ideas inbox
             </Link>
           </>
         ) : null}

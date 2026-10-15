@@ -1626,3 +1626,31 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
+
+
+def test_bug_reports_and_feature_requests(tmp_path):
+    with _client(tmp_path) as client:
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
+                           headers={"X-Dinnerdesk-App": "ios 1.2 (34)"})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "feature", "note": "Dark mode please"}).status_code == 200
+        assert client.post("/api/feedback", json={"kind": "praise", "note": "hi"}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": ""}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "   "}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x" * 2001}).status_code == 422
+
+        items = client.get("/api/dev/feedback").json()["feedback"]
+        assert [i["kind"] for i in items] == ["feature", "bug"]
+        bug = items[1]
+        assert (bug["note"], bug["status"]) == ("Grocery list froze", "new")
+        assert bug["snapshot"]["app"] == "ios 1.2 (34)" and bug["snapshot"]["screen"] == "grocery"
+
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "planned"}).status_code == 200
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "maybe"}).status_code == 422
+        assert client.put("/api/dev/feedback/999999/status", json={"status": "done"}).status_code == 404
+        assert client.get("/api/dev/feedback").json()["feedback"][1]["status"] == "planned"
+        assert {f["kind"] for f in client.get("/api/household/export").json()["feedback"]} == {"bug", "feature"}
+
+        client.app.dependency_overrides.clear()
+        assert client.get("/api/dev/feedback").status_code == 403
+        assert client.put("/api/dev/feedback/1/status", json={"status": "done"}).status_code == 403

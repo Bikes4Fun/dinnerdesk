@@ -187,6 +187,23 @@ class RecipeReportCreate(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+# Bug reports and feature requests (#145). Same ids in web/src/pages/Feedback.jsx and ios FeedbackKind.
+FEEDBACK_KINDS = ("bug", "feature")
+FEEDBACK_STATUSES = ("new", "planned", "done", "declined")
+
+
+class FeedbackCreate(BaseModel):
+    """A cook reporting a bug or asking for a feature, in their own words."""
+    kind: str = Field(pattern="^(bug|feature)$")
+    note: str = Field(min_length=1, max_length=2000)
+    # Where they were in the app, if the client knows (e.g. "recipes/12").
+    screen: str = Field(default="", max_length=200)
+
+
+class FeedbackStatusPut(BaseModel):
+    status: str = Field(pattern="^(new|planned|done|declined)$")
+
+
 class PlanReportCreate(BaseModel):
     """A cook reporting a bad meal plan suggestion, in their own words."""
     note: str = Field(default="", max_length=1000)
