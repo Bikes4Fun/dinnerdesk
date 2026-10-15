@@ -961,7 +961,7 @@ def test_suggestion_capabilities_and_fresh_meals(tmp_path, monkeypatch):
         assert proposal["suggested_recipe_ids"] == [fresh_id]
 
 
-def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
+def test_recipe_list_orders_by_diet_and_avoid_filters(tmp_path):
     _seed(tmp_path)
     _add_catalog(tmp_path, "turkey-chili", "Turkey Chili", False, "food/turkey-chili.jpg")
     _add_catalog(tmp_path, "garden-bowl", "Garden Bowl", False, "food/garden-bowl.jpg")
@@ -979,6 +979,7 @@ def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
     db.close()
     with TestClient(create_app(), cookies={"dd_guest": "feature-test-guest"}) as client:
         names = lambda: {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
+        fits = lambda: {r["name"]: r["fit"] for r in client.get("/api/recipes").json()["recipes"]}
         assert {"Turkey Chili", "Garden Bowl", "Peanut Noodles", "Soup"} <= names()
 
         saved = client.put("/api/household", json={"prefs": {"filters": {
@@ -987,15 +988,18 @@ def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
         filters = client.get("/api/household").json()["prefs"]["filters"]
         assert filters["diets"] == ["vegan"]
         assert filters["avoids"] == []
-        shown = names()
-        assert "Turkey Chili" not in shown
-        assert "Garden Bowl" not in shown  # salmon is in the ingredients, not the name
-        assert {"Peanut Noodles", "Soup"} <= shown  # peanut butter is not dairy
+        # Filters order the list; nothing drops out of it (#147).
+        shown = fits()
+        assert shown["Turkey Chili"] == "outside"
+        assert shown["Garden Bowl"] == "outside"  # salmon is in the ingredients, not the name
+        assert shown["Peanut Noodles"] == shown["Soup"] == "priority"  # peanut butter is not dairy
+        order = [r["fit"] for r in client.get("/api/recipes").json()["recipes"]]
+        assert order == sorted(order, key=["priority", "backup", "outside"].index)
 
         client.put("/api/household", json={"prefs": {"filters": {"diets": [], "avoids": ["fish"]}}})
-        shown = names()
-        assert "Turkey Chili" in shown
-        assert "Garden Bowl" not in shown
+        shown = fits()
+        assert shown["Turkey Chili"] == "priority"
+        assert shown["Garden Bowl"] == "backup"
 
         hidden_list = client.get("/api/recipes?hidden=true").json()["recipes"]
         assert hidden_list == []
@@ -1521,6 +1525,27 @@ def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
         assert [m["id"] for m in one] == [2]
         assert [m["id"] for m in two] == [2, 1]
         assert reasons["1"][0] == routes.BACKUP_REASON
+
+
+def test_diet_outside_meals_fill_in_last_and_allergens_never(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": 1, "keys": ["1"], "name": "Bean chili", "ingredients": ["beans", "tomato"], "tags": [], "cooking_minutes": 20},
+        {"id": 2, "keys": ["2"], "name": "Chicken rice", "ingredients": ["chicken thighs", "rice"], "tags": [], "cooking_minutes": 20},
+        {"id": 3, "keys": ["3"], "name": "Peanut noodles", "ingredients": ["peanut butter", "noodles"], "tags": [], "cooking_minutes": 20},
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"diets": ["vegetarian"], "allergens": ["peanut"]}}})
+        db = connect()
+        try:
+            picked, _, reasons = routes._suggest_meals(db, 1, 3)
+        finally:
+            db.close()
+        ids = [m["id"] for m in picked]
+        assert 3 not in ids
+        assert set(ids) == {1, 2}
+        assert reasons["2"][0] in (routes.OUTSIDE_REASON, routes.STANDOUT_REASON)
 
 
 def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):

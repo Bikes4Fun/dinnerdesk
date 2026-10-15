@@ -7,6 +7,11 @@ export function hasTag(r, tag) {
   return (r.tags || []).includes(tag);
 }
 
+// Recipes outside the household's diets and allergies still show (#147), marked so nobody cooks one by mistake.
+function OutsideNote({ recipe }) {
+  return recipe.fit === "outside" ? <span className="fit-note muted">Outside your filters</span> : null;
+}
+
 export function RecipeCard({ recipe, onChange }) {
   const { weekIds, toggleRecipe } = useWeek();
   const on = weekIds.has(recipe.id);
@@ -44,6 +49,7 @@ export function RecipeCard({ recipe, onChange }) {
       </div>
       <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
         <p className="card-name">{recipe.name}</p>
+        <OutsideNote recipe={recipe} />
       </button>
     </div>
   );
@@ -78,6 +84,7 @@ export function RecipeRow({ recipe, onChange }) {
       </div>
       <button type="button" className="recipe-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
         <strong>{recipe.name}</strong>
+        <OutsideNote recipe={recipe} />
       </button>
       <button
         type="button"

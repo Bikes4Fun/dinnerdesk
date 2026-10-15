@@ -1,7 +1,8 @@
 """A household's recipe pool, in two tiers. No I/O.
 
-Hard rules (diets and allergies) are never broken: a recipe that fails them is not in the pool
-at all. The priority tier also leaves out recipes with an avoided ingredient, ones the household
+Hard rules (diets and allergies) keep a recipe out of the pool. Allergies are never broken.
+A meal that breaks only a diet is kept aside in outside_meals, for a suggestion that stands
+out or when nothing else is left (#147). The priority tier also leaves out recipes with an avoided ingredient, ones the household
 hid, and diet variants of a recipe it can already eat. Suggestions, the recipe list and the top
 of search results come from the priority tier; the backup tier (everything else that keeps the
 hard rules) is used only when the priority tier doesn't have enough.
@@ -32,10 +33,21 @@ class Pool:
     # Dinner candidates for suggestions, by tier. Both are real meals with ingredients.
     meals: tuple[dict, ...]
     backup_meals: tuple[dict, ...]
+    # Meals that break a diet but no allergy, and aren't hidden. Never ones with an allergen.
+    outside_meals: tuple[dict, ...] = ()
 
 
-def build_pool(recipes: list[dict], hard: list[list[str]], soft: list[list[str]], skip_tags: set[str]) -> Pool:
-    """recipes are a household's visible recipes. hard and soft are blocked-word groups.
+def build_pool(
+    recipes: list[dict],
+    hard: list[list[str]],
+    soft: list[list[str]],
+    skip_tags: set[str],
+    allergy: list[list[str]] | None = None,
+) -> Pool:
+    """recipes are a household's visible recipes. hard, soft and allergy are blocked-word groups.
+
+    hard is diets and allergies together; allergy is the allergies alone. Without allergy,
+    no meal outside the hard rules is kept.
 
     A recipe the household wrote itself always keeps the hard rules. A variant (variant_of
     names its base recipe's slug) goes to backup when its base is in the priority tier, so a
@@ -59,14 +71,26 @@ def build_pool(recipes: list[dict], hard: list[list[str]], soft: list[list[str]]
     demoted = avoided | {r["id"] for r in kept if r.get("hidden")}
     backup = demoted | variants
 
-    meals, backup_meals = [], []
-    for r in kept:
+    def meal(r):
         tags = set(r.get("tags") or [])
         if (tags & skip_tags and not tags & MEAL_TAGS) or not r.get("ingredients"):
-            continue
-        meal = {k: r[k] for k in ("id", "keys", "name", "ingredients", "tags", "cooking_minutes") if k in r}
-        (backup_meals if r["id"] in backup else meals).append(meal)
-    return Pool(frozenset(allowed), frozenset(demoted), frozenset(variants), tuple(meals), tuple(backup_meals))
+            return None
+        return {k: r[k] for k in ("id", "keys", "name", "ingredients", "tags", "cooking_minutes") if k in r}
+
+    meals, backup_meals, outside_meals = [], [], []
+    for r in kept:
+        if m := meal(r):
+            (backup_meals if r["id"] in backup else meals).append(m)
+    if allergy is not None:
+        for r in recipes:
+            if r["id"] in allowed or r.get("hidden") or not diet_allowed(r.get("name") or "", ingredients(r), allergy):
+                continue
+            if m := meal(r):
+                outside_meals.append(m)
+    return Pool(
+        frozenset(allowed), frozenset(demoted), frozenset(variants),
+        tuple(meals), tuple(backup_meals), tuple(outside_meals),
+    )
 
 
 def filters_key(diets: list[str], allergens: list[str], avoids: list[str]) -> tuple:

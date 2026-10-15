@@ -558,6 +558,7 @@ def list_recipes(
         sql += " AND t.tag = ?"
         args.append(tag.strip())
     laps = Laps()
+    fit: dict[int, str] = {}
     if hidden_only or mine:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
         args.extend([limit, offset])
@@ -567,17 +568,23 @@ def list_recipes(
         pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
         downvoted = {rid for rid, rating in _meal_ratings(db, household_id).items() if rating < 0}
         sql += " ORDER BY r.name"
-        matches = [r for r in db.execute(sql, args).fetchall() if r["id"] in pool.allowed]
-        # Priority first: no avoided, hidden or downvoted recipes, and variants only when
-        # searched for. A search that the priority ones don't fill a page for gets the rest
-        # after them; plain browsing never shows them, so a recipe just hidden stays gone.
+        # The pool orders recipes; it never hides them (#147). Priority first, then backup
+        # (avoided, downvoted, and variants unless searched for), then recipes outside the
+        # household's diets and allergies. Hidden recipes show only in a search.
         searching = bool(q.strip())
         held = pool.demoted | downvoted | (frozenset() if searching else pool.variants)
-        priority = [r for r in matches if r["id"] not in held]
-        if searching and len(priority) < limit:
-            priority += [r for r in matches if r["id"] in held]
-        rows = priority[offset:offset + limit]
-        laps.counts.update(pool="hit" if pool_hit else "built", matches=len(matches))
+        hidden_now = _hidden_recipe_ids(db, household_id)
+        tiers: dict[str, list] = {"priority": [], "backup": [], "outside": []}
+        for r in db.execute(sql, args).fetchall():
+            rid = r["id"]
+            if rid in hidden_now and not searching:
+                continue
+            tier = "outside" if rid not in pool.allowed else "backup" if rid in held else "priority"
+            tiers[tier].append(r)
+            fit[rid] = tier
+        ordered = tiers["priority"] + tiers["backup"] + tiers["outside"]
+        rows = ordered[offset:offset + limit]
+        laps.counts.update(pool="hit" if pool_hit else "built", matches=len(ordered))
     laps.counts.update(results=len(rows), offset=offset)
     laps.lap("query")
     favs = _favorite_ids(db, household_id)
@@ -585,6 +592,7 @@ def list_recipes(
     hidden_ids = _hidden_recipe_ids(db, household_id)
     cards = [
         _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
+        | ({"fit": fit[r["id"]]} if r["id"] in fit else {})
         for r in rows
     ]
     laps.lap("cards")
@@ -2777,6 +2785,7 @@ def _household_pool(db: PgConnection, household_id: int, diets: list, allergens:
         blocks_for(diets, allergens),
         blocks_for([], avoids),
         TASTE_SKIP,
+        allergy=blocks_for([], allergens),
     )
     _store_pool(household_id, gen, key, pool)
     return pool, False
@@ -2869,6 +2878,9 @@ def _invalidate_all_pools() -> None:
 
 # Shown on a meal picked from the backup tier, when too few meals keep every preference.
 BACKUP_REASON = "backup pick: not enough meals fit all your preferences"
+# Shown on a meal that breaks a diet (never an allergy): a standout match, or the last resort.
+STANDOUT_REASON = "outside your diet filters, but one of your best matches"
+OUTSIDE_REASON = "outside your diet filters: not enough meals fit them"
 
 
 # What the latest _suggest_meals call in this request worked with, so the plan it becomes can
@@ -2884,6 +2896,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
     recipes = [recipe for recipe in pool.meals if recipe["id"] not in kept]
     backup = [recipe for recipe in pool.backup_meals if recipe["id"] not in kept]
+    outside = [recipe for recipe in pool.outside_meals if recipe["id"] not in kept]
     laps.counts.update(want=want, candidates=len(recipes), backup=len(backup), pool="hit" if pool_hit else "built")
     laps.lap("pool")
     selected_ingredients = []
@@ -3000,6 +3013,27 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
             row["reasons"] = [BACKUP_REASON, *row.get("reasons", [])]
         picked += extra
         laps.counts["backup_picked"] = len(extra)
+    # Meals that break a diet but no allergy (#147): one may join when it scores at least as
+    # well as the best meal that fits, and the rest fill in only when nothing else is left.
+    if outside:
+        def pick_outside(n, after):
+            return pick_meals(
+                outside, taste, pantry, favorites, aliases, n, swaps, ignored, to_try, cooked,
+                plan_ings=norm_pantry(selected_ingredients + [i for row in after for i in row["ingredients"]], aliases, swaps),
+                laps=laps,
+            )
+        top = pick_outside(1, [])
+        if top and picked and top[0]["score"] >= picked[0]["score"]:
+            top[0]["reasons"] = [STANDOUT_REASON, *top[0].get("reasons", [])]
+            picked = [picked[0], top[0], *picked[1:]][:want]
+            outside = [recipe for recipe in outside if recipe["id"] != top[0]["id"]]
+            laps.counts["standout_picked"] = 1
+        if len(picked) < want and outside:
+            extra = pick_outside(want - len(picked), picked)
+            for row in extra:
+                row["reasons"] = [OUTSIDE_REASON, *row.get("reasons", [])]
+            picked += extra
+            laps.counts["outside_picked"] = len(extra)
     reasons = {str(row["id"]): row.get("reasons", []) for row in picked}
     note = suggestion_note(len(picked), taste)
     summary = reasons_summary([row.get("reasons", []) for row in picked])
@@ -3015,7 +3049,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         "pantry": sorted(pantry),
         "never_shop": sorted(ignored),
         "kept_recipe_ids": sorted(kept),
-        "pool": {"priority": len(recipes), "backup": len(backup), "built_now": not pool_hit},
+        "pool": {"priority": len(recipes), "backup": len(backup), "outside": len(outside), "built_now": not pool_hit},
         "taste": {
             "liked": len(taste.liked), "passed": len(taste.passed), "favorites": len(favorites),
             "to_try": len(to_try), "cooked": len(cooked),
