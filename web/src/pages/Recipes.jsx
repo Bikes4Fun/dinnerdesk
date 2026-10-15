@@ -116,6 +116,13 @@ function rankSearch(pool, query) {
   };
 }
 
+const FIT_RANK = { priority: 0, backup: 1, outside: 2 };
+
+// Stable: keeps each tier's own order, priority recipes first.
+function byFit(rows) {
+  return [...rows].sort((a, b) => (FIT_RANK[a.fit] || 0) - (FIT_RANK[b.fit] || 0));
+}
+
 function suggestionPool(popular, meals, decorated) {
   const seen = new Set();
   const out = [];
@@ -288,8 +295,11 @@ export function Recipes() {
 
   const yours = decorated.filter((r) => r.favorited);
   const toTry = decorated.filter((r) => r.to_try);
-  const meals = decorated.filter(isMeal);
-  const sauces = decorated.filter(isExtra);
+  // Curated rows show recipes that fit every preference; "All recipes" and search show the rest after them (#147).
+  const fits = decorated.filter((r) => !r.fit || r.fit === "priority");
+  const meals = fits.filter(isMeal);
+  const allMeals = decorated.filter(isMeal);
+  const sauces = fits.filter(isExtra);
   const popular = meals.filter((r) => hasTag(r, "popular"));
   const mine = decorated.filter((r) => !r.catalog);
   const hiddenList = hiddenRecipes;
@@ -312,7 +322,7 @@ export function Recipes() {
       budget,
       sauces,
       hidden: hiddenList,
-      all: meals,
+      all: allMeals,
     };
     let rows = meals;
     if (showSearch) {
@@ -347,7 +357,7 @@ export function Recipes() {
       } else {
         note = ranked.note;
       }
-      rows = ranked.rows;
+      rows = byFit(ranked.rows);
       if (!rows.length) {
         rows = suggestionPool(popular, meals, decorated);
         note = "none";
@@ -357,9 +367,10 @@ export function Recipes() {
         if (showSearch && sort === "time") return (a.cooking_minutes || 999) - (b.cooking_minutes || 999);
         return a.name.localeCompare(b.name);
       });
+      rows = byFit(rows);
     }
     if (showSearch && needle && sort === "time") {
-      rows = [...rows].sort((a, b) => (a.cooking_minutes || 999) - (b.cooking_minutes || 999));
+      rows = byFit([...rows].sort((a, b) => (a.cooking_minutes || 999) - (b.cooking_minutes || 999)));
     }
     return { visible: rows, searchNote: note };
   }, [
@@ -376,6 +387,7 @@ export function Recipes() {
     sauces,
     hiddenList,
     meals,
+    allMeals,
     list,
     familyId,
     families,
@@ -578,9 +590,7 @@ export function Recipes() {
               <h2>All recipes</h2>
             </div>
             <div className="recipe-list">
-              {meals
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name))
+              {byFit(allMeals.slice().sort((a, b) => a.name.localeCompare(b.name)))
                 .map((r) => (
                   <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
                 ))}

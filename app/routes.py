@@ -558,6 +558,7 @@ def list_recipes(
         sql += " AND t.tag = ?"
         args.append(tag.strip())
     laps = Laps()
+    fit: dict[int, str] = {}
     if hidden_only or mine:
         sql += " ORDER BY r.name LIMIT ? OFFSET ?"
         args.extend([limit, offset])
@@ -567,17 +568,23 @@ def list_recipes(
         pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
         downvoted = {rid for rid, rating in _meal_ratings(db, household_id).items() if rating < 0}
         sql += " ORDER BY r.name"
-        matches = [r for r in db.execute(sql, args).fetchall() if r["id"] in pool.allowed]
-        # Priority first: no avoided, hidden or downvoted recipes, and variants only when
-        # searched for. A search that the priority ones don't fill a page for gets the rest
-        # after them; plain browsing never shows them, so a recipe just hidden stays gone.
+        # The pool orders recipes; it never hides them (#147). Priority first, then backup
+        # (avoided, downvoted, and variants unless searched for), then recipes outside the
+        # household's diets and allergies. Hidden recipes show only in a search.
         searching = bool(q.strip())
         held = pool.demoted | downvoted | (frozenset() if searching else pool.variants)
-        priority = [r for r in matches if r["id"] not in held]
-        if searching and len(priority) < limit:
-            priority += [r for r in matches if r["id"] in held]
-        rows = priority[offset:offset + limit]
-        laps.counts.update(pool="hit" if pool_hit else "built", matches=len(matches))
+        hidden_now = _hidden_recipe_ids(db, household_id)
+        tiers: dict[str, list] = {"priority": [], "backup": [], "outside": []}
+        for r in db.execute(sql, args).fetchall():
+            rid = r["id"]
+            if rid in hidden_now and not searching:
+                continue
+            tier = "outside" if rid not in pool.allowed else "backup" if rid in held else "priority"
+            tiers[tier].append(r)
+            fit[rid] = tier
+        ordered = tiers["priority"] + tiers["backup"] + tiers["outside"]
+        rows = ordered[offset:offset + limit]
+        laps.counts.update(pool="hit" if pool_hit else "built", matches=len(ordered))
     laps.counts.update(results=len(rows), offset=offset)
     laps.lap("query")
     favs = _favorite_ids(db, household_id)
@@ -585,6 +592,7 @@ def list_recipes(
     hidden_ids = _hidden_recipe_ids(db, household_id)
     cards = [
         _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
+        | ({"fit": fit[r["id"]]} if r["id"] in fit else {})
         for r in rows
     ]
     laps.lap("cards")

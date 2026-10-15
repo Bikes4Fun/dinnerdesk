@@ -961,7 +961,7 @@ def test_suggestion_capabilities_and_fresh_meals(tmp_path, monkeypatch):
         assert proposal["suggested_recipe_ids"] == [fresh_id]
 
 
-def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
+def test_recipe_list_orders_by_diet_and_avoid_filters(tmp_path):
     _seed(tmp_path)
     _add_catalog(tmp_path, "turkey-chili", "Turkey Chili", False, "food/turkey-chili.jpg")
     _add_catalog(tmp_path, "garden-bowl", "Garden Bowl", False, "food/garden-bowl.jpg")
@@ -979,6 +979,7 @@ def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
     db.close()
     with TestClient(create_app(), cookies={"dd_guest": "feature-test-guest"}) as client:
         names = lambda: {r["name"] for r in client.get("/api/recipes").json()["recipes"]}
+        fits = lambda: {r["name"]: r["fit"] for r in client.get("/api/recipes").json()["recipes"]}
         assert {"Turkey Chili", "Garden Bowl", "Peanut Noodles", "Soup"} <= names()
 
         saved = client.put("/api/household", json={"prefs": {"filters": {
@@ -987,15 +988,18 @@ def test_recipe_list_respects_diet_and_avoid_filters(tmp_path):
         filters = client.get("/api/household").json()["prefs"]["filters"]
         assert filters["diets"] == ["vegan"]
         assert filters["avoids"] == []
-        shown = names()
-        assert "Turkey Chili" not in shown
-        assert "Garden Bowl" not in shown  # salmon is in the ingredients, not the name
-        assert {"Peanut Noodles", "Soup"} <= shown  # peanut butter is not dairy
+        # Filters order the list; nothing drops out of it (#147).
+        shown = fits()
+        assert shown["Turkey Chili"] == "outside"
+        assert shown["Garden Bowl"] == "outside"  # salmon is in the ingredients, not the name
+        assert shown["Peanut Noodles"] == shown["Soup"] == "priority"  # peanut butter is not dairy
+        order = [r["fit"] for r in client.get("/api/recipes").json()["recipes"]]
+        assert order == sorted(order, key=["priority", "backup", "outside"].index)
 
         client.put("/api/household", json={"prefs": {"filters": {"diets": [], "avoids": ["fish"]}}})
-        shown = names()
-        assert "Turkey Chili" in shown
-        assert "Garden Bowl" not in shown
+        shown = fits()
+        assert shown["Turkey Chili"] == "priority"
+        assert shown["Garden Bowl"] == "backup"
 
         hidden_list = client.get("/api/recipes?hidden=true").json()["recipes"]
         assert hidden_list == []
