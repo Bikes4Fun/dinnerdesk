@@ -16,6 +16,12 @@ class RecipeCreate(BaseModel):
     instructions: list[dict] = Field(default_factory=list)
     cookware: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    # Read off source_url by POST /recipes/import; the steps came from that site.
+    imported: bool = False
+
+
+class RecipeImport(BaseModel):
+    url: str = Field(min_length=1, max_length=2000)
 
 
 class RecipePatch(BaseModel):
