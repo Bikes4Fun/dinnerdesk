@@ -19,6 +19,11 @@ log = logging.getLogger("dinnerdesk.mail")
 
 
 
+def mail_ready() -> bool:
+    """True when the server has what it needs to send email (key, sender, site address)."""
+    return all((os.environ.get(k) or "").strip() for k in ("RESEND_API_KEY", "MAIL_FROM", "PUBLIC_URL"))
+
+
 def public_url() -> str:
     url = (os.environ.get("PUBLIC_URL") or "").strip()
     if not url:

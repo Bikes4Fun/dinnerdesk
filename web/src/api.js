@@ -39,7 +39,9 @@ async function request(path, options = {}) {
       404: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
       405: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
     };
-    const message = messages[res.status] || (res.status >= 500
+    // A server error that explains itself (e.g. email is down) is shown as written.
+    const explained = res.status >= 500 && data && typeof data.message === "string" ? data.message : "";
+    const message = explained || messages[res.status] || (res.status >= 500
       ? "The server couldn't complete this action. Please try again shortly."
       : usable ? detail : "Couldn't complete this action. Please try again.");
     const err = new Error(message);

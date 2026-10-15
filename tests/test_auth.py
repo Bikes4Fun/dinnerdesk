@@ -372,3 +372,33 @@ def test_creator_can_delete_account_after_choosing_successor(tmp_path):
         assert client.post('/api/auth/login', json=guest).status_code == 200
         assert client.get('/api/auth/me').json()['household_id'] == home
         assert client.get('/api/household/members').json()['members'][0]['household_role'] == 'owner'
+
+
+def test_forgot_password_says_when_email_is_down(tmp_path, monkeypatch):
+    for key in ("RESEND_API_KEY", "MAIL_FROM", "PUBLIC_URL"):
+        monkeypatch.delenv(key, raising=False)
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "you@example.com", "password": "correct horse battery staple",
+                                              "household_name": "Our house"})
+        # Same answer with or without an account, so it doesn't reveal who has one.
+        for email in ("you@example.com", "nobody@example.com"):
+            res = client.post("/api/auth/forgot-password", json={"email": email})
+            assert res.status_code == 503
+            assert res.json()["detail"] == "mail_unavailable"
+            assert "can't send email" in res.json()["message"]
+
+
+def test_forgot_password_reports_a_failed_send(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "test-key")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+
+    def broken(*_args):
+        raise RuntimeError("Resend said no")
+
+    monkeypatch.setattr("app.auth_routes.send_reset_email", broken)
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "you@example.com", "password": "correct horse battery staple",
+                                              "household_name": "Our house"})
+        assert client.post("/api/auth/forgot-password", json={"email": "you@example.com"}).status_code == 503
+        assert client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"}).status_code == 200

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -20,8 +21,9 @@ from app.auth import logout_everywhere as do_logout_everywhere
 from app.auth import remove_member as do_remove_member
 from app.auth import signup as do_signup
 from app.deps import auth_required, guest_household, GUEST_COOKIE, DbDep, HhDep, UserDep
-from app.mailer import reset_link, send_reset_email
+from app.mailer import mail_ready, reset_link, send_reset_email
 
+log = logging.getLogger("dinnerdesk.auth")
 router = APIRouter()
 
 _default_secure = "1" if os.environ.get("RAILWAY_ENVIRONMENT") else "0"
@@ -214,12 +216,29 @@ def change_password(body: ChangePasswordBody, response: Response, conn=DbDep, us
 
 @router.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordBody, conn=DbDep):
-    # Same answer whether or not the email has an account.
+    # Same answer whether or not the email has an account. Email being down is checked first,
+    # for everyone, so the cook hears about it without learning whether the account exists.
+    if not mail_ready():
+        log.error("Password reset requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
+        raise _mail_down()
     email = (body.email or "").strip().lower()
     token = start_password_reset(conn, email)
     if token:
-        send_reset_email(email, reset_link(token))
+        try:
+            send_reset_email(email, reset_link(token))
+        except Exception:
+            log.exception("Password reset email failed to send")
+            raise _mail_down()
     return {"ok": True}
+
+
+def _mail_down() -> HTTPException:
+    return HTTPException(503, {
+        "error": "mail",
+        "detail": "mail_unavailable",
+        "message": "We can't send email right now, so password reset isn't working. "
+                   "Please try again later, or contact Dinnerdesk support.",
+    })
 
 
 @router.post("/auth/reset-password")
