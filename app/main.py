@@ -201,8 +201,8 @@ def create_app() -> FastAPI:
         def spa(path: str):
             if path.startswith("api/") or path.startswith("food/"):
                 raise HTTPException(404, {"error": "not_found", "detail": "route"})
-            target = DIST / path
-            if path and target.is_file():
+            target = (DIST / path).resolve()
+            if path and target.is_relative_to(DIST.resolve()) and target.is_file():
                 return FileResponse(target)
             return FileResponse(
                 DIST / "index.html",
