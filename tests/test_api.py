@@ -1626,3 +1626,11 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
+
+
+def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
+    with _client(tmp_path) as client:
+        body = client.get("/api/recipes", params={"limit": 1}).json()
+        assert len(body["recipes"]) == 1
+        assert body["total"] >= 1
+        assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]
