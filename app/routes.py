@@ -20,12 +20,11 @@ from app.db.seed import pantry_catalog
 from app.db.database import ROOT, now, transaction
 from app.assets import catalog_dir, feedback_dir
 from app.auth import SESSION_COOKIE, session_info
-from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep, OptionalAdminDep
+from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
 from app.domain.photo_uploads import save_photo, save_screenshot, save_photo_bytes
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
-from app.domain.recipe_import import RecipeImportError, import_recipe
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import archive_id_of, photo_is_ai, photo_is_borrowed, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
@@ -657,11 +656,6 @@ def create_recipe(
         "instructions_source": "import" if body.imported else "household",
         "instructions_copied_from_third_party": bool(body.imported),
     }
-    source_url = (body.source_url or "").strip()[:2000]
-    provenance = {
-        "instructions_source": "import" if body.imported else "household",
-        "instructions_copied_from_third_party": bool(body.imported),
-    }
     photo_link = _web_link(body.photo_url)
     if photo_link:
         provenance["photo_url"] = photo_link
@@ -672,7 +666,7 @@ def create_recipe(
                 household_id, slug, name, servings, cooking_minutes,
                 instructions_json, cookware_json, source_url, provenance_json,
                 photo_path, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?)""",
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 household_id,
                 pantry_key(body.name).replace(" ", "-")[:80],
@@ -681,8 +675,6 @@ def create_recipe(
                 body.cooking_minutes,
                 json.dumps(body.instructions),
                 json.dumps(body.cookware),
-                source_url,
-                json.dumps(provenance),
                 source_url,
                 json.dumps(provenance),
                 photo,
