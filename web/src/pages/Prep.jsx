@@ -262,7 +262,7 @@ function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onNote, on
               <button key={id} type="button" className="pz-chip" aria-pressed={t.reason === id} onClick={() => onReason(id)}>{label}</button>
             ))}
           </div>
-          {/* Same as "Missing a prep step?": the cook's own words go with the 👎. */}
+          {/* Same as "Missing a prep step?": the user's own words go with the 👎. */}
           <label className="pz-why-q" htmlFor={`pz-why-note-${t.id}`}>Anything to add? (optional)</label>
           <textarea id={`pz-why-note-${t.id}`} className="pz-why-text" rows={2} maxLength={500} value={note}
             placeholder="What would you do instead?" onChange={(e) => setNote(e.target.value)} />
