@@ -2,9 +2,56 @@
 
 A household meal planner: suggests the week's dinners, builds the grocery list, and combines
 make-ahead prep. iPhone app (SwiftUI), website (React), and a Python API on PostgreSQL.
+Screenshots below are the iPhone app.
 
 This proprietary portfolio repository presents the application code. The live app provides
 viewing and testing. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## What it does
+
+**Plan** is this week’s dinners. An empty week offers **New meal plan** (a proposal you approve
+before it replaces the week) or **Add meals** from Recipes. Meals show as a list with Schedule,
+or as a grid. The Plan badge counts meals not cooked yet.
+
+| Empty week | This week’s meals |
+|---|---|
+| ![Empty plan with New meal plan and Add meals](docs/images/plan-empty.png) | ![Four dinners in a list, each with Schedule](docs/images/plan-list.jpg) |
+
+| Grid | Plan menu |
+|---|---|
+| ![Same week as a two-column grid](docs/images/plan-grid.jpg) | ![Plan menu: New meal plan, Fill in this plan, Edit plan, Mark all cooked, Grid View, Save as draft, Saved plans and history](docs/images/plan-menu.png) |
+
+**Fill in this plan** keeps meals already chosen and suggests only the open slots. The same
+menu edits the week, marks every meal cooked, switches list and grid, saves a draft, or opens
+saved plans and history. Nothing is deleted when you start a new plan; the live week moves
+to history.
+
+**Grocery** is built from the plan, grouped by aisle, and filtered by store. Check items off
+while you shop. The badge counts items still to buy. **+** adds a line that is not a recipe
+ingredient.
+
+![Grocery list filtered to Costco, with produce, dairy, and pantry](docs/images/grocery.png)
+
+**Weekend prep** is the make-ahead work for this plan: chop and batch now, cook fresh later.
+A ring and one bar per section (vegetables, aromatics, protein, cheese, sauce, more) show
+progress. Done items leave the list until **Show completed**.
+
+![Weekend prep with 4 of 12 done and the vegetables section open](docs/images/prep.png)
+
+**Recipes** is always its own tab: search, favorites, To try, and the household’s diet,
+allergy, and avoid filters.
+
+**Taste Lab** (More) learns what this household will cook. **Swipe meals** and **Suggest
+plans** are separate. A pass is not suggested again. **Swipe history** can change a like to
+a pass, or the other way. Likes, passes, and filters are saved for the household.
+
+| Taste Lab | Swiping a meal |
+|---|---|
+| ![Taste Lab home: pick up where you left off, Swipe meals and Suggest plans](docs/images/taste-lab.jpg) | ![Swipe card for chicken kebabs, with pass and like](docs/images/taste-lab-swipe.jpg) |
+
+**More** also opens My kitchen (pantry, staples, substitutions, stores and aisles, family
+portions), Settings, and the Quick start tour. Prep is its own tab on larger phones and is
+always under More. Guests can use the app without an account.
 
 | Doc | What it's for |
 |---|---|
@@ -86,7 +133,8 @@ Database tests create and drop their own schema. They never fall back to `DATABA
 **Tips:** help text that explains a feature is a *tip*. Mark it with a hidden
 `data-tip="<area>.<name>"` attribute; `python3 scripts/list_tips.py` lists them all.
 
-**Screenshots and exports:** keep them in private `dd_support`, outside this code repository.
+**Screenshots:** product screens in [`docs/images/`](docs/images/) illustrate this README and
+[`docs/DESIGN.md`](docs/DESIGN.md). Review shots and exports stay in private `dd_support`.
 See [private catalog and deployment](#private-catalog-and-deployment).
 
 ## Recipe archive

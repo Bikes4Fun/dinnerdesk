@@ -466,7 +466,7 @@ export function Recipes() {
                     go("/recipes/new?from=url");
                   }}
                 >
-                  Add by URL
+                  Import from a website
                 </button>
                 <button
                   type="button"
@@ -476,7 +476,7 @@ export function Recipes() {
                     go("/recipes/new");
                   }}
                 >
-                  Custom add
+                  Write your own
                 </button>
                 <button
                   type="button"
