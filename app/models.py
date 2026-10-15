@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -16,6 +17,12 @@ class RecipeCreate(BaseModel):
     instructions: list[dict] = Field(default_factory=list)
     cookware: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
+    # Read off source_url by POST /recipes/import; the steps came from that site.
+    imported: bool = False
+
+
+class RecipeImport(BaseModel):
+    url: str = Field(min_length=1, max_length=2000)
 
 
 class RecipePatch(BaseModel):
@@ -185,6 +192,25 @@ class RecipeReportCreate(BaseModel):
     """A cook reporting a problem with a recipe, with a reason and their own words."""
     reason: str = Field(pattern="^(ingredients|steps|diet|photo|duplicate|turned_out|other)$")
     note: str = Field(default="", max_length=1000)
+
+
+# Bug reports and feature requests (#145). Same ids in web/src/pages/Feedback.jsx and ios FeedbackKind.
+FEEDBACK_KINDS = ("bug", "feature")
+FEEDBACK_STATUSES = ("new", "planned", "done", "declined")
+
+
+class FeedbackCreate(BaseModel):
+    """A cook reporting a bug or asking for a feature, in their own words."""
+    kind: str = Field(pattern="^(bug|feature)$")
+    note: str = Field(min_length=1, max_length=2000)
+    # Where they were in the app, if the client knows (e.g. "recipes/12").
+    screen: str = Field(default="", max_length=200)
+    # Up to 3 screenshots as data URLs (JPEG, PNG or WebP, 5 MB each before encoding).
+    screenshots: list[Annotated[str, Field(max_length=7_000_000)]] = Field(default_factory=list, max_length=3)
+
+
+class FeedbackStatusPut(BaseModel):
+    status: str = Field(pattern="^(new|planned|done|declined)$")
 
 
 class PlanReportCreate(BaseModel):

@@ -1,6 +1,7 @@
 import SwiftUI
 import WebKit
 import UIKit
+import PhotosUI
 
 /// Settings: food filters, account & household, Taste Lab. Push it from a NavigationStack (More tab).
 struct SettingsView: View {
@@ -33,6 +34,11 @@ struct SettingsView: View {
           ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
         .accessibilityHint("Opens the support page in Safari")
+        NavigationLink {
+          FeedbackView()
+        } label: {
+          ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
+        }
 
           if let url = URL(string: "https://dinnerdesk.computerscience.build") {
             Link(destination: url) {
@@ -854,6 +860,173 @@ private struct TasteLabWebView: UIViewRepresentable {
       needsRetry = true
       parent.loading = false
       parent.failed = error.localizedDescription
+    }
+  }
+}
+
+/// Bug reports and feature requests (#145). Ids match app/models.py FEEDBACK_KINDS.
+enum FeedbackKind: String, CaseIterable, Identifiable {
+  case bug, feature
+  var id: String { rawValue }
+  var label: String { self == .bug ? "Report a bug" : "Suggest a feature" }
+  var help: String {
+    self == .bug ? "Something broke or didn't work the way it should." : "Something you wish \(Copy.appName) did."
+  }
+  var prompt: String { self == .bug ? "What went wrong?" : "What would you like?" }
+  var placeholder: String {
+    self == .bug
+      ? "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh."
+      : "e.g. Let me plan lunches too, not just dinners."
+  }
+}
+
+/// "Report a bug or suggest a feature". The server keeps it with the app build that sent it.
+private struct FeedbackView: View {
+  @State private var kind = FeedbackKind.bug
+  @State private var note = ""
+  @State private var sending = false
+  @State private var sent: FeedbackKind?
+  @State private var error: String?
+  /// Up to 3 screenshots from Photos, shrunk to JPEG before sending.
+  @State private var shots: [UIImage] = []
+  @State private var picked: [PhotosPickerItem] = []
+  private static let maxShots = 3
+
+  private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 12) {
+        if let error { ErrorBanner(message: error) }
+        if let sent {
+          Text(sent == .bug ? "Thanks. We'll look into it." : "Thanks for the idea. We read every one.")
+            .font(Theme.body).foregroundStyle(Theme.ink)
+          Button("Send another") { self.sent = nil }
+            .font(Theme.action)
+            .frame(minHeight: 44)
+        } else {
+          Text("What's this about?").font(Theme.action).foregroundStyle(Theme.ink)
+          ForEach(FeedbackKind.allCases) { option in
+            Button { kind = option } label: {
+              HStack(alignment: .top, spacing: 10) {
+                Image(systemName: kind == option ? "largecircle.fill.circle" : "circle")
+                  .foregroundStyle(kind == option ? Theme.accent : Theme.muted)
+                VStack(alignment: .leading, spacing: 2) {
+                  Text(option.label).font(Theme.body).foregroundStyle(Theme.ink)
+                  Text(option.help).font(Theme.subtitle).foregroundStyle(Theme.muted)
+                }
+                Spacer()
+              }
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(kind == option ? .isSelected : [])
+          }
+          Text(kind.prompt).font(Theme.action).foregroundStyle(Theme.ink)
+          TextField(kind.placeholder, text: $note, axis: .vertical)
+            .font(Theme.subtitle)
+            .lineLimit(4...10)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+            .onChange(of: note) { _, value in if value.count > 2000 { note = String(value.prefix(2000)) } }
+          screenshots
+          Button {
+            Task { await send() }
+          } label: {
+            Text(sending ? "Sending…" : "Send").font(Theme.action).foregroundStyle(Theme.bg)
+              .frame(maxWidth: .infinity, minHeight: 50)
+              .background(trimmed.isEmpty ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+          }
+          .buttonStyle(.plain)
+          .disabled(trimmed.isEmpty || sending)
+        }
+      }
+      .padding()
+    }
+    .background(Theme.bg)
+    .navigationTitle("Bugs & ideas")
+    .navigationBarTitleDisplayMode(.inline)
+  }
+
+  /// Thumbnails with a remove button, then "Add a screenshot" from Photos.
+  private var screenshots: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if !shots.isEmpty {
+        ScrollView(.horizontal, showsIndicators: false) {
+          HStack(spacing: 10) {
+            ForEach(Array(shots.enumerated()), id: \.offset) { index, image in
+              Image(uiImage: image)
+                .resizable().scaledToFill()
+                .frame(width: 80, height: 110)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line))
+                .overlay(alignment: .topTrailing) {
+                  Button { shots.remove(at: index) } label: {
+                    Image(systemName: "xmark.circle.fill").font(.system(size: 22))
+                      .foregroundStyle(Theme.ink, Theme.surface)
+                      .frame(width: 44, height: 44)
+                  }
+                  .buttonStyle(.plain)
+                  .offset(x: 14, y: -14)
+                  .accessibilityLabel("Remove screenshot \(index + 1)")
+                }
+                .accessibilityLabel("Screenshot \(index + 1)")
+            }
+          }
+          .padding(.top, 14).padding(.trailing, 14)
+        }
+      }
+      if shots.count < Self.maxShots {
+        PhotosPicker(selection: $picked, maxSelectionCount: Self.maxShots - shots.count, matching: .images) {
+          Label(shots.isEmpty ? "Add a screenshot (optional)" : "Add another screenshot", systemImage: "photo.badge.plus")
+            .font(Theme.action).foregroundStyle(Theme.accent)
+            .frame(minHeight: 44)
+        }
+        .onChange(of: picked) { _, items in
+          Task { await load(items) }
+        }
+      }
+    }
+  }
+
+  private func load(_ items: [PhotosPickerItem]) async {
+    guard !items.isEmpty else { return }
+    for item in items where shots.count < Self.maxShots {
+      if let data = try? await item.loadTransferable(type: Data.self), let image = UIImage(data: data) {
+        shots.append(image)
+      }
+    }
+    picked = []
+  }
+
+  /// A JPEG data URL at most 2000px on its long side, well under the server's 5 MB limit.
+  private static func dataURL(_ image: UIImage) -> String? {
+    let longest = max(image.size.width, image.size.height)
+    let scale = min(1, 2000 / max(longest, 1))
+    let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = 1
+    let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in image.draw(in: CGRect(origin: .zero, size: size)) }
+    guard let jpeg = resized.jpegData(compressionQuality: 0.85) else { return nil }
+    return "data:image/jpeg;base64," + jpeg.base64EncodedString()
+  }
+
+  private func send() async {
+    sending = true
+    defer { sending = false }
+    do {
+      let images = shots.compactMap(Self.dataURL)
+      let _: Ok = try await API.send(
+        "feedback", method: "POST",
+        body: ["kind": kind.rawValue, "note": trimmed, "screen": "settings", "screenshots": images])
+      error = nil
+      note = ""
+      shots = []
+      sent = kind
+    } catch {
+      self.error = KitchenAPI.message(error)
     }
   }
 }

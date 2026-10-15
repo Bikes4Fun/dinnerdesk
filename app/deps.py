@@ -71,7 +71,14 @@ def require_admin(request: Request, conn=Depends(get_db)):
     return row
 
 
+def optional_admin(request: Request, conn=Depends(get_db)):
+    """The admin's session row, or None for everyone else (for routes open to both)."""
+    row = session_info(conn, request.cookies.get(SESSION_COOKIE))
+    return row if row is not None and is_admin_email(row["email"]) else None
+
+
 DbDep = Depends(get_db)
 HhDep = Depends(get_household)
 UserDep = Depends(get_current_user)
 AdminDep = Depends(require_admin)
+OptionalAdminDep = Depends(optional_admin)

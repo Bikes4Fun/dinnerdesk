@@ -6,6 +6,7 @@ import { Auth } from "./pages/Auth.jsx";
 import { Grocery } from "./pages/Grocery.jsx";
 import { IngredientReview } from "./pages/IngredientReview.jsx";
 import { RecipeFlags } from "./pages/RecipeFlags.jsx";
+import { Feedback, FeedbackInbox } from "./pages/Feedback.jsx";
 import { Kitchen } from "./pages/Kitchen.jsx";
 import { More } from "./pages/More.jsx";
 import { NewRecipe } from "./pages/NewRecipe.jsx";
@@ -38,6 +39,8 @@ function parsePath(pathname) {
   if (parts[0] === "settings") {
     if (parts[1] === "ingredients") return { page: "ingredient-review" };
     if (parts[1] === "recipe-flags") return { page: "recipe-flags" };
+    if (parts[1] === "feedback-inbox") return { page: "feedback-inbox" };
+    if (parts[1] === "feedback") return { page: "feedback" };
     if (parts[1] === "tastelab") return { page: "taste-lab" };
     if (parts[1] === "filters") return { page: "filters" };
     if (parts[1] === "social") return { page: "social" };
@@ -72,6 +75,8 @@ function isOn(page, key) {
       page === "account-security" ||
       page === "ingredient-review" ||
       page === "recipe-flags" ||
+      page === "feedback" ||
+      page === "feedback-inbox" ||
       page === "taste-lab"
     );
   }
@@ -85,6 +90,8 @@ function isOn(page, key) {
       page === "account-security" ||
       page === "ingredient-review" ||
       page === "recipe-flags" ||
+      page === "feedback" ||
+      page === "feedback-inbox" ||
       page === "taste-lab" ||
       page === "kitchen" ||
       page === "prep"
@@ -175,7 +182,7 @@ export function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!admin && (page === "ingredient-review" || page === "recipe-flags")) {
+    if (!admin && (page === "ingredient-review" || page === "recipe-flags" || page === "feedback-inbox")) {
       go("/settings");
     }
   }, [admin, page]);
@@ -252,6 +259,8 @@ export function App() {
         {page === "account-security" && <AccountSecurity />}
         {page === "ingredient-review" && admin && <IngredientReview />}
         {page === "recipe-flags" && admin && <RecipeFlags />}
+        {page === "feedback-inbox" && admin && <FeedbackInbox />}
+        {page === "feedback" && <Feedback />}
         {page === "taste-lab" && <TasteLab />}
         {page === "filters" && <Filters />}
         {page === "social" && <Social />}

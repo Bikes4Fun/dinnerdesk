@@ -63,8 +63,9 @@ def _client(tmp_path: Path, admin: bool = True) -> TestClient:
     _seed(tmp_path)
     app = create_app()
     if admin:
-        from app.deps import require_admin
+        from app.deps import optional_admin, require_admin
         app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
+        app.dependency_overrides[optional_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
     return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
 
 
@@ -1626,3 +1627,124 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
+
+
+def test_bug_reports_and_feature_requests(tmp_path):
+    with _client(tmp_path) as client:
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
+                           headers={"X-Dinnerdesk-App": "ios 1.2 (34)"})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "feature", "note": "Dark mode please"}).status_code == 200
+        assert client.post("/api/feedback", json={"kind": "praise", "note": "hi"}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": ""}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "   "}).status_code == 422
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x" * 2001}).status_code == 422
+
+        items = client.get("/api/dev/feedback").json()["feedback"]
+        assert [i["kind"] for i in items] == ["feature", "bug"]
+        bug = items[1]
+        assert (bug["note"], bug["status"]) == ("Grocery list froze", "new")
+        assert bug["snapshot"]["app"] == "ios 1.2 (34)" and bug["snapshot"]["screen"] == "grocery"
+
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "planned"}).status_code == 200
+        assert client.put(f"/api/dev/feedback/{bug['id']}/status", json={"status": "maybe"}).status_code == 422
+        assert client.put("/api/dev/feedback/999999/status", json={"status": "done"}).status_code == 404
+        assert client.get("/api/dev/feedback").json()["feedback"][1]["status"] == "planned"
+        assert {f["kind"] for f in client.get("/api/household/export").json()["feedback"]} == {"bug", "feature"}
+
+        client.app.dependency_overrides.clear()
+        assert client.get("/api/dev/feedback").status_code == 403
+        assert client.put("/api/dev/feedback/1/status", json={"status": "done"}).status_code == 403
+
+
+def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    page = """<script type="application/ld+json">{"@type": "Recipe", "name": "Weeknight dal",
+      "recipeYield": "6", "totalTime": "PT40M", "recipeIngredient": ["1 cup red lentils", "2 tsp cumin"],
+      "recipeInstructions": [{"@type": "HowToStep", "text": "Simmer the lentils."}]}</script>"""
+    monkeypatch.setattr(recipe_import, "fetch_page", lambda url: (page, url))
+    with _client(tmp_path, admin=False) as client:
+        before = len(client.get("/api/recipes", params={"mine": "true"}).json()["recipes"])
+        draft = client.post("/api/recipes/import", json={"url": "https://example.com/dal"})
+        assert draft.status_code == 200
+        body = draft.json()
+        assert body["name"] == "Weeknight dal"
+        assert body["servings"] == 6
+        assert body["cooking_minutes"] == 40
+        assert body["ingredient_lines"] == ["1 cup red lentils", "2 tsp cumin"]
+        assert len(client.get("/api/recipes", params={"mine": "true"}).json()["recipes"]) == before
+
+        saved = client.post("/api/recipes", json={**body, "imported": True, "tags": ["imported"]})
+        assert saved.status_code == 200
+        assert saved.json()["instructions_source"] == "import"
+        assert saved.json()["source_url"] == "https://example.com/dal"
+        mine = client.get("/api/recipes", params={"mine": "true"}).json()["recipes"]
+        assert [r["name"] for r in mine if r["name"] == "Weeknight dal"] == ["Weeknight dal"]
+        assert all(not r["catalog"] for r in mine)
+
+
+def test_import_recipe_reports_a_page_without_one(tmp_path, monkeypatch):
+    from app.domain import recipe_import
+
+    real_fetch = recipe_import.fetch_page
+    monkeypatch.setattr(recipe_import, "fetch_page", lambda url: ("<html>no recipe</html>", url))
+    with _client(tmp_path, admin=False) as client:
+        res = client.post("/api/recipes/import", json={"url": "https://example.com/blog"})
+        assert res.status_code == 422
+        assert res.json()["error"] == "no_recipe"
+        monkeypatch.setattr(recipe_import, "fetch_page", real_fetch)
+        assert client.post("/api/recipes/import", json={"url": "http://127.0.0.1/"}).json()["error"] == "bad_url"
+
+
+def test_cooks_edit_their_own_recipes_but_not_the_catalog(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        made = client.post(
+            "/api/recipes",
+            json={"name": "Our tacos", "ingredients": [{"quantity": "", "name": "1 lb ground beef"}],
+                  "instructions": [{"text": "Brown the beef", "prep": False, "ings": ""}]},
+        ).json()
+        assert made["instructions_source"] == "household"
+        assert made["ingredients"][0]["quantity"] == "1 lb"
+        patched = client.patch(f"/api/recipes/{made['id']}", json={"name": "Our fish tacos"})
+        assert patched.status_code == 200
+        assert patched.json()["name"] == "Our fish tacos"
+        assert client.patch(f"/api/recipes/{made['id']}", json={"as_copy": True}).status_code == 403
+        assert client.patch("/api/recipes/1", json={"name": "Not ours"}).status_code == 403
+        assert client.patch("/api/recipes/2", json={"name": "Not ours"}).status_code == 404
+        assert client.delete(f"/api/recipes/{made['id']}").status_code == 200
+def test_recipe_list_reports_how_many_recipes_search_covers(tmp_path):
+    with _client(tmp_path) as client:
+        body = client.get("/api/recipes", params={"limit": 1}).json()
+        assert len(body["recipes"]) == 1
+        assert body["total"] >= 1
+        assert client.get("/api/recipes", params={"q": "zzzz-no-such-recipe"}).json()["total"] == body["total"]
+
+
+def test_bug_reports_can_carry_private_screenshots(tmp_path, monkeypatch):
+    import os
+    shots_dir = tmp_path / "shots"
+    monkeypatch.setenv("FEEDBACK_DIR", str(shots_dir))
+    with _client(tmp_path) as client:
+        shot = _upload_photo_data()
+        sent = client.post("/api/feedback", json={"kind": "bug", "note": "Button overlaps", "screenshots": [shot, shot]})
+        assert sent.status_code == 200
+        assert client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": [shot] * 4}).status_code == 422
+        bad = client.post("/api/feedback", json={"kind": "bug", "note": "x", "screenshots": ["data:image/png;base64,bm90IGFuIGltYWdl"]})
+        assert bad.status_code == 400
+
+        item = client.get("/api/dev/feedback").json()["feedback"][0]
+        assert len(item["screenshots"]) == 2
+        image = client.get(item["screenshots"][0])
+        assert image.status_code == 200 and image.headers["content-type"] == "image/jpeg"
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/2").status_code == 404
+
+        # Stored privately: not in the public photo folder, and not reachable as a food photo.
+        names = item["snapshot"]["screenshots"]
+        assert sorted(os.listdir(shots_dir)) == sorted(names)
+        assert not any(n in os.listdir(os.environ["FOOD_DIR"]) for n in names)
+        assert client.get(f"/food/{names[0]}").status_code == 404
+
+        # Only admins can see them.
+        client.app.dependency_overrides.clear()
+        assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/0").status_code in (401, 403)

@@ -62,7 +62,11 @@ struct KitchenView: View {
         } label: {
           ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
         }
-        ThemeIconRow(title: "My recipes", systemImage: "list.bullet", value: "Coming soon")
+        NavigationLink {
+          MyRecipesView()
+        } label: {
+          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
+        }
         ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
       }
       .themeRows()

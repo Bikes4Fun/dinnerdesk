@@ -1590,3 +1590,22 @@ img { display: block; max-width: 100%; }
 
 /* Filters: "Saving…" / "✓ Saved" in the header (#85). */
 .save-state { min-width: 4.5rem; text-align: right; font-size: 0.85rem; color: var(--muted); }
+
+/* Bugs & ideas (#145) */
+.feedback-form { display: flex; flex-direction: column; gap: 10px; }
+.feedback-shots { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.feedback-shot { position: relative; display: block; }
+.feedback-shot img { width: 88px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); display: block; }
+.feedback-shot button { position: absolute; top: -8px; right: -8px; width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); }
+.feedback-add-shot { cursor: pointer; }
+.feedback-form fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.feedback-kind { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; min-height: 44px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.feedback-kind input { margin-top: 4px; }
+.feedback-kind span { display: flex; flex-direction: column; gap: 2px; }
+.feedback-kind small, .feedback-meta small { color: var(--muted); }
+.feedback-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+.feedback-filters select { width: auto; }
+.feedback-item { display: flex; flex-direction: column; gap: 8px; }
+.feedback-meta { display: flex; flex-direction: column; gap: 2px; }
+.feedback-note { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-item select { align-self: flex-start; width: auto; }

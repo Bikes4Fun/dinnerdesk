@@ -81,7 +81,7 @@ struct RecipesView: View {
         .padding(.vertical, 12)
         .background(Theme.bg)
         if searchOpen {
-          TextField("Search recipes or ingredients", text: $query)
+          TextField(store.recipeTotal.map { "Search \($0) recipes or ingredients" } ?? "Search recipes or ingredients", text: $query)
             .textFieldStyle(.plain)
             .font(Theme.body)
             .padding(12)
