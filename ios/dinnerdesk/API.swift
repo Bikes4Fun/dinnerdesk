@@ -1,7 +1,19 @@
 import Foundation
 
 enum API {
-  static let origin = URL(string: "https://dinnerdesk.computerscience.build")!
+  static let origin: URL = {
+    #if DEBUG
+      // Test a branch's server before it ships: set DINNERDESK_API_ORIGIN (e.g.
+      // http://127.0.0.1:8000) under the Run scheme's environment variables. Release builds
+      // always use the live server.
+      if let raw = ProcessInfo.processInfo.environment["DINNERDESK_API_ORIGIN"],
+        let url = URL(string: raw.trimmingCharacters(in: .whitespaces)), url.host != nil
+      {
+        return url
+      }
+    #endif
+    return URL(string: "https://dinnerdesk.computerscience.build")!
+  }()
 
   /// Sent as X-Dinnerdesk-App on every request so the server log shows which build sent a
   /// request it couldn't take (#2): "ios 1.2 (34)".
