@@ -19,6 +19,11 @@ log = logging.getLogger("dinnerdesk.mail")
 
 
 
+def mail_ready() -> bool:
+    """True when the server has what it needs to send email (key, sender, site address)."""
+    return all((os.environ.get(k) or "").strip() for k in ("RESEND_API_KEY", "MAIL_FROM", "PUBLIC_URL"))
+
+
 def public_url() -> str:
     url = (os.environ.get("PUBLIC_URL") or "").strip()
     if not url:
@@ -57,7 +62,8 @@ def send_reset_email(to: str, link: str) -> bool:
     request = urllib.request.Request(
         "https://api.resend.com/emails",
         data=json.dumps(body).encode("utf-8"),
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        # Resend's Cloudflare front blocks urllib's default User-Agent with a 403 (error 1010).
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": "dinnerdesk/1.0"},
         method="POST",
     )
     with urllib.request.urlopen(request, timeout=10) as response:
