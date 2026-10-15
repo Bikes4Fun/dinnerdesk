@@ -21,7 +21,10 @@ export function Support() {
         <h1>Help &amp; support</h1>
       </header>
       <div className="scroll pad privacy">
-        <p>Dinnerdesk plans a week of dinners for your household and builds the grocery list from it.</p>
+        <p>
+          Dinnerdesk plans a week of dinners for your household, builds the grocery list from those meals, and
+          lists make-ahead prep. Taste Lab, under More, learns which meals you like so later suggestions fit.
+        </p>
 
         <h2>Contact us</h2>
         {email === null ? (

@@ -54,7 +54,16 @@ A short session that teaches the app what this household likes. Separate **Swipe
 and **Suggest plans** choices let cooks use either activity independently on iPhone and web.
 Swiping skips the guided quiz/plan sequence and ends after its meal batch; reviewing plans
 does not require swiping first. Filters remain editable in either activity. Both activities
-are offered as optional next steps after a session.
+are offered as optional next steps after a session. **Done for now** ends a swipe session early.
+
+A household that has already swiped sees “Pick up where you left off,” with liked and passed
+counts. A pass is not suggested again. **Swipe history** (beside Edit filters) lists those
+votes and can change a like to a pass, or the reverse. The change is saved and used for
+later suggestions.
+
+![Taste Lab home after some swipes](images/taste-lab.jpg)
+
+![Swipe card: pass or like, with Edit filters, Swipe history, and Done for now](images/taste-lab-swipe.jpg)
 
 The Taste Lab introduction separates its photo mosaic, heading, summary, activity buttons,
 and privacy note with generous vertical spacing. These intro rules do not change swipe
@@ -64,13 +73,14 @@ cards or suggested-plan sizing. Small screens and larger text can scroll.
   offers choices, with **More options**. "None" clears allergies or avoids. When nothing is left,
   say so clearly and suggest what to change.
 - **Must:** answers are saved to the signed-in account and used for suggestions. Only this
-  household's answers count; another household's swipes are never used.
+  household's answers count; another household's swipes are never used. Swipe history can
+  change a saved like to a pass, or the reverse, and suggestions follow the new vote.
 - **Bug if:** a meal outside the filters appears, or the decision buttons cover meal names.
 
 ### 3. Suggested meal plans
 
-Plan → ⋯ → New meal plan → Suggest meals for me. Suggestions arrive as a **proposal** to
-review, not a new plan.
+**New meal plan** (the empty Plan, Grocery, or Prep screen, and Plan → ⋯) opens a
+**proposal** to review. The live plan stays as it is until that proposal is approved.
 
 - **Must:** the current plan and grocery list stay unchanged until the proposal is approved.
   Approving makes it the plan and rebuilds groceries. Declining keeps the current plan and offers
@@ -84,8 +94,10 @@ review, not a new plan.
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
   exclude meals already on the proposal. Cancelling the picker changes nothing and records no
   dislike.
-- **Must:** "Keep my selected meals and fill the rest" keeps the meals already chosen, marked
-  "Your selection", and they can't be swapped.
+- **Must:** **Fill in this plan** keeps meals already on the week, marked "Your selection",
+  and they can't be swapped. Only the open slots are suggested. On iPhone it is in ⋯; on the
+  website it is a link on the plan when that plan already has meals. The live plan stays until
+  the proposal is approved.
 - **Must:** a proposal closed without a decision can be reopened later, including after
   restarting the app.
 - **Bug if:** a proposal replaces the plan before approval, or a 👎 meal is suggested.
@@ -104,6 +116,21 @@ rest. Diet and avoid filters are hard rules (see 5).
 ### 4. Your plan (This week)
 
 This week's meals, scheduled on days or unscheduled. Grocery and prep follow this plan.
+The Plan tab badge counts meals that are not cooked yet.
+
+An empty plan centers “Nothing on this plan,” **New meal plan**, and **Add meals** (Recipes).
+List rows show a square photo, the name, servings, and Schedule. **Grid View** in ⋯ is two
+columns; the same item switches back to List View. Accessibility text sizes stay on the list.
+⋯ also offers Fill in this plan, Edit plan (Finish editing while editing), Mark all cooked,
+Save as draft, and Saved plans & history. While editing, **Done** sits in the header beside ⋯.
+
+![Empty week](images/plan-empty.png)
+
+![List of this week's meals](images/plan-list.jpg)
+
+![Grid view, with Add meals](images/plan-grid.jpg)
+
+![Plan menu](images/plan-menu.png)
 
 Family portions is the default serving count for recipes being browsed and meals newly
 added or suggested. An explicit serving choice overrides it; meals already on the plan
@@ -185,6 +212,11 @@ step, and that step's amounts. Kitchen-owned recipes save to their own row.
 ### 6. Grocery list
 
 Built from this plan's meals: one line per item, amounts combined, checked off in the store.
+Chips under the title filter by store (All, then each household store). Sections follow the
+aisle. Each line names the meals that use it. Share is in the header; **+** adds a custom
+line. The Grocery tab badge counts items still to buy.
+
+![Grocery list filtered to one store](images/grocery.png)
 
 - **Must:** merge the same item (lime/limes, hyphen/space, aliases). Sum amounts and show which
   meals use each line. Keep pantry items on the list, marked owned. Keep never-shop staples
@@ -214,6 +246,8 @@ Pantry, staples, substitutions, stores and aisles, and family portions, all reac
 
 Chop, mix, and portion once for this plan's meals; cook fresh later. Not "cook Sunday, reheat
 all week."
+
+![Weekend prep: progress, section bars, and an open vegetables list](images/prep.png)
 
 - **Must:** build from this plan only. A recipe with steps tagged Prep uses only those. Otherwise
   the app picks make-ahead sentences (knife work, grating, sauces, marinades), never anything that
@@ -295,12 +329,12 @@ sign out everywhere live there too.
 
 | Screen | Job |
 |---|---|
-| **Plan** (This week) | This week's meals; suggestions arrive as a proposal to review. |
+| **Plan** (This week) | This week's meals, list or grid. Badge is meals not cooked. Suggestions arrive as a proposal to review. |
 | **Recipes** | Browse and search any time; open a recipe; add it to the plan. |
-| **Grocery** | Built from the plan; check off in the store. |
+| **Grocery** | Built from the plan; filter by store; check off in the store. Badge is items still to buy. |
 | **Prep** | Make-ahead work combined across meals. A tab on larger phones, always under More. |
-| **More** | My kitchen, Taste Lab, Settings, Account. |
-| **Taste Lab** | Teach the app this household's tastes. |
+| **More** | Weekend prep, My kitchen, Taste Lab, Quick start, Settings. |
+| **Taste Lab** | Swipe meals or suggest plans. Edit filters and swipe history. |
 
 **Main flow:** Recipes or Suggest meals → review and approve → schedule on days → grocery list
 builds → shop → prep → cook.

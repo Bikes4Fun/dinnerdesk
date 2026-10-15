@@ -60,6 +60,10 @@ build/
 /docs/**/*.jpg
 /docs/**/*.jpeg
 /docs/**/*.pdf
+# Product screens used by the public docs
+!/docs/images/*.png
+!/docs/images/*.jpg
+!/docs/images/*.jpeg
 
 # Private catalogs, recipe photos, exports and trained data
 /data/
