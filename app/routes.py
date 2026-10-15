@@ -377,7 +377,7 @@ def _is_favorited(db: PgConnection, household_id: int, recipe_id: int) -> bool:
     )
 
 
-def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
+def _recipe_out(db: PgConnection, row, household_id: int, admin: bool = False) -> dict:
     rid = row["id"]
     ings = [
         {
@@ -428,8 +428,9 @@ def _recipe_out(db: PgConnection, row, household_id: int) -> dict:
         "catalog": row["household_id"] is None,
         "favorited": _is_favorited(db, household_id, rid),
         "to_try": _is_to_try(db, household_id, rid),
-        "dev_notes": row["dev_notes"] if "dev_notes" in row.keys() else "",
     }
+    if admin:
+        out["dev_notes"] = row["dev_notes"] if "dev_notes" in row.keys() else ""
     return _apply_recipe_edit(db, out, household_id)
 
 
@@ -709,11 +710,12 @@ def get_recipe(
     recipe_id: int,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    admin=OptionalAdminDep,
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
         raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, admin is not None)
 
 
 @router.put("/recipes/{recipe_id}/favorite")
@@ -861,7 +863,7 @@ def put_dev_notes(
             (body.text, now(), recipe_id),
         )
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, True)
 
 
 def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
@@ -986,7 +988,7 @@ def patch_recipe(
     else:
         _invalidate_pool(household_id)
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (target,)).fetchone()
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, admin is not None)
 
 
 @router.delete("/recipes/{recipe_id}")

@@ -64,8 +64,8 @@ def _client(tmp_path: Path, admin: bool = True) -> TestClient:
     app = create_app()
     if admin:
         from app.deps import optional_admin, require_admin
-        app.dependency_overrides[require_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
-        app.dependency_overrides[optional_admin] = lambda: {"email": "garrett.deanna@gmail.com"}
+        app.dependency_overrides[require_admin] = lambda: {"email": "admin@example.test"}
+        app.dependency_overrides[optional_admin] = lambda: {"email": "admin@example.test"}
     return TestClient(app, cookies={"dd_guest": "feature-test-guest"})
 
 
@@ -1812,3 +1812,29 @@ def test_bug_reports_can_carry_private_screenshots(tmp_path, monkeypatch):
         assert client.get(f"/api/dev/feedback/{item['id']}/screenshots/0").status_code in (401, 403)
 
 
+
+
+def test_catalog_keeps_only_ready_recipes(tmp_path):
+    from app.db.catalog import ready, remove_unready, upsert_catalog_recipe
+
+    assert ready({"instructions_copied_from_third_party": False, "photo_path": "food/a.jpg"})
+    assert not ready({"instructions_copied_from_third_party": True, "photo_path": "food/a.jpg"})
+    assert not ready({"instructions_copied_from_third_party": False, "photo_path": ""})
+    with _client(tmp_path) as client:
+        db = connect()
+        for slug in ("copied", "planned"):
+            upsert_catalog_recipe(db, {"slug": slug, "servings": 2, "photo_path": "food/a.jpg",
+                                       "instructions_copied_from_third_party": True}, {})
+        planned = db.execute("SELECT id FROM recipes WHERE slug = 'planned'").fetchone()["id"]
+        db.execute("INSERT INTO plan_slots (plan_id, recipe_id) VALUES (1, ?)", (planned,))
+        kept = [row["slug"] for row in remove_unready(db)]
+        db.commit()
+        slugs = {row["slug"] for row in db.execute("SELECT slug FROM recipes")}
+        db.close()
+        assert kept == ["planned"]
+        assert "copied" not in slugs and "soup" in slugs and "secret" in slugs
+
+
+def test_dev_notes_are_admin_only(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        assert "dev_notes" not in client.get("/api/recipes/1").json()

@@ -43,6 +43,29 @@ def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     return sql, [REWRITTEN_MARK, RETIRED_MARK]
 
 
+def ready(data: dict) -> bool:
+    """Only recipes with our own steps and a photo go into the database."""
+    return not data.get("instructions_copied_from_third_party") and bool((data.get("photo_path") or "").strip())
+
+
+UNREADY_SQL = (
+    "household_id IS NULL AND (provenance_json NOT LIKE ? OR COALESCE(photo_path, '') = '')"
+)
+
+
+def remove_unready(conn) -> list:
+    """Delete catalog rows that aren't ready. Rows a plan or a kitchen's copy still uses are
+    kept and returned so they can be handled by hand."""
+    used = (
+        "(EXISTS (SELECT 1 FROM plan_slots s WHERE s.recipe_id = recipes.id)"
+        " OR EXISTS (SELECT 1 FROM recipes c WHERE c.parent_recipe_id = recipes.id))"
+    )
+    conn.execute(f"DELETE FROM recipes WHERE {UNREADY_SQL} AND NOT {used}", (REWRITTEN_MARK,))
+    return conn.execute(
+        f"SELECT id, slug, name FROM recipes WHERE {UNREADY_SQL} ORDER BY id", (REWRITTEN_MARK,)
+    ).fetchall()
+
+
 SKIP_TAGS = {
     "allrecipes",
     "allstars",
@@ -218,6 +241,8 @@ def import_recipes(conn, aliases: dict[str, str]) -> int:
         data = json.loads(path.read_text())
         if not (data.get("slug") or data.get("id")):
             data = {**data, "slug": path.stem}
+        if not ready(data):
+            continue
         result = upsert_catalog_recipe(conn, data, aliases)
         if result == "insert":
             n += 1
@@ -252,6 +277,8 @@ def should_import_catalog() -> bool:
 def load_catalog(conn) -> int:
     seed_household(conn)
     n = import_recipes(conn, load_aliases())
+    for row in remove_unready(conn):
+        print(f"kept unready recipe {row['id']} {row['slug']} ({row['name']}): still in use")
     conn.commit()
     return n
 
