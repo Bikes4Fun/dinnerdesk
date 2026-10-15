@@ -127,6 +127,14 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   var instructions: [InstructionStep]
   let instructionsSource: String?
   let instructionsCopiedFromThirdParty: Bool?
+  /// Where a kitchen's own recipe came from, when it has a web link.
+  let sourceUrl: String?
+  var sourceLink: URL? {
+    guard !catalog, let raw = sourceUrl, let url = URL(string: raw),
+      ["http", "https"].contains(url.scheme?.lowercased() ?? "")
+    else { return nil }
+    return url
+  }
   var instructionsCustomized: Bool {
     instructionsSource == "dinnerdesk" && instructionsCopiedFromThirdParty == false
   }
@@ -134,7 +142,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath, photoAi, photoShared
     case favorited, toTry, hidden, catalog, tags, ingredients, instructions
-    case instructionsSource, instructionsCopiedFromThirdParty
+    case instructionsSource, instructionsCopiedFromThirdParty, sourceUrl
   }
 
   init(from decoder: Decoder) throws {
@@ -155,6 +163,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     instructions = try c.decode([InstructionStep].self, forKey: .instructions)
     instructionsSource = try c.decodeIfPresent(String.self, forKey: .instructionsSource)
     instructionsCopiedFromThirdParty = try c.decodeIfPresent(Bool.self, forKey: .instructionsCopiedFromThirdParty)
+    sourceUrl = try c.decodeIfPresent(String.self, forKey: .sourceUrl)
   }
 
   var prettyTags: String {

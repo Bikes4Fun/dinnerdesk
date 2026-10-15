@@ -80,3 +80,13 @@ def test_import_without_recipe_says_so(monkeypatch):
     with pytest.raises(RecipeImportError) as caught:
         recipe_import.import_recipe("https://example.com/blog")
     assert caught.value.code == "no_recipe"
+
+
+def test_image_of_takes_the_first_photo_link():
+    from app.domain.recipe_import import image_of
+
+    assert image_of("https://x.com/a.jpg") == "https://x.com/a.jpg"
+    assert image_of([{"@type": "ImageObject", "url": "https://x.com/b.jpg"}, "https://x.com/c.jpg"]) == "https://x.com/b.jpg"
+    assert image_of(["data:image/png;base64,AAA"]) == ""
+    assert image_of(None) == ""
+    assert normalize({**RECIPE, "image": "/img/r.jpg"}, "https://example.com/r")["image_url"] == "https://example.com/img/r.jpg"

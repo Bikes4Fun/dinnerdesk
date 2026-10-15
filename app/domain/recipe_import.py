@@ -1,9 +1,9 @@
 """Read a recipe off a public web page into a draft the cook reviews before saving.
 
 Most recipe sites publish a schema.org Recipe as ld+json for search engines; this is the
-same reader the catalog scrapers use (dd_support/scrapers/scrape_allrecipes.py). Facts
-only: name, servings, time, ingredient lines and steps. Photos and descriptions stay on
-the site. Nothing is saved here; POST /api/recipes saves what the cook keeps.
+same reader the catalog scrapers use (dd_support/scrapers/scrape_allrecipes.py). Name,
+servings, time, ingredient lines, steps and the photo's link. Nothing is saved here; POST
+/api/recipes saves what the cook keeps, with a private copy of the photo for that kitchen.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ USER_AGENT = (
     "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Dinnerdesk-import"
 )
 MAX_BYTES = 4_000_000
+MAX_PHOTO_BYTES = 5_000_000
 MAX_REDIRECTS = 5
 TIMEOUT = 15.0
 
@@ -74,17 +75,15 @@ def _check_url(url: str) -> str:
     return url
 
 
-def fetch_page(url: str) -> tuple[str, str]:
-    """GET a public page, following redirects only to other public pages. Returns (html, final url)."""
+def _get(url: str, accept: str, max_bytes: int) -> tuple[bytes, str, str]:
+    """GET a public URL, following redirects only to other public URLs.
+
+    Returns (body, final url, content type)."""
     url = _check_url(url)
     with httpx.Client(
         timeout=TIMEOUT,
         follow_redirects=False,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-        },
+        headers={"User-Agent": USER_AGENT, "Accept": accept, "Accept-Language": "en-US,en;q=0.9"},
     ) as client:
         for _ in range(MAX_REDIRECTS + 1):
             try:
@@ -105,12 +104,42 @@ def fetch_page(url: str) -> tuple[str, str]:
                     body = b""
                     for chunk in response.iter_bytes():
                         body += chunk
-                        if len(body) > MAX_BYTES:
+                        if len(body) > max_bytes:
                             raise RecipeImportError("too_big", "That page is too big to read.")
-                    return body.decode(response.encoding or "utf-8", errors="replace"), url
+                    kind = response.headers.get("content-type", "").split(";")[0].strip().lower()
+                    return body, url, kind
             except httpx.HTTPError as exc:
                 raise RecipeImportError("fetch_failed", "Couldn't reach that site.") from exc
     raise RecipeImportError("fetch_failed", "That page redirected too many times.")
+
+
+def fetch_page(url: str) -> tuple[str, str]:
+    """A public page's HTML and its final URL."""
+    body, final_url, _kind = _get(url, "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8", MAX_BYTES)
+    return body.decode("utf-8", errors="replace"), final_url
+
+
+def fetch_image(url: str) -> bytes:
+    """A recipe page's photo, for the kitchen's private copy (POST /recipes)."""
+    body, _url, kind = _get(url, "image/jpeg,image/png,image/webp,image/*;q=0.8", MAX_PHOTO_BYTES)
+    if not kind.startswith("image/"):
+        raise RecipeImportError("not_image", "That link isn't a photo.")
+    return body
+
+
+def image_of(node) -> str:
+    """The first photo in schema.org `image`: a URL, an ImageObject, or a list of either."""
+    for item in _as_list(node):
+        if isinstance(item, dict):
+            item = item.get("url") or item.get("contentUrl")
+        if isinstance(item, str) and item.strip() and not item.strip().lower().startswith("data:"):
+            return item.strip()
+    return ""
+
+
+def _photo_link(page_url: str, raw: str) -> str:
+    link = urljoin(page_url, raw) if raw else ""
+    return link if link.lower().startswith(("http://", "https://")) else ""
 
 
 def _as_list(node) -> list:
@@ -201,6 +230,9 @@ def normalize(ld: dict, source_url: str) -> dict:
         "servings": servings_of(ld.get("recipeYield")) or 4,
         "cooking_minutes": min(minutes, 24 * 60) if minutes else None,
         "source_url": source_url,
+        # The site's photo. Shown in the form as a preview; POST /recipes copies it for the
+        # kitchen and keeps this link as a fallback.
+        "image_url": _photo_link(source_url, image_of(ld.get("image"))),
         "ingredient_lines": lines,
         "ingredients": ingredients,
         "instructions": [{"text": s, "prep": False, "ings": ""} for s in _steps(ld.get("recipeInstructions"))],
