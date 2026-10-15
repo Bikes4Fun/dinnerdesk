@@ -306,7 +306,7 @@ struct PrepView: View {
                 }
               }
             }
-            // Same as "Missing a prep step?": the cook's own words go with the 👎.
+            // Same as "Missing a prep step?": the user's own words go with the 👎.
             Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
             TextField("What would you do instead?", text: $whyNote, axis: .vertical)
               .font(Theme.subtitle)

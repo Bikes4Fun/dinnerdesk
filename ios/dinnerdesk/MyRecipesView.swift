@@ -1,3 +1,4 @@
+import PhotosUI
 import SwiftUI
 
 /// The kitchen's own recipes: ones written here, imported from a website, or saved as copies.
@@ -126,6 +127,12 @@ struct RecipeFormView: View {
   @State private var steps: [StepDraft] = [StepDraft()]
   @State private var saving = false
   @State private var error: String?
+  @State private var source = ""
+  /// The imported page's photo, copied for this kitchen on save (its link is kept too).
+  @State private var siteImage = ""
+  @State private var photoPick: PhotosPickerItem?
+  /// The user's own photo, used instead of the site's.
+  @State private var ownPhoto: UIImage?
 
   struct StepDraft: Identifiable {
     let id = UUID()
@@ -189,6 +196,54 @@ struct RecipeFormView: View {
             Text("One per line, amount first.")
           }
           .listRowBackground(Theme.surface)
+          Section {
+            if let ownPhoto {
+              Image(uiImage: ownPhoto)
+                .resizable().scaledToFill()
+                .frame(width: 140, height: 140)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            } else if imported, let url = URL(string: siteImage), !siteImage.isEmpty {
+              AsyncImage(url: url) { image in
+                image.resizable().scaledToFill()
+              } placeholder: {
+                Theme.chip
+              }
+              .frame(width: 140, height: 140)
+              .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            PhotosPicker(
+              ownPhoto == nil ? "Choose your own photo" : "Choose a different photo",
+              selection: $photoPick, matching: .images
+            )
+            if ownPhoto != nil {
+              Button(imported && !siteImage.isEmpty ? "Use the site's photo" : "Remove photo", role: .destructive) {
+                ownPhoto = nil
+                photoPick = nil
+              }
+            }
+          } header: {
+            Text("Photo")
+          } footer: {
+            if ownPhoto == nil && imported && !siteImage.isEmpty {
+              Text("This is the photo from that page, saved for your kitchen only. Don't like it? Choose your own.")
+            } else if ownPhoto == nil {
+              Text("Add a photo you took or one you're free to use.")
+            }
+          }
+          .listRowBackground(Theme.surface)
+          if mode == .write {
+            Section {
+              TextField("https://", text: $source)
+                .keyboardType(.URL)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+            } header: {
+              Text("Source (optional)")
+            } footer: {
+              Text("Where this recipe came from.")
+            }
+            .listRowBackground(Theme.surface)
+          }
           Section("Steps") {
             ForEach($steps) { $step in
               HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -206,6 +261,9 @@ struct RecipeFormView: View {
         }
       }
       .themeForm()
+      .onChange(of: photoPick) { _, item in
+        Task { await loadPhoto(item) }
+      }
       .navigationTitle(mode == .write ? "New recipe" : "Import a recipe")
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
@@ -237,6 +295,7 @@ struct RecipeFormView: View {
       let read = draft.instructions.map { StepDraft(text: $0.displayText) }
       steps = read.isEmpty ? [StepDraft()] : read
       url = draft.sourceUrl ?? link
+      siteImage = draft.imageUrl ?? ""
       imported = true
     } catch {
       self.error = KitchenAPI.message(error)
@@ -252,11 +311,11 @@ struct RecipeFormView: View {
       .map { $0.trimmingCharacters(in: .whitespaces) }
       .filter { !$0.isEmpty }
     let mins = Int(minutes.trimmingCharacters(in: .whitespaces))
-    let body: [String: Any] = [
+    var body: [String: Any] = [
       "name": name.trimmingCharacters(in: .whitespaces),
       "servings": servings,
       "cooking_minutes": mins.map { $0 as Any } ?? NSNull(),
-      "source_url": mode == .importURL ? url.trimmingCharacters(in: .whitespaces) : "",
+      "source_url": (mode == .importURL ? url : source).trimmingCharacters(in: .whitespaces),
       // The server splits "2 cloves garlic" into its amount and item.
       "ingredients": lines.map { ["quantity": "", "name": $0] },
       "instructions": steps
@@ -266,7 +325,11 @@ struct RecipeFormView: View {
       "cookware": [String](),
       "tags": [mode == .importURL ? "imported" : "custom"],
       "imported": imported,
+      "photo_url": imported ? siteImage : "",
     ]
+    if let ownPhoto, let data = Self.photoData(ownPhoto) {
+      body["photo_data"] = data
+    }
     do {
       let created: CreatedRecipe = try await API.send("recipes", method: "POST", body: body)
       dismiss()
@@ -277,12 +340,47 @@ struct RecipeFormView: View {
   }
 }
 
+extension RecipeFormView {
+  private func loadPhoto(_ item: PhotosPickerItem?) async {
+    guard let item else { return }
+    do {
+      guard let data = try await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else {
+        error = "Couldn't read that photo."
+        return
+      }
+      ownPhoto = image
+      error = nil
+    } catch {
+      self.error = "Couldn't read that photo."
+    }
+  }
+
+  /// A JPEG data: URL under the server's 5 MB photo limit.
+  fileprivate static func photoData(_ image: UIImage) -> String? {
+    let longest = max(image.size.width, image.size.height)
+    let scale = min(1, 2000 / max(longest, 1))
+    let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let resized = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+      image.draw(in: CGRect(origin: .zero, size: size))
+    }
+    for quality in [0.85, 0.7, 0.5] {
+      if let jpeg = resized.jpegData(compressionQuality: quality), jpeg.count < 4_800_000 {
+        return "data:image/jpeg;base64," + jpeg.base64EncodedString()
+      }
+    }
+    return nil
+  }
+}
+
 /// A recipe read off a web page by POST /recipes/import; nothing is saved yet.
 nonisolated struct RecipeDraft: Decodable, Sendable {
   let name: String
   let servings: Int?
   let cookingMinutes: Int?
   let sourceUrl: String?
+  let imageUrl: String?
   let ingredientLines: [String]
   let instructions: [InstructionStep]
 }
