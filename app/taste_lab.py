@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
 from app.db.database import ROOT
-from app.deps import DbDep, HhDep
+from app.deps import AdminDep, DbDep, HhDep
 from app.domain.diet_filter import clean_filters, fold_profiles
 from app.domain.recipe_photos import usable_photo
 
@@ -131,7 +131,7 @@ def catalog(request: Request, db: PgConnection = DbDep):
 
 
 @router.get("/sessions")
-def sessions():
+def sessions(_admin=AdminDep):
     rows = taste().list_sessions()
     return {"sessions": rows, "count": len(rows)}
 
