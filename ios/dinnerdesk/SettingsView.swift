@@ -108,7 +108,6 @@ struct FiltersView: View {
   @State private var error: String?
 
   @State private var otherAllergenOpen = false
-  @State private var otherAllergenOpen = false
   /// "Saving…" then "Saved" after each change (#85), so a tap never looks like it did nothing.
   enum SaveState { case idle, saving, saved }
   @State private var saveState = SaveState.idle
