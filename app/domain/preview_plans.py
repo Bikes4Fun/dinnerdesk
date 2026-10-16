@@ -52,7 +52,10 @@ USERS = {
         "diets": ["omnivore"],
         "soft": {"cuisines": ["healthy"], "protein_more": ["seafood"], "protein_less": ["beef"]},
     },
-    "comfort": {"diets": ["omnivore"], "soft": {"cuisines": ["american"]}},
+    "comfort": {
+        "diets": ["omnivore"],
+        "soft": {"cuisines": ["american"], "protein_less": ["ground chicken", "ground turkey"]},
+    },
     "vegan": {"diets": ["vegan"], "soft": {}},
     "unique": {
         "diets": ["omnivore"],

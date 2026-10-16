@@ -108,7 +108,7 @@ struct FiltersView: View {
   @State private var error: String?
 
   @State private var otherAllergenOpen = false
-  @State private var otherAvoidOpen = false
+  @State private var otherAllergenOpen = false
   /// "Saving…" then "Saved" after each change (#85), so a tap never looks like it did nothing.
   enum SaveState { case idle, saving, saved }
   @State private var saveState = SaveState.idle
@@ -201,24 +201,18 @@ struct FiltersView: View {
         }
 
         filterBlock("I avoid") {
-          FilterChip(label: "None", on: avoids.isEmpty && otherAvoids.isEmpty) {
-            avoids = []
-            otherAvoids = []
-            otherAvoidOpen = false
-            save()
-          }
-          ForEach(Self.avoids, id: \.self) { item in
-            FilterChip(label: item, on: avoids.contains(item)) { toggleAvoid(item) }
-          }
-          ForEach(otherAvoids, id: \.self) { name in removableChip(name) { otherAvoids.removeAll { $0 == name }; save() } }
-          FilterChip(label: "Other", on: otherAvoidOpen) { otherAvoidOpen.toggle() }
-        } extra: {
-          if otherAvoidOpen {
-            OtherField(label: "Other foods to avoid", selected: $otherAvoids) {
-              avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
-              otherAvoids.removeAll { Self.avoids.contains($0) }
+          ForEach(avoids.sorted() + otherAvoids, id: \.self) { name in
+            removableChip(name) {
+              avoids.remove(name)
+              otherAvoids.removeAll { $0 == name }
               save()
             }
+          }
+        } extra: {
+          OtherField(label: "Foods to avoid", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+            avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
+            otherAvoids.removeAll { Self.avoids.contains($0) }
+            save()
           }
         }
 
@@ -323,11 +317,6 @@ struct FiltersView: View {
     save()
   }
 
-  private func toggleAvoid(_ item: String) {
-    if avoids.contains(item) { avoids.remove(item) } else { avoids.insert(item) }
-    save()
-  }
-
   private func load() async {
     do {
       let filters = try await KitchenAPI.prefs()["filters"] as? [String: Any] ?? [:]
@@ -396,6 +385,8 @@ struct FiltersView: View {
 /// Comma-separated words that aren't in the list. Saves when you press Return or leave the field.
 private struct OtherField: View {
   let label: String
+  var presets: [String] = []
+  var taken: Set<String> = []
   @Binding var selected: [String]
   let onCommit: () -> Void
   @State private var query = ""
@@ -417,6 +408,16 @@ private struct OtherField: View {
       if let error { Text(error).font(Theme.subtitle) }
       // Matches as chips (#85): tap one to add it; it moves up with the other picked chips.
       KitchenFlow(spacing: 6) {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !q.isEmpty {
+          ForEach(presets.filter { $0.localizedCaseInsensitiveContains(q) && !selected.contains($0) && !taken.contains($0) }, id: \.self) { name in
+            FilterChip(label: "+ \(name)", on: false) {
+              selected.append(name)
+              query = ""
+              onCommit()
+            }
+          }
+        }
         ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
           FilterChip(label: "+ \(name)", on: false) {
             selected.append(name)

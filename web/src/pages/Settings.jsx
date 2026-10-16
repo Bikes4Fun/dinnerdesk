@@ -108,8 +108,10 @@ const TIMES = [
 const DIET_LABELS = { omnivore: "Omnivore", pescatarian: "Pescatarian", vegetarian: "Vegetarian", vegan: "Vegan", "gluten-free": "Gluten-free", "dairy-free": "Dairy-free" };
 
 /** Chips for a list plus an Other box for words not on it. Saves the whole list. */
-function FoodFilterPicker({ label, selected, onAdd, onRemove }) {
-  const [query, setQuery] = useState("");
+function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, skip = [], quietEmpty = false }) {
+  const [ownQuery, setOwnQuery] = useState("");
+  const q = query ?? ownQuery;
+  const setQ = onQuery ?? setOwnQuery;
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -117,29 +119,64 @@ function FoodFilterPicker({ label, selected, onAdd, onRemove }) {
     let active = true;
     setMatches([]);
     setError("");
-    setLoading(Boolean(query.trim()));
-    if (!query.trim()) return;
-    const timer = setTimeout(() => api.filterItems(query)
+    setLoading(Boolean(q.trim()));
+    if (!q.trim()) return;
+    const timer = setTimeout(() => api.filterItems(q)
       .then((box) => { if (active) setMatches(box.items.map((item) => item.name)); })
       .catch(() => { if (active) setError("Couldn't search foods. Please try again."); })
       .finally(() => { if (active) setLoading(false); }), 250);
     return () => { active = false; clearTimeout(timer); };
-  }, [query]);
+  }, [q]);
+  const controlled = query != null;
   return <div className="filter-food-picker">
-    <div className="chip-row wrap">{selected.map((name) => <button type="button" className="chip is-on" key={name} aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>{name} ×</button>)}</div>
-    <label><input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={query} onChange={(event) => setQuery(event.target.value)} /></label>
+    {!controlled && <div className="chip-row wrap">{selected.map((name) => <button type="button" className="chip is-on" key={name} aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>{name} ×</button>)}</div>}
+    {!controlled && <label><input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={q} onChange={(event) => setQ(event.target.value)} /></label>}
     {loading && <p role="status">Searching…</p>}
     {error && <p role="alert">{error}</p>}
     {/* Matches as chips (#85): tap one to add it. */}
-    <div className="chip-row wrap filter-food-results">{matches.filter((name) => !selected.includes(name)).map((name) => <button type="button" className="chip" key={name} aria-label={`Add ${name}`} onClick={() => { onAdd(name); setQuery(""); }}>+ {name}</button>)}</div>
-    {!loading && !error && query.trim() && !matches.length && <p role="status">No matching foods. Try another name.</p>}
+    <div className="chip-row wrap filter-food-results">{matches.filter((name) => !selected.includes(name) && !skip.includes(name.toLowerCase())).map((name) => <button type="button" className="chip" key={name} aria-label={`Add ${name}`} onClick={() => { onAdd(name); setQ(""); }}>+ {name}</button>)}</div>
+    {!quietEmpty && !loading && !error && q.trim() && !matches.length && <p role="status">No matching foods. Try another name.</p>}
   </div>;
 }
 
-function ChoiceBlock({ label, items, saved, onChange, otherLabel }) {
+function ChoiceBlock({ label, items, saved, onChange, otherLabel, compact }) {
   const custom = otherWords(saved, items);
   const [open, setOpen] = useState(custom.length > 0);
+  const [query, setQuery] = useState("");
   useEffect(() => { if (custom.length) setOpen(true); }, [custom.join("\u001f")]);
+  if (compact) {
+    const q = query.trim().toLowerCase();
+    const presets = items
+      .map((item) => (Array.isArray(item) ? item : [item, item]))
+      .filter(([id, text]) => q && text.toLowerCase().includes(q) && !saved.includes(id));
+    return (
+      <>
+        <h3 className="block-label">{label}</h3>
+        <div className="chip-row wrap filter-chips">
+          {saved.map((id) => {
+            const named = items.find((item) => (Array.isArray(item) ? item[0] : item) === id);
+            const text = Array.isArray(named) ? named[1] : id;
+            return (
+              <button key={id} type="button" className="chip is-on" aria-label={`Remove ${text}`} onClick={() => onChange(saved.filter((word) => word !== id))}>
+                {text} ×
+              </button>
+            );
+          })}
+        </div>
+        <label>
+          <input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods to avoid" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        {presets.length > 0 && (
+          <div className="chip-row wrap filter-chips">
+            {presets.map(([id, text]) => (
+              <button key={id} type="button" className="chip" aria-label={`Add ${text}`} onClick={() => { onChange([...saved, id]); setQuery(""); }}>+ {text}</button>
+            ))}
+          </div>
+        )}
+        {q && <FoodFilterPicker label={otherLabel} selected={custom} query={query} onQuery={setQuery} skip={items.map((item) => (Array.isArray(item) ? item[0] : item))} quietEmpty={presets.length > 0} onAdd={(name) => onChange([...new Set([...saved, name])])} onRemove={(name) => onChange(saved.filter((word) => word !== name))} />}
+      </>
+    );
+  }
   return (
     <>
       <h3 className="block-label">{label}</h3>
@@ -274,7 +311,7 @@ export function Filters() {
           </div>
         </>}
         <ChoiceBlock label="Allergies" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />
-        <ChoiceBlock label="I avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" onChange={(next) => setFilter({ avoids: next })} />
+        <ChoiceBlock label="I avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" compact onChange={(next) => setFilter({ avoids: next })} />
         <h3 className="block-label">Cook time</h3>
         <div className="chip-row wrap filter-chips">
           {TIMES.map(([k, label]) => (

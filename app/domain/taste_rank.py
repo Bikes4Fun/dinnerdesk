@@ -523,6 +523,8 @@ _PROTEIN_WORDS = {
     "venison": ("venison",),
     "quail": ("quail",),
     "duck": ("duck",),
+    "ground chicken": ("ground chicken",),
+    "ground turkey": ("ground turkey",),
 }
 
 
