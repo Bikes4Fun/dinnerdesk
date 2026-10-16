@@ -94,10 +94,11 @@ struct FeedbackTipView: View {
     .accessibilityElement(children: .combine)
   }
 
-  /// True in TestFlight (and when running from Xcode), where Share Beta Feedback is available.
+  /// True in TestFlight, where Share Beta Feedback is available. To try it from Xcode, add the
+  /// environment variable DD_FEEDBACK_TIP=1 to the scheme.
   static func isBeta() async -> Bool {
     #if DEBUG
-      return true
+      return ProcessInfo.processInfo.environment["DD_FEEDBACK_TIP"] == "1"
     #else
       guard case .verified(let transaction)? = try? await AppTransaction.shared else { return false }
       return transaction.environment == .sandbox

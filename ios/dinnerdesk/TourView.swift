@@ -224,7 +224,7 @@ struct TourView: View {
             .accessibilityElement(children: .combine)
           }
           // The full explanation lives on the website's Help & support page.
-          if let more = URL(string: "support#ai", relativeTo: API.origin) {
+          if let more = URL(string: "support#ai", relativeTo: API.origin)?.absoluteURL {
             Link(destination: more) {
               Label(Copy.text("tour.ai.more"), systemImage: "arrow.up.right.square")
                 .font(Theme.action)
