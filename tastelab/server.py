@@ -93,19 +93,35 @@ def person_id(con: PgConnection, anon_id: str, account_id: str | None) -> int:
     return int(cur.lastrowid)
 
 
+def account_person(con: PgConnection, account_id: str) -> int:
+    row = con.execute("SELECT id FROM taste_people WHERE account_id = ? ORDER BY id LIMIT 1", (account_id,)).fetchone()
+    if row:
+        return int(row["id"])
+    cur = con.execute(
+        "INSERT INTO taste_people (anon_id, account_id, created_at) VALUES (?, ?, ?)",
+        (str(uuid.uuid4()), account_id, now()),
+    )
+    return int(cur.lastrowid)
+
+
 def save_event(body: dict) -> str:
     sid = str(body.get("id") or uuid.uuid4())
     anon_id = str(body.get("anon_id") or uuid.uuid4())
-    account_id = body.get("account_id") or None
+    account_id = str(body["account_id"]) if body.get("account_id") else None
     kind = str(body.get("kind") or "snapshot")
-    payload = body.get("body")
-    if payload is None:
-        payload = {k: v for k, v in body.items() if k not in {"anon_id", "account_id", "kind"}}
-        payload["id"] = sid
     t = now()
     with db() as con:
-        pid = person_id(con, anon_id, str(account_id) if account_id else None)
-        row = con.execute("SELECT id FROM taste_sessions WHERE id = ?", (sid,)).fetchone()
+        pid = account_person(con, account_id) if account_id else person_id(con, anon_id, None)
+        row = con.execute(
+            "SELECT s.id, p.account_id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id WHERE s.id = ?",
+            (sid,),
+        ).fetchone()
+        if row and row["account_id"] != account_id:
+            sid, row = str(uuid.uuid4()), None
+        payload = body.get("body")
+        if payload is None:
+            payload = {k: v for k, v in body.items() if k not in {"anon_id", "account_id", "kind"}}
+            payload["id"] = sid
         if row:
             con.execute("UPDATE taste_sessions SET updated_at = ? WHERE id = ?", (t, sid))
         else:

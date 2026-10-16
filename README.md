@@ -78,6 +78,7 @@ npm run build --prefix web
 | `DINNERDESK_CATALOG_DIR` | Required directory of private catalog metadata and ingredient vectors, outside Git. |
 | `FOOD_DIR` | Required directory of private recipe photos, outside Git. |
 | `GROCERY_PHOTO_DIR` | Folder of individual food photos (kept outside Git). Locally: `/Users/turtlesoup/Repos/dd_support/references/individual grocery food items`. On Railway: a mounted volume. |
+| `ADMIN_EMAIL` | The one account that can use the admin tools. Empty means no admin. |
 | `AUTH_REQUIRED` | When off, everyone shares one guest household. |
 | `SUPPORT_EMAIL` | Contact address shown on `/support` (the App Store support URL). Empty shows “not set up yet”. |
 

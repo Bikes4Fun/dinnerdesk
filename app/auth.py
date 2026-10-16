@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import hashlib
+import os
 import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -16,18 +17,11 @@ PBKDF2_ITERATIONS = 600_000
 SESSION_TTL_DAYS = 30
 SESSION_COOKIE = "wp_session"
 
-ADMIN_EMAILS = frozenset(
-    {
-        "garrett.deanna@gmail.com",
-        "dtzecha@gmail.com",
-    }
-)
-
-
 def is_admin_email(email: str | None) -> bool:
-    if not email:
+    admin = (os.environ.get("ADMIN_EMAIL") or "").strip().lower()
+    if not email or not admin:
         return False
-    return email.strip().lower() in ADMIN_EMAILS
+    return email.strip().lower() == admin
 
 MAX_FAILED_ATTEMPTS = 5
 LOCKOUT_MINUTES = 15

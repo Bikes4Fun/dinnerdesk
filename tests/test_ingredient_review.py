@@ -21,7 +21,7 @@ def _login_admin(client):
     res = client.post(
         "/api/auth/signup",
         json={
-            "email": "dtzecha@gmail.com",
+            "email": "admin@example.test",
             "password": "correct horse battery staple",
             "household_name": "Dev",
         },
