@@ -241,7 +241,10 @@ def import_recipes(conn, aliases: dict[str, str]) -> int:
         data = json.loads(path.read_text())
         if not (data.get("slug") or data.get("id")):
             data = {**data, "slug": path.stem}
-        if not ready(data):
+        if not ready(data) and not conn.execute(
+            "SELECT 1 FROM recipes WHERE household_id IS NULL AND slug = ?",
+            (str(data.get("slug") or data.get("id")),),
+        ).fetchone():
             continue
         result = upsert_catalog_recipe(conn, data, aliases)
         if result == "insert":

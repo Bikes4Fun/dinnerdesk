@@ -724,6 +724,7 @@ def put_favorite(
     body: FavoritePut,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    admin=OptionalAdminDep,
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -740,7 +741,7 @@ def put_favorite(
                 "DELETE FROM household_favorites WHERE household_id = ? AND recipe_id = ?",
                 (household_id, recipe_id),
             )
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, admin is not None)
 
 
 @router.put("/recipes/{recipe_id}/hidden")
@@ -749,6 +750,7 @@ def put_hidden(
     body: FavoritePut,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    admin=OptionalAdminDep,
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -766,7 +768,7 @@ def put_hidden(
                 (household_id, recipe_id),
             )
     _invalidate_pool(household_id)
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, admin is not None)
 
 
 @router.delete("/recipes/{recipe_id}/edit")
@@ -790,7 +792,7 @@ def revert_recipe_edit(
         )
         _rebuild_grocery_for_household(db, household_id)
     _invalidate_pool(household_id)
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, True)
 
 
 @router.put("/recipes/{recipe_id}/try")
@@ -799,6 +801,7 @@ def put_try_later(
     body: FavoritePut,
     db: PgConnection = DbDep,
     household_id: int = HhDep,
+    admin=OptionalAdminDep,
 ):
     row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
     if not row or not _recipe_visible(row, household_id):
@@ -815,7 +818,7 @@ def put_try_later(
                 "DELETE FROM household_try_later WHERE household_id = ? AND recipe_id = ?",
                 (household_id, recipe_id),
             )
-    return _recipe_out(db, row, household_id)
+    return _recipe_out(db, row, household_id, admin is not None)
 
 
 @router.put("/recipes/{recipe_id}/rating")

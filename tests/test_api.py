@@ -1838,3 +1838,29 @@ def test_catalog_keeps_only_ready_recipes(tmp_path):
 def test_dev_notes_are_admin_only(tmp_path):
     with _client(tmp_path, admin=False) as client:
         assert "dev_notes" not in client.get("/api/recipes/1").json()
+
+
+def test_catalog_import_removes_recipe_marked_unready(tmp_path, monkeypatch):
+    from app.db.catalog import import_recipes, remove_unready
+
+    recipes = tmp_path / "catalog" / "recipes"
+    recipes.mkdir(parents=True)
+    copied = {"servings": 4, "photo_path": "food/soup.jpg", "instructions_copied_from_third_party": True}
+    (recipes / "soup.json").write_text(json.dumps({"slug": "soup", **copied}))
+    (recipes / "fresh.json").write_text(json.dumps({"slug": "fresh", **copied}))
+    with _client(tmp_path):
+        monkeypatch.setenv("DINNERDESK_CATALOG_DIR", str(tmp_path / "catalog"))
+        db = connect()
+        import_recipes(db, {})
+        remove_unready(db)
+        db.commit()
+        slugs = {row["slug"] for row in db.execute("SELECT slug FROM recipes")}
+        db.close()
+        assert "soup" not in slugs and "fresh" not in slugs
+
+
+def test_admin_keeps_dev_notes_after_toggles(tmp_path):
+    with _client(tmp_path) as client:
+        client.put("/api/recipes/1/dev-notes", json={"text": "note"})
+        for toggle in ("favorite", "hidden", "try"):
+            assert client.put(f"/api/recipes/1/{toggle}", json={"on": True}).json()["dev_notes"] == "note"
