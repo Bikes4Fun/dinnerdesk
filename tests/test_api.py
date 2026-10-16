@@ -1628,6 +1628,24 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
 
+
+def test_admin_review_pages(tmp_path):
+    with _client(tmp_path) as client:
+        client.post("/api/recipes/1/report", json={"reason": "steps", "note": "Step 3 is missing"})
+        page = client.get("/admin/recipe-reports")
+        assert page.status_code == 200 and "text/html" in page.headers["content-type"]
+        assert "Step 3 is missing" in page.text and "/*DATA*/null" not in page.text
+        for name in ("variant-review", "plan-reports", "prep-feedback", "recipe-tags"):
+            page = client.get(f"/admin/{name}")
+            assert page.status_code == 200 and "/*DATA*/null" not in page.text, name
+        assert client.get("/admin/nope").status_code == 404
+
+
+def test_admin_review_pages_are_admin_only(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        for name in ("variant-review", "recipe-reports", "plan-reports", "prep-feedback", "recipe-tags"):
+            assert client.get(f"/admin/{name}").status_code == 403
+
 def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
     from app.domain import recipe_import
 

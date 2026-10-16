@@ -1,6 +1,6 @@
 import { api } from "./api.js";
 import { Icon } from "./icons.jsx";
-import { go } from "./nav.js";
+import { ADMIN_PAGES, go } from "./nav.js";
 import { AcceptInvite } from "./pages/AcceptInvite.jsx";
 import { Auth } from "./pages/Auth.jsx";
 import { Grocery } from "./pages/Grocery.jsx";
@@ -243,6 +243,14 @@ export function App() {
           <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} />
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
           <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} className="side-break" />
+          {admin && (
+            <>
+              <div className="side-label">Admin</div>
+              {ADMIN_PAGES.map(([href, label]) => (
+                <a key={href} className="nav-link quiet" href={href}>{label}</a>
+              ))}
+            </>
+          )}
         </nav>
       </aside>
       <div className="main" key={tabRootVersion}>
