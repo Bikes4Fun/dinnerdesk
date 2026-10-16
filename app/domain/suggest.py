@@ -18,52 +18,77 @@ class SuggestionWeights:
     A household can use a different instance later (explore vs favorites, waste vs variety).
     """
 
+    # Taste evidence and contextual plan feedback.
+    context_penalty_cap: float = 12.0
+
+    ingredient_scale: float = 6.0
+
     # A heart on a meal they have also marked cooked.
     cooked_bonus: float = 4.2
+
     # The To try tag: they plan to cook this meal.
-    to_try_bonus: float = 3.4
+    to_try_bonus: float = 4.0
+    
+    # Taste Lab thumbs-up on this meal. A heart that has not been cooked uses this same number.
+    like_bonus: float = 3.8
+
+    # They approved a Taste Lab suggested plan that included this meal. Not the To try tag.
+    plan_bonus: float = 3.4
+
+    # Scales that closeness. A nearby meal stays under a direct thumbs-up.
+    neighbor_bonus: float = 3.4
+
     # Every shoppable ingredient already in the pantry. Scaled by how much of the meal that is.
     pantry_bonus: float = 3.0
-    # Taste Lab thumbs-up on this meal. A heart that has not been cooked uses this same number.
-    like_bonus: float = 2.8
+
     # Every shoppable ingredient already used by another meal on this plan.
     # Meat is left out: a butcher counter sells any amount, so sharing it does not cut waste.
     reuse_bonus: float = 2.2
+
+    cooked_weight: float = 2.0
+
+    approval_recovery: float = 2.0
+
     # Passed straight into score_recipe as a favorite. The suggester does not use this.
     # A heart goes through like_bonus instead.
     favorite_bonus: float = 1.6
-    # They approved a Taste Lab suggested plan that included this meal. Not the To try tag.
-    plan_bonus: float = 1.4
-    # Every shoppable ingredient that is not in the pantry and not already on this plan.
-    new_shop_penalty: float = 1.4
-    # A different ingredient in the same role as one they liked, such as pasta lifting polenta.
-    sibling_bonus: float = 0.45
-    # Cosine to the meals they liked, after this floor. Unrelated meals sit around 0.2.
-    neighbor_floor: float = 0.30
-    # Scales that closeness. A nearby meal stays under a direct thumbs-up.
-    neighbor_bonus: float = 4.0
+
     # Recipe is tagged popular.
-    popular_bonus: float = 0.35
+    popular_bonus: float = 1.35
+
+    like_weight: float = 1.0
+
     # Extra bonus per produce, dairy, or fixed can/jar shared across meals.
     # A bunch of cilantro or a pint of cream left from one meal is the waste; meat is not.
     perishable_reuse_bonus: float = 0.5
+
+    plan_weight: float = 0.5
+
+    # A different ingredient in the same role as one they liked, such as pasta lifting polenta.
+    sibling_bonus: float = 0.45
+
+    # Cosine to the meals they liked, after this floor. Unrelated meals sit around 0.2.
+    neighbor_floor: float = 0.30
+
+    under_time: float = 0.25
+
+    ingredient_reason: float = 0.12
+
+    # Share of the grocery list that is new. An empty pantry is normal, so a meal that
+    # needs a full shop loses a little, not as much as a meal they already approved.
+    new_shop_penalty: float = -0.35
+
+    plan_refusal_penalty: float = -0.75
+
+    over_time: float = -1.1
+
+    swap_penalty: float = -1.5
+
     # Each earlier meal in the same category (comfort, seafood, eggs). Bigger than a
     # typical grocery reuse, smaller than a To try meal that also shares ingredients.
-    same_kind_penalty: float = 2.5
+    same_kind_penalty: float = -2.5
 
-    # Taste evidence and contextual plan feedback.
-    cooked_weight: float = 2.0
-    like_weight: float = 1.0
-    plan_weight: float = 0.5
-    ingredient_scale: float = 6.0
-    ingredient_reason: float = 0.12
-    over_time: float = 1.1
-    under_time: float = 0.25
-    plan_refusal_penalty: float = 0.75
-    swap_penalty: float = 1.5
-    approved_swap_penalty: float = 3.0
-    context_penalty_cap: float = 12.0
-    approval_recovery: float = 2.0
+    approved_swap_penalty: float = -3.0
 
 
 DEFAULT_WEIGHTS = SuggestionWeights()
@@ -186,7 +211,7 @@ def score_recipe(
     pantry_frac = len(pantry_hit) / len(shop)
     reuse_frac = len(plan_hit) / len(shareable) if shareable else 0.0
     new_frac = len(new_shop) / len(shop)
-    score = pantry_frac * weights.pantry_bonus + reuse_frac * weights.reuse_bonus - new_frac * weights.new_shop_penalty
+    score = pantry_frac * weights.pantry_bonus + reuse_frac * weights.reuse_bonus + new_frac * weights.new_shop_penalty
     if plan_hit:
         score += _perishable_hits(plan_hit) * weights.perishable_reuse_bonus
     if favorited:
@@ -245,7 +270,11 @@ def pick_suggestions(
                 continue
         else:
             bonus, extra = 0.0, []
-        pre[rec["id"]] = (shop, bonus, extra, meal_kinds(rec.get("name") or "", rec.get("ingredients")))
+        kinds = meal_kinds(rec.get("name") or "", rec.get("ingredients"))
+        # Dinner suggestions skip breakfast until a breakfast plan exists.
+        if "breakfast" in kinds:
+            continue
+        pre[rec["id"]] = (shop, bonus, extra, kinds)
     laps.counts["filtered_out"] = len(recipes) - len(pre)
     laps.lap("filter")
 
@@ -274,7 +303,7 @@ def pick_suggestions(
             score += bonus
             repeats = sum(used_kinds.get(kind, 0) for kind in kinds)
             if repeats:
-                score -= weights.same_kind_penalty * repeats
+                score += weights.same_kind_penalty * repeats
             reasons = extra + reasons
             key = (score, 1 if on_try else 0, 1 if favorited else 0, -len(shop))
             if best_id is None or key > best_key:

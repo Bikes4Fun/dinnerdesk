@@ -355,10 +355,10 @@ def test_reasons_summary_singular_and_empty():
 def test_contextual_refusals_accumulate_without_banning():
     from app.domain.taste_rank import suggestion_penalties
     declined = {"decision": "decline", "suggested_recipe_ids": [1], "changes": []}
-    assert suggestion_penalties([declined])[1] == 0.75
-    assert suggestion_penalties([declined] * 3)[1] == 2.25
+    assert suggestion_penalties([declined])[1] == -0.75
+    assert suggestion_penalties([declined] * 3)[1] == -2.25
     changed = {"decision": "approve", "suggested_recipe_ids": [2], "changes": [{"from": 1, "to": 2}]}
-    assert suggestion_penalties([changed])[1] > suggestion_penalties([declined])[1]
+    assert suggestion_penalties([changed])[1] < suggestion_penalties([declined])[1]
     approved = {"decision": "approve", "suggested_recipe_ids": [1], "changes": []}
     assert suggestion_penalties([declined, approved])[1] == 0
 
@@ -398,3 +398,17 @@ def test_cuisine_and_protein_preferences_rank_without_dropping():
     lowered = pick(recipes, taste, want=3)
     assert 1 in [row["id"] for row in lowered]
     assert lowered[0]["id"] != 1
+
+
+def test_plain_household_skips_a_special_diet_and_a_second_steak():
+    recipes = [
+        meal(1, "Vegan chili", ["beans", "tomato"], tags=["vegan"]),
+        meal(2, "Grilled steak", ["steak", "green beans"]),
+        meal(3, "Ribeye steak", ["ribeye", "asparagus"]),
+        meal(4, "Chicken rice", ["chicken breast", "rice"]),
+        meal(5, "Honey salmon", ["salmon", "green beans"]),
+    ]
+    taste = learn([], recipes)
+    names = [row["name"].lower() for row in pick(recipes, taste, want=3)]
+    assert not any("vegan" in name for name in names)
+    assert sum("steak" in name for name in names) == 1

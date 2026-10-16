@@ -438,11 +438,32 @@ def _time_bonus(
     if not taste.max_minutes or not minutes:
         return 0.0
     if minutes > taste.max_minutes:
-        return -weights.over_time
+        return weights.over_time
     return weights.under_time
 
 
+def _unasked_diet(recipe: dict, taste: Taste) -> bool:
+    """A plain household did not ask for vegan, gluten-free, low-carb, and the rest."""
+    diets = {str(d).lower() for d in (getattr(taste, "diets", None) or ["omnivore"])}
+    tags = {str(t).lower() for t in (recipe.get("tags") or [])}
+    needed = {
+        "vegan": "vegan",
+        "vegetarian": "vegetarian",
+        "gluten_free": "gluten-free",
+        "dairy_free": "dairy-free",
+        "egg_free": "egg-free",
+        "grain_free": "grain-free",
+        "low_carb": "low-carb",
+        "low_carb_pasta": "low-carb",
+        "poultry_free": "poultry-free",
+        "red_meat_free": "red-meat-free",
+    }
+    return any(tag in tags and required not in diets for tag, required in needed.items())
+
+
 def _reason(reasons: list[str], text: str | None) -> None:
+    if text and text not in reasons:
+        reasons.append(text)
     if text and text not in reasons:
         reasons.append(text)
 
@@ -457,8 +478,10 @@ def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict
         blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
         if any(hits(blob, group) for group in taste.blocks):
             return 0.0, [], True
+    if _unasked_diet(recipe, taste):
+        return 0.0, [], True
     bonus, direct = _direct_bonus(keys, taste, weights)
-    bonus -= getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
+    bonus += getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
     reasons: list[str] = []
     _reason(reasons, direct)
     if shop is None:
@@ -615,10 +638,10 @@ def suggestion_penalties(
     for plan in history:
         if plan.get("decision") == "decline":
             for rid in set(plan.get("suggested_recipe_ids", [])):
-                penalties[int(rid)] = min(weights.context_penalty_cap, penalties.get(int(rid), 0.0) + weights.plan_refusal_penalty)
+                penalties[int(rid)] = max(-weights.context_penalty_cap, penalties.get(int(rid), 0.0) + weights.plan_refusal_penalty)
         for rid in {c["from"] for c in plan.get("changes", [])}:
-            penalties[int(rid)] = min(weights.context_penalty_cap, penalties.get(int(rid), 0.0) + (weights.approved_swap_penalty if plan.get("decision") == "approve" else weights.swap_penalty))
+            penalties[int(rid)] = max(-weights.context_penalty_cap, penalties.get(int(rid), 0.0) + (weights.approved_swap_penalty if plan.get("decision") == "approve" else weights.swap_penalty))
         if plan.get("decision") == "approve":
             for rid in set(plan.get("suggested_recipe_ids", [])):
-                penalties[int(rid)] = max(0.0, penalties.get(int(rid), 0.0) - weights.approval_recovery)
+                penalties[int(rid)] = min(0.0, penalties.get(int(rid), 0.0) + weights.approval_recovery)
     return penalties

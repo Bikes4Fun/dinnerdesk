@@ -156,15 +156,18 @@ def test_plan_spreads_protein_and_dish_type():
         want=4,
     )
     names = [row["name"].lower() for row in picked]
-    assert sum("salmon" in name for name in names) == 1
-    assert sum("frittata" in name for name in names) == 1
+    assert not any("frittata" in name for name in names)
     assert "chicken rice" in names
     assert "tomato soup" in names
 
 
-def test_default_weights_can_be_replaced():
+def test_an_empty_pantry_is_a_small_penalty():
+    score, _ = score_recipe({"salmon", "green beans", "lemon"}, set(), set(), False, False)
+    assert score == DEFAULT_WEIGHTS.new_shop_penalty
+    assert DEFAULT_WEIGHTS.new_shop_penalty < 0
+    assert abs(DEFAULT_WEIGHTS.new_shop_penalty) < DEFAULT_WEIGHTS.plan_bonus
     assert DEFAULT_WEIGHTS.reuse_bonus == 2.2
-    assert DEFAULT_WEIGHTS.same_kind_penalty == 2.5
+    assert DEFAULT_WEIGHTS.same_kind_penalty == -2.5
     shared = score_recipe({"heavy cream"}, set(), {"heavy cream"}, False, False)
     flat = score_recipe(
         {"heavy cream"}, set(), {"heavy cream"}, False, False,

@@ -2951,6 +2951,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         skip=ignored,
     )
     taste.suggestion_penalties = suggestion_penalties(history)
+    taste.diets = diets
     filters = household_filters(db, household_id)
     taste.soft = {
         "cuisines": filters.get("cuisines") or [],

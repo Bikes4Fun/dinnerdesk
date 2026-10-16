@@ -9,7 +9,8 @@ def test_name_puts_recipe_in_its_cuisine():
     assert categorize("Pulled pork") == ["comfort"]
     assert categorize("Meatloaf") == ["comfort"]
     assert categorize("Honey salmon") == ["seafood"]
-    assert categorize("Spinach frittata") == ["eggs"]
+    assert "beef" in categorize("Grilled Steak with Green Bean Salad")
+    assert set(categorize("Spinach frittata")) == {"eggs", "breakfast"}
 
 
 def test_sides_do_not_decide_the_category():

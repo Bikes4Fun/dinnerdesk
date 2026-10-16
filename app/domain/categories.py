@@ -86,9 +86,19 @@ CATEGORIES: dict[str, tuple[str, list[str], list[str]]] = {
         ["salmon", "shrimp", "cod", "tilapia", "tuna", "fish", "scallop", "crab", "halibut"],
         [],
     ),
+    "beef": (
+        "Beef",
+        ["steak", "ribeye", "beef", "brisket"],
+        [],
+    ),
     "eggs": (
         "Eggs",
         ["frittata", "omelet", "omelette", "quiche"],
+        [],
+    ),
+    "breakfast": (
+        "Breakfast",
+        ["frittata"],
         [],
     ),
 }
