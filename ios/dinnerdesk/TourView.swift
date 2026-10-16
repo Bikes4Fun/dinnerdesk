@@ -28,7 +28,7 @@ struct TourView: View {
   }
 
   // Text lives in shared/copy.json (tour.how.N.title / tour.how.N), shared with the website tour.
-  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "list.bullet.clipboard"].enumerated().map {
+  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "fork.knife", "sparkles", "hand.draw"].enumerated().map {
     i, icon in
     HowStep(
       id: i, title: Copy.text("tour.how.\(i + 1).title"), systemImage: icon,
@@ -276,10 +276,13 @@ struct TourView: View {
                   .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
                   .layoutPriority(1)
                   .accessibilityHidden(true)
-              } else {
-                TourScreenPicture(index: Self.drawings[item.id] ?? item.id)
+              } else if let drawing = Self.drawings[item.id] {
+                TourScreenPicture(index: drawing)
                   .frame(minHeight: 160, maxHeight: 280)
                   .padding(.top, 4)
+              } else if item.id == Self.tipsCard {
+                // A real tip, so the card shows exactly what one looks like.
+                StarTip(id: "recipes.ai-photo").padding(.top, 4)
               }
             }
             Spacer(minLength: 0)
@@ -320,8 +323,10 @@ struct TourView: View {
 
   /// Real screenshots for how-to cards, by card index; the others use TourScreenPicture.
   private static let shots = [0: "TourSuggestions", 1: "TourSchedule", 2: "TourDraft", 3: "TourStores"]
-  /// The drawn picture for each remaining card (TourScreenPicture: 3 prep).
-  private static let drawings = [4: 3]
+  /// The drawn picture for each remaining card (TourScreenPicture: 2 checked-off list, 3 prep).
+  private static let drawings = [4: 2, 5: 3]
+  /// The card about tips shows a real one instead of a picture.
+  private static let tipsCard = 7
 
   private static let howText = Font.custom("DMSans-Regular", size: 14, relativeTo: .subheadline)
 

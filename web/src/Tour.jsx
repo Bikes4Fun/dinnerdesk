@@ -3,7 +3,7 @@ import { api } from "./api.js";
 import { go } from "./nav.js";
 import { AVOIDS, DIETS, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
 import { TourPicture } from "./TourPicture.jsx";
-import { Sparkle } from "./Tip.jsx";
+import { Sparkle, Tip } from "./Tip.jsx";
 // Real iPhone screenshots for how-to cards, by card index; the others use TourPicture.
 import suggestionsShot from "./images/tour-suggestions.jpg";
 import scheduleShot from "./images/tour-schedule.jpg";
@@ -11,8 +11,10 @@ import draftShot from "./images/tour-draft.jpg";
 import storesShot from "./images/tour-stores.jpg";
 
 const SHOTS = { 0: suggestionsShot, 1: scheduleShot, 2: draftShot, 3: storesShot };
-// The drawn picture for each remaining card (TourPicture: 3 prep).
-const DRAWINGS = { 4: 3 };
+// The drawn picture for each remaining card (TourPicture: 2 checked-off list, 3 prep).
+const DRAWINGS = { 4: 2, 5: 3 };
+// The card about tips shows a real one instead of a picture.
+const TIPS_CARD = 7;
 
 const TIMES = [
   ["any", "Any time"],
@@ -34,11 +36,27 @@ const HOW = [
   },
   {
     title: "Grocery",
-    body: "Built from every meal on this plan. To shop one store at a time, open the Grocery menu › Edit stores, add your stores and give each item one, then tap a store at the top of the list. In More › My kitchen, add what you have to Pantry and choose whether those items start checked off. Staples like salt go in Always checked off.",
+    body: "Built from this plan. Tap a store at the top to shop one store at a time. Set your stores in the Grocery menu › Edit stores.",
+  },
+  {
+    title: "Pantry",
+    body: "Add what you have in My kitchen › Pantry and choose whether it starts checked off. Staples like salt go in Always checked off.",
   },
   {
     title: "Weekend prep",
     body: "Do the slow parts, like chopping and sauces, when you have spare time. Weeknight dinners then take less work but are still cooked fresh, without the same cold leftovers all week that full meal prep brings. Make-ahead steps from your plan show up here.",
+  },
+  {
+    title: "Recipes",
+    body: "Browse, search, and save Favorites or To try. Add your own recipe, or import one from a website.",
+  },
+  {
+    title: "Tips",
+    body: "Purple cards with a sparkle explain a feature right where you use it.",
+  },
+  {
+    title: "Taste Lab",
+    body: "Swipe meals you’d cook or pass on. Your likes shape future suggestions, and a pass isn’t suggested again. Find it under More.",
   },
 ];
 
@@ -238,7 +256,11 @@ export function Tour() {
                 )}
                 <img className="tour-shot" src={SHOTS[how]} alt="" />
               </>
-            ) : <TourPicture index={DRAWINGS[how] ?? how} />}
+            ) : DRAWINGS[how] !== undefined ? (
+              <TourPicture index={DRAWINGS[how]} />
+            ) : how === TIPS_CARD ? (
+              <Tip id="recipes.ai-photo">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>
+            ) : null}
             {how + 1 < HOW.length ? (
               <button type="button" className="btn-primary block" onClick={() => setHow(how + 1)}>
                 Next
