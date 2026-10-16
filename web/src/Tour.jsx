@@ -55,6 +55,10 @@ const HOW = [
     body: "Purple cards with a sparkle explain a feature right where you use it.",
   },
   {
+    title: "Apple Watch",
+    body: "See this plan and your grocery list on your wrist. Tap to check off groceries or mark a meal cooked.",
+  },
+  {
     title: "Taste Lab",
     body: "Swipe meals you’d cook or pass on. Your likes shape future suggestions, and a pass isn’t suggested again. Find it under More.",
   },
