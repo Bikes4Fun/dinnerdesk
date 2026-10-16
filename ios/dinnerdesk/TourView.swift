@@ -1,9 +1,10 @@
 import SwiftUI
 
-/// First-run tour (mirrors web/src/Tour.jsx). Welcome → Quick start (filters, then how-to) or Taste Lab, or Skip.
+/// First-run tour (mirrors web/src/Tour.jsx). Welcome → Quick start (filters, how we use AI, then how-to)
+/// or Taste Lab, or Skip.
 /// Shown by AuthGate when prefs.tour_done is missing, or whenever `session.showTour` is set.
 struct TourView: View {
-  enum Step { case welcome, filters, how }
+  enum Step { case welcome, filters, ai, how }
 
   private struct HowStep: Identifiable {
     let id: Int
@@ -18,6 +19,14 @@ struct TourView: View {
     HowStep(
       id: i, title: Copy.text("tour.how.\(i + 1).title"), systemImage: icon,
       text: Copy.text("tour.how.\(i + 1)"))
+  }
+
+  // tour.ai.N in shared/copy.json, the same points the website tour shows.
+  private static let ai = ["photo", "book", "c.circle", "desktopcomputer", "camera"].enumerated().map {
+    i, icon in
+    HowStep(
+      id: i, title: Copy.text("tour.ai.\(i + 1).title"), systemImage: icon,
+      text: Copy.text("tour.ai.\(i + 1)"))
   }
 
   @EnvironmentObject private var session: Session
@@ -42,6 +51,7 @@ struct TourView: View {
         switch step {
         case .welcome: welcome
         case .filters: filters
+        case .ai: aiUse
         case .how: howTo
         }
       }
@@ -152,6 +162,46 @@ struct TourView: View {
         }
         .padding(20)
       }
+      primaryButton("Next") { step = .ai }
+    }
+  }
+
+  // MARK: How we use AI
+
+  private var aiUse: some View {
+    VStack(spacing: 0) {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 18) {
+          VStack(alignment: .leading, spacing: 6) {
+            Text(Copy.text("tour.ai.title"))
+              .font(Theme.tourTitle)
+              .foregroundStyle(Theme.ink)
+            Text(Copy.text("tour.ai.intro"))
+              .font(Theme.subtitle)
+              .foregroundStyle(Theme.muted)
+          }
+          ForEach(Self.ai) { item in
+            HStack(alignment: .top, spacing: 14) {
+              Image(systemName: item.systemImage)
+                .font(Theme.title)
+                .foregroundStyle(Theme.accent)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+              VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                  .font(Theme.mealName)
+                  .foregroundStyle(Theme.ink)
+                Text(item.text)
+                  .font(Theme.body)
+                  .foregroundStyle(Theme.ink)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+            }
+            .accessibilityElement(children: .combine)
+          }
+        }
+        .padding(20)
+      }
       primaryButton("Next") { step = .how }
     }
   }
@@ -251,8 +301,9 @@ struct TourView: View {
     switch step {
     case .welcome: break
     case .filters: step = .welcome
+    case .ai: step = .filters
     case .how:
-      if howIndex > 0 { withAnimation { howIndex -= 1 } } else { step = .filters }
+      if howIndex > 0 { withAnimation { howIndex -= 1 } } else { step = .ai }
     }
   }
 

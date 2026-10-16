@@ -3,6 +3,7 @@ import { GroceryPick } from "../GroceryPick.jsx";
 import { onListKeys } from "../listKeys.js";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Tip } from "../Tip.jsx";
 
 function Back({ to = "/kitchen" }) {
   return (
@@ -134,7 +135,7 @@ function PantryHave() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="kitchen.pantry">What you already have.</p>
+        <Tip id="kitchen.pantry">What you already have.</Tip>
         {items.length === 0 && <p className="empty-block">Nothing checked yet. Add items from the catalog.</p>}
         {items.map((item) => (
           <div key={item.id} className="have-row">
@@ -241,7 +242,7 @@ function PantryAdd() {
       </header>
       <div className="scroll pad" onKeyDown={(e) => { if (e.target.closest(".add-line")) return; onListKeys(e, ".p-check", ".field-input"); }}>
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="kitchen.pantry-add">Check what you have. Saves as you go.</p>
+        <Tip id="kitchen.pantry-add">Check what you have. Saves as you go.</Tip>
         {adding && (
           <form className="add-line" onSubmit={addCustom}>
             <input
@@ -333,10 +334,10 @@ function AlwaysChecked() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="kitchen.always-checked">
+        <Tip id="kitchen.always-checked">
           Things you always have on hand, like salt or oil. They still appear on your grocery list,
           but already checked off, so you can skip them unless you run low.
-        </p>
+        </Tip>
         {items.length === 0 && <div style={{ opacity: 0.45 }} aria-label="Examples only">
           <p>Examples — add what you always keep on hand</p><p>Salt</p><p>Olive oil</p><p>Black pepper</p>
         </div>}
@@ -492,7 +493,7 @@ function Stores() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="kitchen.stores">Add or remove stores and assign each grocery item.</p>
+        <Tip id="kitchen.stores">Add or remove stores and assign each grocery item.</Tip>
         <button type="button" className="list-link" onClick={() => go("/kitchen/aisles")}>
           Aisles
         </button>
@@ -598,7 +599,7 @@ function Aisles() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="kitchen.aisles">Set aisle numbers and order, then put each grocery item in an aisle.</p>
+        <Tip id="kitchen.aisles">Set aisle numbers and order, then put each grocery item in an aisle.</Tip>
         {aisles.map((a, i) => (
           <div key={a.id} className="aisle-edit">
             <strong>{a.name}</strong>
@@ -662,7 +663,7 @@ function Templates() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="kitchen.templates">Pick a format. Recipe bodies live in the cookbook.</p>
+        <Tip id="kitchen.templates">Pick a format. Recipe bodies live in the cookbook.</Tip>
         {families.map((f) => (
           <button
             key={f.id}

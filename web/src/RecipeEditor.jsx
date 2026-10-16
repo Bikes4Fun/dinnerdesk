@@ -1,3 +1,5 @@
+import { Tip } from "./Tip.jsx";
+
 function stepKey() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
@@ -49,7 +51,7 @@ export function RecipeEditorFields({
 
   return (
     <>
-      {help ? <p className="help" data-tip="recipe-editor.intro">{help}</p> : null}
+      {help ? <Tip id="recipe-editor.intro">{help}</Tip> : null}
       <label className="block-label">Name</label>
       <input className="field" required value={name} onChange={(e) => setName(e.target.value)} />
       <label className="block-label">Servings</label>
@@ -71,9 +73,9 @@ export function RecipeEditorFields({
       <label className="block-label">Ingredients (one per line)</label>
       <textarea className="field" rows={10} value={ings} onChange={(e) => setIngs(e.target.value)} />
       <label className="block-label">Steps</label>
-      <p className="help" data-tip="recipe-editor.steps">
+      <Tip id="recipe-editor.steps">
         `- ` starts a bullet. Amounts for this step are the list under the instruction on Cook. Empty amounts is fine.
-      </p>
+      </Tip>
       {steps.map((s, i) => (
         <div key={s.key} className="step-edit">
           <div className="step-edit-head">

@@ -3,6 +3,7 @@ import SwiftUI
 /// Everything that isn't Plan, Recipes or Grocery: one list of grey-icon rows in a shared settings layout.
 struct MoreView: View {
   @EnvironmentObject private var session: Session
+  @State private var isBeta = false
 
   var body: some View {
     NavigationStack {
@@ -29,6 +30,13 @@ struct MoreView: View {
             ThemeIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
           }
           .accessibilityHint("Replays the first-run tour")
+          if isBeta {
+            Button {
+              session.showFeedbackTip = true
+            } label: {
+              ThemeIconRow(title: "Send a screenshot to the developer", systemImage: "exclamationmark.bubble")
+            }
+          }
           NavigationLink {
               SettingsView()
             } label: {
@@ -41,6 +49,7 @@ struct MoreView: View {
       .tint(Theme.accent)
       .navigationTitle("More")
       .largeNavigationTitle()
+      .task { isBeta = await FeedbackTipView.isBeta() }
     }
   }
 }

@@ -28,6 +28,15 @@ const HOW = [
   },
 ];
 
+// Same words as tour.ai.* in ios/dinnerdesk/copy.json.
+const AI = [
+  ["Recipe photos are made with AI", "They show the kind of dish, not the exact plate you’ll cook."],
+  ["Recipes are not", "Every recipe comes from a reliable source. AI doesn’t write them."],
+  ["Why AI photos", "Recipes can’t be copyrighted, but photos can. We never copy anyone else’s photos."],
+  ["Made on our own computer", "Our AI runs on a computer we own, not in a data center."],
+  ["Real photos are coming", "We’ll replace AI photos with our own as we cook each recipe. We’re also building a way for you to share yours."],
+];
+
 export function Tour() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState("welcome");
@@ -148,6 +157,28 @@ export function Tour() {
                 </button>
               ))}
             </div>
+            <button type="button" className="btn-primary block" onClick={() => setStep("ai")}>
+              Next
+            </button>
+            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish(true)}>
+              Save and skip the tour
+            </button>
+          </>
+        )}
+        {step === "ai" && (
+          <>
+            <h2 id="tour-title">How we use AI</h2>
+            <p className="help" data-tip="tour.ai.intro">
+              We want to be clear about where AI is used in Dinnerdesk, and where it isn’t.
+            </p>
+            <ul className="tour-points">
+              {AI.map(([title, body], i) => (
+                <li key={title} data-tip={`tour.ai.${i + 1}`}>
+                  <strong>{title}</strong>
+                  <span>{body}</span>
+                </li>
+              ))}
+            </ul>
             <button type="button" className="btn-primary block" onClick={() => setStep("how")}>
               How to use
             </button>

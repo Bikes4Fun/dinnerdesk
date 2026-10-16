@@ -80,9 +80,7 @@ struct GroceryStoreView: View {
         .padding(.vertical, 8)
         .themeBareRow()
 
-        Text(Copy.text("kitchen.store-chips"))
-          .font(Theme.subtitle).foregroundStyle(Theme.muted)
-          .accessibilityIdentifier("tip.kitchen.store-chips")
+        StarTip(id: "kitchen.store-chips")
           .listRowBackground(Theme.bg)
           .listRowSeparator(.hidden)
 
@@ -103,10 +101,7 @@ struct GroceryStoreView: View {
         .pickerStyle(.segmented)
         .themeBareRow()
       } footer: {
-        Text(Copy.text("kitchen.store-per-item"))
-          .font(Theme.subtitle)
-          .foregroundStyle(Theme.muted)
-          .accessibilityIdentifier("tip.kitchen.store-per-item")
+        StarTip(id: "kitchen.store-per-item")
       }
 
       if groups.isEmpty {
@@ -334,10 +329,7 @@ struct AisleOrderView: View {
         }
         ThemeAddRow(title: "Add aisle") { addingAisle = true }
       } footer: {
-        Text(Copy.text("kitchen.aisle-order"))
-          .font(Theme.subtitle)
-          .foregroundStyle(Theme.muted)
-          .accessibilityIdentifier("tip.kitchen.aisle-order")
+        StarTip(id: "kitchen.aisle-order")
       }
       .themeRows()
     }

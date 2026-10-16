@@ -134,8 +134,9 @@ Database tests create and drop their own schema. They never fall back to `DATABA
 - New issues go in [`docs/TODO.md`](docs/TODO.md) → Inbox, with screenshots in the matching
   private `dd_support/review/` folder.
 
-**Tips:** help text that explains a feature is a *tip*. Mark it with a hidden
-`data-tip="<area>.<name>"` attribute; `python3 scripts/list_tips.py` lists them all.
+**Tips:** help text that explains a feature is a *tip*, shown on a pale purple card with a
+sparkle star beside what it explains. Use `<Tip id>` (web) or `StarTip(id:)` (iPhone);
+`python3 scripts/list_tips.py` lists them all.
 
 **Screenshots:** product screens in [`docs/images/`](docs/images/) illustrate this README and
 [`docs/DESIGN.md`](docs/DESIGN.md). Review shots and exports stay in private `dd_support`.

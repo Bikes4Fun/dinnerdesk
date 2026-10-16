@@ -17,19 +17,15 @@ struct PantryView: View {
       }
       ThemeAddRow(title: "Add item") { adding = true }.themeRows()
       Toggle(isOn: Binding(get: { autoCheck }, set: { on in Task { await setAutoCheck(on) } })) {
-        VStack(alignment: .leading, spacing: 3) {
-          Text("Always check off pantry items")
-            .font(Theme.mealName)
-            .foregroundStyle(Theme.ink)
-          Text(Copy.text("kitchen.pantry-auto-check"))
-            .font(Theme.subtitle)
-            .foregroundStyle(Theme.muted)
-            .accessibilityIdentifier("tip.kitchen.pantry-auto-check")
-        }
+        Text("Always check off pantry items")
+          .font(Theme.mealName)
+          .foregroundStyle(Theme.ink)
       }
       .tint(Theme.accent)
       .padding(.vertical, 6)
       .themeRows()
+      // The tip sits right under the toggle it explains, outside its tap target.
+      StarTip(id: "kitchen.pantry-auto-check").themeBareRow()
 
       ThemeSection("In your pantry · \(items.count)") {
         if items.isEmpty {
@@ -164,10 +160,7 @@ struct AlwaysCheckedView: View {
       if let error {
         ErrorBanner(message: error).themeBareRow()
       }
-      Text(Copy.text("kitchen.always-checked"))
-        .font(Theme.subtitle)
-        .foregroundStyle(Theme.muted)
-        .accessibilityIdentifier("tip.kitchen.always-checked")
+      StarTip(id: "kitchen.always-checked")
         .themeBareRow()
       ThemeSection("Always checked off · \(items.count)") {
         if items.isEmpty {

@@ -76,6 +76,7 @@
 				dinnerdeskApp.swift,
 				EmptyState.swift,
 				ErrorBanner.swift,
+				FeedbackTipView.swift,
 				GroceryStoreView.swift,
 				GroceryView.swift,
 				Info.plist,

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { GroceryPick } from "../GroceryPick.jsx";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Tip } from "../Tip.jsx";
 
 const DEFAULT_STORES = [
   { id: "costco", name: "Costco" },
@@ -578,7 +579,7 @@ function StoresView({ stores, lines, newStore, setNewStore, err, onBack, onAssig
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="grocery.stores">Add or remove stores and assign each grocery item.</p>
+        <Tip id="grocery.stores">Add or remove stores and assign each grocery item.</Tip>
         <button type="button" className="list-link" onClick={onAisles}>
           Aisles
         </button>
@@ -646,7 +647,7 @@ function AislesView({ aisles, lines = [], err, onBack, onChange, onAssign }) {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help" data-tip="grocery.aisles">Set aisle numbers and order, then put each grocery item in an aisle.</p>
+        <Tip id="grocery.aisles">Set aisle numbers and order, then put each grocery item in an aisle.</Tip>
         {aisles.map((a, i) => (
           <div key={a.id} className="aisle-edit">
             <strong>{a.name}</strong>

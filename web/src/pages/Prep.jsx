@@ -4,6 +4,7 @@ import { go } from "../nav.js";
 import { Thumbs } from "../Thumbs.jsx";
 import { Icon } from "../icons.jsx";
 import "./prep.css";
+import { Tip } from "../Tip.jsx";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
    a progress ring plus one bar per section, collapsible sections, thumbs up/down on every item, and
@@ -137,7 +138,7 @@ export function Prep() {
                 role="img" aria-label={`${doneCount} of ${total} prep items done`}>
                 <span>{doneCount}/{total}</span>
               </div>
-              <p className="help" data-tip="prep.about">Built from this plan’s meals. Chop and batch now; cook fresh later in the week.</p>
+              <Tip id="prep.about">Built from this plan’s meals. Chop and batch now; cook fresh later in the week.</Tip>
             </div>
             <nav className="pz-bars" aria-label="Jump to section">
               {sections.map((s) => (

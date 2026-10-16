@@ -251,6 +251,20 @@ img { display: block; max-width: 100%; }
   text-transform: uppercase;
   color: var(--muted);
 }
+.tour-points {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  list-style: none;
+}
+.tour-points li {
+  display: grid;
+  gap: 0.15rem;
+}
+.tour-points span {
+  color: var(--muted);
+}
 .tour-skip {
   display: block;
   width: 100%;

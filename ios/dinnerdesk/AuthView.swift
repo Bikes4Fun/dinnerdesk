@@ -5,6 +5,7 @@ import SwiftUI
 @MainActor
 final class Session: ObservableObject {
   private static let guestKey = "dinnerdesk.guest"
+  private static let feedbackTipKey = "dinnerdesk.feedbackTipSeen"
 
   @Published var status: AuthStatus?
   @Published var loadError: String?
@@ -24,19 +25,48 @@ final class Session: ObservableObject {
 
   /// Show the quick start tour. Set it from anywhere (More, Settings) to replay the tour.
   @Published var showTour = false
-  private var tourChecked = false
+  /// The household the tour was last checked for, so signing in from a guest kitchen checks again.
+  private var tourCheckedFor: String?
+  /// The tour is due but waits until the feedback tip is closed.
+  private var tourPending = false
+  /// How to send a TestFlight screenshot (FeedbackTipView). Set it from More to show it again.
+  @Published var showFeedbackTip = false
 
-  /// First run: open the tour once if the household has never finished or skipped it.
+  /// First run: the feedback tip once on this device (TestFlight only), then the tour once if the
+  /// household has never finished or skipped it.
   func checkTour() async {
-    guard !tourChecked, !needsSignIn, status != nil else { return }
-    do {
-      let prefs = try await KitchenAPI.prefs()
-      tourChecked = true
-      if prefs["tour_done"] == nil { showTour = true }
-    } catch {
-      guard !API.isCancellation(error) else { return }
-      loadError = KitchenAPI.message(error)
+    guard let status, !needsSignIn else { return }
+    let key = "\(status.householdId ?? 0)"
+    if tourCheckedFor != key {
+      do {
+        let prefs = try await KitchenAPI.prefs()
+        tourCheckedFor = key
+        if prefs["tour_done"] == nil { tourPending = true }
+      } catch {
+        guard !API.isCancellation(error) else { return }
+        loadError = KitchenAPI.message(error)
+      }
     }
+    if !UserDefaults.standard.bool(forKey: Self.feedbackTipKey), await FeedbackTipView.isBeta() {
+      showFeedbackTip = true
+    } else if tourPending {
+      tourPending = false
+      showTour = true
+    }
+  }
+
+  /// The feedback tip was closed: remember it, then open the tour if it was waiting.
+  func feedbackTipClosed() {
+    UserDefaults.standard.set(true, forKey: Self.feedbackTipKey)
+    if tourPending {
+      tourPending = false
+      showTour = true
+    }
+  }
+
+  /// Everyone who creates an account sees the feedback tip again, even on a device that has.
+  func accountCreated() {
+    UserDefaults.standard.removeObject(forKey: Self.feedbackTipKey)
   }
 
   func refresh() async {
@@ -64,14 +94,14 @@ final class Session: ObservableObject {
       return
     }
     guest = false
-    tourChecked = false
+    tourCheckedFor = nil
     await refresh()
   }
 
   /// After the server deleted the account its session is already gone, so skip logout.
   func accountDeleted() async {
     guest = false
-    tourChecked = false
+    tourCheckedFor = nil
     await refresh()
   }
 }
@@ -123,12 +153,18 @@ struct AuthGate<Content: View>: View {
               }.padding().background(Theme.bg)
             }
           }
-          .sheet(isPresented: $showSignIn) { AuthView(isSheet: true).environmentObject(session) }
+          // Signing up from a guest kitchen keeps the same household, so check again on close.
+          .sheet(isPresented: $showSignIn, onDismiss: { Task { await session.checkTour() } }) {
+            AuthView(isSheet: true).environmentObject(session)
+          }
           .overlay(alignment: .top) {
             if let error = session.loadError { ErrorBanner(message: error).padding() }
           }
-          .task { await session.checkTour() }
+          .task(id: session.status?.householdId) { await session.checkTour() }
       }
+    }
+    .sheet(isPresented: $session.showFeedbackTip, onDismiss: { session.feedbackTipClosed() }) {
+      FeedbackTipView()
     }
     .fullScreenCover(isPresented: $session.showTour) {
       TourView()
@@ -290,6 +326,7 @@ struct AuthView: View {
           password: password,
           householdName: name.isEmpty ? "My household" : name
         )
+        session.accountCreated()
       }
       password = ""
       await session.refresh()

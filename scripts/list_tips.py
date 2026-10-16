@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """List every in-app tip (developer only).
 
-Tips are marked in the web code with a hidden `data-tip="<id>"` attribute on
-the element that holds the tip text. Users never see the attribute; it is only
-here so we can collect tips for a future feature.
+Tips are drawn with `<Tip id>` on the web (which sets `data-tip="<id>"`) and
+`StarTip(id:)` on iPhone. A few other elements carry a bare `data-tip` too, such
+as tour text and empty-state messages, so they're listed alongside.
 
 Usage: python3 scripts/list_tips.py            # table of id, file:line, text
        python3 scripts/list_tips.py --json     # same, as JSON
@@ -62,7 +62,7 @@ def collect() -> list[dict]:
     copy = json.loads(copy_path.read_text()) if copy_path.exists() else {}
     for path in sorted(native.glob("*.swift")):
         src = path.read_text()
-        for m in re.finditer(r'\.accessibilityIdentifier\("tip\.([^"\n]+)"\)|StarTip\(id: "([^"\n]+)"\)', src):
+        for m in re.finditer(r'\.accessibilityIdentifier\("tip\.([^"\n\\]+)"\)|StarTip\(id: "([^"\n]+)"\)', src):
             key = m.group(1) or m.group(2)
             tips.append({"id": key, "file": str(path.relative_to(ROOT)),
                          "line": src.count("\n", 0, m.start()) + 1,

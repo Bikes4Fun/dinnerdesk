@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { ALLERGENS, AVOIDS, DIETS, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
+import { Tip } from "../Tip.jsx";
 
 function Back() {
   return (
@@ -88,11 +89,11 @@ export function Settings() {
           </p>
         ) : null}
         <label className="block-label">About recipes &amp; photos</label>
-        <p className="help" data-tip="settings.gold-star">
+        <Tip id="settings.gold-star">
           A gold ★ means we (Dinnerdesk) have reviewed and tested the recipe. Only we
           can add that mark. It’s there so you can see which recipes we definitively trust. Other
           recipes still come from trusted sources; their photos are public-use or AI-generated. Real photos are updated as we test recipes.
-        </p>
+        </Tip>
       </div>
     </section>
   );
@@ -550,10 +551,10 @@ export function AccountSecurity() {
             </button>
             {inviteLink && (
               <>
-                <p className="help" data-tip="settings.invite-link">
+                <Tip id="settings.invite-link">
                   Share this link — whoever opens it and creates an account joins your household
                   and sees the same recipes, plan, and grocery list. Expires in 7 days, one-time use.
-                </p>
+                </Tip>
                 <input className="field" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
                 <button type="button" className="btn-secondary block" onClick={shareInvite}>
                   Copy link
@@ -579,10 +580,10 @@ export function AccountSecurity() {
             <button type="button" className="btn-secondary block" onClick={signOutEverywhere}>
               Sign out everywhere
             </button>
-            <p className="help" data-tip="settings.sign-out-everywhere">
+            <Tip id="settings.sign-out-everywhere">
               Signs out every device using this account — use this if a phone or laptop was lost
               or you just changed your password and want to be sure.
-            </p>
+            </Tip>
 
             <label className="block-label">Household membership</label>
             <p className="help">Leaving creates an empty solo household. Your account stays active. Shared plans and kitchen data stay with the household.</p>
