@@ -80,6 +80,9 @@ struct FiltersView: View {
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
     "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
   ]
+  static let who = [("beginner", "Beginner"), ("family", "Family"), ("kids", "Kids"), ("entertaining", "Entertaining")]
+  static let cuisines = [("italian", "Italian"), ("mexican", "Mexican"), ("asian", "Asian"), ("american", "American"), ("mediterranean", "Mediterranean")]
+  static let proteins = [("chicken", "Chicken"), ("beef", "Beef"), ("pork", "Pork"), ("seafood", "Seafood"), ("turkey", "Turkey")]
   struct TimeOption: Identifiable {
     let id: String
     let label: String
@@ -97,6 +100,10 @@ struct FiltersView: View {
   @State private var otherAllergens: [String] = []
   @State private var otherAvoids: [String] = []
   @State private var time = "any"
+  @State private var who: Set<String> = []
+  @State private var cuisines: Set<String> = []
+  @State private var proteinMore: Set<String> = []
+  @State private var proteinLess: Set<String> = []
   @State private var loaded = false
   @State private var error: String?
 
@@ -119,13 +126,51 @@ struct FiltersView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 22) {
         if let error { ErrorBanner(message: error) }
-        Text("We’ll hide meals that don’t fit. Same filters as Taste Lab.")
+        Text("Diet, allergies, and avoids hide meals. Who, cuisine, and protein shape suggestions.")
           .font(Theme.subtitle).foregroundStyle(Theme.muted)
           .fixedSize(horizontal: false, vertical: true)
 
         filterBlock("Diet") {
           ForEach(Self.diets, id: \.self) { item in
             FilterChip(label: Self.dietLabels[item] ?? item.capitalized, on: diets.contains(item)) { toggleDiet(item) }
+          }
+        }
+
+        filterBlock("Who it's for") {
+          ForEach(Self.who, id: \.0) { item in
+            FilterChip(label: item.1, on: who.contains(item.0)) {
+              if who.contains(item.0) { who.remove(item.0) } else { who.insert(item.0) }
+              save()
+            }
+          }
+        }
+
+        filterBlock("Cuisines to suggest") {
+          ForEach(Self.cuisines, id: \.0) { item in
+            FilterChip(label: item.1, on: cuisines.contains(item.0)) {
+              if cuisines.contains(item.0) { cuisines.remove(item.0) } else { cuisines.insert(item.0) }
+              save()
+            }
+          }
+        }
+
+        if diets.contains("omnivore") || diets.contains("pescatarian") {
+          let choices = Self.proteins.filter { diets.contains("omnivore") || $0.0 == "seafood" }
+          filterBlock("Offer more") {
+            ForEach(choices, id: \.0) { item in
+              FilterChip(label: item.1, on: proteinMore.contains(item.0)) {
+                if proteinMore.contains(item.0) { proteinMore.remove(item.0) } else { proteinMore.insert(item.0); proteinLess.remove(item.0) }
+                save()
+              }
+            }
+          }
+          filterBlock("Offer less") {
+            ForEach(choices, id: \.0) { item in
+              FilterChip(label: item.1, on: proteinLess.contains(item.0)) {
+                if proteinLess.contains(item.0) { proteinLess.remove(item.0) } else { proteinLess.insert(item.0); proteinMore.remove(item.0) }
+                save()
+              }
+            }
           }
         }
 
@@ -297,6 +342,10 @@ struct FiltersView: View {
         otherAvoids = a.filter { !Self.avoids.contains($0) }
       }
       if let t = filters["time"] as? String { time = t }
+      if let w = filters["who"] as? [String] { who = Set(w) }
+      if let c = filters["cuisines"] as? [String] { cuisines = Set(c) }
+      if let p = filters["protein_more"] as? [String] { proteinMore = Set(p) }
+      if let p = filters["protein_less"] as? [String] { proteinLess = Set(p) }
       loaded = true
       error = nil
     } catch {
@@ -311,6 +360,10 @@ struct FiltersView: View {
       "allergens": Self.allergens.map(\.0).filter { allergens.contains($0) } + otherAllergens,
       "avoids": Self.avoids.filter { avoids.contains($0) } + otherAvoids,
       "time": time,
+      "who": Self.who.map(\.0).filter { who.contains($0) },
+      "cuisines": Self.cuisines.map(\.0).filter { cuisines.contains($0) },
+      "protein_more": Self.proteins.map(\.0).filter { proteinMore.contains($0) },
+      "protein_less": Self.proteins.map(\.0).filter { proteinLess.contains($0) },
     ]
     saveCount += 1
     let mine = saveCount

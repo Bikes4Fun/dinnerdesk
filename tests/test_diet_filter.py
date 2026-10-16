@@ -161,7 +161,19 @@ def test_every_screen_offers_the_same_choices():
     assert quoted(block(ios, "static let avoids", "]\n")) == set(AVOIDS)
 
 
-def test_specific_food_selection_filters_only_that_ingredient():
+def test_soft_filters_are_kept_and_unknown_words_drop():
+    from app.domain.diet_filter import clean_filters
+
+    cleaned = clean_filters({
+        "who": ["family", "nope"],
+        "cuisines": ["italian", "thai"],
+        "protein_more": ["beef"],
+        "protein_less": ["beef", "chicken"],
+    })
+    assert cleaned["who"] == ["family"]
+    assert cleaned["cuisines"] == ["italian"]
+    assert cleaned["protein_more"] == ["beef"]
+    assert cleaned["protein_less"] == ["chicken"]
     assert not ok("Skillet", ["red bell pepper", "ground turkey"], avoids=["red bell pepper"])
     assert ok("Skillet", ["green bell pepper", "ground turkey"], avoids=["red bell pepper"])
     assert not ok("Chili", ["ground beef", "tomatoes"], avoids=["ground beef"])

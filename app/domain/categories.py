@@ -1,8 +1,7 @@
 """Cuisine and style categories for recipes, from the name and ingredients. No I/O.
 
 Groundwork for letting a kitchen like or dislike whole categories ("more curry", "no
-Mexican"). Nothing uses this yet: what a like or dislike does is still to be decided, and
-applying it to suggestions belongs to the ranker (taste_rank / suggest).
+Mexican"). Suggestions already use these keys to avoid a plan of one kind of meal.
 
 A recipe can be in several categories (a curry soup is Curry and Soups). The name counts
 most; ingredients only count when they're a strong sign (garam masala, tortillas), not
@@ -80,6 +79,16 @@ CATEGORIES: dict[str, tuple[str, list[str], list[str]]] = {
         "Soups & stews",
         ["soup", "stew", "chowder", "bisque", "gumbo", "chili", "pho", "ramen", "minestrone",
          "gazpacho", "pozole", "posole", "goulash", "zuppa", "broth bowl", "dal", "dahl"],
+        [],
+    ),
+    "seafood": (
+        "Seafood",
+        ["salmon", "shrimp", "cod", "tilapia", "tuna", "fish", "scallop", "crab", "halibut"],
+        [],
+    ),
+    "eggs": (
+        "Eggs",
+        ["frittata", "omelet", "omelette", "quiche"],
         [],
     ),
 }

@@ -2951,6 +2951,12 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         skip=ignored,
     )
     taste.suggestion_penalties = suggestion_penalties(history)
+    filters = household_filters(db, household_id)
+    taste.soft = {
+        "cuisines": filters.get("cuisines") or [],
+        "protein_more": filters.get("protein_more") or [],
+        "protein_less": filters.get("protein_less") or [],
+    }
     promote(taste, recipes + backup, {rid for rid, up in rated.items() if up > 0})
     laps.lap("learn")
     favorites = _favorite_ids(db, household_id)

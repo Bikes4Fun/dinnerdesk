@@ -193,7 +193,9 @@ def test_one_like_finds_a_nearby_meal():
     picked = pick(recipes, taste, want=3)
     ids = [row["id"] for row in picked]
     assert ids[0] == 1
-    assert ids.index(2) < ids.index(3)
+    # Caprese is near the liked pasta, and it is also Italian, so the variety penalty
+    # puts the soup ahead of a second Italian meal.
+    assert ids.index(3) < ids.index(2)
     caprese = next(row for row in picked if row["id"] == 2)
     assert "near a meal you liked" in caprese["reasons"]
 
@@ -381,3 +383,18 @@ def test_fill_plan_prefers_reusing_selected_meal_ingredients():
     picked = pick_meals(recipes, taste, set(), set(), {}, 1, plan_ings={'bell pepper'})
     assert picked[0]['id'] == 2
     assert 'shares 1 with this plan' in picked[0]['reasons']
+
+
+def test_cuisine_and_protein_preferences_rank_without_dropping():
+    recipes = [
+        meal(1, "Tacos", ["beef", "tortilla"]),
+        meal(2, "Miso soup", ["miso", "tofu"]),
+        meal(3, "Honey salmon", ["salmon", "honey"]),
+    ]
+    taste = learn([], recipes)
+    taste.soft = {"cuisines": ["mexican"], "protein_more": [], "protein_less": []}
+    assert pick(recipes, taste, want=1)[0]["id"] == 1
+    taste.soft = {"cuisines": [], "protein_more": [], "protein_less": ["beef"]}
+    lowered = pick(recipes, taste, want=3)
+    assert 1 in [row["id"] for row in lowered]
+    assert lowered[0]["id"] != 1

@@ -88,6 +88,10 @@ def matched_words(name: str, ingredients: list[str], groups: list[list[str]]) ->
 # The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these
 # (web/src/diet.js, tastelab/web/app.js and ios FiltersView copy them; a test keeps them equal).
 DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
+# Soft preferences. They rank suggestions; they do not hide recipes.
+WHO = ["beginner", "family", "kids", "entertaining"]
+CUISINES = ["italian", "mexican", "asian", "american", "mediterranean"]
+PROTEINS = ["chicken", "beef", "pork", "seafood", "turkey"]
 ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish", "poultry", "red-meat"]
 AVOIDS = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
@@ -120,6 +124,11 @@ def clean_filters(filters: dict | None) -> dict:
     out["diets"] = normalize_diets(_words_list(out.get("diets"))) or ["omnivore"]
     out["allergens"] = list(dict.fromkeys(allergens))
     out["avoids"] = avoids
+    out["who"] = [word for word in _words_list(out.get("who")) if word in WHO]
+    out["cuisines"] = [word for word in _words_list(out.get("cuisines")) if word in CUISINES]
+    more = [word for word in _words_list(out.get("protein_more")) if word in PROTEINS]
+    out["protein_more"] = more
+    out["protein_less"] = [word for word in _words_list(out.get("protein_less")) if word in PROTEINS and word not in more]
     return out
 
 

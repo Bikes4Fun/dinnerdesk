@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
-import { ALLERGENS, AVOIDS, DIETS, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
+import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
 
 function Back() {
@@ -171,6 +171,10 @@ export function Filters() {
   const [allergens, setAllergens] = useState([]);
   const [avoids, setAvoids] = useState([]);
   const [time, setTime] = useState("any");
+  const [who, setWho] = useState([]);
+  const [cuisines, setCuisines] = useState([]);
+  const [proteinMore, setProteinMore] = useState([]);
+  const [proteinLess, setProteinLess] = useState([]);
   const [err, setErr] = useState("");
   const [saveState, setSaveState] = useState(""); // "", "saving", "saved" (#85)
   const saves = useRef(0);
@@ -184,6 +188,10 @@ export function Filters() {
         if (Array.isArray(f.allergens)) setAllergens(f.allergens);
         if (Array.isArray(f.avoids)) setAvoids(f.avoids);
         if (f.time) setTime(f.time);
+        if (Array.isArray(f.who)) setWho(f.who);
+        if (Array.isArray(f.cuisines)) setCuisines(f.cuisines);
+        if (Array.isArray(f.protein_more)) setProteinMore(f.protein_more);
+        if (Array.isArray(f.protein_less)) setProteinLess(f.protein_less);
       })
       .catch((e) => setErr(e.message));
   }, []);
@@ -194,6 +202,10 @@ export function Filters() {
     if (patch.allergens) setAllergens(patch.allergens);
     if (patch.avoids) setAvoids(patch.avoids);
     if (patch.time) setTime(patch.time);
+    if ("who" in patch) setWho(patch.who);
+    if ("cuisines" in patch) setCuisines(patch.cuisines);
+    if ("protein_more" in patch) setProteinMore(patch.protein_more);
+    if ("protein_less" in patch) setProteinLess(patch.protein_less);
     const mine = ++saves.current;
     setSaveState("saving");
     try {
@@ -220,7 +232,7 @@ export function Filters() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <p className="help">We’ll hide meals that don’t fit. Same filters as Taste Lab.</p>
+        <p className="help">Diet, allergies, and avoids hide meals. Who, cuisine, and protein shape suggestions.</p>
         <h3 className="block-label">Diet</h3>
         <div className="chip-row wrap filter-chips">
           {DIETS.map((d) => (
@@ -235,6 +247,32 @@ export function Filters() {
             </button>
           ))}
         </div>
+        <h3 className="block-label">Who it's for</h3>
+        <div className="chip-row wrap filter-chips">
+          {WHO.map(([id, text]) => (
+            <button key={id} type="button" className={`chip${who.includes(id) ? " is-on" : ""}`} aria-pressed={who.includes(id)} onClick={() => setFilter({ who: toggleAvoid(who, id) })}>{text}</button>
+          ))}
+        </div>
+        <h3 className="block-label">Cuisines to suggest</h3>
+        <div className="chip-row wrap filter-chips">
+          {CUISINES.map(([id, text]) => (
+            <button key={id} type="button" className={`chip${cuisines.includes(id) ? " is-on" : ""}`} aria-pressed={cuisines.includes(id)} onClick={() => setFilter({ cuisines: toggleAvoid(cuisines, id) })}>{text}</button>
+          ))}
+        </div>
+        {(diets.includes("omnivore") || diets.includes("pescatarian")) && <>
+          <h3 className="block-label">Offer more</h3>
+          <div className="chip-row wrap filter-chips">
+            {PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood").map(([id, text]) => (
+              <button key={id} type="button" className={`chip${proteinMore.includes(id) ? " is-on" : ""}`} aria-pressed={proteinMore.includes(id)} onClick={() => setFilter({ protein_more: toggleAvoid(proteinMore, id), protein_less: proteinLess.filter((p) => p !== id) })}>{text}</button>
+            ))}
+          </div>
+          <h3 className="block-label">Offer less</h3>
+          <div className="chip-row wrap filter-chips">
+            {PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood").map(([id, text]) => (
+              <button key={id} type="button" className={`chip${proteinLess.includes(id) ? " is-on" : ""}`} aria-pressed={proteinLess.includes(id)} onClick={() => setFilter({ protein_less: toggleAvoid(proteinLess, id), protein_more: proteinMore.filter((p) => p !== id) })}>{text}</button>
+            ))}
+          </div>
+        </>}
         <ChoiceBlock label="Allergies" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />
         <ChoiceBlock label="I avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" onChange={(next) => setFilter({ avoids: next })} />
         <h3 className="block-label">Cook time</h3>
