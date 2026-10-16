@@ -110,6 +110,7 @@ final class Session: ObservableObject {
 /// `content` is only built once signed in (or a guest), so its data loads for the right household.
 struct AuthGate<Content: View>: View {
   @StateObject private var session = Session()
+  @Environment(\.scenePhase) private var scenePhase
   @State private var guestNoticeDismissed = false
   @State private var showSignIn = false
   private let content: () -> Content
@@ -172,6 +173,9 @@ struct AuthGate<Content: View>: View {
     }
     .environmentObject(session)
     .task { await session.refresh() }
+    .onChange(of: scenePhase) { _, next in
+      if next == .active { Task { await session.refresh() } }
+    }
   }
 }
 
