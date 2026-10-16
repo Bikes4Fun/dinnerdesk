@@ -1,9 +1,37 @@
 import SwiftUI
 
-/// First-run tour (mirrors web/src/Tour.jsx). Welcome → Quick start (filters, then how-to) or Taste Lab, or Skip.
-/// Shown by AuthGate when prefs.tour_done is missing, or whenever `session.showTour` is set.
+/// First-run tour (mirrors web/src/Tour.jsx). Welcome → Quick start (filters, how we use AI, then how-to)
+/// or Taste Lab, or Skip.
+/// Shown by AuthGate for new households and after a major update (`version`), or whenever
+/// `session.showTour` is set.
 struct TourView: View {
-  enum Step { case welcome, filters, how }
+  enum Step { case welcome, filters, ai, how }
+
+  /// Raise this (and TOUR_VERSION in web/src/Tour.jsx) with a major update: everyone who saw an
+  /// older tour gets it once more. Households that finished the tour before versions existed
+  /// count as version 1.
+  static let version = 2
+
+  /// The tour version this household last finished or skipped; 0 if never.
+  static func seen(_ prefs: [String: Any]) -> Int {
+    (prefs["tour_version"] as? Int) ?? (prefs["tour_done"] == nil ? 0 : 1)
+  }
+
+  /// Does this household still need to see the current tour?
+  static func isDue(_ prefs: [String: Any]) -> Bool { seen(prefs) < version }
+
+  // Every new build (each TestFlight upload) opens the tour once on this device, as What's new.
+  private static let buildKey = "dinnerdesk.tourBuild"
+  private static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
+
+  /// This device saw the tour (or was checked) on an earlier build.
+  static var isNewBuild: Bool {
+    guard let last = UserDefaults.standard.string(forKey: buildKey) else { return false }
+    return last != build
+  }
+
+  /// Remember this build, so the tour waits for the next one.
+  static func noteBuild() { UserDefaults.standard.set(build, forKey: buildKey) }
 
   private struct HowStep: Identifiable {
     let id: Int
@@ -13,11 +41,19 @@ struct TourView: View {
   }
 
   // Text lives in shared/copy.json (tour.how.N.title / tour.how.N), shared with the website tour.
-  private static let how = ["book", "calendar", "cart", "list.bullet.clipboard"].enumerated().map {
+  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "fork.knife", "sparkles", "applewatch", "hand.draw"].enumerated().map {
     i, icon in
     HowStep(
       id: i, title: Copy.text("tour.how.\(i + 1).title"), systemImage: icon,
       text: Copy.text("tour.how.\(i + 1)"))
+  }
+
+  // tour.ai.N in shared/copy.json, the same points the website tour shows.
+  private static let ai = ["photo", "c.circle", "desktopcomputer", "camera"].enumerated().map {
+    i, icon in
+    HowStep(
+      id: i, title: Copy.text("tour.ai.\(i + 1).title"), systemImage: icon,
+      text: Copy.text("tour.ai.\(i + 1)"))
   }
 
   @EnvironmentObject private var session: Session
@@ -29,6 +65,8 @@ struct TourView: View {
   @State private var howIndex = 0
   @State private var showTasteLab = false
   @State private var saving = false
+  /// They saw an older tour, so this is the one after a major update: welcome says What's new.
+  @State private var isUpdate = false
   @State private var error: String?
 
   init() {}
@@ -42,6 +80,7 @@ struct TourView: View {
         switch step {
         case .welcome: welcome
         case .filters: filters
+        case .ai: aiUse
         case .how: howTo
         }
       }
@@ -80,10 +119,10 @@ struct TourView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         VStack(alignment: .leading, spacing: 6) {
-          Text("Welcome to \(Copy.appName)")
+          Text(isUpdate ? Copy.text("tour.update.title") : "Welcome to \(Copy.appName)")
             .font(Theme.bigTitle)
             .foregroundStyle(Theme.ink)
-          Text(Copy.text("app.tagline"))
+          Text(isUpdate ? Copy.text("tour.update") : Copy.text("app.tagline"))
             .foregroundStyle(Theme.muted)
         }
         .padding(.bottom, 8)
@@ -152,6 +191,49 @@ struct TourView: View {
         }
         .padding(20)
       }
+      primaryButton("Next") { step = .ai }
+    }
+  }
+
+  // MARK: How we use AI
+
+  private var aiUse: some View {
+    VStack(spacing: 0) {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 18) {
+          Text(Copy.text("tour.ai.title"))
+            .font(Theme.tourTitle)
+            .foregroundStyle(Theme.ink)
+          ForEach(Self.ai) { item in
+            HStack(alignment: .top, spacing: 14) {
+              Image(systemName: item.systemImage)
+                .font(Theme.title)
+                .foregroundStyle(Theme.accent)
+                .frame(width: 28)
+                .accessibilityHidden(true)
+              VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                  .font(Theme.mealName)
+                  .foregroundStyle(Theme.ink)
+                Text(item.text)
+                  .font(Theme.body)
+                  .foregroundStyle(Theme.ink)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+            }
+            .accessibilityElement(children: .combine)
+          }
+          // The full explanation lives on the website's Help & support page.
+          if let more = URL(string: "support#ai", relativeTo: API.origin)?.absoluteURL {
+            Link(destination: more) {
+              Label(Copy.text("tour.ai.more"), systemImage: "arrow.up.right.square")
+                .font(Theme.action)
+            }
+            .accessibilityHint("Opens the support page in Safari")
+          }
+        }
+        .padding(20)
+      }
       primaryButton("Next") { step = .how }
     }
   }
@@ -177,23 +259,44 @@ struct TourView: View {
     VStack(spacing: 0) {
       TabView(selection: $howIndex) {
         ForEach(Self.how) { item in
-          VStack(alignment: .leading, spacing: 14) {
-            Image(systemName: item.systemImage)
-              .font(.system(size: 34, weight: .semibold))
-              .foregroundStyle(Theme.accent)
-            Text(item.title)
-              .font(Theme.tourTitle)
-              .foregroundStyle(Theme.ink)
+          VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 10) {
+              Image(systemName: item.systemImage)
+                .font(.system(size: 24, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .accessibilityHidden(true)
+              Text(item.title)
+                .font(Theme.tourTitle)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+            // Smaller than body text so the picture of the screen gets the room.
             Text(item.text)
-              .font(Theme.body)
+              .font(Self.howText)
               .foregroundStyle(Theme.ink)
               .fixedSize(horizontal: false, vertical: true)
-            // A drawn picture of the screen fills the space under the text. At large text
-            // the words need the room, so it's left out.
+            // A picture of the screen fills the space under the text: real screenshots where we
+            // have them (Self.shots), drawn pictures for the rest. At large text the words need the room,
+            // so it's left out.
             if !typeSize.isAccessibilitySize {
-              TourScreenPicture(index: item.id)
-                .frame(minHeight: 160, maxHeight: 280)
-                .padding(.top, 4)
+              if let shot = Self.shots[item.id] {
+                if item.id == 0 { newPlanHint }
+                Image(shot)
+                  .resizable()
+                  .scaledToFit()
+                  .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                  .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.line))
+                  .frame(maxWidth: .infinity, minHeight: 200, maxHeight: .infinity)
+                  .layoutPriority(1)
+                  .accessibilityHidden(true)
+              } else if let drawing = Self.drawings[item.id] {
+                TourScreenPicture(index: drawing)
+                  .frame(minHeight: 160, maxHeight: 280)
+                  .padding(.top, 4)
+              } else if item.id == Self.tipsCard {
+                // A real tip, so the card shows exactly what one looks like.
+                StarTip(id: "recipes.ai-photo").padding(.top, 4)
+              }
             }
             Spacer(minLength: 0)
           }
@@ -231,6 +334,33 @@ struct TourView: View {
     }
   }
 
+  /// Real screenshots for how-to cards, by card index; the others use TourScreenPicture.
+  private static let shots = [0: "TourSuggestions", 1: "TourSchedule", 2: "TourDraft", 3: "TourStores"]
+  /// The drawn picture for each remaining card (TourScreenPicture: 2 checked-off list, 3 prep).
+  private static let drawings = [4: 2, 5: 3]
+  /// The card about tips shows a real one instead of a picture.
+  private static let tipsCard = 7
+
+  private static let howText = Font.custom("DMSans-Regular", size: 14, relativeTo: .subheadline)
+
+  /// Where suggestions come from: Plan's New meal plan button, drawn like the real one and ringed.
+  private var newPlanHint: some View {
+    HStack(spacing: 8) {
+      Text("On Plan, tap")
+        .font(Self.howText)
+        .foregroundStyle(Theme.ink)
+      Label("New meal plan", systemImage: "sparkles")
+        .font(Theme.chipLabel)
+        .foregroundStyle(.white)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 34)
+        .background(Capsule().fill(Theme.accent))
+        .padding(4)
+        .overlay(Capsule().stroke(Theme.accent.opacity(0.45), lineWidth: 3))
+    }
+    .accessibilityElement(children: .combine)
+  }
+
   private func primaryButton(_ title: String, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Text(title)
@@ -251,8 +381,9 @@ struct TourView: View {
     switch step {
     case .welcome: break
     case .filters: step = .welcome
+    case .ai: step = .filters
     case .how:
-      if howIndex > 0 { withAnimation { howIndex -= 1 } } else { step = .filters }
+      if howIndex > 0 { withAnimation { howIndex -= 1 } } else { step = .ai }
     }
   }
 
@@ -268,6 +399,8 @@ struct TourView: View {
   private func loadFilters() async {
     do {
       let prefs = try await KitchenAPI.prefs()
+      let seen = Self.seen(prefs)
+      isUpdate = (seen > 0 && seen < Self.version) || Self.isNewBuild
       guard let saved = prefs["filters"] as? [String: Any] else { return }
       if let d = saved["diets"] as? [String], !d.isEmpty { diets = FiltersView.cleaned(d) }
       if let a = saved["avoids"] as? [String] { avoids = Set(a) }
@@ -277,7 +410,8 @@ struct TourView: View {
 
   @discardableResult
   private func markDone(filters: [String: Any]?) async -> Bool {
-    var patch: [String: Any] = ["tour_done": true]
+    Self.noteBuild()
+    var patch: [String: Any] = ["tour_done": true, "tour_version": Self.version]
     if let filters { patch["filters"] = filters }
     do {
       try await KitchenAPI.savePrefs(patch)

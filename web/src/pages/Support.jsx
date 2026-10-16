@@ -7,6 +7,12 @@ import { go } from "../nav.js";
 export function Support() {
   const [email, setEmail] = useState(null);
 
+  // The tour links to /support#ai; content renders after load, so scroll to it ourselves.
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (id) document.getElementById(id)?.scrollIntoView({ block: "start" });
+  }, []);
+
   useEffect(() => {
     api.support().then((r) => setEmail(r.email || "")).catch(() => setEmail(""));
   }, []);
@@ -24,6 +30,28 @@ export function Support() {
         <p>
           Dinnerdesk plans a week of dinners for your household, builds the grocery list from those meals, and
           lists make-ahead prep. Taste Lab, under More, learns which meals you like so later suggestions fit.
+        </p>
+
+        <h2 id="ai">How we use AI</h2>
+        <p>
+          <strong>Recipe photos are made with AI.</strong> Each one shows the kind of dish, not the exact plate a
+          recipe makes. A recipe whose photo was made with AI says so on its page.
+        </p>
+        <p>
+          <strong>Recipes are not.</strong> Every recipe comes from a reliable source. AI doesn’t write them.
+        </p>
+        <p>
+          <strong>Why AI photos?</strong> A recipe’s ingredients and method can’t be copyrighted, but a photo of the
+          dish can. We never copy anyone else’s photos, so until we have our own, we make them with AI.
+        </p>
+        <p>
+          <strong>Where the AI runs.</strong> Our AI images are made on a computer we own, not by an AI service in
+          a data center.
+        </p>
+        <p>
+          <strong>What’s next.</strong> As we cook and test each recipe, we replace its AI photo with a real one.
+          A gold ★ marks recipes we’ve reviewed and tested. We’re also building a way for you to share your own
+          photos of recipes you make.
         </p>
 
         <h2>Contact us</h2>

@@ -129,10 +129,7 @@ struct SubstitutionsView: View {
       if let error {
         ErrorBanner(message: error).themeBareRow()
       }
-      Text(Copy.text("kitchen.substitutions"))
-        .font(Theme.subtitle)
-        .foregroundStyle(Theme.muted)
-        .accessibilityIdentifier("tip.kitchen.substitutions")
+      StarTip(id: "kitchen.substitutions")
         .themeBareRow()
 
       ThemeSection("Your substitutions") {

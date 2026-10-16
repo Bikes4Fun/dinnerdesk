@@ -168,7 +168,7 @@ export function Plan() {
         <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>
-        <p hidden data-tip="plan.proposal-keeps-current">Your current plan stays in place until you approve.</p>
+        <Tip id="plan.proposal-keeps-current">Your current plan stays in place until you approve.</Tip>
         {/* The app's own plain style, not Taste Lab's cards: rounded landscape photo with a white
             swap button in its corner, then name and time. */}
         <div className="sp-grid">

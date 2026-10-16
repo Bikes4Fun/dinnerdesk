@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Tip } from "../Tip.jsx";
 
 const TABS = [
   ["easy", "Easy matches"],
@@ -390,7 +391,7 @@ export function IngredientReview() {
             ) : (
               <fieldset className="review-options">
                 <legend>Which names belong together?</legend>
-                <p className="help" data-tip="ingredient-review.merge">Check only the names that mean the same grocery item.</p>
+                <Tip id="ingredient-review.merge">Check only the names that mean the same grocery item.</Tip>
                 {group.names.map((name) => (
                   <div className="review-option" key={name.text}>
                     <input

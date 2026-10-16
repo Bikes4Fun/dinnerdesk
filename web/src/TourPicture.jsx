@@ -2,7 +2,7 @@ import "./tour-picture.css";
 
 /** A small drawn picture of the screen a quick-start card describes (#25). Drawn, not a
  *  screenshot, so it never goes stale. Decorative: the card's text says the same thing.
- *  Mirrors ios/dinnerdesk/TourScreenPicture.swift. `index` follows tour.how.N (0-based). */
+ *  Mirrors ios/dinnerdesk/TourScreenPicture.swift. `index`: 0 suggestions, 1 this plan, 2 grocery, 3 prep (DRAWINGS in Tour.jsx maps cards to these). */
 export function TourPicture({ index }) {
   return (
     <div className="tour-pic" aria-hidden="true">

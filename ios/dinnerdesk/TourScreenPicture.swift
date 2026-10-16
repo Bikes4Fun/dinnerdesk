@@ -5,7 +5,7 @@ import SwiftUI
 /// Decorative: the card's text says the same thing, so VoiceOver skips it.
 /// Mirrors web/src/TourPicture.jsx.
 struct TourScreenPicture: View {
-  /// 0 suggestions, 1 this plan, 2 grocery, 3 weekend prep (the order of tour.how.N).
+  /// 0 suggestions, 1 this plan, 2 grocery, 3 weekend prep (TourView.drawings maps cards to these).
   let index: Int
 
   private let coralTint = Color(hex: 0xFDE6DD)

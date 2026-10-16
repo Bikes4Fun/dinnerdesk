@@ -53,10 +53,7 @@ struct SettingsView: View {
       .themeRows()
 
       ThemeSection("About recipes & photos") {
-        Text(Copy.text("settings.gold-star"))
-          .font(Theme.subtitle)
-          .foregroundStyle(Theme.muted)
-          .accessibilityIdentifier("tip.settings.gold-star")
+        StarTip(id: "settings.gold-star")
           .themeBareRow()
       }
     }
@@ -490,10 +487,7 @@ struct AccountView: View {
             ShareLink(item: inviteURL) {
               Label("Share invite link", systemImage: "square.and.arrow.up")
             }
-            Text(Copy.text("settings.invite-link"))
-              .font(Theme.subtitle)
-              .foregroundStyle(Theme.muted)
-              .accessibilityIdentifier("tip.settings.invite-link")
+            StarTip(id: "settings.invite-link")
           } else {
             Button("Invite someone to this household") { Task { await invite() } }
               .disabled(busy)
@@ -522,10 +516,7 @@ struct AccountView: View {
           Button("Sign out") { Task { await session.signOut() } }
           Button("Sign out everywhere", role: .destructive) { confirmEverywhere = true }
         } footer: {
-          Text(Copy.text("settings.sign-out-everywhere"))
-            .font(Theme.subtitle)
-            .foregroundStyle(Theme.muted)
-            .accessibilityIdentifier("tip.settings.sign-out-everywhere")
+          StarTip(id: "settings.sign-out-everywhere")
         }
         .themeRows()
 

@@ -10,7 +10,24 @@ with tempfile.TemporaryDirectory() as directory:
     (scratch / "Session.swift").write_text('import Foundation\nimport Combine\n' + '@MainActor' + session)
     (scratch / "Check.swift").write_text(r'''
 import Foundation
-struct AuthStatus { let authenticated: Bool }
+struct AuthStatus {
+  let authenticated: Bool
+  var email: String? = nil
+  var householdId: Int? = 1
+}
+// Stand-ins for the app types Session talks to.
+final class WatchConnectivityManager {
+  static let shared = WatchConnectivityManager()
+  func publishSession() {}
+}
+enum TourView {
+  static func isDue(_ prefs: [String: Any]) -> Bool { prefs["tour_done"] == nil }
+  static var isNewBuild: Bool { false }
+  static func noteBuild() {}
+}
+enum FeedbackTipView {
+  static func isBeta() async -> Bool { false }
+}
 @MainActor enum AuthAPI {
   static var responses: [Result<AuthStatus, Error>] = []
   static func status() async throws -> AuthStatus { try responses.removeFirst().get() }
@@ -55,5 +72,5 @@ struct AuthStatus { let authenticated: Bool }
   }
 }
 ''')
-    subprocess.run(["xcrun", "swiftc", "-module-cache-path", str(scratch / "cache"), str(root / "API.swift"), str(scratch / "Session.swift"), str(scratch / "Check.swift"), "-o", str(scratch / "check")], check=True)
+    subprocess.run(["xcrun", "swiftc", "-module-cache-path", str(scratch / "cache"), str(root / "API.swift"), str(root / "ResponseCache.swift"), str(scratch / "Session.swift"), str(scratch / "Check.swift"), "-o", str(scratch / "check")], check=True)
     subprocess.run([str(scratch / "check")], check=True)

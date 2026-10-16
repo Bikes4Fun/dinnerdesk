@@ -40,10 +40,20 @@ private kitchen identified by a random guest cookie. Expired sign-in sessions fa
 access. Creating an account keeps the guest kitchen and revokes its anonymous access. Forgot password works on the website and in the iOS app.
 
 The Quick start tour is optional: a short what-to-eat survey (diet, avoids, cook time, the same
-filters as Settings) and one screen each for Recipes, This week, Grocery, and Weekend prep.
+filters as Settings), a **How we use AI** screen, and one screen each for Recipes, This week,
+Grocery, and Weekend prep. How we use AI says plainly: recipe photos are AI-generated; recipes
+are not (they come from reliable sources); photos can be copyrighted and recipes can't, so we
+never copy photos; the AI runs on our own computer, not in a data center; and real photos will
+replace AI ones over time.
 
 - **Must:** offer Quick start or Skip on first visit; never block the app; replay from
-  Settings and More.
+  Settings and More. Offer it once more to everyone after a major update: raise
+  `TourView.version` (iPhone) and `TOUR_VERSION` (web/src/Tour.jsx) together. Finishing or
+  skipping saves `tour_version` in household prefs. On iPhone it also opens once on each new
+  build (CFBundleVersion changes, e.g. every TestFlight upload), per device, as What's new.
+- **Must (iPhone TestFlight):** before the tour, show once per device, and again after creating
+  an account, how to send a screenshot to the developer (Share Beta Feedback). Skipping the
+  tour doesn't skip it; More can show it again.
 - **Must not:** force the survey before browsing; bury Skip.
 - **Bug if:** skipping brings the tour back on the next visit, or saving filters writes a
   catalog recipe.
@@ -305,15 +315,16 @@ sign out everywhere live there too.
 - Photos: ours or the user's only, never third-party app photos. A catalog recipe is listed only once its
   steps are rewritten and it has a photo we may use (`data/recipe_photos.json`).
   A photo made with AI (`"ai_generated": true`, or a file named `…_ai-generated.png`) gets a
-  purple ★ tip on the recipe page saying so.
+  purple sparkle tip on the recipe page saying so.
   A photo taken for a different recipe (its entry's `recipe_id` isn't this recipe's archive id,
-  or `"shared_photo": true` with no `recipe_id`) gets a ★ tip saying it's from a similar recipe.
+  or `"shared_photo": true` with no `recipe_id`) gets a tip saying it's from a similar recipe.
 - Works at the largest text sizes: rows wrap or stack instead of breaking words; section headers
   stop pinning; menus and grids grow or drop to one column; nothing hides behind the tab bar.
 - Never show state by color alone.
-- Help text that explains a feature is a *tip* (purple ★), marked with `data-tip="<area>.<name>"`
-  so `scripts/list_tips.py` can list them. Draw new tips with `StarTip(id:)` on iPhone and
-  `<Tip id>` on the website: a purple ★ on the pale aubergine tint.
+- Help text that explains a feature is a *tip*: a purple sparkle star on a pale purple rounded
+  card, placed right beside the control or content it explains. Draw tips with `StarTip(id:)`
+  on iPhone and `<Tip id>` on the website; both carry the id so `scripts/list_tips.py` can list
+  them. Empty-state messages ("Nothing selected yet…") stay plain text, not tips.
 - Don't add menu items, tabs, or other navigation without an explicit product decision.
 - Errors are in plain words, on the screen they belong to, and say how to recover.
 - An `/api` request no route takes gets JSON (404 `not_found`, or 405 `method_not_allowed` with
