@@ -246,11 +246,7 @@ struct TourView: View {
   }
 
   private func chipButton(_ text: String, on: Bool, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      KitchenChip(text: text, count: nil, selected: on)
-    }
-    .buttonStyle(.plain)
-    .accessibilityAddTraits(on ? .isSelected : [])
+    FilterChip(label: text, on: on, action: action)
   }
 
   // MARK: How-to

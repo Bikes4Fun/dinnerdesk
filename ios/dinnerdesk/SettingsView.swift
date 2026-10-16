@@ -108,6 +108,8 @@ struct FiltersView: View {
   @State private var error: String?
 
   @State private var otherAllergenOpen = false
+  /// Which filter is showing its full list. The page otherwise shows only what is chosen.
+  @State private var openSection: String?
   /// "Saving…" then "Saved" after each change (#85), so a tap never looks like it did nothing.
   enum SaveState { case idle, saving, saved }
   @State private var saveState = SaveState.idle
@@ -129,77 +131,82 @@ struct FiltersView: View {
           .font(Theme.subtitle).foregroundStyle(Theme.muted)
           .fixedSize(horizontal: false, vertical: true)
 
-        filterBlock("Diet") {
+        quietSection("diet", "Diet", value: diets.map { Self.dietLabels[$0] ?? $0.capitalized }.sorted().joined(separator: ", ")) {
           ForEach(Self.diets, id: \.self) { item in
             FilterChip(label: Self.dietLabels[item] ?? item.capitalized, on: diets.contains(item)) { toggleDiet(item) }
           }
         }
 
-        filterBlock("Who it's for") {
-          ForEach(Self.who, id: \.0) { item in
-            FilterChip(label: item.1, on: who.contains(item.0)) {
-              if who.contains(item.0) { who.remove(item.0) } else { who.insert(item.0) }
-              save()
+        quietSection("who", "Who it's for") {
+          ForEach(Self.who.filter { who.contains($0.0) }, id: \.0) { item in
+            removableChip(item.1) { who.remove(item.0); save() }
+          }
+          if openSection == "who" {
+            ForEach(Self.who.filter { !who.contains($0.0) }, id: \.0) { item in
+              FilterChip(label: item.1, on: false) { who.insert(item.0); save() }
             }
           }
         }
 
-        filterBlock("Cuisines to suggest") {
-          ForEach(Self.cuisines, id: \.0) { item in
-            FilterChip(label: item.1, on: cuisines.contains(item.0)) {
-              if cuisines.contains(item.0) { cuisines.remove(item.0) } else { cuisines.insert(item.0) }
-              save()
+        quietSection("cuisines", "Cuisines") {
+          ForEach(Self.cuisines.filter { cuisines.contains($0.0) }, id: \.0) { item in
+            removableChip(item.1) { cuisines.remove(item.0); save() }
+          }
+          if openSection == "cuisines" {
+            ForEach(Self.cuisines.filter { !cuisines.contains($0.0) }, id: \.0) { item in
+              FilterChip(label: item.1, on: false) { cuisines.insert(item.0); save() }
             }
           }
         }
 
         if diets.contains("omnivore") || diets.contains("pescatarian") {
           let choices = Self.proteins.filter { diets.contains("omnivore") || $0.0 == "seafood" }
-          filterBlock("Offer more") {
-            ForEach(choices, id: \.0) { item in
-              FilterChip(label: item.1, on: proteinMore.contains(item.0)) {
-                if proteinMore.contains(item.0) { proteinMore.remove(item.0) } else { proteinMore.insert(item.0); proteinLess.remove(item.0) }
+          quietSection("proteins", "Proteins") {
+            ForEach(choices.filter { proteinMore.contains($0.0) || proteinLess.contains($0.0) }, id: \.0) { item in
+              let more = proteinMore.contains(item.0)
+              FilterChip(label: more ? "More \(item.1.lowercased())" : "Less \(item.1.lowercased())", on: true) {
+                if more {
+                  proteinMore.remove(item.0)
+                  proteinLess.insert(item.0)
+                } else {
+                  proteinLess.remove(item.0)
+                }
                 save()
               }
             }
-          }
-          filterBlock("Offer less") {
-            ForEach(choices, id: \.0) { item in
-              FilterChip(label: item.1, on: proteinLess.contains(item.0)) {
-                if proteinLess.contains(item.0) { proteinLess.remove(item.0) } else { proteinLess.insert(item.0); proteinMore.remove(item.0) }
-                save()
+            if openSection == "proteins" {
+              ForEach(choices.filter { !proteinMore.contains($0.0) && !proteinLess.contains($0.0) }, id: \.0) { item in
+                FilterChip(label: item.1, on: false) {
+                  proteinMore.insert(item.0)
+                  save()
+                }
               }
             }
           }
         }
 
-        filterBlock("Allergies") {
-          FilterChip(label: "None", on: allergens.isEmpty && otherAllergens.isEmpty) {
-            allergens = []
-            otherAllergens = []
-            otherAllergenOpen = false
-            save()
-          }
-          ForEach(Self.allergens, id: \.0) { item in
-            FilterChip(label: item.1, on: allergens.contains(item.0)) {
-              if allergens.contains(item.0) { allergens.remove(item.0) } else { allergens.insert(item.0) }
-              save()
-            }
+        quietSection("allergies", "Allergies") {
+          ForEach(Self.allergens.filter { allergens.contains($0.0) }, id: \.0) { item in
+            removableChip(item.1) { allergens.remove(item.0); save() }
           }
           ForEach(otherAllergens, id: \.self) { name in removableChip(name) { otherAllergens.removeAll { $0 == name }; save() } }
-          FilterChip(label: "Other", on: otherAllergenOpen) { otherAllergenOpen.toggle() }
-        } extra: {
-          if otherAllergenOpen {
-            OtherField(label: "Other allergies", selected: $otherAllergens) {
-              let known = Self.allergens.map(\.0)
-              allergens.formUnion(otherAllergens.filter { known.contains($0) })
-              otherAllergens.removeAll { known.contains($0) }
-              save()
+          if openSection == "allergies" {
+            ForEach(Self.allergens.filter { !allergens.contains($0.0) }, id: \.0) { item in
+              FilterChip(label: item.1, on: false) { allergens.insert(item.0); save() }
+            }
+            FilterChip(label: "Other", on: otherAllergenOpen) { otherAllergenOpen.toggle() }
+            if otherAllergenOpen {
+              OtherField(label: "Other allergies", selected: $otherAllergens) {
+                let known = Self.allergens.map(\.0)
+                allergens.formUnion(otherAllergens.filter { known.contains($0) })
+                otherAllergens.removeAll { known.contains($0) }
+                save()
+              }
             }
           }
         }
 
-        filterBlock("I avoid") {
+        quietSection("avoids", "I avoid") {
           ForEach(avoids.sorted() + otherAvoids, id: \.self) { name in
             removableChip(name) {
               avoids.remove(name)
@@ -207,18 +214,20 @@ struct FiltersView: View {
               save()
             }
           }
-        } extra: {
-          OtherField(label: "Foods to avoid", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
-            avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
-            otherAvoids.removeAll { Self.avoids.contains($0) }
-            save()
+          if openSection == "avoids" {
+            OtherField(label: "Foods to avoid", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+              avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
+              otherAvoids.removeAll { Self.avoids.contains($0) }
+              save()
+            }
           }
         }
 
-        filterBlock("Cook time") {
+        quietSection("time", "Cook time", value: Self.times.first { $0.id == time }?.label ?? "Any time") {
           ForEach(Self.times) { option in
             FilterChip(label: option.label, on: time == option.id) {
               time = option.id
+              openSection = nil
               save()
             }
           }
@@ -248,6 +257,34 @@ struct FiltersView: View {
       }
     }
     .task { await load() }
+  }
+
+  /// A short row. Diet and cook time show the current choice. The others show what is chosen plus Add.
+  private func quietSection<Content: View>(_ id: String, _ title: String, value: String? = nil, @ViewBuilder content: () -> Content) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text(title).font(Theme.body).foregroundStyle(Theme.ink)
+      if let value {
+        Button {
+          openSection = openSection == id ? nil : id
+        } label: {
+          HStack {
+            Text(value).font(Theme.subtitle).foregroundStyle(Theme.muted)
+            Spacer()
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(Theme.muted)
+              .rotationEffect(.degrees(openSection == id ? 90 : 0))
+          }
+        }
+        .buttonStyle(.plain)
+        if openSection == id { KitchenFlow(spacing: 6) { content() } }
+      } else {
+        KitchenFlow(spacing: 6) {
+          content()
+          if openSection != id {
+            FilterChip(label: "Add", on: false) { openSection = id }
+          }
+        }
+      }
+    }
   }
 
   private func filterBlock<Chips: View>(_ title: String, @ViewBuilder chips: () -> Chips) -> some View {
@@ -447,8 +484,8 @@ private struct OtherField: View {
   }
 }
 
-/// Taste Lab's chip: soft aubergine tint, filled aubergine when on.
-private struct FilterChip: View {
+/// Shared preference chip: pale tint, filled coral when on. Tour and Filters both use this.
+struct FilterChip: View {
   let label: String
   let on: Bool
   let action: () -> Void
@@ -456,13 +493,13 @@ private struct FilterChip: View {
   var body: some View {
     Button(action: action) {
       Text(label).font(Theme.chipLabel)
-        .foregroundStyle(on ? Theme.bg : Theme.ink)
+        .foregroundStyle(on ? Color.white : Theme.ink)
         .multilineTextAlignment(.leading)
         .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 13)
         .padding(.vertical, 9)
         .frame(minHeight: 40)
-        .background(on ? Theme.ink : Theme.aubergineTint, in: Capsule())
+        .background(on ? Theme.accent : Theme.aubergineTint, in: Capsule())
     }
     .buttonStyle(.plain)
     .accessibilityAddTraits(on ? .isSelected : [])

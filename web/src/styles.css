@@ -463,8 +463,8 @@ img { display: block; max-width: 100%; }
   color: var(--ink);
 }
 .chip.is-on {
-  background: var(--brand);
-  color: var(--bg);
+  background: var(--accent);
+  color: #fff;
 }
 .section-head {
   display: flex;

@@ -173,7 +173,7 @@ export function Tour() {
             <h2 id="tour-title">What to eat</h2>
             <p className="help" data-tip="tour.filters">Tap what fits. Change this later in Settings → Filters.</p>
             <h3 className="block-label">Diet</h3>
-            <div className="chip-row wrap">
+            <div className="chip-row wrap filter-chips">
               {DIETS.map((d) => (
                 <button
                   key={d}
@@ -186,7 +186,7 @@ export function Tour() {
               ))}
             </div>
             <h3 className="block-label">Avoid</h3>
-            <div className="chip-row wrap">
+            <div className="chip-row wrap filter-chips">
               <button type="button" className={`chip${avoids.length ? "" : " is-on"}`} onClick={() => setAvoids([])}>
                 none
               </button>
@@ -202,7 +202,7 @@ export function Tour() {
               ))}
             </div>
             <h3 className="block-label">Cook time</h3>
-            <div className="chip-row wrap">
+            <div className="chip-row wrap filter-chips">
               {TIMES.map(([id, label]) => (
                 <button
                   key={id}

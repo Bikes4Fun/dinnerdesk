@@ -151,7 +151,7 @@ function ChoiceBlock({ label, items, saved, onChange, otherLabel, compact }) {
       .filter(([id, text]) => q && text.toLowerCase().includes(q) && !saved.includes(id));
     return (
       <>
-        <h3 className="block-label">{label}</h3>
+        {label && <h3 className="block-label">{label}</h3>}
         <div className="chip-row wrap filter-chips">
           {saved.map((id) => {
             const named = items.find((item) => (Array.isArray(item) ? item[0] : item) === id);
@@ -179,7 +179,7 @@ function ChoiceBlock({ label, items, saved, onChange, otherLabel, compact }) {
   }
   return (
     <>
-      <h3 className="block-label">{label}</h3>
+      {label && <h3 className="block-label">{label}</h3>}
       <div className="chip-row wrap filter-chips">
         <button type="button" className={`chip${saved.length ? "" : " is-on"}`} aria-pressed={!saved.length} onClick={() => { setOpen(false); onChange([]); }}>
           None
@@ -214,6 +214,7 @@ export function Filters() {
   const [proteinLess, setProteinLess] = useState([]);
   const [err, setErr] = useState("");
   const [saveState, setSaveState] = useState(""); // "", "saving", "saved" (#85)
+  const [open, setOpen] = useState("");
   const saves = useRef(0);
 
   useEffect(() => {
@@ -271,61 +272,70 @@ export function Filters() {
         {err && <p className="banner err">{err}</p>}
         <p className="help">Diet, allergies, and avoids hide meals. Who, cuisine, and protein shape suggestions.</p>
         <h3 className="block-label">Diet</h3>
-        <div className="chip-row wrap filter-chips">
+        <button type="button" className="text-link" onClick={() => setOpen(open === "diet" ? "" : "diet")}>{diets.map((d) => DIET_LABELS[d] || d).join(", ")}</button>
+        {open === "diet" && <div className="chip-row wrap filter-chips">
           {DIETS.map((d) => (
-            <button
-              key={d}
-              type="button"
-              className={`chip${diets.includes(d) ? " is-on" : ""}`}
-              aria-pressed={diets.includes(d)}
-              onClick={() => setFilter({ diets: toggleDiet(diets, d) })}
-            >
-              {DIET_LABELS[d] || d}
-            </button>
+            <button key={d} type="button" className={`chip${diets.includes(d) ? " is-on" : ""}`} aria-pressed={diets.includes(d)} onClick={() => setFilter({ diets: toggleDiet(diets, d) })}>{DIET_LABELS[d] || d}</button>
           ))}
-        </div>
+        </div>}
         <h3 className="block-label">Who it's for</h3>
         <div className="chip-row wrap filter-chips">
-          {WHO.map(([id, text]) => (
-            <button key={id} type="button" className={`chip${who.includes(id) ? " is-on" : ""}`} aria-pressed={who.includes(id)} onClick={() => setFilter({ who: toggleAvoid(who, id) })}>{text}</button>
+          {WHO.filter(([id]) => who.includes(id)).map(([id, text]) => (
+            <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ who: who.filter((w) => w !== id) })}>{text} ×</button>
+          ))}
+          {open !== "who" && <button type="button" className="chip" onClick={() => setOpen("who")}>Add</button>}
+          {open === "who" && WHO.filter(([id]) => !who.includes(id)).map(([id, text]) => (
+            <button key={id} type="button" className="chip" onClick={() => setFilter({ who: [...who, id] })}>{text}</button>
           ))}
         </div>
-        <h3 className="block-label">Cuisines to suggest</h3>
+        <h3 className="block-label">Cuisines</h3>
         <div className="chip-row wrap filter-chips">
-          {CUISINES.map(([id, text]) => (
-            <button key={id} type="button" className={`chip${cuisines.includes(id) ? " is-on" : ""}`} aria-pressed={cuisines.includes(id)} onClick={() => setFilter({ cuisines: toggleAvoid(cuisines, id) })}>{text}</button>
+          {CUISINES.filter(([id]) => cuisines.includes(id)).map(([id, text]) => (
+            <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ cuisines: cuisines.filter((c) => c !== id) })}>{text} ×</button>
+          ))}
+          {open !== "cuisines" && <button type="button" className="chip" onClick={() => setOpen("cuisines")}>Add</button>}
+          {open === "cuisines" && CUISINES.filter(([id]) => !cuisines.includes(id)).map(([id, text]) => (
+            <button key={id} type="button" className="chip" onClick={() => setFilter({ cuisines: [...cuisines, id] })}>{text}</button>
           ))}
         </div>
         {(diets.includes("omnivore") || diets.includes("pescatarian")) && <>
-          <h3 className="block-label">Offer more</h3>
+          <h3 className="block-label">Proteins</h3>
           <div className="chip-row wrap filter-chips">
-            {PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood").map(([id, text]) => (
-              <button key={id} type="button" className={`chip${proteinMore.includes(id) ? " is-on" : ""}`} aria-pressed={proteinMore.includes(id)} onClick={() => setFilter({ protein_more: toggleAvoid(proteinMore, id), protein_less: proteinLess.filter((p) => p !== id) })}>{text}</button>
-            ))}
-          </div>
-          <h3 className="block-label">Offer less</h3>
-          <div className="chip-row wrap filter-chips">
-            {PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood").map(([id, text]) => (
-              <button key={id} type="button" className={`chip${proteinLess.includes(id) ? " is-on" : ""}`} aria-pressed={proteinLess.includes(id)} onClick={() => setFilter({ protein_less: toggleAvoid(proteinLess, id), protein_more: proteinMore.filter((p) => p !== id) })}>{text}</button>
+            {PROTEINS.filter(([id]) => (diets.includes("omnivore") || id === "seafood") && (proteinMore.includes(id) || proteinLess.includes(id))).map(([id, text]) => {
+              const more = proteinMore.includes(id);
+              return (
+                <button key={id} type="button" className="chip is-on" onClick={() => setFilter(more ? { protein_more: proteinMore.filter((p) => p !== id), protein_less: [...proteinLess, id] } : { protein_less: proteinLess.filter((p) => p !== id) })}>{more ? `More ${text.toLowerCase()}` : `Less ${text.toLowerCase()}`}</button>
+              );
+            })}
+            {open !== "proteins" && <button type="button" className="chip" onClick={() => setOpen("proteins")}>Add</button>}
+            {open === "proteins" && PROTEINS.filter(([id]) => (diets.includes("omnivore") || id === "seafood") && !proteinMore.includes(id) && !proteinLess.includes(id)).map(([id, text]) => (
+              <button key={id} type="button" className="chip" onClick={() => setFilter({ protein_more: [...proteinMore, id], protein_less: proteinLess.filter((p) => p !== id) })}>{text}</button>
             ))}
           </div>
         </>}
-        <ChoiceBlock label="Allergies" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />
-        <ChoiceBlock label="I avoid" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" compact onChange={(next) => setFilter({ avoids: next })} />
-        <h3 className="block-label">Cook time</h3>
+        <h3 className="block-label">Allergies</h3>
         <div className="chip-row wrap filter-chips">
-          {TIMES.map(([k, label]) => (
-            <button
-              key={k}
-              type="button"
-              className={`chip${time === k ? " is-on" : ""}`}
-              aria-pressed={time === k}
-              onClick={() => setFilter({ time: k })}
-            >
-              {label}
-            </button>
-          ))}
+          {allergens.map((id) => {
+            const named = ALLERGENS.find(([key]) => key === id);
+            const text = named ? named[1] : id;
+            return <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ allergens: allergens.filter((a) => a !== id) })}>{text} ×</button>;
+          })}
+          {open !== "allergies" && <button type="button" className="chip" onClick={() => setOpen("allergies")}>Add</button>}
         </div>
+        {open === "allergies" && <ChoiceBlock label="" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />}
+        <h3 className="block-label">I avoid</h3>
+        {open !== "avoids" && <div className="chip-row wrap filter-chips">
+          {avoids.map((id) => <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ avoids: avoids.filter((a) => a !== id) })}>{id} ×</button>)}
+          <button type="button" className="chip" onClick={() => setOpen("avoids")}>Add</button>
+        </div>}
+        {open === "avoids" && <ChoiceBlock label="" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" compact onChange={(next) => setFilter({ avoids: next })} />}
+        <h3 className="block-label">Cook time</h3>
+        <button type="button" className="text-link" onClick={() => setOpen(open === "time" ? "" : "time")}>{(TIMES.find(([k]) => k === time) || TIMES[0])[1]}</button>
+        {open === "time" && <div className="chip-row wrap filter-chips">
+          {TIMES.map(([k, label]) => (
+            <button key={k} type="button" className={`chip${time === k ? " is-on" : ""}`} aria-pressed={time === k} onClick={() => { setFilter({ time: k }); setOpen(""); }}>{label}</button>
+          ))}
+        </div>}
         <button type="button" className="btn-primary block" onClick={() => go("/recipes")}>
           Show recipes
         </button>
