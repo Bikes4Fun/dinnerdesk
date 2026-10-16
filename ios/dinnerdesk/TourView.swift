@@ -41,7 +41,7 @@ struct TourView: View {
   }
 
   // Text lives in shared/copy.json (tour.how.N.title / tour.how.N), shared with the website tour.
-  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "fork.knife", "sparkles", "applewatch", "hand.draw"].enumerated().map {
+  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "sparkles", "hand.draw"].enumerated().map {
     i, icon in
     HowStep(
       id: i, title: Copy.text("tour.how.\(i + 1).title"), systemImage: icon,
@@ -338,8 +338,8 @@ struct TourView: View {
   private static let shots = [0: "TourSuggestions", 1: "TourSchedule", 2: "TourDraft", 3: "TourStores"]
   /// The drawn picture for each remaining card (TourScreenPicture: 2 checked-off list, 3 prep).
   private static let drawings = [4: 2, 5: 3]
-  /// The card about tips shows a real one instead of a picture.
-  private static let tipsCard = 7
+  /// The tips & Apple Watch card shows a real tip instead of a picture.
+  private static let tipsCard = 6
 
   private static let howText = Font.custom("DMSans-Regular", size: 14, relativeTo: .subheadline)
 
