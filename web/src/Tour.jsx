@@ -13,8 +13,8 @@ import storesShot from "./images/tour-stores.jpg";
 const SHOTS = { 0: suggestionsShot, 1: scheduleShot, 2: draftShot, 3: storesShot };
 // The drawn picture for each remaining card (TourPicture: 2 checked-off list, 3 prep).
 const DRAWINGS = { 4: 2, 5: 3 };
-// The card about tips shows a real one instead of a picture.
-const TIPS_CARD = 7;
+// The tips & Apple Watch card shows a real tip instead of a picture.
+const TIPS_CARD = 6;
 
 const TIMES = [
   ["any", "Any time"],
@@ -44,19 +44,11 @@ const HOW = [
   },
   {
     title: "Weekend prep",
-    body: "Do the slow parts, like chopping and sauces, when you have spare time. Weeknight dinners then take less work but are still cooked fresh, without the same cold leftovers all week that full meal prep brings. Make-ahead steps from your plan show up here.",
+    body: "Prep your own meal kit, without the price or carbon footprint of a meal kit service. When you have spare time, measure, chop and make sauces ahead. On weeknights everything is ready in the right amounts. Just cook. Make-ahead steps from your plan show up here.",
   },
   {
-    title: "Recipes",
-    body: "Browse, search, and save Favorites or To try. Add your own recipe, or import one from a website.",
-  },
-  {
-    title: "Tips",
-    body: "Purple cards with a sparkle explain a feature right where you use it.",
-  },
-  {
-    title: "Apple Watch",
-    body: "See this plan and your grocery list on your wrist. Tap to check off groceries or mark a meal cooked.",
+    title: "Tips & Apple Watch",
+    body: "Purple cards with a sparkle explain a feature right where you use it. On Apple Watch, see this plan and your grocery list on your wrist, and tap to check off groceries or mark a meal cooked.",
   },
   {
     title: "Taste Lab",

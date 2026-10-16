@@ -334,8 +334,8 @@ struct TourView: View {
   private static let shots = [0: "TourSuggestions", 1: "TourSchedule", 2: "TourDraft", 3: "TourStores"]
   /// The drawn picture for each remaining card (TourScreenPicture: 2 checked-off list, 3 prep).
   private static let drawings = [4: 2, 5: 3]
-  /// The card about tips shows a real one instead of a picture.
-  private static let tipsCard = 7
+  /// The tips & Apple Watch card shows a real tip instead of a picture.
+  private static let tipsCard = 6
 
   private static let howText = Font.custom("DMSans-Regular", size: 14, relativeTo: .subheadline)
 
