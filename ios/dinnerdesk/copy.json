@@ -18,7 +18,7 @@
   "feedback-tip.4.title": "Add a note and send",
   "feedback-tip.4": "Say what you expected to happen. It goes straight to the developer with your screenshot.",
   "tour.update.title": "What’s new in {app}",
-  "tour.update": "We’ve made some big changes. Take the quick start to see what’s new, or skip it for now.",
+  "tour.update": "Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.",
   "tour.welcome": "Quick start walks through eat and how. Taste Lab is the swipe kitchen. Skip anytime.",
   "tour.filters": "Tap what fits. Change this later in Settings → Filters.",
   "tour.ai.title": "How we use AI",

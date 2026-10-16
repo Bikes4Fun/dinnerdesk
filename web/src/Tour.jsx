@@ -148,7 +148,7 @@ export function Tour() {
             <h2 id="tour-title">{isUpdate ? "What’s new in Dinnerdesk" : "Welcome to Dinnerdesk"}</h2>
             {isUpdate ? (
               <p className="help" data-tip="tour.update">
-                We’ve made some big changes. Take the quick start to see what’s new, or skip it for now.
+                Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.
               </p>
             ) : (
               <p className="help" data-tip="tour.welcome">
