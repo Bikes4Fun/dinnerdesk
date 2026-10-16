@@ -265,6 +265,9 @@ img { display: block; max-width: 100%; }
 .tour-points span {
   color: var(--muted);
 }
+.tour-more {
+  margin: 0 0 1.1rem;
+}
 .tour-skip {
   display: block;
   width: 100%;

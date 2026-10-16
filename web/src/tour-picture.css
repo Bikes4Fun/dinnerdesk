@@ -29,3 +29,30 @@
 .tp-qty { flex: none; width: 26px; height: 7px; border-radius: 999px; background: var(--line); }
 .tp-check { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; border: 1.5px solid var(--muted); font-size: 9px; color: var(--surface); }
 .tp-check.on { border-color: var(--accent); background: var(--accent); }
+
+/* The suggestions card uses a real screenshot instead of a drawing. */
+.tour-shot {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: min(62vh, 34rem);
+  margin: 4px auto 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+/* Smaller how-to text so the picture gets the room. */
+.tour-how-text { font-size: 0.9rem; }
+/* Points at the button that opens suggestions, drawn like the real one with a ring. */
+.tour-tap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 0.9rem; }
+.tour-fake-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 0 0 4px var(--surface), 0 0 0 7px rgba(194, 70, 42, 0.45);
+}

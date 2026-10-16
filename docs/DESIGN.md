@@ -47,7 +47,9 @@ never copy photos; the AI runs on our own computer, not in a data center; and re
 replace AI ones over time.
 
 - **Must:** offer Quick start or Skip on first visit; never block the app; replay from
-  Settings and More.
+  Settings and More. Offer it once more to everyone after a major update: raise
+  `TourView.version` (iPhone) and `TOUR_VERSION` (web/src/Tour.jsx) together. Finishing or
+  skipping saves `tour_version` in household prefs.
 - **Must (iPhone TestFlight):** before the tour, show once per device, and again after creating
   an account, how to send a screenshot to the developer (Share Beta Feedback). Skipping the
   tour doesn't skip it; More can show it again.

@@ -43,6 +43,7 @@ struct FeedbackTipView: View {
               }
             }
             .accessibilityElement(children: .combine)
+            if step.id == 3 { screenshots }
           }
         }
         .padding(24)
@@ -63,6 +64,34 @@ struct FeedbackTipView: View {
     }
     .background(Theme.bg)
     .presentationDragIndicator(.visible)
+  }
+
+  /// The two ways to reach Share Beta Feedback, side by side, each with its full screenshot.
+  private var screenshots: some View {
+    HStack(alignment: .top, spacing: 12) {
+      way("A", text: "feedback-tip.3.done", image: "FeedbackDoneMenu")
+      way("B", text: "feedback-tip.3.share", image: "FeedbackShareSheet")
+    }
+    .padding(.leading, 42)
+  }
+
+  private func way(_ letter: String, text: String, image: String) -> some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Way \(letter)")
+        .font(Theme.chipLabel)
+        .foregroundStyle(Theme.accent)
+      Text(Copy.text(text))
+        .font(Theme.subtitle)
+        .foregroundStyle(Theme.ink)
+        .fixedSize(horizontal: false, vertical: true)
+      Image(image)
+        .resizable()
+        .scaledToFit()
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityHidden(true)
+    }
+    .frame(maxWidth: .infinity, alignment: .topLeading)
+    .accessibilityElement(children: .combine)
   }
 
   /// True in TestFlight (and when running from Xcode), where Share Beta Feedback is available.
