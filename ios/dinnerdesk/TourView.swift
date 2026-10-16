@@ -20,6 +20,19 @@ struct TourView: View {
   /// Does this household still need to see the current tour?
   static func isDue(_ prefs: [String: Any]) -> Bool { seen(prefs) < version }
 
+  // Every new build (each TestFlight upload) opens the tour once on this device, as What's new.
+  private static let buildKey = "dinnerdesk.tourBuild"
+  private static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
+
+  /// This device saw the tour (or was checked) on an earlier build.
+  static var isNewBuild: Bool {
+    guard let last = UserDefaults.standard.string(forKey: buildKey) else { return false }
+    return last != build
+  }
+
+  /// Remember this build, so the tour waits for the next one.
+  static func noteBuild() { UserDefaults.standard.set(build, forKey: buildKey) }
+
   private struct HowStep: Identifiable {
     let id: Int
     let title: String
@@ -387,7 +400,7 @@ struct TourView: View {
     do {
       let prefs = try await KitchenAPI.prefs()
       let seen = Self.seen(prefs)
-      isUpdate = seen > 0 && seen < Self.version
+      isUpdate = (seen > 0 && seen < Self.version) || Self.isNewBuild
       guard let saved = prefs["filters"] as? [String: Any] else { return }
       if let d = saved["diets"] as? [String], !d.isEmpty { diets = FiltersView.cleaned(d) }
       if let a = saved["avoids"] as? [String] { avoids = Set(a) }
@@ -397,6 +410,7 @@ struct TourView: View {
 
   @discardableResult
   private func markDone(filters: [String: Any]?) async -> Bool {
+    Self.noteBuild()
     var patch: [String: Any] = ["tour_done": true, "tour_version": Self.version]
     if let filters { patch["filters"] = filters }
     do {

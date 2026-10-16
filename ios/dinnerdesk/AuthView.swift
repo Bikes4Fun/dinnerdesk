@@ -33,7 +33,8 @@ final class Session: ObservableObject {
   @Published var showFeedbackTip = false
 
   /// First run: the feedback tip once on this device (TestFlight only), then the tour once if the
-  /// household hasn't finished or skipped the current version (TourView.version).
+  /// household hasn't finished or skipped the current version (TourView.version), or this device
+  /// is on a new build.
   func checkTour() async {
     guard let status, !needsSignIn else { return }
     let key = "\(status.householdId ?? 0)"
@@ -41,7 +42,12 @@ final class Session: ObservableObject {
       do {
         let prefs = try await KitchenAPI.prefs()
         tourCheckedFor = key
-        if TourView.isDue(prefs) { tourPending = true }
+        if TourView.isDue(prefs) || TourView.isNewBuild {
+          tourPending = true
+        } else {
+          // Nothing due: start counting from this build, so the next build opens the tour.
+          TourView.noteBuild()
+        }
       } catch {
         guard !API.isCancellation(error) else { return }
         loadError = KitchenAPI.message(error)

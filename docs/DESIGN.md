@@ -49,7 +49,8 @@ replace AI ones over time.
 - **Must:** offer Quick start or Skip on first visit; never block the app; replay from
   Settings and More. Offer it once more to everyone after a major update: raise
   `TourView.version` (iPhone) and `TOUR_VERSION` (web/src/Tour.jsx) together. Finishing or
-  skipping saves `tour_version` in household prefs.
+  skipping saves `tour_version` in household prefs. On iPhone it also opens once on each new
+  build (CFBundleVersion changes, e.g. every TestFlight upload), per device, as What's new.
 - **Must (iPhone TestFlight):** before the tour, show once per device, and again after creating
   an account, how to send a screenshot to the developer (Share Beta Feedback). Skipping the
   tour doesn't skip it; More can show it again.
