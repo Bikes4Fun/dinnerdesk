@@ -510,6 +510,8 @@ _CUISINE_CATEGORY = {
     "asian": "asian",
     "american": "comfort",
     "mediterranean": "mediterranean",
+    "curry": "curry",
+    "healthy": "healthy",
 }
 _PROTEIN_WORDS = {
     "chicken": ("chicken",),
@@ -517,6 +519,10 @@ _PROTEIN_WORDS = {
     "pork": ("pork",),
     "seafood": ("salmon", "shrimp", "fish", "cod", "tuna", "scallop", "crab"),
     "turkey": ("turkey",),
+    "lamb": ("lamb",),
+    "venison": ("venison",),
+    "quail": ("quail",),
+    "duck": ("duck",),
 }
 
 
