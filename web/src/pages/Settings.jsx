@@ -108,7 +108,7 @@ const TIMES = [
 const DIET_LABELS = { omnivore: "Omnivore", pescatarian: "Pescatarian", vegetarian: "Vegetarian", vegan: "Vegan", "gluten-free": "Gluten-free", "dairy-free": "Dairy-free" };
 
 /** Chips for a list plus an Other box for words not on it. Saves the whole list. */
-function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, skip = [], quietEmpty = false }) {
+function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, skip = [], quietEmpty = false, placeholder, dashed = false, presets = [] }) {
   const [ownQuery, setOwnQuery] = useState("");
   const q = query ?? ownQuery;
   const setQ = onQuery ?? setOwnQuery;
@@ -128,11 +128,13 @@ function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, sk
     return () => { active = false; clearTimeout(timer); };
   }, [q]);
   const controlled = query != null;
+  const presetHits = presets.filter((name) => q.trim() && name.toLowerCase().includes(q.trim().toLowerCase()) && !selected.includes(name));
   return <div className="filter-food-picker">
-    {!controlled && <div className="chip-row wrap">{selected.map((name) => <button type="button" className="chip is-on" key={name} aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>{name} ×</button>)}</div>}
-    {!controlled && <label><input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods, e.g. bell peppers or ground" value={q} onChange={(event) => setQ(event.target.value)} /></label>}
+    {!controlled && !dashed && <div className="chip-row wrap">{selected.map((name) => <button type="button" className="chip is-on" key={name} aria-label={`Remove ${name}`} onClick={() => onRemove(name)}>{name} ×</button>)}</div>}
+    {!controlled && <label><input className={dashed ? "filter-search" : "field"} aria-label={`Search ${label.toLowerCase()}`} placeholder={placeholder || "Search foods, e.g. bell peppers or ground"} value={q} onChange={(event) => setQ(event.target.value)} /></label>}
     {loading && <p role="status">Searching…</p>}
     {error && <p role="alert">{error}</p>}
+    {presetHits.length > 0 && <div className="chip-row wrap filter-chips">{presetHits.map((name) => <button type="button" className="filter-choice" key={name} onClick={() => { onAdd(name); setQ(""); }}>+ {name}</button>)}</div>}
     {/* Matches as chips (#85): tap one to add it. */}
     <div className="chip-row wrap filter-food-results">{matches.filter((name) => !selected.includes(name) && !skip.includes(name.toLowerCase())).map((name) => <button type="button" className="chip" key={name} aria-label={`Add ${name}`} onClick={() => { onAdd(name); setQ(""); }}>+ {name}</button>)}</div>
     {!quietEmpty && !loading && !error && q.trim() && !matches.length && <p role="status">No matching foods. Try another name.</p>}
@@ -236,10 +238,10 @@ export function Filters() {
 
   // The server merges filters, so send only what changed.
   async function setFilter(patch) {
-    if (patch.diets) setDiets(patch.diets);
-    if (patch.allergens) setAllergens(patch.allergens);
-    if (patch.avoids) setAvoids(patch.avoids);
-    if (patch.time) setTime(patch.time);
+    if ("diets" in patch) setDiets(patch.diets);
+    if ("allergens" in patch) setAllergens(patch.allergens);
+    if ("avoids" in patch) setAvoids(patch.avoids);
+    if ("time" in patch) setTime(patch.time);
     if ("who" in patch) setWho(patch.who);
     if ("cuisines" in patch) setCuisines(patch.cuisines);
     if ("protein_more" in patch) setProteinMore(patch.protein_more);
@@ -259,87 +261,99 @@ export function Filters() {
     }
   }
 
+  const showProteins = diets.includes("omnivore") || diets.includes("pescatarian");
+  const proteinChoices = PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood");
+  const filterCount = (diets.length === 1 && diets[0] === "omnivore" ? 0 : 1)
+    + allergens.length + avoids.length + who.length + cuisines.length
+    + proteinMore.length + proteinLess.length + (time === "any" ? 0 : 1);
+  function reset() {
+    setFilter({
+      diets: ["omnivore"], allergens: [], avoids: [], time: "any",
+      who: [], cuisines: [], protein_more: [], protein_less: [],
+    });
+  }
+  function choice(label, on, pick) {
+    return <button type="button" className={`filter-choice${on ? " is-on" : ""}`} aria-pressed={on} onClick={pick}>{label}</button>;
+  }
+
   return (
-    <section className="screen">
+    <section className="screen filters-screen">
       <header className="top sub">
         <button type="button" className="icon-btn" onClick={() => go("/settings")} aria-label="Back">
           ←
         </button>
         <h1>Filters</h1>
+        <button type="button" className="text-link" onClick={reset}>Reset</button>
         <span className="save-state" role="status" aria-live="polite">{saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : ""}</span>
       </header>
-      <div className="scroll pad">
+      <div className="scroll pad filters-body">
         {err && <p className="banner err">{err}</p>}
-        <p className="help">Diet, allergies, and avoids hide meals. Who, cuisine, and protein shape suggestions.</p>
-        <h3 className="block-label">Diet</h3>
-        <button type="button" className="text-link" onClick={() => setOpen(open === "diet" ? "" : "diet")}>{diets.map((d) => DIET_LABELS[d] || d).join(", ")}</button>
-        {open === "diet" && <div className="chip-row wrap filter-chips">
-          {DIETS.map((d) => (
-            <button key={d} type="button" className={`chip${diets.includes(d) ? " is-on" : ""}`} aria-pressed={diets.includes(d)} onClick={() => setFilter({ diets: toggleDiet(diets, d) })}>{DIET_LABELS[d] || d}</button>
-          ))}
-        </div>}
-        <h3 className="block-label">Who it's for</h3>
-        <div className="chip-row wrap filter-chips">
-          {WHO.filter(([id]) => who.includes(id)).map(([id, text]) => (
-            <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ who: who.filter((w) => w !== id) })}>{text} ×</button>
-          ))}
-          {open !== "who" && <button type="button" className="chip" onClick={() => setOpen("who")}>Add</button>}
-          {open === "who" && WHO.filter(([id]) => !who.includes(id)).map(([id, text]) => (
-            <button key={id} type="button" className="chip" onClick={() => setFilter({ who: [...who, id] })}>{text}</button>
-          ))}
-        </div>
-        <h3 className="block-label">Cuisines</h3>
-        <div className="chip-row wrap filter-chips">
-          {CUISINES.filter(([id]) => cuisines.includes(id)).map(([id, text]) => (
-            <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ cuisines: cuisines.filter((c) => c !== id) })}>{text} ×</button>
-          ))}
-          {open !== "cuisines" && <button type="button" className="chip" onClick={() => setOpen("cuisines")}>Add</button>}
-          {open === "cuisines" && CUISINES.filter(([id]) => !cuisines.includes(id)).map(([id, text]) => (
-            <button key={id} type="button" className="chip" onClick={() => setFilter({ cuisines: [...cuisines, id] })}>{text}</button>
-          ))}
-        </div>
-        {(diets.includes("omnivore") || diets.includes("pescatarian")) && <>
-          <h3 className="block-label">Proteins</h3>
+        <div className="filters-card">
+          <div className="filters-kicker">
+            <span className="filters-badge hide">Hides meals</span>
+            <span>Strict — never shown</span>
+          </div>
+          <h2>Diet</h2>
           <div className="chip-row wrap filter-chips">
-            {PROTEINS.filter(([id]) => (diets.includes("omnivore") || id === "seafood") && (proteinMore.includes(id) || proteinLess.includes(id))).map(([id, text]) => {
-              const more = proteinMore.includes(id);
-              return (
-                <button key={id} type="button" className="chip is-on" onClick={() => setFilter(more ? { protein_more: proteinMore.filter((p) => p !== id), protein_less: [...proteinLess, id] } : { protein_less: proteinLess.filter((p) => p !== id) })}>{more ? `More ${text.toLowerCase()}` : `Less ${text.toLowerCase()}`}</button>
-              );
-            })}
-            {open !== "proteins" && <button type="button" className="chip" onClick={() => setOpen("proteins")}>Add</button>}
-            {open === "proteins" && PROTEINS.filter(([id]) => (diets.includes("omnivore") || id === "seafood") && !proteinMore.includes(id) && !proteinLess.includes(id)).map(([id, text]) => (
-              <button key={id} type="button" className="chip" onClick={() => setFilter({ protein_more: [...proteinMore, id], protein_less: proteinLess.filter((p) => p !== id) })}>{text}</button>
+            {DIETS.map((d) => choice(DIET_LABELS[d] || d, diets.includes(d), () => setFilter({ diets: toggleDiet(diets, d) })))}
+          </div>
+          <h2>Allergies</h2>
+          <div className="chip-row wrap filter-chips">
+            {ALLERGENS.map(([id, text]) => choice(text, allergens.includes(id), () => setFilter({ allergens: allergens.includes(id) ? allergens.filter((a) => a !== id) : [...allergens, id] })))}
+            {allergens.filter((id) => !ALLERGENS.some(([key]) => key === id)).map((id) => choice(`${id} ×`, true, () => setFilter({ allergens: allergens.filter((a) => a !== id) })))}
+            {choice("Other", open === "allergies", () => setOpen(open === "allergies" ? "" : "allergies"))}
+          </div>
+          {open === "allergies" && <FoodFilterPicker label="Other allergies" selected={allergens.filter((id) => !ALLERGENS.some(([key]) => key === id))} onAdd={(name) => setFilter({ allergens: [...new Set([...allergens, name])] })} onRemove={(name) => setFilter({ allergens: allergens.filter((a) => a !== name) })} />}
+          <h2>I avoid</h2>
+          <div className="chip-row wrap filter-chips">
+            {avoids.map((id) => choice(`${id} ×`, true, () => setFilter({ avoids: avoids.filter((a) => a !== id) })))}
+          </div>
+          <FoodFilterPicker label="Foods to avoid" selected={avoids} placeholder="Add an ingredient…" dashed presets={AVOIDS} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />
+        </div>
+        <div className="filters-soft">
+          <div className="filters-kicker">
+            <span className="filters-badge">Shapes suggestions</span>
+            <span>Show me more of these</span>
+          </div>
+          <h2>Who it's for</h2>
+          <div className="chip-row wrap filter-chips">
+            {WHO.map(([id, text]) => choice(text, who.includes(id), () => setFilter({ who: who.includes(id) ? who.filter((w) => w !== id) : [...who, id] })))}
+          </div>
+          {showProteins && <>
+            <h2>Proteins</h2>
+            <div className="filter-tiles">
+              {proteinChoices.map(([id, text]) => {
+                const more = proteinMore.includes(id);
+                const less = proteinLess.includes(id);
+                const label = more ? `More ${text.toLowerCase()}` : less ? `Less ${text.toLowerCase()}` : text;
+                return (
+                  <button key={id} type="button" className={`filter-tile${more || less ? " is-on" : ""}`} aria-pressed={more || less} onClick={() => setFilter(more ? { protein_more: proteinMore.filter((p) => p !== id), protein_less: [...proteinLess, id] } : less ? { protein_less: proteinLess.filter((p) => p !== id) } : { protein_more: [...proteinMore, id], protein_less: proteinLess.filter((p) => p !== id) })}>
+                    <span>{label}</span>
+                    <span className="filter-check" aria-hidden="true">✓</span>
+                  </button>
+                );
+              })}
+            </div>
+          </>}
+          <h2>Cuisines</h2>
+          <div className="chip-row wrap filter-chips">
+            {CUISINES.map(([id, text]) => choice(text, cuisines.includes(id), () => setFilter({ cuisines: cuisines.includes(id) ? cuisines.filter((c) => c !== id) : [...cuisines, id] })))}
+          </div>
+          <h2>Cook time</h2>
+          <div className="filter-time" role="radiogroup" aria-label="Cook time">
+            {[["any", "Any"], ["30", "30 min"], ["45", "45 min"]].map(([k, label]) => (
+              <button key={k} type="button" role="radio" aria-checked={time === k} className={time === k ? "is-on" : ""} onClick={() => setFilter({ time: k })}>{label}</button>
             ))}
           </div>
-        </>}
-        <h3 className="block-label">Allergies</h3>
-        <div className="chip-row wrap filter-chips">
-          {allergens.map((id) => {
-            const named = ALLERGENS.find(([key]) => key === id);
-            const text = named ? named[1] : id;
-            return <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ allergens: allergens.filter((a) => a !== id) })}>{text} ×</button>;
-          })}
-          {open !== "allergies" && <button type="button" className="chip" onClick={() => setOpen("allergies")}>Add</button>}
         </div>
-        {open === "allergies" && <ChoiceBlock label="" items={ALLERGENS} saved={allergens} otherLabel="Other allergies" onChange={(next) => setFilter({ allergens: next })} />}
-        <h3 className="block-label">I avoid</h3>
-        {open !== "avoids" && <div className="chip-row wrap filter-chips">
-          {avoids.map((id) => <button key={id} type="button" className="chip is-on" onClick={() => setFilter({ avoids: avoids.filter((a) => a !== id) })}>{id} ×</button>)}
-          <button type="button" className="chip" onClick={() => setOpen("avoids")}>Add</button>
-        </div>}
-        {open === "avoids" && <ChoiceBlock label="" items={AVOIDS} saved={avoids} otherLabel="Other foods to avoid" compact onChange={(next) => setFilter({ avoids: next })} />}
-        <h3 className="block-label">Cook time</h3>
-        <button type="button" className="text-link" onClick={() => setOpen(open === "time" ? "" : "time")}>{(TIMES.find(([k]) => k === time) || TIMES[0])[1]}</button>
-        {open === "time" && <div className="chip-row wrap filter-chips">
-          {TIMES.map(([k, label]) => (
-            <button key={k} type="button" className={`chip${time === k ? " is-on" : ""}`} aria-pressed={time === k} onClick={() => { setFilter({ time: k }); setOpen(""); }}>{label}</button>
-          ))}
-        </div>}
-        <button type="button" className="btn-primary block" onClick={() => go("/recipes")}>
-          Show recipes
-        </button>
       </div>
+      <footer className="filters-footer">
+        <button type="button" className="text-link" onClick={reset}>Clear all</button>
+        <button type="button" className="filters-show" onClick={() => go("/recipes")}>
+          Show meals
+          <span>{filterCount === 0 ? "All" : filterCount === 1 ? "1 filter" : `${filterCount} filters`}</span>
+        </button>
+      </footer>
     </section>
   );
 }
