@@ -67,6 +67,10 @@ struct SettingsView: View {
 /// This is the only filter system: the website and Taste Lab edit the same lists
 /// (app/domain/diet_filter.py; a test keeps these copies equal).
 struct FiltersView: View {
+  /// Set by the Quick start tour: the main button says this and calls onDone instead of
+  /// showing Recipes, and Reset stays off the toolbar (the tour has Skip there).
+  var doneTitle: String? = nil
+  var onDone: (() async -> Void)? = nil
   @EnvironmentObject private var store: Store
   @Environment(\.selectTab) private var selectTab
   static let diets = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
@@ -192,10 +196,12 @@ struct FiltersView: View {
     .navigationTitle("Filters")
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
-      ToolbarItem(placement: .topBarTrailing) {
-        Button("Reset") { resetFilters() }
-          .font(Theme.action)
-          .foregroundStyle(Theme.accent)
+      if onDone == nil {
+        ToolbarItem(placement: .topBarTrailing) {
+          Button("Reset") { resetFilters() }
+            .font(Theme.action)
+            .foregroundStyle(Theme.accent)
+        }
       }
     }
     .task { await load() }
@@ -530,10 +536,18 @@ struct FiltersView: View {
         .font(.custom("DMSans-SemiBold", size: 16, relativeTo: .body))
         .foregroundStyle(Theme.accent)
       Button {
-        selectTab(.recipes)
+        if let onDone {
+          // Let the last change finish saving first.
+          Task {
+            await saveTask?.value
+            await onDone()
+          }
+        } else {
+          selectTab(.recipes)
+        }
       } label: {
         HStack(spacing: 10) {
-          Text("Show meals")
+          Text(doneTitle ?? "Show meals")
           Text(filterCount == 0 ? "All" : filterCount == 1 ? "1 filter" : "\(filterCount) filters")
             .font(Theme.count)
             .foregroundStyle(Theme.ink)
