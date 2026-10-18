@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recipe reports</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #fcfcfb; --ink: #0b0b0b; --muted: #52514e; --line: #e3dfd8; --chip: #efece6;
+    --accent: #2a78d6; --flag: #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --card: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --line: #35322d; --chip: #2c2a26;
+            --accent: #3987e5; --flag: #e66767; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  h2 { font-size: 17px; margin: 0; }
+  h3 { font-size: 12px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .filters button, .filters select { border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    border-radius: 999px; padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .savebar { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .savebar button { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .savebar span { color: var(--muted); font-size: 12px; }
+  .panel, .recipe { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .recipe-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+  .recipe-head .count { color: var(--muted); font-size: 13px; }
+  .report { border-left: 4px solid var(--flag); padding: 8px 12px; margin-top: 12px; background: var(--bg); border-radius: 8px; }
+  .report[data-status="done"], .report[data-status="later"], .report[data-status="wontfix"], .report[data-status="ok"] { opacity: .75; }
+  .report[data-status="rereview"] { border-left-color: var(--accent); }
+  .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 13px; color: var(--muted); }
+  .reason { font-weight: 650; color: var(--ink); }
+  .complaint { margin: 6px 0; }
+  .complaint.empty { color: var(--muted); font-style: italic; font-size: 13px; }
+  .check { font-size: 13px; margin: 6px 0; }
+  .ok { color: var(--accent); font-weight: 600; }
+  .warn { color: var(--flag); font-weight: 600; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 4px; padding: 0 7px; margin: 1px 4px 1px 0; font-size: 12px; }
+  .chip.hit { box-shadow: inset 0 0 0 1px var(--flag); }
+  details { margin-top: 6px; font-size: 13px; }
+  details summary { cursor: pointer; color: var(--muted); }
+  details ul, details ol { margin: 6px 0 0; padding-left: 20px; }
+  .amounts { color: var(--muted); white-space: pre-line; display: block; }
+  .mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; margin-top: 8px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .mine .who { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); align-self: center; }
+  .mine select, .mine textarea, #plans { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; font: inherit; font-size: 13px; padding: 5px 8px; }
+  .mine textarea { flex: 1 1 280px; min-height: 34px; resize: vertical; }
+  #plans { width: 100%; min-height: 100px; resize: vertical; }
+  .emptystate { color: var(--muted); padding: 24px 0; text-align: center; }
+  .home { display: inline-block; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: 8px; }
+</style>
+</head>
+<body>
+<main>
+  <a class="home" href="/">← Dinnerdesk</a>
+  <h1>Recipe reports</h1>
+  <p class="sub" id="sub"></p>
+  <div class="filters" role="group" aria-label="Filter">
+    <button data-f="all" aria-pressed="true">All</button>
+    <button data-f="open" aria-pressed="false">Not dealt with</button>
+    <button data-f="todo" aria-pressed="false">My to-fix list</button>
+    <select id="reason" aria-label="Reason"></select>
+    <div class="savebar"><span id="saved"></span><button id="export">Export my notes</button></div>
+  </div>
+  <section class="panel"><h3>My plans</h3>
+    <textarea id="plans" placeholder="Recipes to fix, filter words to add, patterns across reports…"></textarea></section>
+  <div id="list"></div>
+</main>
+<script>
+const DATA = /*DATA*/null;
+const KEY = "dinnerdesk-recipe-reports-review-v1";
+// Same wording the app shows (web/src/pages/Recipe.jsx REPORT_REASONS).
+const REASONS = { ingredients: "Ingredients are wrong or missing", steps: "Steps are wrong or confusing",
+  diet: "Shows up despite my diet or allergies", photo: "Photo doesn't match", duplicate: "Duplicate of another recipe",
+  turned_out: "Didn't turn out well", other: "Something else" };
+const STATUSES = [["", "No status"], ["todo", "To fix"], ["later", "Defer for later"], ["rereview", "Re-review"], ["idea", "Idea"],
+                  ["done", "Fixed"], ["wontfix", "Won't fix"], ["ok", "Working as intended"]];
+let mine = { reports: {}, plans: "", ...(DATA.review || {}) };
+try { const local = JSON.parse(localStorage.getItem(KEY) || "null"); if (local && (local.saved_at || "") > (mine.saved_at || "")) mine = local; } catch (e) {}
+let show = "all", reason = "";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const chips = (items, cls = "") => (items && items.length) ? items.map(i => `<span class="chip ${cls}">${esc(i)}</span>`).join("") : `<span class="sub">none</span>`;
+
+function persist() {
+  mine.saved_at = new Date().toISOString();
+  try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch (e) {}
+  document.getElementById("saved").textContent = "saved in this browser";
+}
+document.getElementById("reason").innerHTML = `<option value="">All reasons</option>` +
+  Object.entries(REASONS).map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("");
+
+// How the recipe stood against this household's filters when they reported it.
+function filterCheck(s) {
+  if (!s) return "";
+  const f = s.filters || {};
+  return `<div class="check">
+    ${s.passes_diets_and_allergies === false
+      ? `<span class="warn">Breaks their diet or allergies</span>: ${chips(s.matched_diet_or_allergy_words, "hit")} <span class="sub">(the filter should have hidden it)</span>`
+      : `<span class="ok">Passes their diets and allergies</span>`}
+    ${(s.matched_avoid_words || []).length ? ` · has avoided ${chips(s.matched_avoid_words, "hit")}` : ""}
+    <div class="sub">Their filters: diets ${chips(f.diets)} allergies ${chips(f.allergens)} avoids ${chips(f.avoids)}</div></div>`;
+}
+
+function recipeAsSeen(s) {
+  const r = s?.recipe;
+  if (!r) return "";
+  const ings = (r.ingredients || []).map(i => `<li>${esc([i.quantity, i.name].filter(Boolean).join(" "))}</li>`).join("");
+  const steps = (r.instructions || []).map(st => `<li>${esc(st.text || st.step || st)}${st.ings ? `<span class="amounts">${esc(st.ings)}</span>` : ""}</li>`).join("");
+  return `<details><summary>The recipe as they saw it${r.edited ? " (with their edits)" : ""}: ${(r.ingredients || []).length} ingredients, ${(r.instructions || []).length} steps</summary>
+    <h3 style="margin-top:8px">Ingredients</h3><ul>${ings}</ul><h3 style="margin-top:8px">Steps</h3><ol>${steps}</ol>
+    ${(r.tags || []).length ? `<p>${chips(r.tags)}</p>` : ""}</details>`;
+}
+
+function myNotes(r) {
+  const m = mine.reports[r.id] || {};
+  return `<div class="mine"><span class="who">My notes</span>
+    <select data-k="status" aria-label="Status">${STATUSES.map(([k, l]) => `<option value="${k}"${(m.status || "") === k ? " selected" : ""}>${l}</option>`).join("")}</select>
+    <textarea data-k="note" placeholder="What to fix…" aria-label="My note">${esc(m.note || "")}</textarea></div>`;
+}
+
+function render() {
+  const hh = new Set(DATA.reports.map(r => r.household_id));
+  const dates = DATA.reports.map(r => r.created_at).sort();
+  document.getElementById("sub").textContent = DATA.reports.length
+    ? `${DATA.reports.length} reports on ${new Set(DATA.reports.map(r => r.recipe_id)).size} recipes from ${hh.size} households, ${dates[0].slice(0, 10)} to ${dates.at(-1).slice(0, 10)} · ${DATA.source}`
+    : `No reports yet · ${DATA.source}`;
+  const closed = new Set(["done", "wontfix", "ok"]);
+  const shown = DATA.reports.filter(r => {
+    const st = (mine.reports[r.id] || {}).status || "";
+    return (!reason || r.reason === reason) && (show === "all" || (show === "open" && !closed.has(st)) || (show === "todo" && st === "todo"));
+  });
+  // Grouped by recipe, most-reported first: a recipe reported by several households is the one to fix.
+  const groups = {};
+  shown.forEach(r => (groups[r.recipe_id] ||= []).push(r));
+  document.getElementById("list").innerHTML = Object.entries(groups).sort((a, b) => b[1].length - a[1].length).map(([rid, items]) => {
+    const name = items[0].recipe_name || items[0].snapshot?.recipe?.name || `recipe ${rid}`;
+    const homes = new Set(items.map(r => r.household_id)).size;
+    return `<section class="recipe"><div class="recipe-head"><h2><a href="${esc(DATA.site)}/recipes/${esc(rid)}" target="_blank" rel="noopener">${esc(name)} ↗</a></h2>
+      <span class="count">${items.length} report${items.length > 1 ? "s" : ""} from ${homes} household${homes > 1 ? "s" : ""}</span></div>` +
+      items.map(r => `<article class="report" data-id="${r.id}" data-status="${esc((mine.reports[r.id] || {}).status || "")}">
+        <div class="head"><span class="reason">${esc(REASONS[r.reason] || r.reason)}</span>
+          <span>${esc(r.household_name || "household")} (#${r.household_id})${r.guest ? " · guest" : ""}</span>
+          <span>${esc(r.created_at.replace("T", " ").slice(0, 16))}</span></div>
+        <p class="complaint${r.note ? "" : " empty"}">${r.note ? `“${esc(r.note)}”` : "No note"}</p>
+        ${filterCheck(r.snapshot)}
+        ${recipeAsSeen(r.snapshot)}
+        ${myNotes(r)}
+      </article>`).join("") + `</section>`;
+  }).join("") || `<div class="emptystate">${DATA.reports.length ? "No reports match." : "No reports yet. They show up here after someone reports a recipe."}</div>`;
+}
+
+document.querySelector(".filters").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  show = b.dataset.f;
+  document.querySelectorAll(".filters button[data-f]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render();
+});
+document.getElementById("reason").addEventListener("change", e => { reason = e.target.value; render(); });
+const plans = document.getElementById("plans");
+plans.value = mine.plans || "";
+plans.addEventListener("input", () => { mine.plans = plans.value; persist(); });
+document.getElementById("list").addEventListener("input", e => {
+  const card = e.target.closest(".report"), k = e.target.dataset.k;
+  if (!card || !k) return;
+  const m = mine.reports[card.dataset.id] ||= {};
+  m[k] = e.target.value;
+  if (k === "status") card.dataset.status = e.target.value;
+  persist();
+});
+document.getElementById("export").addEventListener("click", async () => {
+  const text = JSON.stringify({ ...mine, exported_at: new Date().toISOString() }, null, 2) + "\n";
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await showSaveFilePicker({ suggestedName: "recipe_reports_review.json", types: [{ accept: { "application/json": [".json"] } }] });
+      const w = await h.createWritable(); await w.write(text); await w.close();
+      document.getElementById("saved").textContent = "exported"; return;
+    } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  a.download = "recipe_reports_review.json"; document.body.append(a); a.click(); a.remove();
+  document.getElementById("saved").textContent = "downloaded recipe_reports_review.json";
+});
+render();
+</script>
+</body>
+</html>

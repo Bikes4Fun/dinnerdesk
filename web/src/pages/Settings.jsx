@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
-import { go } from "../nav.js";
+import { ADMIN_PAGES, go } from "../nav.js";
 import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
 
@@ -76,6 +76,12 @@ export function Settings() {
             <Link href="/settings/feedback-inbox" extra="Admin">
               Bugs &amp; ideas inbox
             </Link>
+            {ADMIN_PAGES.map(([href, label]) => (
+              <a key={href} className="list-link" href={href}>
+                {label}
+                <em>Admin</em>
+              </a>
+            ))}
           </>
         ) : null}
         <Link href="/settings/tastelab">Taste Lab</Link>
