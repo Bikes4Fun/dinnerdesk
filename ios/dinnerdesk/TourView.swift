@@ -41,7 +41,7 @@ struct TourView: View {
   }
 
   // Text lives in shared/copy.json (tour.how.N.title / tour.how.N), shared with the website tour.
-  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "sparkles", "hand.draw"].enumerated().map {
+  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "fork.knife", "sparkles", "applewatch", "hand.draw"].enumerated().map {
     i, icon in
     HowStep(
       id: i, title: Copy.text("tour.how.\(i + 1).title"), systemImage: icon,
@@ -246,11 +246,7 @@ struct TourView: View {
   }
 
   private func chipButton(_ text: String, on: Bool, action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      KitchenChip(text: text, count: nil, selected: on)
-    }
-    .buttonStyle(.plain)
-    .accessibilityAddTraits(on ? .isSelected : [])
+    FilterChip(label: text, on: on, action: action)
   }
 
   // MARK: How-to

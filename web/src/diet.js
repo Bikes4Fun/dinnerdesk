@@ -21,6 +21,26 @@ export const AVOIDS = [
   "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
   "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
 ];
+export const WHO = [
+  ["beginner", "Beginner"],
+  ["family", "Family"],
+  ["kids", "Kids"],
+  ["entertaining", "Entertaining"],
+];
+export const CUISINES = [
+  ["italian", "Italian"],
+  ["mexican", "Mexican"],
+  ["asian", "Asian"],
+  ["american", "American"],
+  ["mediterranean", "Mediterranean"],
+];
+export const PROTEINS = [
+  ["chicken", "Chicken"],
+  ["beef", "Beef"],
+  ["pork", "Pork"],
+  ["seafood", "Seafood"],
+  ["turkey", "Turkey"],
+];
 
 // Pick one of these; gluten-free and dairy-free combine with it.
 const EXCLUSIVE = ["omnivore", "pescatarian", "vegetarian", "vegan"];

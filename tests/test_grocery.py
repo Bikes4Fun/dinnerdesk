@@ -10,6 +10,20 @@ def test_black_pepper_is_not_produce():
     assert aisle_for("jalapeño peppers") == "produce"
 
 
+def test_aisles_put_shelf_forms_in_pantry_and_fresh_herbs_in_produce():
+    for name in ["garlic powder", "onion powder", "red pepper flakes", "dried thyme", "tomato paste",
+                 "cornstarch", "apple cider vinegar", "fish sauce", "peanut butter", "coconut milk",
+                 "corn tortillas", "chicken broth", "canned diced tomatoes", "avocado oil"]:
+        assert aisle_for(name) == "pantry", name
+    for name in ["fresh thyme", "chives", "shallot", "leeks", "arugula", "blueberries", "eggplants",
+                 "butternut squash", "butter lettuce", "green beans", "sugar snap peas", "garlic"]:
+        assert aisle_for(name) == "produce", name
+    assert aisle_for("shredded mozzarella") == "dairy"
+    assert aisle_for("half and half") == "dairy"
+    assert aisle_for("sea scallops") == "meat"
+    assert aisle_for("frozen peas") == "other"
+
+
 def test_merge_sums_same_ingredient_across_recipes():
     lines = merge_grocery(
         [
