@@ -20,6 +20,8 @@
   "tour.update.title": "What’s new in {app}",
   "tour.update": "Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.",
   "tour.welcome": "Quick start walks through eat and how. Taste Lab is the swipe kitchen. Skip anytime.",
+  "tour.prefs.title": "Make it yours",
+  "tour.prefs": "Tell us what your household eats and what to avoid, and we’ll start suggesting meal plans made for you.",
   "tour.filters": "Tap what fits. Change this later in Settings → Filters.",
   "tour.ai.title": "How we use AI",
   "tour.ai.more": "More about how we use AI",

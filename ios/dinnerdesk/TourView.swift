@@ -5,7 +5,7 @@ import SwiftUI
 /// Shown by AuthGate for new households and after a major update (`version`), or whenever
 /// `session.showTour` is set.
 struct TourView: View {
-  enum Step { case welcome, filters, ai, how }
+  enum Step { case welcome, ai, how, prefs, filters }
 
   /// Raise this (and TOUR_VERSION in web/src/Tour.jsx) with a major update: everyone who saw an
   /// older tour gets it once more. Households that finished the tour before versions existed
@@ -79,9 +79,10 @@ struct TourView: View {
         }
         switch step {
         case .welcome: welcome
-        case .filters: filters
         case .ai: aiUse
         case .how: howTo
+        case .prefs: prefsIntro
+        case .filters: filters
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -129,9 +130,9 @@ struct TourView: View {
 
         ChoiceCard(
           title: "Quick start",
-          detail: "Tell us what you eat, then a 1-minute how-to.",
+          detail: "A 1-minute how-to, then tell us what you eat.",
           systemImage: "bolt"
-        ) { step = .filters }
+        ) { step = .ai }
 
         ChoiceCard(
           title: "Taste Lab",
@@ -191,7 +192,31 @@ struct TourView: View {
         }
         .padding(20)
       }
-      primaryButton("Next") { step = .ai }
+      primaryButton(saving ? "Saving…" : "Start planning") {
+        Task { await finish(saveFilters: true) }
+      }
+      .disabled(saving)
+    }
+  }
+
+  // MARK: Before filters
+
+  private var prefsIntro: some View {
+    VStack(spacing: 0) {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 6) {
+          Text(Copy.text("tour.prefs.title"))
+            .font(Theme.tourTitle)
+            .foregroundStyle(Theme.ink)
+          Text(Copy.text("tour.prefs"))
+            .font(Theme.body)
+            .foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+      }
+      primaryButton("Next") { step = .filters }
     }
   }
 
@@ -322,10 +347,7 @@ struct TourView: View {
       if howIndex < Self.how.count - 1 {
         primaryButton("Next") { withAnimation { howIndex += 1 } }
       } else {
-        primaryButton(saving ? "Saving…" : "Start planning") {
-          Task { await finish(saveFilters: true) }
-        }
-        .disabled(saving)
+        primaryButton("Next") { step = .prefs }
       }
     }
   }
@@ -376,10 +398,11 @@ struct TourView: View {
   private func goBack() {
     switch step {
     case .welcome: break
-    case .filters: step = .welcome
-    case .ai: step = .filters
+    case .ai: step = .welcome
     case .how:
       if howIndex > 0 { withAnimation { howIndex -= 1 } } else { step = .ai }
+    case .prefs: step = .how
+    case .filters: step = .prefs
     }
   }
 
