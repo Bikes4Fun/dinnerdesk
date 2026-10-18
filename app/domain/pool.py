@@ -13,6 +13,8 @@ change often and are cheap to apply, so callers apply those per request.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 
 from .diet_filter import allowed as diet_allowed
@@ -32,6 +34,8 @@ class Pool:
     # Dinner candidates for suggestions, by tier. Both are real meals with ingredients.
     meals: tuple[dict, ...]
     backup_meals: tuple[dict, ...]
+    # Changes whenever either tier's meals do, so a suggestion can tell it was ranked from another pool.
+    digest: str = ""
 
 
 def build_pool(recipes: list[dict], hard: list[list[str]], soft: list[list[str]], skip_tags: set[str]) -> Pool:
@@ -66,7 +70,8 @@ def build_pool(recipes: list[dict], hard: list[list[str]], soft: list[list[str]]
             continue
         meal = {k: r[k] for k in ("id", "keys", "name", "ingredients", "tags", "cooking_minutes") if k in r}
         (backup_meals if r["id"] in backup else meals).append(meal)
-    return Pool(frozenset(allowed), frozenset(demoted), frozenset(variants), tuple(meals), tuple(backup_meals))
+    digest = hashlib.sha256(json.dumps([meals, backup_meals], sort_keys=True).encode()).hexdigest()
+    return Pool(frozenset(allowed), frozenset(demoted), frozenset(variants), tuple(meals), tuple(backup_meals), digest)
 
 
 def filters_key(diets: list[str], allergens: list[str], avoids: list[str]) -> tuple:

@@ -843,7 +843,7 @@ def test_catalog_lists_only_rewritten_recipes_with_real_photos(tmp_path):
 def test_suggestions_require_approval_and_keep_feedback(tmp_path, monkeypatch):
     import app.routes as routes
 
-    def suggestions(db, household_id, want):
+    def suggestions(db, household_id, want, kept=None):
         return ([{"id": 1, "reasons": []}], "Suggested dinners", {"1": []})
 
     monkeypatch.setattr(routes, "_suggest_meals", suggestions)

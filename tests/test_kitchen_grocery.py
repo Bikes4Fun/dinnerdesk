@@ -19,7 +19,7 @@ def test_family_portions_default_new_meals_without_rescaling_existing_plan(tmp_p
 
 def test_family_portions_default_suggested_meals(tmp_path, monkeypatch):
     import app.routes as routes
-    monkeypatch.setattr(routes, "_suggest_meals", lambda db, household_id, want: (
+    monkeypatch.setattr(routes, "_suggest_meals", lambda db, household_id, want, kept=None: (
         [{"id": 1, "reasons": []}], "Suggested dinners", {"1": []}))
     with _client(tmp_path) as client:
         client.put("/api/household", json={"prefs": {"family_portions": 8}})
