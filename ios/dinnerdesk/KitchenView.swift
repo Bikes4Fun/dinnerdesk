@@ -72,7 +72,7 @@ struct KitchenView: View {
       .themeRows()
     }
     .themeList()
-    .navigationTitle("My kitchen and Groceries")
+    .navigationTitle("My Kitchen and Groceries")
     .largeNavigationTitle()
     .task { await load() }
     .refreshable { await load() }

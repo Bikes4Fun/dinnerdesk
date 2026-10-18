@@ -13,8 +13,8 @@ import storesShot from "./images/tour-stores.jpg";
 const SHOTS = { 0: suggestionsShot, 1: scheduleShot, 2: draftShot, 3: storesShot };
 // The drawn picture for each remaining card (TourPicture: 2 checked-off list, 3 prep).
 const DRAWINGS = { 4: 2, 5: 3 };
-// The card about tips shows a real one instead of a picture.
-const TIPS_CARD = 7;
+// The tips & Apple Watch card shows a real tip instead of a picture.
+const TIPS_CARD = 6;
 
 const TIMES = [
   ["any", "Any time"],
@@ -44,19 +44,11 @@ const HOW = [
   },
   {
     title: "Weekend prep",
-    body: "Do the slow parts, like chopping and sauces, when you have spare time. Weeknight dinners then take less work but are still cooked fresh, without the same cold leftovers all week that full meal prep brings. Make-ahead steps from your plan show up here.",
+    body: "Prep your own meal kit, without the price or carbon footprint of a meal kit service. When you have spare time, measure, chop and make sauces ahead. On weeknights everything is ready in the right amounts. Just cook. Make-ahead steps from your plan show up here.",
   },
   {
-    title: "Recipes",
-    body: "Browse, search, and save Favorites or To try. Add your own recipe, or import one from a website.",
-  },
-  {
-    title: "Tips",
-    body: "Purple cards with a sparkle explain a feature right where you use it.",
-  },
-  {
-    title: "Apple Watch",
-    body: "See this plan and your grocery list on your wrist. Tap to check off groceries or mark a meal cooked.",
+    title: "Tips & Apple Watch",
+    body: "Purple cards with a sparkle explain a feature right where you use it. On Apple Watch, see this plan and your grocery list on your wrist, and tap to check off groceries or mark a meal cooked.",
   },
   {
     title: "Taste Lab",
@@ -148,7 +140,7 @@ export function Tour() {
             <h2 id="tour-title">{isUpdate ? "What’s new in Dinnerdesk" : "Welcome to Dinnerdesk"}</h2>
             {isUpdate ? (
               <p className="help" data-tip="tour.update">
-                We’ve made some big changes. Take the quick start to see what’s new, or skip it for now.
+                Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.
               </p>
             ) : (
               <p className="help" data-tip="tour.welcome">
@@ -173,7 +165,7 @@ export function Tour() {
             <h2 id="tour-title">What to eat</h2>
             <p className="help" data-tip="tour.filters">Tap what fits. Change this later in Settings → Filters.</p>
             <h3 className="block-label">Diet</h3>
-            <div className="chip-row wrap">
+            <div className="chip-row wrap filter-chips">
               {DIETS.map((d) => (
                 <button
                   key={d}
@@ -186,7 +178,7 @@ export function Tour() {
               ))}
             </div>
             <h3 className="block-label">Avoid</h3>
-            <div className="chip-row wrap">
+            <div className="chip-row wrap filter-chips">
               <button type="button" className={`chip${avoids.length ? "" : " is-on"}`} onClick={() => setAvoids([])}>
                 none
               </button>
@@ -202,7 +194,7 @@ export function Tour() {
               ))}
             </div>
             <h3 className="block-label">Cook time</h3>
-            <div className="chip-row wrap">
+            <div className="chip-row wrap filter-chips">
               {TIMES.map(([id, label]) => (
                 <button
                   key={id}

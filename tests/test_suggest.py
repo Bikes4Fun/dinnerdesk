@@ -1,4 +1,4 @@
-from app.domain.suggest import pick_suggestions, score_recipe, shop_set
+from app.domain.suggest import DEFAULT_WEIGHTS, SuggestionWeights, pick_suggestions, score_recipe, shop_set
 
 
 def test_shop_set_drops_staples():
@@ -135,6 +135,61 @@ def test_later_to_try_reuses_the_plan():
         to_try={1, 2, 3},
     )
     assert [row["id"] for row in picked] == [1, 2]
+
+
+def test_plan_spreads_protein_and_dish_type():
+    recipes = [
+        {"id": 1, "name": "Honey salmon", "ingredients": ["salmon", "honey"], "tags": []},
+        {"id": 2, "name": "Baked salmon", "ingredients": ["salmon", "lemon"], "tags": []},
+        {"id": 3, "name": "Salmon salad", "ingredients": ["salmon", "greens"], "tags": []},
+        {"id": 4, "name": "Spinach frittata", "ingredients": ["egg", "spinach"], "tags": []},
+        {"id": 5, "name": "Ham frittata", "ingredients": ["ham"], "tags": []},
+        {"id": 6, "name": "Chicken rice", "ingredients": ["chicken breast", "rice"], "tags": []},
+        {"id": 7, "name": "Tomato soup", "ingredients": ["tomato", "broth"], "tags": []},
+    ]
+    picked = pick_suggestions(
+        recipes,
+        pantry=set(),
+        plan_ings=set(),
+        favorites=set(),
+        aliases={},
+        want=4,
+    )
+    names = [row["name"].lower() for row in picked]
+    assert not any("frittata" in name for name in names)
+    assert "chicken rice" in names
+    assert "tomato soup" in names
+
+
+def test_an_empty_pantry_is_a_small_penalty():
+    score, _ = score_recipe({"salmon", "green beans", "lemon"}, set(), set(), False, False)
+    assert score == DEFAULT_WEIGHTS.new_shop_penalty
+    assert DEFAULT_WEIGHTS.new_shop_penalty < 0
+    assert abs(DEFAULT_WEIGHTS.new_shop_penalty) < DEFAULT_WEIGHTS.plan_bonus
+    assert DEFAULT_WEIGHTS.reuse_bonus == 2.2
+    assert DEFAULT_WEIGHTS.same_kind_penalty == -2.5
+    shared = score_recipe({"heavy cream"}, set(), {"heavy cream"}, False, False)
+    flat = score_recipe(
+        {"heavy cream"}, set(), {"heavy cream"}, False, False,
+        weights=SuggestionWeights(reuse_bonus=0, perishable_reuse_bonus=0),
+    )
+    assert shared[0] > flat[0]
+
+
+def test_fresh_herbs_are_perishable_and_dried_are_not():
+    fresh, _ = score_recipe({"fresh basil"}, set(), {"fresh basil"}, False, False)
+    dried, _ = score_recipe({"dried basil"}, set(), {"dried basil"}, False, False)
+    plain, _ = score_recipe({"basil"}, set(), {"basil"}, False, False)
+    assert fresh > dried
+    assert fresh > plain
+
+
+def test_shared_meat_is_not_a_waste_bonus():
+    meat, meat_why = score_recipe({"salmon"}, set(), {"salmon"}, False, False)
+    dairy, dairy_why = score_recipe({"heavy cream"}, set(), {"heavy cream"}, False, False)
+    assert dairy > meat
+    assert "shares" not in " ".join(meat_why)
+    assert "shares 1 with this plan" in dairy_why
 
 
 def test_reuse_reason_names_the_plan():

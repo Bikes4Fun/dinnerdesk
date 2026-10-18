@@ -10,21 +10,10 @@ import re
 
 from app.perf import Laps
 
+from .categories import categorize
 from .families import family_of
 from .neighbors import DIM, cosine, meal_vector, unit
-from .suggest import (
-    COOKED_WEIGHT, LIKE_WEIGHT, PLAN_WEIGHT, INGREDIENT_SCALE, INGREDIENT_REASON,
-    OVER_TIME, UNDER_TIME, PLAN_REFUSAL_PENALTY, SWAP_PENALTY,
-    APPROVED_SWAP_PENALTY, CONTEXT_PENALTY_CAP, APPROVAL_RECOVERY,
-    COOKED_BONUS,
-    LIKE_BONUS,
-    NEIGHBOR_BONUS,
-    NEIGHBOR_FLOOR,
-    PLAN_BONUS,
-    SIBLING_BONUS,
-    pick_suggestions,
-    shop_set,
-)
+from .suggest import DEFAULT_WEIGHTS, SuggestionWeights, pick_suggestions, shop_set
 
 EGG = re.compile(r"(^|[^a-z])eggs?([^a-z]|$)")
 BROTH = re.compile(r"chicken or vegetable broth", re.I)
@@ -277,15 +266,17 @@ def promote(taste: Taste, recipes: list[dict], recipe_ids: set[int]) -> None:
         taste.liked |= keys
 
 
-def _signal_weight(keys: set[str], taste: Taste) -> tuple[float, float]:
+def _signal_weight(
+    keys: set[str], taste: Taste, weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> tuple[float, float]:
     if keys & taste.passed:
-        return 0.0, LIKE_WEIGHT
+        return 0.0, weights.like_weight
     if keys & taste.cooked_liked:
-        return COOKED_WEIGHT, 0.0
+        return weights.cooked_weight, 0.0
     if keys & taste.liked or keys & taste.hearted:
-        return LIKE_WEIGHT, 0.0
+        return weights.like_weight, 0.0
     if keys & taste.plan_liked:
-        return PLAN_WEIGHT, 0.0
+        return weights.plan_weight, 0.0
     return 0.0, 0.0
 
 
@@ -299,6 +290,7 @@ def _fit(
     aliases: dict[str, str],
     overrides: dict[str, str],
     skip: set[str],
+    weights: SuggestionWeights = DEFAULT_WEIGHTS,
 ) -> None:
     """Ingredient counts and like/pass centroids from the meals they already judged."""
     like_ings: dict[str, float] = {}
@@ -313,7 +305,7 @@ def _fit(
         if rid in seen:
             continue
         seen.add(rid)
-        weight_like, weight_pass = _signal_weight(_keys(recipe), taste)
+        weight_like, weight_pass = _signal_weight(_keys(recipe), taste, weights)
         if not weight_like and not weight_pass:
             continue
         shop = _shop(recipe, aliases, overrides, skip)
@@ -357,19 +349,23 @@ def _apply_household(taste: Taste, recipes: list[dict], favorites: set[int], coo
             taste.plan_liked -= keys
 
 
-def _direct_bonus(keys: set[str], taste: Taste) -> tuple[float, str | None]:
+def _direct_bonus(
+    keys: set[str], taste: Taste, weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> tuple[float, str | None]:
     if keys & taste.cooked_liked:
-        return COOKED_BONUS, "you cooked this"
+        return weights.cooked_bonus, "you cooked this"
     if keys & taste.liked:
-        return LIKE_BONUS, "you liked this"
+        return weights.like_bonus, "you liked this"
     if keys & taste.hearted:
-        return LIKE_BONUS, "favorite"
+        return weights.like_bonus, "favorite"
     if keys & taste.plan_liked:
-        return PLAN_BONUS, "from a plan you approved"
+        return weights.plan_bonus, "from a plan you approved"
     return 0.0, None
 
 
-def _ingredient_bonus(shop: set[str], taste: Taste) -> tuple[float, str | None]:
+def _ingredient_bonus(
+    shop: set[str], taste: Taste, weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> tuple[float, str | None]:
     if not shop or not (taste.like_ings or taste.pass_ings):
         return 0.0, None
     scores = []
@@ -381,8 +377,8 @@ def _ingredient_bonus(shop: set[str], taste: Taste) -> tuple[float, str | None]:
     if not scores:
         return 0.0, None
     mean = sum(scores) / len(scores)
-    reason = "similar to meals you liked" if mean > INGREDIENT_REASON else None
-    return mean * INGREDIENT_SCALE, reason
+    reason = "similar to meals you liked" if mean > weights.ingredient_reason else None
+    return mean * weights.ingredient_scale, reason
 
 
 def _role_counts(ings: dict[str, float]) -> tuple[dict[str, float], dict[str, str]]:
@@ -397,7 +393,9 @@ def _role_counts(ings: dict[str, float]) -> tuple[dict[str, float], dict[str, st
     return totals, example
 
 
-def _sibling(shop: set[str], taste: Taste) -> tuple[float, str | None]:
+def _sibling(
+    shop: set[str], taste: Taste, weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> tuple[float, str | None]:
     if not shop or not taste.like_ings:
         return 0.0, None
     likes, example = _role_counts(taste.like_ings)
@@ -409,11 +407,13 @@ def _sibling(shop: set[str], taste: Taste) -> tuple[float, str | None]:
         if not role:
             continue
         if likes.get(role, 0) > passes.get(role, 0):
-            return SIBLING_BONUS, f"another {role}, like the {example[role]} you liked"
+            return weights.sibling_bonus, f"another {role}, like the {example[role]} you liked"
     return 0.0, None
 
 
-def _near(shop: set[str], taste: Taste) -> tuple[float, str | None]:
+def _near(
+    shop: set[str], taste: Taste, weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> tuple[float, str | None]:
     liked = taste.like_vec
     if not shop or liked is None:
         return 0.0, None
@@ -425,28 +425,52 @@ def _near(shop: set[str], taste: Taste) -> tuple[float, str | None]:
     pass_cos = cosine(vec, passed) if passed is not None else 0.0
     if like_cos <= pass_cos:
         return 0.0, None
-    gap = like_cos - pass_cos - NEIGHBOR_FLOOR
+    gap = like_cos - pass_cos - weights.neighbor_floor
     if gap <= 0:
         return 0.0, None
-    return gap * NEIGHBOR_BONUS, "near a meal you liked"
+    return gap * weights.neighbor_bonus, "near a meal you liked"
 
 
-def _time_bonus(recipe: dict, taste: Taste) -> float:
+def _time_bonus(
+    recipe: dict, taste: Taste, weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> float:
     minutes = recipe.get("cooking_minutes")
     if not taste.max_minutes or not minutes:
         return 0.0
     if minutes > taste.max_minutes:
-        return -OVER_TIME
-    return UNDER_TIME
+        return weights.over_time
+    return weights.under_time
+
+
+def _unasked_diet(recipe: dict, taste: Taste) -> bool:
+    """A plain household did not ask for vegan, gluten-free, low-carb, and the rest."""
+    diets = {str(d).lower() for d in (getattr(taste, "diets", None) or ["omnivore"])}
+    tags = {str(t).lower() for t in (recipe.get("tags") or [])}
+    needed = {
+        "vegan": "vegan",
+        "vegetarian": "vegetarian",
+        "gluten_free": "gluten-free",
+        "dairy_free": "dairy-free",
+        "egg_free": "egg-free",
+        "grain_free": "grain-free",
+        "low_carb": "low-carb",
+        "low_carb_pasta": "low-carb",
+        "poultry_free": "poultry-free",
+        "red_meat_free": "red-meat-free",
+    }
+    return any(tag in tags and required not in diets for tag, required in needed.items())
 
 
 def _reason(reasons: list[str], text: str | None) -> None:
     if text and text not in reasons:
         reasons.append(text)
+    if text and text not in reasons:
+        reasons.append(text)
 
 
 def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict[str, str], skip: set[str],
-            shop: set[str] | None = None, allow_downvoted: bool = False):
+            shop: set[str] | None = None, allow_downvoted: bool = False,
+            weights: SuggestionWeights = DEFAULT_WEIGHTS):
     keys = _keys(recipe)
     if keys & taste.passed and not allow_downvoted:
         return 0.0, [], True
@@ -454,25 +478,77 @@ def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict
         blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
         if any(hits(blob, group) for group in taste.blocks):
             return 0.0, [], True
-    bonus, direct = _direct_bonus(keys, taste)
-    bonus -= getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
+    if _unasked_diet(recipe, taste):
+        return 0.0, [], True
+    bonus, direct = _direct_bonus(keys, taste, weights)
+    bonus += getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
     reasons: list[str] = []
     _reason(reasons, direct)
     if shop is None:
         shop = _shop(recipe, aliases, overrides, skip)
-    ing_bonus, ing_reason = _ingredient_bonus(shop, taste)
+    ing_bonus, ing_reason = _ingredient_bonus(shop, taste, weights)
     bonus += ing_bonus
     if not reasons:
         _reason(reasons, ing_reason)
-    sibling, sibling_reason = _sibling(shop, taste)
+    sibling, sibling_reason = _sibling(shop, taste, weights)
     bonus += sibling
     if not reasons:
         _reason(reasons, sibling_reason)
-    near, near_reason = _near(shop, taste)
+    near, near_reason = _near(shop, taste, weights)
     bonus += near
     _reason(reasons, near_reason)
-    bonus += _time_bonus(recipe, taste)
+    bonus += _time_bonus(recipe, taste, weights)
+    soft, soft_reason = _soft_pref(recipe, taste)
+    bonus += soft
+    _reason(reasons, soft_reason)
     return bonus, reasons, False
+
+
+_CUISINE_CATEGORY = {
+    "italian": "italian",
+    "mexican": "mexican",
+    "asian": "asian",
+    "american": "comfort",
+    "mediterranean": "mediterranean",
+    "curry": "curry",
+    "healthy": "healthy",
+}
+_PROTEIN_WORDS = {
+    "chicken": ("chicken",),
+    "beef": ("beef", "steak"),
+    "pork": ("pork",),
+    "seafood": ("salmon", "shrimp", "fish", "cod", "tuna", "scallop", "crab"),
+    "turkey": ("turkey",),
+    "lamb": ("lamb",),
+    "venison": ("venison",),
+    "quail": ("quail",),
+    "duck": ("duck",),
+    "ground chicken": ("ground chicken",),
+    "ground turkey": ("ground turkey",),
+}
+
+
+def _soft_pref(recipe: dict, taste: Taste) -> tuple[float, str | None]:
+    """Cuisine and protein likes from Filters. They raise or lower a meal; they never reject it."""
+    soft = getattr(taste, "soft", None) or {}
+    kinds = set(categorize(recipe.get("name") or "", recipe.get("ingredients") or []))
+    blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
+    score = 0.0
+    reason = None
+    for cuisine in soft.get("cuisines") or []:
+        if _CUISINE_CATEGORY.get(cuisine) in kinds:
+            score += 1.2
+            reason = reason or "a cuisine you asked for"
+    for protein in soft.get("protein_more") or []:
+        words = _PROTEIN_WORDS.get(protein, ())
+        if any(word in blob for word in words):
+            score += 1.0
+            reason = reason or f"more {protein}"
+    for protein in soft.get("protein_less") or []:
+        words = _PROTEIN_WORDS.get(protein, ())
+        if any(word in blob for word in words):
+            score -= 1.0
+    return score, reason
 
 
 def pick_meals(
@@ -489,6 +565,7 @@ def pick_meals(
     plan_ings: set[str] | None = None,
     laps: Laps | None = None,
     allow_downvoted: bool = False,
+    weights: SuggestionWeights = DEFAULT_WEIGHTS,
 ) -> list[dict]:
     """allow_downvoted keeps meals the household passed on or rated 👎, for a backup pick."""
     swaps = overrides or {}
@@ -497,12 +574,12 @@ def pick_meals(
     known = {int(recipe["id"]): recipe for recipe in taste.recipes}
     for recipe in recipes:
         known[int(recipe["id"])] = recipe
-    _fit(taste, list(known.values()), aliases, swaps, ignored)
+    _fit(taste, list(known.values()), aliases, swaps, ignored, weights)
     if laps:
         laps.lap("fit")
 
     def adjust(recipe, shop=None):
-        return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop, allow_downvoted=allow_downvoted)
+        return _adjust(recipe, taste, aliases, swaps, ignored, shop=shop, allow_downvoted=allow_downvoted, weights=weights)
 
     return pick_suggestions(
         recipes,
@@ -516,6 +593,7 @@ def pick_meals(
         ignored,
         to_try,
         laps=laps,
+        weights=weights,
     )
 
 
@@ -560,16 +638,18 @@ def reasons_summary(reasons: list[list[str]]) -> str:
     return " · ".join(parts)
 
 
-def suggestion_penalties(history: list[dict]) -> dict[int, float]:
+def suggestion_penalties(
+    history: list[dict], weights: SuggestionWeights = DEFAULT_WEIGHTS,
+) -> dict[int, float]:
     """Repeated refusal lowers rank; targeted swaps, especially in approved plans, weigh more."""
     penalties: dict[int, float] = {}
     for plan in history:
         if plan.get("decision") == "decline":
             for rid in set(plan.get("suggested_recipe_ids", [])):
-                penalties[int(rid)] = min(CONTEXT_PENALTY_CAP, penalties.get(int(rid), 0.0) + PLAN_REFUSAL_PENALTY)
+                penalties[int(rid)] = max(-weights.context_penalty_cap, penalties.get(int(rid), 0.0) + weights.plan_refusal_penalty)
         for rid in {c["from"] for c in plan.get("changes", [])}:
-            penalties[int(rid)] = min(CONTEXT_PENALTY_CAP, penalties.get(int(rid), 0.0) + (APPROVED_SWAP_PENALTY if plan.get("decision") == "approve" else SWAP_PENALTY))
+            penalties[int(rid)] = max(-weights.context_penalty_cap, penalties.get(int(rid), 0.0) + (weights.approved_swap_penalty if plan.get("decision") == "approve" else weights.swap_penalty))
         if plan.get("decision") == "approve":
             for rid in set(plan.get("suggested_recipe_ids", [])):
-                penalties[int(rid)] = max(0.0, penalties.get(int(rid), 0.0) - APPROVAL_RECOVERY)
+                penalties[int(rid)] = min(0.0, penalties.get(int(rid), 0.0) + weights.approval_recovery)
     return penalties

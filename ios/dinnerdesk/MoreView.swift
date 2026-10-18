@@ -17,7 +17,7 @@ struct MoreView: View {
           NavigationLink {
             KitchenView()
           } label: {
-            ThemeIconRow(title: "My kitchen and Groceries", systemImage: "refrigerator")
+            ThemeIconRow(title: "My Kitchen and Groceries", systemImage: "refrigerator")
           }
           NavigationLink {
             TasteLabView()
