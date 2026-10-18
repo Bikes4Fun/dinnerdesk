@@ -1,4 +1,6 @@
 import json
+
+import pytest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -1523,6 +1525,96 @@ def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
         assert reasons["1"][0] == routes.BACKUP_REASON
 
 
+def _fresh_suggestion_kitchen(monkeypatch):
+    """Twenty dinners with real rows, ranked from a fixed list. Dinners 3, 13 have chicken."""
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    foods = ["mushroom", "tomato", "rice", "chicken", "lemon", "pasta", "olives", "spinach", "tofu", "corn"]
+    db = connect()
+    ids = {}
+    for i in range(1, 21):
+        ts = now()
+        cur = db.execute("""INSERT INTO recipes (household_id, slug, name, servings, cooking_minutes,
+            instructions_json, cookware_json, source_url, provenance_json, photo_path, created_at, updated_at)
+            VALUES (NULL, ?, ?, 4, 20, '[]', '[]', '', '{}', '', ?, ?)""", (f"fresh-{i}", f"Dinner {i}", ts, ts))
+        ids[i] = int(cur.lastrowid)
+    db.commit()
+    db.close()
+    recipes = [{"id": ids[i], "keys": [str(ids[i])], "name": f"Dinner {i}", "ingredients": [foods[i % 10], foods[(i * 3) % 10]],
+                "tags": [], "cooking_minutes": 20} for i in range(1, 21)]
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [dict(r) for r in recipes])
+    return routes, ids
+
+
+def _ingredients(routes, ids):
+    recipes = {r["id"]: r for r in routes._load_household_recipes()}
+    return {food for rid in ids for food in recipes[rid]["ingredients"]}
+
+
+def test_saved_suggestion_is_shown_until_something_it_was_ranked_from_changes(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 4}).json()
+        ranked = routes._suggest_meals
+        monkeypatch.setattr(routes, "_suggest_meals", lambda *args: pytest.fail("a matching stamp must not re-rank"))
+        assert client.get("/api/suggestions/current").json()["plan"]["suggested_recipe_ids"] == proposal["suggested_recipe_ids"]
+        monkeypatch.setattr(routes, "_suggest_meals", ranked)
+        avoid = sorted(_ingredients(routes, proposal["suggested_recipe_ids"]))[0]
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": [avoid]}}})
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert fresh["id"] == proposal["id"]
+        assert len(fresh["suggested_recipe_ids"]) == 4
+        assert avoid not in _ingredients(routes, fresh["suggested_recipe_ids"])
+        assert [s["recipe_id"] for s in fresh["slots"]] == fresh["suggested_recipe_ids"]
+
+
+def test_swaps_keep_a_suggestion_and_survive_a_re_rank(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 3}).json()
+        swapped = client.post(f"/api/plans/{proposal['id']}/swap/{proposal['slots'][0]['id']}").json()
+        chosen = swapped["slots"][0]["recipe_id"]
+        assert client.get("/api/suggestions/current").json()["plan"]["suggested_recipe_ids"] == swapped["suggested_recipe_ids"]
+        monkeypatch.setattr(routes, "_ranking_code", lambda: "a new ranker")
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert chosen in fresh["suggested_recipe_ids"]
+        assert len(fresh["slots"]) == 3
+        assert fresh["changes"] == swapped["changes"]
+        assert client.get("/api/suggestions/current").json()["plan"] == fresh
+
+
+def test_suggestion_saved_before_stamps_is_re_ranked(tmp_path, monkeypatch):
+    import json
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 2}).json()
+        db = connect()
+        meta = json.loads(db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (proposal["id"],)).fetchone()["suggestion_json"])
+        del meta["stamp"], meta["ranked_with"]
+        db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), proposal["id"]))
+        db.commit()
+        db.close()
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert fresh["suggested_recipe_ids"] == proposal["suggested_recipe_ids"]
+        db = connect()
+        assert "stamp" in json.loads(db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (proposal["id"],)).fetchone()["suggestion_json"])
+        db.close()
+
+
+def test_new_diet_drops_a_swapped_in_meal_that_breaks_it(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 2}).json()
+        chicken = next(ids[i] for i in (3, 13) if ids[i] not in proposal["suggested_recipe_ids"])
+        swapped = client.post(f"/api/plans/{proposal['id']}/swap/{proposal['slots'][0]['id']}", json={"recipe_id": chicken}).json()
+        assert swapped["slots"][0]["recipe_id"] == chicken
+        client.put("/api/household", json={"prefs": {"filters": {"diets": ["vegetarian"]}}})
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert chicken not in fresh["suggested_recipe_ids"]
+        assert len(fresh["suggested_recipe_ids"]) == 2
+        assert "chicken" not in _ingredients(routes, fresh["suggested_recipe_ids"])
+
+
 def test_short_rank_matches_the_front_of_a_long_one(tmp_path, monkeypatch):
     # Plans rank only the meals they need, which is safe only while this holds.
     import app.routes as routes
@@ -1904,3 +1996,4 @@ def test_admin_keeps_dev_notes_after_toggles(tmp_path):
         client.put("/api/recipes/1/dev-notes", json={"text": "note"})
         for toggle in ("favorite", "hidden", "try"):
             assert client.put(f"/api/recipes/1/{toggle}", json={"on": True}).json()["dev_notes"] == "note"
+
