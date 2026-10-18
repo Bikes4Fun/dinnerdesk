@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recipe tags</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #fcfcfb; --ink: #0b0b0b; --muted: #52514e; --line: #e3dfd8; --chip: #efece6;
+    --accent: #2a78d6; --keep: #2f7d4f; --flag: #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --card: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --line: #35322d; --chip: #2c2a26;
+            --accent: #3987e5; --keep: #5fbf86; --flag: #e66767; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: 10px 16px; }
+  .bar-row { max-width: 1080px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  h1 { font-size: 20px; margin: 0 12px 0 0; }
+  main { max-width: 1080px; margin: 0 auto; padding: 16px 16px 48px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .home { display: inline-block; font-size: 13px; color: var(--muted); margin-right: 8px; }
+  .sub, .help { color: var(--muted); font-size: 13px; }
+  .help { margin: 0 0 14px; }
+  .filters button, .filters select, #search, .savebar button {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px;
+    padding: 5px 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  #search { cursor: text; min-width: 200px; flex: 1 1 200px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .savebar { display: flex; gap: 8px; align-items: center; margin-left: auto; }
+  .savebar button { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .savebar span { color: var(--muted); font-size: 12px; }
+  .progress { font-size: 13px; color: var(--muted); }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; }
+  .panel summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+  .usage { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; font-size: 13px; }
+  .usage h4 { margin: 0 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .usage .row { display: flex; justify-content: space-between; gap: 8px; }
+  .usage .row.common { color: var(--flag); font-weight: 600; }
+  .recipe { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 12px;
+            padding: 12px 14px; margin-bottom: 10px; display: grid; grid-template-columns: 96px 1fr; gap: 14px; }
+  .recipe[data-reviewed="true"] { border-left-color: var(--keep); }
+  .recipe:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (max-width: 600px) { .recipe { grid-template-columns: 64px 1fr; } }
+  .recipe img, .recipe .nophoto { width: 100%; aspect-ratio: 1; border-radius: 8px; object-fit: cover; background: var(--chip); }
+  .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .head .name { font-weight: 650; font-size: 16px; }
+  .meta { color: var(--muted); font-size: 12px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; background: var(--chip); border-radius: 6px;
+          padding: 1px 4px 1px 8px; margin: 2px 4px 2px 0; font-size: 13px; border: 1px solid transparent; }
+  .chip.plain { padding: 0 7px; font-size: 12px; color: var(--muted); }
+  .chip[data-status="pending"] { background: transparent; border: 1px dashed var(--muted); }
+  .chip[data-status="kept"] { border-color: var(--keep); }
+  .chip[data-status="removed"] { opacity: .5; text-decoration: line-through; }
+  .chip .src { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .chip button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 13px; padding: 0 4px; border-radius: 4px; }
+  .chip button:hover { background: var(--line); color: var(--ink); }
+  .chip .t { cursor: text; }
+  .dims { margin: 6px 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; align-items: baseline; }
+  @media (max-width: 600px) { .dims { grid-template-columns: 1fr; } .dims .d { margin-top: 4px; } }
+  .chip .t { white-space: nowrap; }
+  .dims .d { font-size: 12px; color: var(--muted); }
+  .dims .d.over { color: var(--flag); font-weight: 600; }
+  .current { margin-top: 4px; }
+  .counts { font-size: 12px; margin-top: 4px; }
+  .counts .warn { color: var(--flag); font-weight: 600; }
+  .add { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; }
+  .add input, .add textarea { border: 1px solid var(--line); background: var(--bg); color: var(--ink); border-radius: 8px;
+    font: inherit; font-size: 13px; padding: 4px 8px; }
+  .add input.dim { width: 170px; }
+  .add input.tag { width: 170px; }
+  .add textarea { flex: 1 1 220px; min-height: 30px; resize: vertical; }
+  .add button { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: 13px; cursor: pointer; }
+  .add button.done[aria-pressed="true"] { background: var(--keep); border-color: var(--keep); color: #fff; }
+  .add kbd { font: 11px ui-monospace, monospace; color: var(--muted); margin-left: 4px; }
+  .add button[aria-pressed="true"] kbd { color: inherit; }
+  .empty { color: var(--muted); text-align: center; padding: 40px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar-row">
+    <a class="home" href="/">← Dinnerdesk</a>
+    <h1>Recipe tags</h1>
+    <span class="progress" id="progress"></span>
+    <div class="savebar"><span id="saved"></span><button id="export">Export tags</button></div>
+  </div>
+  <div class="bar-row" style="margin-top:8px">
+    <input id="search" type="search" placeholder="Search recipes or tags  ( / )" aria-label="Search">
+    <div class="filters" role="group" aria-label="Show">
+      <button data-f="todo" aria-pressed="true">To review</button>
+      <button data-f="pending" aria-pressed="false">Has proposed tags</button>
+      <button data-f="limits" aria-pressed="false">Outside limits</button>
+      <button data-f="done" aria-pressed="false">Reviewed</button>
+      <button data-f="all" aria-pressed="false">All</button>
+      <select id="source" aria-label="Proposed by">
+        <option value="">Any source</option><option value="ai">From AI</option><option value="user">From users</option>
+      </select>
+    </div>
+  </div>
+</header>
+<main>
+  <p class="help">
+    Dashed tags are proposed: <b>✓</b> keeps one, <b>×</b> removes it (click <b>↺</b> to bring it back). Click a tag's name to rename it.
+    Add a tag by typing a dimension and a tag, then <kbd>Enter</kbd>. Aim for 1–2 cuisines and 3–8 tags per recipe.
+    Click a recipe, then <kbd>J</kbd> / <kbd>K</kbd> to move and <kbd>R</kbd> to mark it reviewed.
+    Changes save in this browser as you go; <b>Export tags</b> writes them to a file.
+  </p>
+  <details class="panel" id="usage-panel"><summary>Tag usage</summary><div class="usage" id="usage"></div></details>
+  <div id="list"></div>
+</main>
+<datalist id="dims"></datalist>
+<script>
+const DATA = /*DATA*/null;
+const KEY = "dinnerdesk-recipe-tags-review-v1";
+// Limits from the tagging plan: few enough tags that each one still means something.
+const LIMITS = { min: 3, max: 8, cuisineMax: 2 };
+// A tag on more than this share of recipes says little about any one of them.
+const COMMON_SHARE = 0.4;
+const SOURCES = { ai: "AI", user: "User", admin: "" };
+
+let mine = { recipes: {} };
+try { mine = { recipes: {}, ...(JSON.parse(localStorage.getItem(KEY) || "null") || {}) }; } catch (e) {}
+let filter = "todo", source = "", query = "";
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const norm = s => String(s || "").trim().toLowerCase();
+const same = (a, b) => norm(a.dimension) === norm(b.dimension) && norm(a.tag) === norm(b.tag);
+const isCuisine = dim => /cuisine/i.test(dim);
+
+// Each recipe's working list: proposals first, then this browser's edits on top. A proposal that
+// arrives after the recipe was edited is added as proposed.
+const byRecipe = {};
+for (const s of DATA.suggestions || []) (byRecipe[s.recipe_id] ||= []).push(s);
+function entry(id) {
+  if (!mine.recipes[id]) {
+    mine.recipes[id] = { tags: [], reviewed: false, note: "" };
+  }
+  const e = mine.recipes[id];
+  for (const s of byRecipe[id] || []) {
+    if (!e.tags.some(t => same(t, s))) {
+      e.tags.push({ dimension: s.dimension, tag: s.tag, source: s.source || "ai", by: s.by || "", note: s.note || "", status: "pending" });
+    }
+  }
+  return e;
+}
+DATA.recipes.forEach(r => entry(r.id));
+
+function persist() {
+  mine.saved_at = new Date().toISOString();
+  try { localStorage.setItem(KEY, JSON.stringify(mine)); } catch (e) {}
+  document.getElementById("saved").textContent = "saved in this browser";
+}
+
+const live = tags => tags.filter(t => t.status !== "removed");
+function limitsOf(e) {
+  const tags = live(e.tags), cuisines = tags.filter(t => isCuisine(t.dimension)).length;
+  const warn = [];
+  if (tags.length < LIMITS.min) warn.push(`fewer than ${LIMITS.min} tags`);
+  if (tags.length > LIMITS.max) warn.push(`more than ${LIMITS.max} tags`);
+  if (cuisines > LIMITS.cuisineMax) warn.push(`more than ${LIMITS.cuisineMax} cuisines`);
+  return { count: tags.length, cuisines, warn };
+}
+
+function visible(r) {
+  const e = mine.recipes[r.id];
+  if (source && !e.tags.some(t => t.source === source)) return false;
+  if (query) {
+    const hay = [r.name, ...r.tags, ...e.tags.flatMap(t => [t.dimension, t.tag])].join(" ").toLowerCase();
+    if (!query.split(/\s+/).every(w => hay.includes(w))) return false;
+  }
+  if (filter === "todo") return !e.reviewed;
+  if (filter === "pending") return e.tags.some(t => t.status === "pending");
+  if (filter === "limits") return limitsOf(e).warn.length > 0;
+  if (filter === "done") return e.reviewed;
+  return true;
+}
+
+function chip(t, i) {
+  const src = SOURCES[t.source] ?? t.source;
+  const title = [t.source === "user" && t.by ? `from ${t.by}` : "", t.note].filter(Boolean).join(" · ");
+  const actions = t.status === "removed"
+    ? `<button data-a="restore" title="Bring back">↺</button>`
+    : `${t.status === "pending" ? `<button data-a="keep" title="Keep">✓</button>` : ""}<button data-a="remove" title="Remove">×</button>`;
+  return `<span class="chip" data-i="${i}" data-status="${esc(t.status)}"${title ? ` title="${esc(title)}"` : ""}>
+    <span class="t" data-a="rename">${esc(t.tag)}</span>${src ? `<span class="src">${esc(src)}</span>` : ""}${actions}</span>`;
+}
+
+function card(r) {
+  const e = mine.recipes[r.id], lim = limitsOf(e);
+  const groups = {};
+  e.tags.forEach((t, i) => (groups[t.dimension] ||= []).push(chip(t, i)));
+  const dims = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0])).map(([d, chips]) => {
+    const over = isCuisine(d) && lim.cuisines > LIMITS.cuisineMax;
+    return `<div class="d${over ? " over" : ""}">${esc(d)}</div><div>${chips.join("")}</div>`;
+  }).join("");
+  const img = r.photo ? `<img src="${esc(r.photo)}" alt="" loading="lazy">` : `<div class="nophoto"></div>`;
+  return `<article class="recipe" tabindex="0" data-id="${r.id}" data-reviewed="${e.reviewed}">
+    ${img}
+    <div>
+      <div class="head"><a class="name" href="/recipes/${r.id}" target="_blank" rel="noopener">${esc(r.name)}</a>
+        <span class="meta">#${r.id}${r.minutes ? ` · ${r.minutes} min` : ""}</span></div>
+      ${r.tags.length ? `<div class="current"><span class="meta">Current tags</span> ${r.tags.map(t => `<span class="chip plain">${esc(t)}</span>`).join("")}</div>` : ""}
+      ${dims ? `<div class="dims">${dims}</div>` : `<p class="meta">No dimensional tags yet.</p>`}
+      <div class="counts">${lim.count} tag${lim.count === 1 ? "" : "s"} · ${lim.cuisines} cuisine${lim.cuisines === 1 ? "" : "s"}
+        ${lim.warn.length ? `<span class="warn">· ${esc(lim.warn.join(", "))}</span>` : ""}</div>
+      <div class="add">
+        <input class="dim" list="dims" placeholder="Dimension" aria-label="Dimension">
+        <input class="tag" placeholder="Tag" aria-label="Tag">
+        <button data-a="add">Add</button>
+        <button class="done" data-a="reviewed" aria-pressed="${e.reviewed}">Reviewed<kbd>R</kbd></button>
+        <textarea data-k="note" placeholder="Notes (optional)" aria-label="Notes">${esc(e.note || "")}</textarea>
+      </div>
+    </div>
+  </article>`;
+}
+
+// Every dimension and tag in use, for the add boxes' suggestions and the usage panel.
+function vocabulary() {
+  const dims = {};
+  for (const r of DATA.recipes) for (const t of live(mine.recipes[r.id].tags)) {
+    const d = (dims[t.dimension] ||= {});
+    d[t.tag] = (d[t.tag] || 0) + 1;
+  }
+  return dims;
+}
+function refreshVocabulary() {
+  const dims = vocabulary(), total = DATA.recipes.length || 1;
+  document.getElementById("dims").innerHTML = Object.keys(dims).sort().map(d => `<option value="${esc(d)}">`).join("");
+  document.getElementById("usage").innerHTML = Object.entries(dims).sort((a, b) => a[0].localeCompare(b[0])).map(([d, tags]) =>
+    `<div><h4>${esc(d)}</h4>${Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([t, n]) =>
+      `<div class="row${n / total > COMMON_SHARE ? " common" : ""}" title="${n / total > COMMON_SHARE ? "On so many recipes it may not tell them apart" : ""}"><span>${esc(t)}</span><span>${n} · ${Math.round(100 * n / total)}%</span></div>`).join("")}</div>`
+  ).join("") || `<div class="sub">No dimensional tags yet.</div>`;
+  return dims;
+}
+
+function updateProgress() {
+  const done = DATA.recipes.filter(r => mine.recipes[r.id].reviewed).length;
+  const pending = DATA.recipes.reduce((n, r) => n + mine.recipes[r.id].tags.filter(t => t.status === "pending").length, 0);
+  document.getElementById("progress").textContent =
+    `${done} of ${DATA.recipes.length} recipes reviewed · ${pending} proposed tag${pending === 1 ? "" : "s"} waiting`;
+}
+
+function render() {
+  const shown = DATA.recipes.filter(visible);
+  document.getElementById("list").innerHTML = shown.map(card).join("") ||
+    `<div class="empty">${DATA.recipes.length ? "No recipes match." : "No recipes yet."}</div>`;
+  updateProgress();
+}
+
+// Redraws one card in place, so it stays put until the filter changes.
+function redraw(id, focus) {
+  const el = document.querySelector(`.recipe[data-id="${id}"]`);
+  const r = DATA.recipes.find(x => x.id === id);
+  if (!el || !r) return;
+  const tmp = document.createElement("div");
+  tmp.innerHTML = card(r);
+  const next = tmp.firstElementChild;
+  el.replaceWith(next);
+  if (focus) next.querySelector(focus)?.focus(); else next.focus({ preventScroll: true });
+  updateProgress();
+}
+
+function addTag(cardEl) {
+  const id = Number(cardEl.dataset.id), e = mine.recipes[id];
+  const dim = cardEl.querySelector("input.dim").value.trim(), tag = cardEl.querySelector("input.tag").value.trim();
+  if (!dim || !tag) { cardEl.querySelector(dim ? "input.tag" : "input.dim").focus(); return; }
+  const found = e.tags.find(t => same(t, { dimension: dim, tag }));
+  if (found) found.status = "kept";
+  else e.tags.push({ dimension: dim, tag, source: "admin", status: "kept" });
+  persist(); refreshVocabulary(); redraw(id, "input.tag");
+  // Keep the dimension filled in, for adding several tags in one dimension.
+  document.querySelector(`.recipe[data-id="${id}"] input.dim`).value = dim;
+}
+
+const list = document.getElementById("list");
+list.addEventListener("click", ev => {
+  const a = ev.target.closest("[data-a]"); if (!a) return;
+  const cardEl = a.closest(".recipe"), id = Number(cardEl.dataset.id), e = mine.recipes[id];
+  const i = a.closest(".chip")?.dataset.i, t = i != null ? e.tags[Number(i)] : null;
+  switch (a.dataset.a) {
+    case "keep": case "restore": t.status = "kept"; break;
+    case "remove":
+      // An admin-added tag just goes; a proposal stays crossed out so the export records the no.
+      if (t.source === "admin") e.tags.splice(Number(i), 1); else t.status = "removed";
+      break;
+    case "rename": {
+      const name = prompt(`Rename "${t.tag}" (${t.dimension})`, t.tag);
+      if (name == null || !name.trim() || name.trim() === t.tag) return;
+      if (t.source === "admin") t.tag = name.trim();
+      else { t.status = "removed"; e.tags.push({ dimension: t.dimension, tag: name.trim(), source: "admin", status: "kept", renamed_from: t.tag }); }
+      break;
+    }
+    case "add": addTag(cardEl); return;
+    case "reviewed": e.reviewed = !e.reviewed; break;
+    default: return;
+  }
+  persist(); refreshVocabulary(); redraw(id);
+});
+list.addEventListener("keydown", ev => {
+  if (ev.key === "Enter" && ev.target.matches("input.dim, input.tag")) {
+    ev.preventDefault();
+    const cardEl = ev.target.closest(".recipe");
+    if (ev.target.matches("input.dim")) cardEl.querySelector("input.tag").focus(); else addTag(cardEl);
+  }
+});
+list.addEventListener("input", ev => {
+  if (ev.target.matches("input.dim")) {
+    // Suggest tags already used in this dimension.
+    const dims = vocabulary(), tags = Object.keys(dims[ev.target.value.trim()] || {}).sort();
+    const listId = `tags-${ev.target.closest(".recipe").dataset.id}`;
+    let dl = document.getElementById(listId);
+    if (!dl) { dl = document.createElement("datalist"); dl.id = listId; document.body.append(dl); }
+    dl.innerHTML = tags.map(t => `<option value="${esc(t)}">`).join("");
+    ev.target.closest(".recipe").querySelector("input.tag").setAttribute("list", listId);
+  }
+  if (ev.target.dataset.k === "note") {
+    mine.recipes[Number(ev.target.closest(".recipe").dataset.id)].note = ev.target.value;
+    persist();
+  }
+});
+document.addEventListener("keydown", ev => {
+  if (ev.target.matches("input, textarea, select") || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const k = ev.key.toLowerCase(), cardEl = document.activeElement?.closest?.(".recipe");
+  if (k === "/") { ev.preventDefault(); document.getElementById("search").focus(); return; }
+  if (k === "r" && cardEl) {
+    ev.preventDefault();
+    const e = mine.recipes[Number(cardEl.dataset.id)];
+    e.reviewed = !e.reviewed; persist(); redraw(Number(cardEl.dataset.id));
+  }
+  if (k === "j" || k === "k") {
+    const cards = [...document.querySelectorAll(".recipe")], i = cards.indexOf(cardEl);
+    const next = cards[k === "j" ? i + 1 : Math.max(0, i - 1)] || cards[0];
+    next?.focus(); next?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }
+});
+document.querySelector(".filters").addEventListener("click", ev => {
+  const b = ev.target.closest("button[data-f]"); if (!b) return;
+  filter = b.dataset.f;
+  document.querySelectorAll(".filters button[data-f]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render();
+});
+document.getElementById("source").addEventListener("change", ev => { source = ev.target.value; render(); });
+document.getElementById("search").addEventListener("input", ev => { query = norm(ev.target.value); render(); });
+
+function exported() {
+  const recipes = DATA.recipes.map(r => {
+    const e = mine.recipes[r.id], pick = s => e.tags.filter(t => t.status === s).map(({ status, ...t }) => t);
+    return { id: r.id, slug: r.slug, name: r.name, tags: pick("kept"), proposed: pick("pending"), removed: pick("removed"),
+             reviewed: e.reviewed, note: e.note || "" };
+  }).filter(r => r.tags.length || r.proposed.length || r.removed.length || r.reviewed || r.note);
+  return JSON.stringify({ exported_at: new Date().toISOString(), limits: LIMITS, recipes }, null, 2) + "\n";
+}
+document.getElementById("export").addEventListener("click", async () => {
+  const text = exported();
+  if (window.showSaveFilePicker) {
+    try {
+      const h = await showSaveFilePicker({ suggestedName: "recipe_tags_review.json", types: [{ accept: { "application/json": [".json"] } }] });
+      const w = await h.createWritable(); await w.write(text); await w.close();
+      document.getElementById("saved").textContent = "exported"; return;
+    } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  a.download = "recipe_tags_review.json"; document.body.append(a); a.click(); a.remove();
+  document.getElementById("saved").textContent = "downloaded recipe_tags_review.json";
+});
+
+refreshVocabulary();
+render();
+</script>
+</body>
+</html>
