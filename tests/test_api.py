@@ -1523,6 +1523,28 @@ def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
         assert reasons["1"][0] == routes.BACKUP_REASON
 
 
+def test_short_rank_matches_the_front_of_a_long_one(tmp_path, monkeypatch):
+    # Plans rank only the meals they need, which is safe only while this holds.
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    foods = ["beans", "tomato", "rice", "chicken", "lemon", "pasta", "olives", "spinach", "tofu", "corn"]
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": i, "keys": [str(i)], "name": f"Dinner {i}", "ingredients": [foods[i % 10], foods[(i * 3) % 10], foods[(i + 4) % 10]],
+         "tags": [], "cooking_minutes": 20}
+        for i in range(1, 25)
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        db = connect()
+        try:
+            long, _, _ = routes._suggest_meals(db, 1, 400)
+            for want in (1, 4, 10, 22):
+                short, _, _ = routes._suggest_meals(db, 1, want)
+                assert [m["id"] for m in short] == [m["id"] for m in long[:want]]
+        finally:
+            db.close()
+
+
 def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
     import app.routes as routes
     from app.db.catalog import upsert_catalog_recipe

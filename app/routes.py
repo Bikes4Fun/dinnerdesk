@@ -3074,18 +3074,20 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
     context = None
     if body.meal_count and not body.draft and (not source or body.keep_current):
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
+        current = _plan_out(db, _ensure_plan(db, household_id), household_id)
+        current_ids = {slot["recipe_id"] for slot in current["slots"]}
         _SUGGEST_CONTEXT.set(None)
         if body.keep_current:
             candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count, kept)
         else:
-            candidates, note, reasons = _suggest_meals(db, household_id, 400)
+            # The ranker is greedy, so its first picks don't depend on how many it ranks. Rank
+            # enough to fill the plan even if every meal already this week goes to the back.
+            candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count + len(current_ids))
         available = [m for m in candidates if m["id"] not in kept]
-        current = _plan_out(db, _ensure_plan(db, household_id), household_id)
-        current_ids = {slot["recipe_id"] for slot in current["slots"]}
         # Prefer a fresh proposal; retain eligible familiar meals if the catalog is small.
         available.sort(key=lambda meal: meal["id"] in current_ids)
         picked = available[:body.meal_count]
-        # Ranked from 400 candidates; keep reasons and the note to the meals actually picked.
+        # Keep reasons and the note to the meals actually picked.
         reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
         note = _proposal_note(reasons, [m["id"] for m in picked])
         context = _plan_context(_SUGGEST_CONTEXT.get(), picked)
@@ -3182,8 +3184,10 @@ def swap_suggestion(plan_id: int, slot_id: int, body: SuggestionSwap | None = No
             raise HTTPException(404, "Meal not found")
         excluded = set(plan["original_recipe_ids"]) | {s["recipe_id"] for s in plan["slots"]}
         excluded |= {c["to"] for c in plan["changes"]}
-        picked, _, _ = _suggest_meals(db, household_id, 400)
-        if body and body.recipe_id is not None:
+        # A chosen meal is checked against the wide list; otherwise the next one past what's excluded.
+        choosing = body and body.recipe_id is not None
+        picked, _, _ = _suggest_meals(db, household_id, 400 if choosing else len(excluded) + 1)
+        if choosing:
             current_ids = {s["recipe_id"] for s in plan["slots"]}
             meal = next((m for m in picked if m["id"] == body.recipe_id and m["id"] not in current_ids), None)
         else:
@@ -3233,9 +3237,9 @@ def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = D
             raise HTTPException(409, "Keep enough room for your selected meals")
         delta = body.meal_count - len(plan["slots"])
         if delta > 0:
-            picked, _, _ = _suggest_meals(db, household_id, 400)
             excluded = {s["recipe_id"] for s in plan["slots"]} | set(plan["original_recipe_ids"])
             excluded |= {c["to"] for c in plan["changes"]}
+            picked, _, _ = _suggest_meals(db, household_id, len(excluded) + delta)
             added = [m for m in picked if m["id"] not in excluded][:delta]
             if len(added) < delta:
                 raise HTTPException(409, "Not enough matching meals. Adjust filters or choose meals yourself.")
