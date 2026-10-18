@@ -19,7 +19,7 @@ from app.auth_routes import router as auth_router
 from app.assets import food_dir
 from app.db.database import connect, init_db
 from app.perf import server_timing, start_request
-from app.routes import router
+from app.routes import router, schedule_suggestion_refresh, start_suggestion_refresher
 from app.taste_lab import router as taste_router
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -108,6 +108,15 @@ def create_app() -> FastAPI:
                 request.method, request.url.path, status,
                 (time.perf_counter() - started) * 1000, stats.queries, stats.db_ms,
             )
+
+    @app.middleware("http")
+    async def refresh_suggestion_after_writes(request: Request, call_next):
+        response = await call_next(request)
+        household_id = getattr(request.state, "household_id", None)
+        if (household_id is not None and request.method in {"POST", "PUT", "PATCH", "DELETE"}
+                and request.url.path.startswith("/api/") and response.status_code < 400):
+            schedule_suggestion_refresh(household_id)
+        return response
 
     @app.middleware("http")
     async def no_cache_api(request: Request, call_next):
@@ -215,6 +224,9 @@ def create_app() -> FastAPI:
     def startup():
         conn = connect()
         init_db(conn)
+        # Tests drain refreshes themselves, so no thread outlives a test's schema.
+        if os.environ.get("DINNERDESK_REFRESH_SUGGESTIONS", "1") == "1":
+            start_suggestion_refresher(conn)
         conn.close()
         # Catalog imports are deliberate CLI operations, never startup work.
 

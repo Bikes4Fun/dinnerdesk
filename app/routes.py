@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from app.db.catalog import public_recipe_sql
 from app.perf import Laps
 from app.db.seed import pantry_catalog
-from app.db.database import ROOT, now, transaction
+from app.db.database import ROOT, connect, now, transaction
 from app.assets import catalog_dir, feedback_dir
 from app.auth import SESSION_COOKIE, session_info
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
@@ -3336,6 +3336,67 @@ def _fresh_suggestion(db: PgConnection, household_id: int) -> int | None:
             db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), plan_id))
         _log.info("suggestion refreshed hh=%d plan=%d replaced=%d", household_id, plan_id, len(stale))
         return plan_id
+
+
+# Re-ranks off the request path, so a household's next open finds its suggestion already fresh.
+# Each write schedules one for its household; a later write pushes it back, so a run of Taste Lab
+# swipes ranks once. One worker thread, so ranks never compete with each other for the CPU.
+_REFRESH_DELAY = 2.0  # seconds after the last write
+_REFRESH_DUE: dict[int, float] = {}
+_REFRESH_WAKE = threading.Condition()
+_REFRESH_WORKER: threading.Thread | None = None
+
+
+def schedule_suggestion_refresh(household_id: int, delay: float = _REFRESH_DELAY) -> None:
+    with _REFRESH_WAKE:
+        _REFRESH_DUE[household_id] = time.monotonic() + delay
+        _REFRESH_WAKE.notify()
+
+
+def _refresh_now(household_id: int) -> None:
+    db = connect()
+    try:
+        _fresh_suggestion(db, household_id)
+    except Exception:
+        _log.exception("suggestion refresh failed hh=%d", household_id)
+    finally:
+        db.close()
+
+
+def _drain_refreshes() -> None:
+    """Run every scheduled refresh now, due or not (tests, and nothing else)."""
+    with _REFRESH_WAKE:
+        due = list(_REFRESH_DUE)
+        _REFRESH_DUE.clear()
+    for household_id in due:
+        _refresh_now(household_id)
+
+
+def _refresh_loop() -> None:
+    while True:
+        with _REFRESH_WAKE:
+            while not _REFRESH_DUE:
+                _REFRESH_WAKE.wait()
+            household_id, due = min(_REFRESH_DUE.items(), key=lambda item: item[1])
+            wait = due - time.monotonic()
+            if wait > 0:
+                _REFRESH_WAKE.wait(wait)
+                continue
+            del _REFRESH_DUE[household_id]
+        _refresh_now(household_id)
+
+
+def start_suggestion_refresher(db: PgConnection) -> None:
+    """Start the worker and queue every pending suggestion: a relaunch emptied the pools, and
+    a deploy may have changed the ranking code, so check each before its household opens it."""
+    global _REFRESH_WORKER
+    with _REFRESH_WAKE:
+        if _REFRESH_WORKER is not None:
+            return
+        _REFRESH_WORKER = threading.Thread(target=_refresh_loop, name="suggestion-refresh", daemon=True)
+        _REFRESH_WORKER.start()
+    for row in db.execute("SELECT DISTINCT household_id FROM plans WHERE status = 'suggested' AND hidden = 0"):
+        schedule_suggestion_refresh(int(row["household_id"]), 0)
 
 
 @router.get("/suggestions/current")

@@ -34,6 +34,13 @@ def get_db(request: Request):
 
 
 def get_household(request: Request, response: Response, conn=Depends(get_db)) -> int:
+    household_id = _household(request, response, conn)
+    # A write's middleware reads this to re-rank the household's suggestion afterwards.
+    request.state.household_id = household_id
+    return household_id
+
+
+def _household(request: Request, response: Response, conn) -> int:
     token = request.cookies.get(SESSION_COOKIE)
     household_id = household_for_token(conn, token)
     if household_id is not None:

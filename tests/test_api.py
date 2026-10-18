@@ -1615,6 +1615,37 @@ def test_new_diet_drops_a_swapped_in_meal_that_breaks_it(tmp_path, monkeypatch):
         assert "chicken" not in _ingredients(routes, fresh["suggested_recipe_ids"])
 
 
+def test_a_write_re_ranks_the_suggestion_before_it_is_opened(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, _ = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 4}).json()
+        routes._drain_refreshes()
+        avoid = sorted(_ingredients(routes, proposal["suggested_recipe_ids"]))[0]
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": [avoid]}}})
+        assert list(routes._REFRESH_DUE) == [1]
+        routes._drain_refreshes()
+        monkeypatch.setattr(routes, "_suggest_meals", lambda *args: pytest.fail("the background rank already ran"))
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert avoid not in _ingredients(routes, fresh["suggested_recipe_ids"])
+        client.get("/api/plans/current")
+        assert not routes._REFRESH_DUE  # reads schedule nothing
+
+
+def test_server_start_queues_every_pending_suggestion(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, _ = _fresh_suggestion_kitchen(monkeypatch)
+        client.post("/api/plans", json={"meal_count": 2})
+        routes._REFRESH_DUE.clear()
+        started = []
+        monkeypatch.setattr(routes.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: started.append(kw["name"])})())
+        monkeypatch.setattr(routes, "_REFRESH_WORKER", None)
+        db = connect()
+        routes.start_suggestion_refresher(db)
+        db.close()
+        assert started == ["suggestion-refresh"]
+        assert list(routes._REFRESH_DUE) == [1]
+
+
 def test_short_rank_matches_the_front_of_a_long_one(tmp_path, monkeypatch):
     # Plans rank only the meals they need, which is safe only while this holds.
     import app.routes as routes
