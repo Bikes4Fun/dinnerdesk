@@ -31,8 +31,6 @@
     ["sesame", "Sesame"],
     ["fish", "Fish"],
     ["shellfish", "Shellfish"],
-    ["poultry", "Poultry"],
-    ["red-meat", "Red meat"],
   ];
   // Same lists as Settings → Filters (app/domain/diet_filter.py; a test keeps them equal).
   const DIETS = [

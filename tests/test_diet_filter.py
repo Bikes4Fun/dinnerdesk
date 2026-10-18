@@ -166,7 +166,7 @@ def test_soft_filters_are_kept_and_unknown_words_drop():
 
     cleaned = clean_filters({
         "who": ["family", "nope"],
-        "cuisines": ["italian", "thai"],
+        "cuisines": ["italian", "martian"],
         "protein_more": ["beef"],
         "protein_less": ["beef", "chicken"],
     })
@@ -279,3 +279,25 @@ def test_matched_words_reads_the_recipe_like_allowed_does():
     groups = blocks_for(["vegan"], [])
     assert "cheddar" in matched_words("Mac and Cheese", ["cheddar", "pasta"], groups)
     assert matched_words("Peanut Noodles", ["peanut butter", "rice noodles"], groups) == []
+
+
+def test_old_asian_and_seafood_picks_split_into_the_new_choices():
+    from app.domain.diet_filter import clean_filters
+
+    cleaned = clean_filters({"cuisines": ["asian", "thai"], "protein_more": ["seafood"], "protein_less": ["beef"]})
+    assert cleaned["cuisines"] == ["chinese", "thai", "japanese", "korean", "vietnamese"]
+    assert cleaned["protein_more"] == ["salmon", "shrimp", "white-fish", "scallops"]
+    assert cleaned["protein_less"] == ["beef"]
+
+
+def test_new_cuisines_and_proteins_rank_by_name_and_ingredients():
+    from types import SimpleNamespace
+
+    from app.domain.taste_rank import _soft_pref
+
+    taste = SimpleNamespace(soft={"cuisines": ["korean", "cajun"], "protein_more": ["eggs"], "protein_less": []})
+    assert _soft_pref({"name": "Beef Bulgogi Bowls", "ingredients": ["beef"]}, taste)[0] > 0
+    assert _soft_pref({"name": "Shrimp Gumbo", "ingredients": ["shrimp"]}, taste)[0] > 0
+    # "egg" is a word match, so eggplant isn't eggs.
+    assert _soft_pref({"name": "Roasted Eggplant", "ingredients": ["eggplant"]}, taste)[0] == 0
+    assert _soft_pref({"name": "Shakshuka", "ingredients": ["eggs", "tomatoes"]}, taste)[0] > 0

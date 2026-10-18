@@ -75,15 +75,30 @@ struct FiltersView: View {
   static let allergens = [
     ("soy", "Soy"), ("peanut", "Peanut"), ("tree-nuts", "Tree nuts"), ("dairy", "Dairy"), ("egg", "Egg"),
     ("gluten", "Gluten"), ("sesame", "Sesame"), ("fish", "Fish"), ("shellfish", "Shellfish"),
-    ("poultry", "Poultry"), ("red-meat", "Red meat"),
   ]
   static let avoids = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
     "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
   ]
-  static let who = [("beginner", "Beginner"), ("family", "Family"), ("kids", "Kids"), ("entertaining", "Entertaining")]
-  static let cuisines = [("italian", "Italian"), ("mexican", "Mexican"), ("asian", "Asian"), ("american", "American"), ("mediterranean", "Mediterranean")]
-  static let proteins = [("chicken", "Chicken"), ("beef", "Beef"), ("pork", "Pork"), ("seafood", "Seafood"), ("turkey", "Turkey")]
+  static let who = [("beginner", "Beginner"), ("family", "Family"), ("kids", "Kid-friendly"), ("entertaining", "Entertaining")]
+  static let cuisines = [
+    ("italian", "Italian"), ("mexican", "Mexican"), ("american", "American"), ("chinese", "Chinese"),
+    ("thai", "Thai"), ("indian", "Indian"), ("japanese", "Japanese"), ("mediterranean", "Mediterranean"),
+    ("korean", "Korean"), ("vietnamese", "Vietnamese"), ("greek", "Greek"), ("middle-eastern", "Middle Eastern"),
+    ("french", "French"), ("spanish", "Spanish"), ("southern", "Southern"), ("cajun", "Cajun & Creole"),
+    ("caribbean", "Caribbean"), ("latin-american", "Latin American"),
+  ]
+  static let proteins = [
+    ("chicken", "Chicken"), ("beef", "Beef"), ("pork", "Pork"), ("salmon", "Salmon"), ("shrimp", "Shrimp"),
+    ("tofu", "Tofu"), ("turkey", "Turkey"), ("white-fish", "White fish"), ("lamb", "Lamb"), ("sausage", "Sausage"),
+    ("tempeh", "Tempeh"), ("beans", "Beans & lentils"), ("eggs", "Eggs"), ("scallops", "Scallops"),
+  ]
+  /// Proteins each diet can eat; omnivore gets them all.
+  static let proteinDiets: [String: Set<String>] = [
+    "pescatarian": ["salmon", "shrimp", "white-fish", "scallops", "tofu", "tempeh", "beans", "eggs"],
+    "vegetarian": ["tofu", "tempeh", "beans", "eggs"],
+    "vegan": ["tofu", "tempeh", "beans"],
+  ]
   struct TimeOption: Identifiable {
     let id: String
     let label: String
@@ -91,6 +106,7 @@ struct FiltersView: View {
 
   static let times = [
     TimeOption(id: "any", label: "Any time"),
+    TimeOption(id: "20", label: "20 min or less"),
     TimeOption(id: "30", label: "30 min or less"),
     TimeOption(id: "45", label: "45 min or less"),
   ]
@@ -128,16 +144,46 @@ struct FiltersView: View {
     return n
   }
 
+  /// Sections after Cook time fold to one line that says what's picked. Diet starts open.
+  @State private var openSections: Set<String> = ["diet"]
+  /// Long sections show their first few choices; "Show more" opens the rest.
+  @State private var showAll: Set<String> = []
+
   var body: some View {
     VStack(spacing: 0) {
       ScrollView {
-        VStack(alignment: .leading, spacing: 28) {
+        VStack(alignment: .leading, spacing: 12) {
           if let error { ErrorBanner(message: error) }
-          hidesCard
-          shapesGroup
+          cookTimeCard
+          tierCard("Hides meals", note: "Strict — never shown", strict: true) {
+            foldSection("diet", "Diet", summary: dietSummary, isSet: diets != ["omnivore"]) { dietChips }
+            foldSection("allergy", "Allergies", summary: Self.list(allergyLabels, empty: "None"), isSet: !allergyLabels.isEmpty) {
+              allergyChips
+            }
+          }
+          tierCard("Shows fewer", note: "Still allowed, just ranked lower") {
+            foldSection("avoid", "Not a fan of", summary: Self.list(avoidLabels, empty: "Nothing yet"), isSet: !avoidLabels.isEmpty) {
+              avoidChips
+            }
+          }
+          tierCard("Preferences", note: "Tunes what we suggest") {
+            foldSection("who", "Who it's for", summary: Self.list(whoLabels, empty: "Anyone"), isSet: !who.isEmpty) {
+              KitchenFlow(spacing: 6) {
+                ForEach(Self.who, id: \.0) { item in
+                  choiceChip(item.1, on: who.contains(item.0)) { toggle(&who, item.0) }
+                }
+              }
+            }
+            foldSection("protein", "Proteins", summary: proteinSummary, isSet: !proteinMore.isEmpty || !proteinLess.isEmpty) {
+              proteinRows
+            }
+            foldSection("cuisine", "Cuisines", summary: Self.list(cuisineLabels, empty: "Any"), isSet: !cuisines.isEmpty) {
+              cuisineChips
+            }
+          }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
       }
       footer
@@ -155,33 +201,65 @@ struct FiltersView: View {
     .task { await load() }
   }
 
-  private var hidesCard: some View {
-    VStack(alignment: .leading, spacing: 22) {
-      HStack(spacing: 10) {
-        Text("Hides meals")
-          .font(Theme.chipLabel)
-          .foregroundStyle(Color(hex: 0x8A3A22))
-          .padding(.horizontal, 10)
-          .frame(height: 26)
-          .background(Color(hex: 0xFDE6DD), in: Capsule())
-        Text("Strict — never shown")
-          .font(Theme.subtitle)
-          .foregroundStyle(Theme.muted)
+  // MARK: Cook time
+
+  /// Always open: it's the filter people change most.
+  private var cookTimeCard: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(alignment: .firstTextBaseline) {
+        Text("Cook time").font(Self.sectionFont).foregroundStyle(Theme.ink)
+          .accessibilityAddTraits(.isHeader)
+        Spacer()
+        Text("Prep to plate").font(Self.noteFont).foregroundStyle(Theme.muted)
       }
-      chipSection("Diet") {
-        ForEach(Self.diets, id: \.self) { item in
-          choiceChip(Self.dietLabels[item] ?? item.capitalized, on: diets.contains(item)) { toggleDiet(item) }
+      HStack(spacing: 4) {
+        ForEach(Self.times) { option in
+          let on = time == option.id
+          Button {
+            time = option.id
+            save()
+          } label: {
+            Text(option.id == "any" ? "Any" : "\(option.id) min")
+              .font(Self.chipFont)
+              .foregroundStyle(on ? Theme.ink : Theme.muted)
+              .frame(maxWidth: .infinity, minHeight: 34)
+              .background(on ? Theme.surface : Color.clear, in: RoundedRectangle(cornerRadius: 10))
+              .shadow(color: on ? Theme.ink.opacity(0.15) : .clear, radius: 2, y: 1)
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel(option.label)
+          .accessibilityAddTraits(on ? .isSelected : [])
         }
       }
-      chipSection("Allergies") {
+      .padding(3)
+      .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 13))
+    }
+    .padding(.horizontal, 14)
+    .padding(.top, 12)
+    .padding(.bottom, 14)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20))
+    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.line))
+  }
+
+  // MARK: Sections
+
+  private var dietChips: some View {
+    KitchenFlow(spacing: 6) {
+      ForEach(Self.diets, id: \.self) { item in
+        choiceChip(Self.dietLabels[item] ?? item.capitalized, on: diets.contains(item)) { toggleDiet(item) }
+      }
+    }
+  }
+
+  private var allergyChips: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      KitchenFlow(spacing: 6) {
         ForEach(Self.allergens, id: \.0) { item in
-          choiceChip(item.1, on: allergens.contains(item.0)) {
-            if allergens.contains(item.0) { allergens.remove(item.0) } else { allergens.insert(item.0) }
-            save()
-          }
+          choiceChip(item.1, on: allergens.contains(item.0)) { toggle(&allergens, item.0) }
         }
         ForEach(otherAllergens, id: \.self) { name in
           choiceChip("\(name) ✕", on: true) { otherAllergens.removeAll { $0 == name }; save() }
+            .accessibilityLabel("Remove \(name)")
         }
         choiceChip("Other", on: otherAllergenOpen) { otherAllergenOpen.toggle() }
       }
@@ -193,96 +271,263 @@ struct FiltersView: View {
           save()
         }
       }
-      chipSection("I avoid") {
-        ForEach(avoids.sorted() + otherAvoids, id: \.self) { name in
-          choiceChip("\(name) ✕", on: true) {
-            avoids.remove(name)
-            otherAvoids.removeAll { $0 == name }
-            save()
-          }
+    }
+  }
+
+  private var avoidChips: some View {
+    let shown = Self.firstOrPicked(Self.avoids, count: 6, open: showAll.contains("avoid")) { avoids.contains($0) }
+    return VStack(alignment: .leading, spacing: 10) {
+      KitchenFlow(spacing: 6) {
+        ForEach(shown, id: \.self) { item in
+          choiceChip(item.capitalized, on: avoids.contains(item)) { toggle(&avoids, item) }
+        }
+        ForEach(otherAvoids, id: \.self) { name in
+          choiceChip("\(name) ✕", on: true) { otherAvoids.removeAll { $0 == name }; save() }
+            .accessibilityLabel("Remove \(name)")
         }
       }
+      showMoreButton("avoid", hidden: Self.avoids.count - shown.count, noun: "")
       OtherField(label: "Foods to avoid", placeholder: "Add an ingredient…", dashed: true, presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
         avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
         otherAvoids.removeAll { Self.avoids.contains($0) }
         save()
       }
     }
-    .padding(16)
+  }
+
+  private var cuisineChips: some View {
+    let shown = Self.firstOrPicked(Self.cuisines, count: 8, open: showAll.contains("cuisine")) { cuisines.contains($0.0) }
+    return VStack(alignment: .leading, spacing: 8) {
+      KitchenFlow(spacing: 6) {
+        ForEach(shown, id: \.0) { item in
+          choiceChip(item.1, on: cuisines.contains(item.0)) { toggle(&cuisines, item.0) }
+        }
+      }
+      showMoreButton("cuisine", hidden: Self.cuisines.count - shown.count, noun: "cuisines")
+    }
+  }
+
+  /// The proteins this kitchen's diet allows.
+  private var proteinChoices: [(String, String)] {
+    let diet = ["vegan", "vegetarian", "pescatarian"].first { diets.contains($0) }
+    guard let diet, let allowed = Self.proteinDiets[diet] else { return Self.proteins }
+    return Self.proteins.filter { allowed.contains($0.0) }
+  }
+
+  private var proteinRows: some View {
+    let choices = proteinChoices
+    let shown = Self.firstOrPicked(choices, count: 4, open: showAll.contains("protein")) {
+      proteinMore.contains($0.0) || proteinLess.contains($0.0)
+    }
+    return VStack(alignment: .leading, spacing: 8) {
+      VStack(spacing: 0) {
+        HStack(spacing: 0) {
+          Spacer()
+          Text("LESS").frame(width: 50)
+          Color.clear.frame(width: 36, height: 1)
+          Text("MORE").frame(width: 50)
+        }
+        .font(.custom("DMSans-Bold", size: 11, relativeTo: .caption2))
+        .tracking(0.5)
+        .foregroundStyle(Theme.muted)
+        .padding(.horizontal, 11)
+        .padding(.top, 8)
+        .padding(.bottom, 2)
+        .accessibilityHidden(true)
+        ForEach(Array(shown.enumerated()), id: \.element.0) { index, item in
+          if index > 0 { Theme.line.frame(height: 1) }
+          proteinRow(item.0, item.1)
+        }
+      }
+      .background(Theme.bg, in: RoundedRectangle(cornerRadius: 16))
+      .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line))
+      showMoreButton("protein", hidden: choices.count - shown.count, noun: "proteins")
+    }
+  }
+
+  /// Less · no preference · more. Less ranks those meals lower; it doesn't cap them.
+  private func proteinRow(_ id: String, _ name: String) -> some View {
+    let value = proteinMore.contains(id) ? "more" : proteinLess.contains(id) ? "less" : ""
+    return HStack(spacing: 12) {
+      Text(name).font(Self.chipFont).foregroundStyle(Color(hex: 0x2E1A2C))
+      Spacer(minLength: 0)
+      HStack(spacing: 0) {
+        proteinSegment(id, "less", on: value == "less", label: "Less \(name)") {
+          Image(systemName: "minus").font(.system(size: 12, weight: .bold))
+        }
+        proteinSegment(id, "", on: value.isEmpty, label: "No preference for \(name)") {
+          Circle().fill(value.isEmpty ? Theme.ink : Color(hex: 0xC9B9C4)).frame(width: 6, height: 6)
+        }
+        proteinSegment(id, "more", on: value == "more", label: "More \(name)") {
+          Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+        }
+      }
+      .padding(3)
+      .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 11))
+    }
+    .padding(.leading, 14)
+    .padding(.trailing, 8)
+    .padding(.vertical, 5)
+    .frame(minHeight: 44)
+  }
+
+  private func proteinSegment<Label: View>(
+    _ id: String, _ kind: String, on: Bool, label: String, @ViewBuilder content: () -> Label
+  ) -> some View {
+    let fill: Color = !on ? .clear : kind == "more" ? Theme.ink : kind == "less" ? Color(hex: 0xFDE6DD) : Theme.surface
+    let ink: Color = !on ? Theme.muted : kind == "more" ? Theme.surface : kind == "less" ? Color(hex: 0x8A3A22) : Theme.ink
+    return Button {
+      proteinMore.remove(id)
+      proteinLess.remove(id)
+      if kind == "more" { proteinMore.insert(id) }
+      if kind == "less" { proteinLess.insert(id) }
+      save()
+    } label: {
+      content()
+        .foregroundStyle(ink)
+        .frame(width: kind.isEmpty ? 36 : 50, height: 30)
+        .background(fill, in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).stroke(on && kind == "less" ? Theme.accent : .clear, lineWidth: 1.5))
+        .shadow(color: on && kind.isEmpty ? Theme.ink.opacity(0.15) : .clear, radius: 1.5, y: 1)
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(label)
+    .accessibilityAddTraits(on ? .isSelected : [])
+  }
+
+  // MARK: Summaries
+
+  private var dietSummary: String {
+    diets == ["omnivore"] ? "Omnivore · no restriction" : Self.diets.filter { diets.contains($0) }.map { Self.dietLabels[$0] ?? $0 }.joined(separator: ", ")
+  }
+  private var allergyLabels: [String] { Self.allergens.filter { allergens.contains($0.0) }.map(\.1) + otherAllergens }
+  private var avoidLabels: [String] { Self.avoids.filter { avoids.contains($0) }.map(\.capitalized) + otherAvoids }
+  private var whoLabels: [String] { Self.who.filter { who.contains($0.0) }.map(\.1) }
+  private var cuisineLabels: [String] { Self.cuisines.filter { cuisines.contains($0.0) }.map(\.1) }
+  private var proteinSummary: String {
+    let more = Self.proteins.filter { proteinMore.contains($0.0) }.map { $0.1.lowercased() }
+    let less = Self.proteins.filter { proteinLess.contains($0.0) }.map { $0.1.lowercased() }
+    var parts: [String] = []
+    if !more.isEmpty { parts.append("More " + more.joined(separator: ", ")) }
+    if !less.isEmpty { parts.append("less " + less.joined(separator: ", ")) }
+    return parts.isEmpty ? "No preference" : parts.joined(separator: " · ")
+  }
+
+  /// "Peanut, Sesame, Soy +2"
+  static func list(_ labels: [String], empty: String) -> String {
+    guard !labels.isEmpty else { return empty }
+    return labels.prefix(3).joined(separator: ", ") + (labels.count > 3 ? " +\(labels.count - 3)" : "")
+  }
+
+  /// The first `count` items, plus any picked one past them so a choice never hides.
+  static func firstOrPicked<T>(_ items: [T], count: Int, open: Bool, picked: (T) -> Bool) -> [T] {
+    open ? items : items.enumerated().filter { $0.offset < count || picked($0.element) }.map(\.element)
+  }
+
+  // MARK: Pieces
+
+  private static let noteFont = Font.custom("DMSans-Regular", size: 13, relativeTo: .footnote)
+  private static let chipFont = Font.custom("DMSans-SemiBold", size: 14, relativeTo: .subheadline)
+  private static let sectionFont = Font.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline)
+
+  /// A labeled group: how strongly its filters act, then its folding sections.
+  private func tierCard<Content: View>(
+    _ badge: String, note: String, strict: Bool = false, @ViewBuilder content: () -> Content
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 10) {
+        Text(badge)
+          .font(.custom("DMSans-Bold", size: 12, relativeTo: .caption))
+          .foregroundStyle(strict ? Color(hex: 0x8A3A22) : Theme.ink)
+          .padding(.horizontal, 10)
+          .frame(height: 24)
+          .background(strict ? Color(hex: 0xFDE6DD) : Theme.aubergineTint, in: Capsule())
+        Text(note).font(Self.noteFont).foregroundStyle(Theme.muted)
+      }
+      .padding(.bottom, 6)
+      .accessibilityElement(children: .combine)
+      content()
+    }
+    .padding(.horizontal, 14)
+    .padding(.top, 14)
+    .padding(.bottom, 4)
     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20))
     .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.line))
   }
 
-  private var shapesGroup: some View {
-    VStack(alignment: .leading, spacing: 22) {
-      HStack(spacing: 10) {
-        Text("Shapes suggestions")
-          .font(Theme.chipLabel)
-          .foregroundStyle(Theme.ink)
-          .padding(.horizontal, 10)
-          .frame(height: 26)
-          .background(Theme.aubergineTint, in: Capsule())
-        Text("Show me more of these")
-          .font(Theme.subtitle)
-          .foregroundStyle(Theme.muted)
-      }
-      chipSection("Who it's for") {
-        ForEach(Self.who, id: \.0) { item in
-          choiceChip(item.1, on: who.contains(item.0)) {
-            if who.contains(item.0) { who.remove(item.0) } else { who.insert(item.0) }
-            save()
-          }
+  /// A section that folds to its title and a one-line summary of what's picked.
+  private func foldSection<Content: View>(
+    _ key: String, _ title: String, summary: String, isSet: Bool, @ViewBuilder content: () -> Content
+  ) -> some View {
+    let open = openSections.contains(key)
+    return VStack(alignment: .leading, spacing: 0) {
+      Theme.line.frame(height: 1)
+      Button {
+        withAnimation(.easeOut(duration: 0.2)) {
+          if open { openSections.remove(key) } else { openSections.insert(key) }
         }
-      }
-      if diets.contains("omnivore") || diets.contains("pescatarian") {
-        let choices = Self.proteins.filter { diets.contains("omnivore") || $0.0 == "seafood" }
-        VStack(alignment: .leading, spacing: 10) {
-          Text("Proteins").font(Theme.body).foregroundStyle(Theme.ink)
-          LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-            ForEach(choices, id: \.0) { item in
-              proteinTile(item.0, item.1)
+      } label: {
+        HStack(spacing: 12) {
+          VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(Self.sectionFont).foregroundStyle(Theme.ink)
+            if !open {
+              Text(summary)
+                .font(Self.noteFont)
+                .foregroundStyle(isSet ? Color(hex: 0x2E1A2C) : Theme.muted)
+                .lineLimit(1)
             }
           }
+          Spacer(minLength: 0)
+          Image(systemName: "chevron.down")
+            .font(.system(size: 12, weight: .bold))
+            .foregroundStyle(Theme.muted)
+            .rotationEffect(.degrees(open ? 180 : 0))
         }
+        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
+        .contentShape(Rectangle())
       }
-      chipSection("Cuisines") {
-        ForEach(Self.cuisines, id: \.0) { item in
-          choiceChip(item.1, on: cuisines.contains(item.0)) {
-            if cuisines.contains(item.0) { cuisines.remove(item.0) } else { cuisines.insert(item.0) }
-            save()
-          }
-        }
-      }
-      VStack(alignment: .leading, spacing: 10) {
-        Text("Cook time").font(Theme.body).foregroundStyle(Theme.ink)
-        HStack(spacing: 4) {
-          ForEach(Self.times) { option in
-            let on = time == option.id
-            Button {
-              time = option.id
-              save()
-            } label: {
-              Text(option.id == "any" ? "Any" : option.id == "30" ? "30 min" : "45 min")
-                .font(Theme.chipLabel)
-                .foregroundStyle(on ? Theme.ink : Theme.muted)
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(on ? Theme.surface : Color.clear, in: RoundedRectangle(cornerRadius: 12))
-                .shadow(color: on ? Theme.ink.opacity(0.15) : .clear, radius: 2, y: 1)
-            }
-            .buttonStyle(.plain)
-            .accessibilityAddTraits(on ? .isSelected : [])
-          }
-        }
-        .padding(4)
-        .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 16))
+      .buttonStyle(.plain)
+      .accessibilityAddTraits(.isHeader)
+      .accessibilityValue(open ? "Expanded" : "Collapsed, \(summary)")
+      if open {
+        content().padding(.bottom, 12)
       }
     }
+  }
+
+  @ViewBuilder
+  private func showMoreButton(_ key: String, hidden: Int, noun: String) -> some View {
+    let open = showAll.contains(key)
+    if open || hidden > 0 {
+      Button {
+        withAnimation(.easeOut(duration: 0.2)) {
+          if open { showAll.remove(key) } else { showAll.insert(key) }
+        }
+      } label: {
+        HStack(spacing: 6) {
+          Text(open ? "Show less" : "Show \(hidden) more" + (noun.isEmpty ? "" : " \(noun)"))
+          Image(systemName: "chevron.down")
+            .font(.system(size: 12, weight: .bold))
+            .rotationEffect(.degrees(open ? 180 : 0))
+        }
+        .font(.custom("DMSans-Bold", size: 14, relativeTo: .subheadline))
+        .foregroundStyle(Theme.accent)
+        .frame(minHeight: 36)
+      }
+      .buttonStyle(.plain)
+    }
+  }
+
+  private func toggle(_ set: inout Set<String>, _ item: String) {
+    if set.contains(item) { set.remove(item) } else { set.insert(item) }
+    save()
   }
 
   private var footer: some View {
     HStack(spacing: 12) {
       Button("Clear all") { resetFilters() }
-        .font(Theme.action)
+        .font(.custom("DMSans-SemiBold", size: 16, relativeTo: .body))
         .foregroundStyle(Theme.accent)
       Button {
         selectTab(.recipes)
@@ -293,79 +538,35 @@ struct FiltersView: View {
             .font(Theme.count)
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 10)
-            .frame(height: 24)
+            .frame(height: 22)
             .background(Color(hex: 0xFA7E5A), in: Capsule())
         }
-        .font(Theme.action)
+        .font(.custom("DMSans-SemiBold", size: 16, relativeTo: .body))
         .foregroundStyle(Theme.surface)
-        .frame(maxWidth: .infinity, minHeight: 52)
+        .frame(maxWidth: .infinity, minHeight: 46)
         .background(Theme.ink, in: Capsule())
       }
       .buttonStyle(.plain)
     }
     .padding(.horizontal, 20)
-    .padding(.top, 14)
-    .padding(.bottom, 12)
+    .padding(.top, 10)
+    .padding(.bottom, 8)
     .background(Theme.surface)
     .overlay(alignment: .top) { Theme.line.frame(height: 1) }
-  }
-
-  private func chipSection<Content: View>(_ title: String, @ViewBuilder chips: () -> Content) -> some View {
-    VStack(alignment: .leading, spacing: 10) {
-      Text(title).font(Theme.body).foregroundStyle(Theme.ink)
-      KitchenFlow(spacing: 8) { chips() }
-    }
   }
 
   private func choiceChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
     Button(action: action) {
       Text(label)
-        .font(Theme.chipLabel)
+        .font(Self.chipFont)
         .foregroundStyle(on ? Theme.surface : Color(hex: 0x2E1A2C))
-        .padding(.horizontal, 16)
-        .frame(minHeight: 44)
+        .padding(.horizontal, 12)
+        .frame(minHeight: 34)
         .background(on ? Theme.ink : Theme.surface, in: Capsule())
         .overlay(Capsule().stroke(on ? Theme.ink : Theme.line, lineWidth: 1))
     }
     .buttonStyle(.plain)
     .accessibilityAddTraits(on ? .isSelected : [])
-  }
-
-  private func proteinTile(_ id: String, _ name: String) -> some View {
-    let more = proteinMore.contains(id)
-    let less = proteinLess.contains(id)
-    let on = more || less
-    return Button {
-      if more {
-        proteinMore.remove(id)
-        proteinLess.insert(id)
-      } else if less {
-        proteinLess.remove(id)
-      } else {
-        proteinMore.insert(id)
-      }
-      save()
-    } label: {
-      HStack {
-        Text(more ? "More \(name.lowercased())" : less ? "Less \(name.lowercased())" : name)
-          .font(Theme.chipLabel)
-          .foregroundStyle(Color(hex: 0x2E1A2C))
-          .multilineTextAlignment(.leading)
-        Spacer(minLength: 8)
-        Image(systemName: "checkmark")
-          .font(.system(size: 12, weight: .bold))
-          .foregroundStyle(Theme.ink)
-          .frame(width: 22, height: 22)
-          .background(on ? Color(hex: 0xFA7E5A) : Color.clear, in: Circle())
-          .overlay(Circle().stroke(on ? Color.clear : Theme.line, lineWidth: 1.5))
-          .opacity(on ? 1 : 0)
-      }
-      .padding(.horizontal, 14)
-      .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
-      .background(on ? Color(hex: 0xFDE6DD) : Theme.surface, in: RoundedRectangle(cornerRadius: 14))
-      .overlay(RoundedRectangle(cornerRadius: 14).stroke(on ? Theme.accent : Theme.line, lineWidth: on ? 1.5 : 1))
-    }
-    .buttonStyle(.plain)
   }
 
   private func resetFilters() {

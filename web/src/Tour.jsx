@@ -18,6 +18,7 @@ const TIPS_CARD = 6;
 
 const TIMES = [
   ["any", "Any time"],
+  ["20", "≤20 min"],
   ["30", "≤30 min"],
   ["45", "≤45 min"],
 ];
