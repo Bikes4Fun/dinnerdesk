@@ -87,6 +87,8 @@ struct ContentView: View {
         }
       }
     }
+    // The Quick start tour, presented by AuthGate, shows FiltersView too.
+    .environmentObject(store)
   }
 
   /// Reset the destination before showing it, including when the current tab is tapped.

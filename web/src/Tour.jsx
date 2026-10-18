@@ -18,6 +18,7 @@ const TIPS_CARD = 6;
 
 const TIMES = [
   ["any", "Any time"],
+  ["20", "≤20 min"],
   ["30", "≤30 min"],
   ["45", "≤45 min"],
 ];
@@ -148,7 +149,7 @@ export function Tour() {
               </p>
             )}
             <div className="tour-actions">
-              <button type="button" className="btn-primary" onClick={() => setStep("eat")}>
+              <button type="button" className="btn-primary" onClick={() => setStep("ai")}>
                 Quick start
               </button>
               <button type="button" className="btn-secondary" disabled={busy} onClick={pickTasteLab}>
@@ -206,11 +207,8 @@ export function Tour() {
                 </button>
               ))}
             </div>
-            <button type="button" className="btn-primary block" onClick={() => setStep("ai")}>
-              Next
-            </button>
-            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish(true)}>
-              Save and skip the tour
+            <button type="button" className="btn-primary block" disabled={busy} onClick={() => finish(true)}>
+              {busy ? "Saving…" : "Start browsing"}
             </button>
           </>
         )}
@@ -231,8 +229,8 @@ export function Tour() {
             <button type="button" className="btn-primary block" onClick={() => setStep("how")}>
               How to use
             </button>
-            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish(true)}>
-              Save and skip the tour
+            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish(false)}>
+              Skip the tour
             </button>
           </>
         )}
@@ -262,12 +260,24 @@ export function Tour() {
                 Next
               </button>
             ) : (
-              <button type="button" className="btn-primary block" disabled={busy} onClick={() => finish(true)}>
-                {busy ? "Saving…" : "Start browsing"}
+              <button type="button" className="btn-primary block" onClick={() => setStep("prefs")}>
+                Next
               </button>
             )}
-            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish(true)}>
+            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish(false)}>
               Skip rest
+            </button>
+          </>
+        )}
+        {step === "prefs" && (
+          <>
+            {/* Same words as tour.prefs.* in ios/dinnerdesk/copy.json. */}
+            <h2 id="tour-title">Make it yours</h2>
+            <p className="help" data-tip="tour.prefs">
+              Tell us what your household eats and what to avoid, and we’ll start suggesting meal plans made for you.
+            </p>
+            <button type="button" className="btn-primary block" onClick={() => setStep("eat")}>
+              Next
             </button>
           </>
         )}
