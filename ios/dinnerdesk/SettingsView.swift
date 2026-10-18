@@ -68,11 +68,11 @@ struct SettingsView: View {
 /// (app/domain/diet_filter.py; a test keeps these copies equal).
 struct FiltersView: View {
   /// Set by the Quick start tour: the main button says this and calls onDone instead of
-  /// showing Recipes, and Reset stays off the toolbar (the tour has Skip there).
+  /// going back, and the tour's own Back and Skip take the toolbar.
   var doneTitle: String? = nil
   var onDone: (() async -> Void)? = nil
   @EnvironmentObject private var store: Store
-  @Environment(\.selectTab) private var selectTab
+  @Environment(\.dismiss) private var dismiss
   static let diets = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
   /// Pick one of these. The others (gluten-free, dairy-free) combine with it.
   static let exclusiveDiets: Set<String> = ["omnivore", "pescatarian", "vegetarian", "vegan"]
@@ -134,6 +134,7 @@ struct FiltersView: View {
   @State private var saveState = SaveState.idle
   @State private var saveCount = 0
   @State private var saveTask: Task<Void, Never>?
+  @State private var saveFailed = false
 
   static let dietLabels = [
     "omnivore": "Omnivore", "pescatarian": "Pescatarian", "vegetarian": "Vegetarian", "vegan": "Vegan",
@@ -185,6 +186,7 @@ struct FiltersView: View {
               cuisineChips
             }
           }
+          FilterSuggestionCard()
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 16)
@@ -195,8 +197,18 @@ struct FiltersView: View {
     .background(Theme.bg)
     .navigationTitle("Filters")
     .navigationBarTitleDisplayMode(.inline)
+    // Back waits for the last change to save, so it replaces the system back button.
+    .navigationBarBackButtonHidden(onDone == nil)
     .toolbar {
       if onDone == nil {
+        ToolbarItem(placement: .topBarLeading) {
+          Button {
+            Task { await close() }
+          } label: {
+            Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold))
+          }
+          .accessibilityLabel("Save and go back")
+        }
         ToolbarItem(placement: .topBarTrailing) {
           Button("Reset") { resetFilters() }
             .font(Theme.action)
@@ -532,29 +544,10 @@ struct FiltersView: View {
 
   private var footer: some View {
     HStack(spacing: 12) {
-      Button("Clear all") { resetFilters() }
-        .font(.custom("DMSans-SemiBold", size: 16, relativeTo: .body))
-        .foregroundStyle(Theme.accent)
       Button {
-        if let onDone {
-          // Let the last change finish saving first.
-          Task {
-            await saveTask?.value
-            await onDone()
-          }
-        } else {
-          selectTab(.recipes)
-        }
+        Task { await close() }
       } label: {
-        HStack(spacing: 10) {
-          Text(doneTitle ?? "Show meals")
-          Text(filterCount == 0 ? "All" : filterCount == 1 ? "1 filter" : "\(filterCount) filters")
-            .font(Theme.count)
-            .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 10)
-            .frame(height: 22)
-            .background(Color(hex: 0xFA7E5A), in: Capsule())
-        }
+        Text(doneTitle ?? (filterCount == 0 ? "Save filters" : filterCount == 1 ? "Save 1 filter" : "Save \(filterCount) filters"))
         .font(.custom("DMSans-SemiBold", size: 16, relativeTo: .body))
         .foregroundStyle(Theme.surface)
         .frame(maxWidth: .infinity, minHeight: 46)
@@ -567,6 +560,13 @@ struct FiltersView: View {
     .padding(.bottom, 8)
     .background(Theme.surface)
     .overlay(alignment: .top) { Theme.line.frame(height: 1) }
+  }
+
+  /// Each change saves as it's made; wait for the last one, then leave.
+  private func close() async {
+    await saveTask?.value
+    guard !saveFailed else { return }  // a failed save stays here with its message
+    if let onDone { await onDone() } else { dismiss() }
   }
 
   private func choiceChip(_ label: String, on: Bool, action: @escaping () -> Void) -> some View {
@@ -715,16 +715,95 @@ struct FiltersView: View {
           saveState = .saved
           UIAccessibility.post(notification: .announcement, argument: "Filters saved")
         }
-        // Recipes follow the filters, so refresh the list behind this screen.
-        await store.searchRecipes("")
+        saveFailed = false
+        // Recipes follow the filters. Refresh the list in the background: the server re-sorts
+        // every recipe for new filters, and leaving this screen shouldn't wait for that.
+        Task { await store.searchRecipes("") }
         Task {
           try? await Task.sleep(for: .seconds(2))
           if mine == saveCount, saveState == .saved { saveState = .idle }
         }
       } catch {
         if mine == saveCount { saveState = .idle }
+        saveFailed = true
         self.error = KitchenAPI.message(error)
       }
+    }
+  }
+}
+
+/// "Missing a filter?" at the bottom of Filters. Sends a feature request (POST /feedback).
+private struct FilterSuggestionCard: View {
+  @State private var note = ""
+  @State private var sending = false
+  @State private var sent = false
+  @State private var error: String?
+  @FocusState private var focused: Bool
+
+  private var trimmed: String { note.trimmingCharacters(in: .whitespacesAndNewlines) }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Missing a filter?")
+        .font(.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline))
+        .foregroundStyle(Theme.ink)
+        .accessibilityAddTraits(.isHeader)
+      Text("Tell us what you’d like to filter by, and we’ll look into adding it.")
+        .font(.custom("DMSans-Regular", size: 13, relativeTo: .footnote))
+        .foregroundStyle(Theme.muted)
+        .fixedSize(horizontal: false, vertical: true)
+      TextField("e.g. low sodium, no pork, more one-pan meals", text: $note, axis: .vertical)
+        .lineLimit(2...5)
+        .font(.custom("DMSans-Regular", size: 14, relativeTo: .subheadline))
+        .focused($focused)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(Theme.bg, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+        .onChange(of: note) { _, _ in if !note.isEmpty { sent = false } }
+        .accessibilityLabel("Filter suggestion")
+      if let error {
+        Text(error).font(.custom("DMSans-Regular", size: 13, relativeTo: .footnote)).foregroundStyle(Theme.accent)
+      }
+      HStack {
+        if sent {
+          Label("Thanks! We got it.", systemImage: "checkmark.circle.fill")
+            .font(.custom("DMSans-SemiBold", size: 13, relativeTo: .footnote))
+            .foregroundStyle(Theme.ink)
+        }
+        Spacer()
+        Button {
+          Task { await send() }
+        } label: {
+          Text(sending ? "Sending…" : "Send suggestion")
+            .font(.custom("DMSans-SemiBold", size: 14, relativeTo: .subheadline))
+            .foregroundStyle(Theme.surface)
+            .padding(.horizontal, 14)
+            .frame(minHeight: 34)
+            .background(Theme.ink.opacity(trimmed.isEmpty || sending ? 0.4 : 1), in: Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(trimmed.isEmpty || sending)
+      }
+    }
+    .padding(14)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 20))
+    .overlay(RoundedRectangle(cornerRadius: 20).stroke(Theme.line))
+  }
+
+  private func send() async {
+    sending = true
+    defer { sending = false }
+    do {
+      let _: Ok = try await API.send(
+        "feedback", method: "POST", body: ["kind": "feature", "note": trimmed, "screen": "filters"])
+      note = ""
+      sent = true
+      focused = false
+      error = nil
+      UIAccessibility.post(notification: .announcement, argument: "Suggestion sent")
+    } catch {
+      self.error = KitchenAPI.message(error)
     }
   }
 }
