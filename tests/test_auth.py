@@ -514,7 +514,6 @@ def test_confirm_email_refuses_an_address_taken_meanwhile(tmp_path, monkeypatch)
         res = client.post("/api/auth/confirm-email", json={"token": sent[-1].rsplit("/", 1)[1]})
         assert res.json()["detail"] == "email_taken"
 
-
 def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
     monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
@@ -568,8 +567,6 @@ def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
         assert me["recovery_email"] is None and me["email_verified"] is False
         assert client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"}).json() == {"ok": True}
         assert sent == ["fan@example.com", "fan@example.com"]
-
-
 
 def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
