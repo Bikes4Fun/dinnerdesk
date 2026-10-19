@@ -1049,7 +1049,7 @@ struct AccountView: View {
           AccountRow(title: "Sign out")
             { Task { await session.signOut() } }
           
-          AccountRow(title: "Sign out of all devices")
+          AccountRow(title: "Sign out of all devices", subtitle: "If a device was lost or you changed your password")
             { confirmEverywhere = true }
         }
 
