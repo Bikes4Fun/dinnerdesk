@@ -7,6 +7,7 @@ function friendlyError(e) {
 
 export function AcceptInvite({ token, onAuthed }) {
   const [signedIn, setSignedIn] = useState(false);
+  const [existing, setExisting] = useState(false);
   const [preview, setPreview] = useState(null);
   const [previewErr, setPreviewErr] = useState("");
   const [email, setEmail] = useState("");
@@ -24,9 +25,10 @@ export function AcceptInvite({ token, onAuthed }) {
     setErr("");
     setBusy(true);
     try {
-      if (signedIn) {
+      if (signedIn || existing) {
         if (!confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) return;
-        await api.joinHousehold(token);
+        if (signedIn) await api.joinHousehold(token);
+        else await api.acceptInvite({ token, email, password, existing: true });
       } else await api.acceptInvite({ token, email, password });
       const me = await api.auth.me();
       onAuthed(me);
@@ -71,7 +73,7 @@ export function AcceptInvite({ token, onAuthed }) {
                   <p className="banner warn">No email means no password reset. If you forget your password, this account can't be recovered.</p>
                 )}
                 <label className="block-label" htmlFor="password">
-                  Choose a password
+                  {existing ? "Password" : "Choose a password"}
                 </label>
                 <input
                   id="password"
@@ -81,7 +83,7 @@ export function AcceptInvite({ token, onAuthed }) {
                   minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="new-password"
+                  autoComplete={existing ? "current-password" : "new-password"}
                 />
                 <p className="help">At least 8 characters.</p>
                 </>}
@@ -89,6 +91,11 @@ export function AcceptInvite({ token, onAuthed }) {
                   {busy ? "Joining…" : `Join ${preview.household_name}`}
                 </button>
               </form>
+              {!signedIn && (
+                <button type="button" className="text-link" onClick={() => { setExisting(!existing); setErr(""); }}>
+                  {existing ? "New to Dinnerdesk? Create an account" : "Already have an account? Sign in to join"}
+                </button>
+              )}
             </>
           )}
         </div>
