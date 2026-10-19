@@ -69,7 +69,7 @@ export function AcceptInvite({ token, onAuthed }) {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
                 />
-                {!existing && email.trim() && !email.includes("@") && (
+                {email.trim() && !email.includes("@") && (
                   <p className="banner warn">No email means no password reset. If you forget your password, this account can't be recovered.</p>
                 )}
                 <label className="block-label" htmlFor="password">
@@ -80,12 +80,12 @@ export function AcceptInvite({ token, onAuthed }) {
                   className="field"
                   type="password"
                   required
-                  minLength={existing ? undefined : 8}
+                  minLength={8}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={existing ? "current-password" : "new-password"}
                 />
-                {!existing && <p className="help">At least 8 characters.</p>}
+                <p className="help">At least 8 characters.</p>
                 </>}
                 <button type="submit" className="btn-primary block" disabled={busy}>
                   {busy ? "Joining…" : `Join ${preview.household_name}`}

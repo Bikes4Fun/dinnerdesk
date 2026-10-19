@@ -442,6 +442,10 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
         client.post("/api/auth/logout")
         ok = client.post("/api/auth/login", json={"email": "KITCHEN.FAN", "password": "correct horse battery staple"})
         assert ok.status_code == 200
+        # Without a recovery email, a username account can't invite people into its household.
+        invite = client.post("/api/household/invites")
+        assert invite.status_code == 400
+        assert invite.json()["detail"] == "email_required_to_invite"
 
         taken = client.post("/api/auth/signup", json={
             "email": "kitchen.fan", "password": "correct horse battery staple", "household_name": "x"})
@@ -455,6 +459,41 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
         reset = client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"})
         assert reset.status_code == 400
         assert reset.json()["detail"] == "no_email"
+
+
+def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+    sent = []
+    monkeypatch.setattr("app.auth_routes.send_reset_email", lambda to, link: sent.append(to) or True)
+    password = "correct horse battery staple"
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "other@example.com", "password": password, "household_name": "x"})
+        client.post("/api/auth/logout")
+        client.post("/api/auth/signup", json={"email": "kitchen.fan", "password": password, "household_name": "Ours"})
+        assert client.post("/api/auth/recovery-email", json={"email": "nope"}).json()["detail"] == "invalid_email"
+        assert client.post("/api/auth/recovery-email", json={"email": "other@example.com"}).json()["detail"] == "email_taken"
+        assert client.post("/api/auth/recovery-email", json={"email": " Fan@Example.com "}).status_code == 200
+        me = client.get("/api/auth/me").json()
+        assert me["email"] == "kitchen.fan" and me["recovery_email"] == "fan@example.com"
+        assert client.post("/api/household/invites").status_code == 200
+
+        # Either name signs in; resets go to the recovery email.
+        client.post("/api/auth/logout")
+        assert client.post("/api/auth/login", json={"email": "fan@example.com", "password": password}).status_code == 200
+        client.post("/api/auth/logout")
+        assert client.post("/api/auth/login", json={"email": "kitchen.fan", "password": password}).status_code == 200
+        assert client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"}).status_code == 200
+        assert client.post("/api/auth/forgot-password", json={"email": "fan@example.com"}).status_code == 200
+        assert sent == ["fan@example.com", "fan@example.com"]
+
+        # Nobody else can take it as a login or recovery email.
+        client.post("/api/auth/logout")
+        taken = client.post("/api/auth/signup", json={"email": "fan@example.com", "password": password, "household_name": "x"})
+        assert taken.json()["detail"] == "email_taken"
+        assert client.post("/api/auth/login", json={"email": "other@example.com", "password": password}).status_code == 200
+        assert client.post("/api/auth/recovery-email", json={"email": "x@example.com"}).json()["detail"] == "has_email_already"
 
 def test_tastelab_saves_only_to_own_history(tmp_path):
     vote = lambda rid: {"id": "shared-session", "anon_id": "guest-1", "kind": "snapshot",

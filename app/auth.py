@@ -87,13 +87,41 @@ def has_email(name: str | None) -> bool:
     return bool(name) and "@" in name
 
 
+def _name_taken(conn: Any, name: str) -> bool:
+    """A sign-in name is taken if any account uses it as its login or its recovery email."""
+    return conn.execute(
+        "SELECT 1 FROM users WHERE email = ? OR recovery_email = ?", (name, name)
+    ).fetchone() is not None
+
+
+def reset_address(row) -> Optional[str]:
+    """Where this account's reset links go: its login email, else its recovery email."""
+    return row["email"] if has_email(row["email"]) else row["recovery_email"]
+
+
+def set_recovery_email(conn: Any, user_id: int, email: str) -> None:
+    """Give a username account an email for password resets. It also works for signing in."""
+    user = _member(conn, user_id)
+    if has_email(user["email"]):
+        raise AuthError("has_email_already")
+    email = (email or "").strip().lower()
+    if not has_email(email):
+        raise AuthError("invalid_email")
+    other = conn.execute(
+        "SELECT id FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (email, email, user_id)
+    ).fetchone()
+    if other:
+        raise AuthError("email_taken")
+    conn.execute("UPDATE users SET recovery_email = ? WHERE id = ?", (email, user_id))
+    conn.commit()
+
+
 def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
     _lock_membership(conn)
     email = login_name(email)
     _check_password_strength(password)
 
-    existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if existing:
+    if _name_taken(conn, email):
         raise AuthError("email_taken")
 
     ts = now()
@@ -135,8 +163,8 @@ def _authenticate(conn: Any, email: str, password: str):
     email = email.strip().lower()
     row = conn.execute(
         "SELECT id, household_id, password_hash, failed_attempts, locked_until "
-        "FROM users WHERE email = ?",
-        (email,),
+        "FROM users WHERE email = ? OR recovery_email = ?",
+        (email, email),
     ).fetchone()
 
     if not row:
@@ -191,16 +219,26 @@ def _reset_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def reset_address_for(conn: Any, name: str) -> Optional[str]:
+    """The reset address for this email or username, or None (unknown, or no email on file)."""
+    name = (name or "").strip().lower()
+    row = conn.execute(
+        "SELECT email, recovery_email FROM users WHERE email = ? OR recovery_email = ?", (name, name)
+    ).fetchone()
+    return reset_address(row) if row else None
+
+
 def start_password_reset(conn: Any, email: str) -> Optional[str]:
-    """Make a one-time reset token for this email, or None (unknown email, or too many asks).
+    """Make a one-time reset token for this email or username, or None (unknown, no email on file,
+    or too many asks).
 
     Callers must answer the same way either way, so nobody can probe which emails have accounts.
     """
     email = (email or "").strip().lower()
-    if not has_email(email):
-        return None
-    row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if not row:
+    row = conn.execute(
+        "SELECT id, email, recovery_email FROM users WHERE email = ? OR recovery_email = ?", (email, email)
+    ).fetchone()
+    if not row or not reset_address(row):
         return None
     since = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
     recent = conn.execute(
@@ -263,6 +301,8 @@ def create_invite(conn: Any, household_id: int, invited_by_user_id: int) -> str:
     actor = _member(conn, invited_by_user_id)
     if actor["household_id"] != household_id:
         raise AuthError("household_forbidden")
+    if not reset_address(actor):
+        raise AuthError("email_required_to_invite")
     token = secrets.token_urlsafe(24)
     ts = now()
     expires = (datetime.now(timezone.utc) + timedelta(days=INVITE_TTL_DAYS)).replace(
@@ -309,8 +349,7 @@ def accept_invite(conn: Any, token: str, email: str, password: str, existing: bo
     email = login_name(email)
     _check_password_strength(password)
 
-    existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if existing:
+    if _name_taken(conn, email):
         raise AuthError("email_taken")
 
     ts = now()
@@ -541,7 +580,7 @@ def session_info(conn: Any, token: Optional[str]):
     if not token:
         return None
     row = conn.execute(
-        """SELECT s.user_id, s.household_id, s.expires_at, u.email
+        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email
            FROM sessions s JOIN users u ON u.id = s.user_id
            WHERE s.token = ?""",
         (token,),

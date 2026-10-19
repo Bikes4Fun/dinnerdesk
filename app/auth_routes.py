@@ -10,7 +10,7 @@ from app.auth import leave_household, join_household, delete_household, manage_m
 from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin_email, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
-from app.auth import finish_password_reset, start_password_reset
+from app.auth import finish_password_reset, reset_address_for, set_recovery_email, start_password_reset
 from app.auth import create_invite as do_create_invite
 from app.auth import delete_account as do_delete_account
 from app.auth import invite_info as do_invite_info
@@ -36,6 +36,8 @@ ERROR_MESSAGES = {
     "email_taken": "An account with that email or username already exists.",
     "invalid_credentials": "That email or username, or the password, didn't work.",
     "no_email": "Accounts made with a username have no email, so their password can't be reset.",
+    "has_email_already": "This account already signs in with an email, which is used for resets.",
+    "email_required_to_invite": "You need an account with an email to invite people, so your household can recover your password.",
     "account_locked": "Too many failed attempts. Try again in a few minutes.",
     "not_authenticated": "Please sign in again.",
     "invite_invalid": "This invite link isn't valid.",
@@ -51,6 +53,10 @@ ERROR_MESSAGES = {
     "already_member": "You already belong to this household.",
     "wrong_password": "That password isn't right.",
 }
+
+
+class RecoveryEmailBody(BaseModel):
+    email: str
 
 
 class ForgotPasswordBody(BaseModel):
@@ -188,6 +194,7 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
         "household_id": household_id,
         "email": email,
         "has_email": has_email(email),
+        "recovery_email": row["recovery_email"] if row else None,
         "admin": is_admin_email(email),
     }
 
@@ -203,6 +210,7 @@ def me(request: Request, conn=DbDep):
         "household_id": row["household_id"],
         "email": row["email"],
         "has_email": has_email(row["email"]),
+        "recovery_email": row["recovery_email"],
         "admin": is_admin_email(row["email"]),
     }
 
@@ -219,6 +227,15 @@ def change_password(body: ChangePasswordBody, response: Response, conn=DbDep, us
     return {"ok": True}
 
 
+@router.post("/auth/recovery-email")
+def recovery_email(body: RecoveryEmailBody, conn=DbDep, user_id=UserDep):
+    try:
+        set_recovery_email(conn, user_id, body.email)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
 @router.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordBody, conn=DbDep):
     # Same answer whether or not the email has an account. Email being down is checked first,
@@ -227,12 +244,14 @@ def forgot_password(body: ForgotPasswordBody, conn=DbDep):
         log.error("Password reset requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
         raise _mail_down()
     email = (body.email or "").strip().lower()
-    if email and not has_email(email):
+    to = reset_address_for(conn, email)
+    # A username with no recovery email can't be reset; say so rather than pretend to send.
+    if email and not has_email(email) and not to:
         raise _auth_error(AuthError("no_email"), 400)
     token = start_password_reset(conn, email)
     if token:
         try:
-            send_reset_email(email, reset_link(token))
+            send_reset_email(to, reset_link(token))
         except Exception:
             log.exception("Password reset email failed to send")
             raise _mail_down()
