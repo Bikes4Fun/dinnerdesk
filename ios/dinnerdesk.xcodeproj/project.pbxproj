@@ -80,6 +80,7 @@
 				GroceryStoreView.swift,
 				GroceryView.swift,
 				Info.plist,
+				ItemSearchField.swift,
 				KitchenAPI.swift,
 				KitchenView.swift,
 				MenuSheet.swift,

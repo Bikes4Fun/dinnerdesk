@@ -292,7 +292,7 @@ struct FiltersView: View {
         choiceChip("Other", on: otherAllergenOpen) { otherAllergenOpen.toggle() }
       }
       if otherAllergenOpen {
-        OtherField(label: "Other allergies", selected: $otherAllergens) {
+        ItemSearchField(label: "Other allergies", selected: $otherAllergens) {
           let known = Self.allergens.map(\.0)
           allergens.formUnion(otherAllergens.filter { known.contains($0) })
           otherAllergens.removeAll { known.contains($0) }
@@ -315,7 +315,7 @@ struct FiltersView: View {
         }
       }
       showMoreButton("avoid", hidden: Self.avoids.count - shown.count, noun: "")
-      OtherField(label: "Foods to avoid", placeholder: "Add an ingredient…", dashed: true, presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+      ItemSearchField(label: "Foods to avoid", placeholder: "Add an ingredient…", dashed: true, presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
         avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
         otherAvoids.removeAll { Self.avoids.contains($0) }
         save()
@@ -814,79 +814,6 @@ private struct FilterSuggestionCard: View {
       UIAccessibility.post(notification: .announcement, argument: "Suggestion sent")
     } catch {
       self.error = KitchenAPI.message(error)
-    }
-  }
-}
-
-/// Comma-separated words that aren't in the list. Saves when you press Return or leave the field.
-private struct OtherField: View {
-  let label: String
-  var placeholder = "Search foods, e.g. bell peppers or ground"
-  var dashed = false
-  var presets: [String] = []
-  var taken: Set<String> = []
-  @Binding var selected: [String]
-  let onCommit: () -> Void
-  @State private var query = ""
-  @State private var matches: [String] = []
-  @State private var loading = false
-  @State private var error: String?
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      TextField(placeholder, text: $query)
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
-        .font(Theme.body)
-        .padding(.horizontal, dashed ? 14 : 12)
-        .frame(height: dashed ? 46 : nil)
-        .padding(.vertical, dashed ? 0 : 12)
-        .background(dashed ? Color(hex: 0xFBF6EE) : Theme.surface, in: RoundedRectangle(cornerRadius: dashed ? 23 : 12))
-        .overlay(
-          RoundedRectangle(cornerRadius: dashed ? 23 : 12)
-            .stroke(dashed ? Color(hex: 0xD9C9D3) : Theme.line, style: StrokeStyle(lineWidth: 1, dash: dashed ? [4, 3] : []))
-        )
-        .accessibilityLabel("Search \(label.lowercased())")
-      if loading { ProgressView() }
-      if let error { Text(error).font(Theme.subtitle) }
-      // Matches as chips (#85): tap one to add it; it moves up with the other picked chips.
-      KitchenFlow(spacing: 6) {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !q.isEmpty {
-          ForEach(presets.filter { $0.localizedCaseInsensitiveContains(q) && !selected.contains($0) && !taken.contains($0) }, id: \.self) { name in
-            FilterChip(label: "+ \(name)", on: false) {
-              selected.append(name)
-              query = ""
-              onCommit()
-            }
-          }
-        }
-        ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
-          FilterChip(label: "+ \(name)", on: false) {
-            selected.append(name)
-            onCommit()
-          }
-          .accessibilityLabel("Add \(name)")
-        }
-      }
-      if !loading && error == nil && !query.isEmpty && matches.isEmpty {
-        Text("No matching foods. Try another name.").font(Theme.subtitle)
-      }
-    }
-    .task(id: query) {
-      matches = []
-      error = nil
-      guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { loading = false; return }
-      loading = true
-      do {
-        try await Task.sleep(for: .milliseconds(250))
-        let box: KitchenItemSearch = try await API.get("filter-items", query: ["q": query], reportErrors: false)
-        try Task.checkCancellation()
-        matches = box.items.map(\.name)
-        loading = false
-      } catch {
-        if !API.isCancellation(error) { self.error = "Couldn't search foods. Please try again."; loading = false }
-      }
     }
   }
 }
