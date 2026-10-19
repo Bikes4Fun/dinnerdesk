@@ -52,8 +52,8 @@ struct PantryView: View {
     .navigationTitle("Pantry")
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $adding) {
-      KitchenItemPicker(title: "Add to pantry") { name in
-        await add(name)
+      KitchenItemPicker(title: "Add to pantry") { names in
+        await add(names)
       }
     }
     .task { await load() }
@@ -92,9 +92,11 @@ struct PantryView: View {
     }
   }
 
-  private func add(_ name: String) async {
+  private func add(_ names: [String]) async {
     do {
-      try await KitchenAPI.upsertPantry(name: name, have: true, neverShop: false)
+      for name in names {
+        try await KitchenAPI.upsertPantry(name: name, have: true, neverShop: false)
+      }
       await load()
       await store.loadGrocery()
     } catch {
@@ -190,8 +192,8 @@ struct AlwaysCheckedView: View {
     .navigationTitle("Always checked off")
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $adding) {
-      KitchenItemPicker(title: "Always check off") { name in
-        await add(name)
+      KitchenItemPicker(title: "Always check off") { names in
+        await add(names)
       }
     }
     .task { await load() }
@@ -207,9 +209,11 @@ struct AlwaysCheckedView: View {
     }
   }
 
-  private func add(_ name: String) async {
+  private func add(_ names: [String]) async {
     do {
-      try await KitchenAPI.upsertPantry(name: name, have: true, neverShop: true)
+      for name in names {
+        try await KitchenAPI.upsertPantry(name: name, have: true, neverShop: true)
+      }
       await load()
       await store.loadGrocery()
     } catch {
@@ -230,138 +234,67 @@ struct AlwaysCheckedView: View {
   }
 }
 
-/// Search the grocery catalog and pick one item (or keep what you typed).
-/// Its own search field (not `.searchable`, which drew a second ✕ beside the field's clear
-/// button) and full keyboard use: the field is focused on open, ↓ / ↑ move through results,
-/// Return picks the highlighted (or first) result, Escape closes. Tab reaches every row.
+/// Search the grocery catalog and pick several items (or keep what you typed), then Add saves
+/// them all at once; Cancel drops the picks. Same search-and-chips field as Filters' allergies
+/// and dislikes. The field is focused on open, Return adds the first match, Escape cancels.
 struct KitchenItemPicker: View {
   let title: String
-  let onPick: @MainActor (String) async -> Void
+  let onPick: @MainActor ([String]) async -> Void
 
   @Environment(\.dismiss) private var dismiss
-  @State private var query = ""
-  @State private var hits: [String] = []
-  @State private var searchError: String?
-  @State private var picking = false
-  @State private var highlighted: Int?
-  @FocusState private var searchFocused: Bool
+  @State private var picked: [String] = []
+  @State private var saving = false
 
-  init(title: String, onPick: @escaping @MainActor (String) async -> Void) {
+  init(title: String, onPick: @escaping @MainActor ([String]) async -> Void) {
     self.title = title
     self.onPick = onPick
   }
 
   var body: some View {
     NavigationStack {
-      VStack(spacing: 0) {
-        searchField
-        List(Array(hits.enumerated()), id: \.element) { index, name in
-          Button {
-            pick(name)
-          } label: {
-            Text(name).font(Theme.mealName).foregroundStyle(Theme.ink)
-              .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-              .contentShape(Rectangle())
+      ScrollView {
+        VStack(alignment: .leading, spacing: 16) {
+          if !picked.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+              Text("Selected · \(picked.count)").font(Theme.subtitle).foregroundStyle(Theme.muted)
+              KitchenFlow(spacing: 6) {
+                ForEach(picked, id: \.self) { name in
+                  FilterChip(label: "\(name) ✕", on: true) { picked.removeAll { $0 == name } }
+                    .accessibilityLabel("Remove \(name)")
+                }
+              }
+            }
           }
-          .buttonStyle(.plain)
-          .disabled(picking)
-          .listRowBackground(index == highlighted ? Theme.aubergineTint : Theme.bg)
-          .accessibilityAddTraits(index == highlighted ? .isSelected : [])
+          ItemSearchField(
+            label: "Items", placeholder: "Type an item, like garlic or rice", autofocus: true,
+            selected: $picked, search: { try await KitchenAPI.searchItems($0) })
         }
-        .themeList()
-        .overlay {
-          if let searchError {
-            ErrorBanner(message: searchError)
-          } else if hits.isEmpty {
-            Text(query.isEmpty ? "Type an item, like garlic or rice." : "No matches")
-              .foregroundStyle(Theme.muted)
-          }
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
       }
       .background(Theme.bg)
       .navigationTitle(title)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }
+          Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+        }
+        ToolbarItem(placement: .confirmationAction) {
+          Button(picked.isEmpty ? "Add" : "Add \(picked.count)") { save() }
+            .disabled(picked.isEmpty || saving)
         }
       }
       .tint(Theme.accent)
-      .onAppear { searchFocused = true }
-      .task(id: query) {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        highlighted = nil
-        guard !q.isEmpty else {
-          hits = []
-          return
-        }
-        try? await Task.sleep(for: .milliseconds(250))
-        guard !Task.isCancelled else { return }
-        do {
-          hits = try await KitchenAPI.searchItems(q)
-          searchError = nil
-        } catch {
-          hits = []
-          searchError = KitchenAPI.message(error)
-        }
-      }
+      // A stray swipe shouldn't throw away the picks.
+      .interactiveDismissDisabled(!picked.isEmpty)
     }
   }
 
-  private var searchField: some View {
-    HStack(spacing: 8) {
-      Image(systemName: "magnifyingglass").foregroundStyle(Theme.muted).accessibilityHidden(true)
-      TextField("Search items", text: $query)
-        .font(Theme.body)
-        .focused($searchFocused)
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
-        .submitLabel(.done)
-        .onSubmit {
-          if let name = highlighted.flatMap({ hits.indices.contains($0) ? hits[$0] : nil }) ?? hits.first {
-            pick(name)
-          }
-        }
-        .onKeyPress(.downArrow) {
-          guard !hits.isEmpty else { return .ignored }
-          highlighted = min((highlighted ?? -1) + 1, hits.count - 1)
-          return .handled
-        }
-        .onKeyPress(.upArrow) {
-          guard let current = highlighted else { return .ignored }
-          highlighted = current > 0 ? current - 1 : nil
-          return .handled
-        }
-        .onKeyPress(.escape) {
-          dismiss()
-          return .handled
-        }
-      if !query.isEmpty {
-        Button {
-          query = ""
-          searchFocused = true
-        } label: {
-          Image(systemName: "xmark.circle.fill").foregroundStyle(Theme.muted)
-            .frame(minWidth: 44, minHeight: 44)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Clear search")
-      }
-    }
-    .padding(.leading, 12)
-    .frame(minHeight: 44)
-    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
-    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
-    .padding(.horizontal, 16)
-    .padding(.vertical, 8)
-  }
-
-  private func pick(_ name: String) {
-    guard !picking else { return }
-    picking = true
+  private func save() {
+    guard !saving else { return }
+    saving = true
     Task { @MainActor in
-      await onPick(name)
+      await onPick(picked)
       dismiss()
     }
   }
