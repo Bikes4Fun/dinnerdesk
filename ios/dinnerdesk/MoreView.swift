@@ -9,11 +9,7 @@ struct MoreView: View {
     NavigationStack {
       List {
         Section {
-          NavigationLink {
-            PrepView()
-          } label: {
-            ThemeIconRow(title: "Weekend prep", systemImage: "list.bullet.clipboard")
-          }
+
           NavigationLink {
             KitchenView()
           } label: {
@@ -42,6 +38,12 @@ struct MoreView: View {
             } label: {
               ThemeIconRow(title: "Settings", systemImage: "gearshape")
             }
+          
+          NavigationLink {
+            PrepView()
+          } label: {
+            ThemeIconRow(title: "Weekend prep", systemImage: "list.bullet.clipboard")
+          }
         }
         .themeRows()
       }

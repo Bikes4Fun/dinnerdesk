@@ -169,6 +169,8 @@ export const api = {
     me: () => req("/api/auth/me"),
     signup: (body) => req("/api/auth/signup", { method: "POST", body: JSON.stringify(body) }),
     login: (body) => req("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+    removeRecoveryEmail: (body) =>
+      req("/api/auth/remove-recovery-email", { method: "POST", body: JSON.stringify(body) }),
     forgotPassword: (body) =>
       req("/api/auth/forgot-password", { method: "POST", body: JSON.stringify(body) }),
     resetPassword: (body) =>
@@ -179,6 +181,12 @@ export const api = {
       req("/api/auth/delete-account", { method: "POST", body: JSON.stringify(body) }),
     changePassword: (body) =>
       req("/api/auth/change-password", { method: "POST", body: JSON.stringify(body) }),
+    verifyEmail: (body) =>
+      req("/api/auth/verify-email", { method: "POST", body: JSON.stringify(body) }),
+    confirmEmail: (body) =>
+      req("/api/auth/confirm-email", { method: "POST", body: JSON.stringify(body) }),
+    useUsername: (body) =>
+      req("/api/auth/use-username", { method: "POST", body: JSON.stringify(body) }),
   },
   householdMembers: () => req("/api/household/members"),
   removeHouseholdMember: (userId) =>
