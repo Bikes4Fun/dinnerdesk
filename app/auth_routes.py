@@ -86,6 +86,7 @@ class AcceptInviteBody(BaseModel):
     token: str
     email: str
     password: str
+    existing: bool = False
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -278,7 +279,7 @@ def preview_invite(token: str, conn=DbDep):
 @router.post("/household/accept-invite")
 def accept_invite(body: AcceptInviteBody, response: Response, conn=DbDep):
     try:
-        token = do_accept_invite(conn, body.token, body.email, body.password)
+        token = do_accept_invite(conn, body.token, body.email, body.password, body.existing)
     except AuthError as e:
         raise _auth_error(e, 400)
     _set_session_cookie(response, token)

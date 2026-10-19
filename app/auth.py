@@ -126,6 +126,12 @@ def signup(conn: Any, email: str, password: str, household_name: str, guest_hous
 
 
 def login(conn: Any, email: str, password: str) -> str:
+    row = _authenticate(conn, email, password)
+    return _create_session(conn, row["id"], row["household_id"])
+
+
+def _authenticate(conn: Any, email: str, password: str):
+    """Check credentials (with lockout) and return the user row; no session is created."""
     email = email.strip().lower()
     row = conn.execute(
         "SELECT id, household_id, password_hash, failed_attempts, locked_until "
@@ -152,7 +158,7 @@ def login(conn: Any, email: str, password: str) -> str:
         )
         conn.commit()
 
-    return _create_session(conn, row["id"], row["household_id"])
+    return row
 
 
 def _register_failed_attempt(conn: Any, user_id: int, current: int) -> None:
@@ -287,7 +293,15 @@ def invite_info(conn: Any, token: str):
     return row
 
 
-def accept_invite(conn: Any, token: str, email: str, password: str) -> str:
+def accept_invite(conn: Any, token: str, email: str, password: str, existing: bool = False) -> str:
+    if existing:
+        # Someone who already has an account signs in and moves into the inviting household.
+        invite = invite_info(conn, token)
+        user = _authenticate(conn, email, password)
+        if user["household_id"] != invite["household_id"]:
+            join_household(conn, user["id"], token)
+        return _create_session(conn, user["id"], invite["household_id"])
+
     _lock_membership(conn)
     row = invite_info(conn, token)
     household_id = row["household_id"]

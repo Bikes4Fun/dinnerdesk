@@ -190,6 +190,30 @@ def test_invite_joins_same_household(tmp_path):
         assert reused.json()["detail"] == "invite_used"
 
 
+def test_existing_account_accepts_invite_while_signed_out(tmp_path):
+    guest = {"email": "guest@example.com", "password": "guestguest"}
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={**guest, "household_name": "Guest solo"})
+        old = client.get("/api/auth/me").json()["household_id"]
+        client.post("/api/auth/logout")
+        client.post("/api/auth/signup", json={"email": "owner@example.com", "password": "correct horse battery staple", "household_name": "The Martins"})
+        hid = client.get("/api/auth/me").json()["household_id"]
+        token = client.post("/api/household/invites").json()["token"]
+        client.post("/api/auth/logout")
+
+        taken = client.post("/api/household/accept-invite", json={**guest, "token": token})
+        assert taken.json()["detail"] == "email_taken"
+        wrong = client.post("/api/household/accept-invite", json={**guest, "password": "nopenope", "token": token, "existing": True})
+        assert wrong.json()["detail"] == "invalid_credentials"
+        joined = client.post("/api/household/accept-invite", json={**guest, "token": token, "existing": True})
+        assert joined.status_code == 200
+        assert client.get("/api/auth/me").json()["household_id"] == hid
+        assert len(client.get("/api/household/members").json()["members"]) == 2
+        assert old != hid
+        reused = client.post("/api/household/accept-invite", json={**guest, "token": token, "existing": True})
+        assert reused.json()["detail"] == "invite_used"
+
+
 def test_delete_account_keeps_household_for_others_then_deletes_it(tmp_path):
     owner = {"email": "owner@example.com", "password": "correct horse battery staple"}
     with _client(tmp_path) as client:
