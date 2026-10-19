@@ -169,6 +169,8 @@ export const api = {
     me: () => req("/api/auth/me"),
     signup: (body) => req("/api/auth/signup", { method: "POST", body: JSON.stringify(body) }),
     login: (body) => req("/api/auth/login", { method: "POST", body: JSON.stringify(body) }),
+    setRecoveryEmail: (email) =>
+      req("/api/auth/recovery-email", { method: "POST", body: JSON.stringify({ email }) }),
     removeRecoveryEmail: (body) =>
       req("/api/auth/remove-recovery-email", { method: "POST", body: JSON.stringify(body) }),
     forgotPassword: (body) =>

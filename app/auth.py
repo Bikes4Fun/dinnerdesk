@@ -100,6 +100,21 @@ def reset_address(row) -> Optional[str]:
     return row["email"] if has_email(row["email"]) else row["recovery_email"]
 
 
+def set_recovery_email(conn: Any, user_id: int, email: str) -> None:
+    """Give a username account an email for password resets. It also works for signing in."""
+    user = _member(conn, user_id)
+    if has_email(user["email"]):
+        raise AuthError("has_email_already")
+    email = (email or "").strip().lower()
+    if not has_email(email):
+        raise AuthError("invalid_email")
+    other = conn.execute(
+        "SELECT id FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (email, email, user_id)
+    ).fetchone()
+    if other:
+        raise AuthError("email_taken")
+    conn.execute("UPDATE users SET recovery_email = ? WHERE id = ?", (email, user_id))
+    conn.commit()
 def _taken_by_other(conn: Any, name: str, user_id: int) -> bool:
     return conn.execute(
         "SELECT 1 FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (name, name, user_id)
