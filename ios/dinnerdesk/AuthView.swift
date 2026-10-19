@@ -118,6 +118,7 @@ struct AuthGate<Content: View>: View {
   @StateObject private var session = Session()
   @Environment(\.scenePhase) private var scenePhase
   @State private var guestNoticeDismissed = false
+  @State private var emailNoticeDismissed = false
   @State private var showSignIn = false
   private let content: () -> Content
 
@@ -156,6 +157,16 @@ struct AuthGate<Content: View>: View {
                   Button("Sign in or create account") { showSignIn = true }
                   Spacer()
                   Button("Dismiss") { guestNoticeDismissed = true }
+                }.font(Theme.subtitle)
+              }.padding().background(Theme.bg)
+            } else if let nudge = session.status?.emailNudge, !emailNoticeDismissed {
+              VStack(alignment: .leading, spacing: 6) {
+                Text("FYI: \(nudge) Fix it in Settings → Account & security.")
+                  .font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                  Spacer()
+                  Button("Dismiss") { emailNoticeDismissed = true }
                 }.font(Theme.subtitle)
               }.padding().background(Theme.bg)
             }
@@ -369,7 +380,7 @@ struct ForgotPasswordView: View {
                 .font(Theme.mealName)
                 .foregroundStyle(Theme.ink)
               Text(
-                "If \(email) has an account, a reset link is on its way. It works once, for 1 hour. After you set a new password, come back here and sign in."
+                "If \(email) has an account with an email on file, a reset link is on its way to that email. It works once, for 1 hour. After you set a new password, come back here and sign in."
               )
               .foregroundStyle(Theme.muted)
             }

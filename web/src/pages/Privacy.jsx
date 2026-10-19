@@ -22,13 +22,20 @@ export function Privacy() {
 
         <h2>Account</h2>
         <p>
-          If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your
-          household name. A cookie named wp_session keeps you signed in for 30 days. You can sign out of this
+          If you create an account we store your email (or the username you chose instead, plus a recovery email if you add one), whether and when you confirmed your email, a hash of
+          your password (not the password), and your household name. A cookie named wp_session keeps you signed in for 30 days. You can sign out of this
           device, or every device, from Account &amp; security.
         </p>
         <p>
           Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link
-          works once, for one hour. We answer the same way whether or not that email has an account.
+          works once, for one hour. We answer the same way whether or not that email or username has an account (or a recovery email). You can change
+          your email, swap it for a username, or add, change or remove a recovery email from Account &amp;
+          security; a new email only takes over once you
+          open the confirm link we send it.
+        </p>
+        <p>
+          Confirm-email emails are also sent by Resend. While a confirm link is open we store the address it was
+          sent to and a hash of the link, not the link. The link works once, for 24 hours.
         </p>
         <p>
           If you subscribe to the email newsletter, we store that choice with your household and may email you
@@ -67,7 +74,7 @@ export function Privacy() {
 
         <h2>Deleting data</h2>
         <p>
-          Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
+          Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
         </p>
 
         <h2>Questions</h2>

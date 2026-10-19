@@ -9,6 +9,16 @@ struct SettingsView: View {
 
   var body: some View {
     List {
+      if let nudge = session.status?.emailNudge {
+        NavigationLink {
+          AccountView()
+        } label: {
+          Text("\(nudge) Fix it in Account & security.")
+            .font(Theme.subtitle).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .listRowBackground(Theme.aubergineTint)
+      }
       Section {
         // NavigationLink {
         //   FiltersView()
@@ -919,6 +929,14 @@ struct AccountView: View {
   @State private var confirmJoin = false
   @State private var deletingHome = false
   @State private var successor: HouseholdMember?
+  @State private var removing: HouseholdMember?
+  @State private var openMember: Int?
+  @State private var joining = false
+  @State private var savedName = ""
+  @State private var editingEmail = false
+  @State private var newLogin = ""
+  @State private var loginPassword = ""
+  @State private var confirmRemoveRecovery = false
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
@@ -929,125 +947,47 @@ struct AccountView: View {
   private var canManage: Bool { myRole == "owner" || myRole == "admin" }
   private var signedIn: Bool { session.status?.authenticated == true }
 
-  var body: some View {
-    List {
-      if let message {
-        Text(message).foregroundStyle(Theme.ok).themeBareRow()
-      }
-      if let error {
-        ErrorBanner(message: error).themeBareRow()
-      }
+  /// You first, then everyone else in the order the server sent them.
+  private var sortedMembers: [HouseholdMember] {
+    members.filter { $0.email == session.status?.email } + otherMembers
+  }
 
-      if signedIn {
-        ThemeSection("Signed in") {
-          Label(session.status?.email ?? "", systemImage: "person.crop.circle")
-            .font(Theme.body).foregroundStyle(Theme.ink)
+  private var nameDirty: Bool {
+    let name = householdName.trimmingCharacters(in: .whitespacesAndNewlines)
+    return !name.isEmpty && name != savedName
+  }
+
+  var body: some View {
+    ScrollView {
+      VStack(alignment: .leading, spacing: 28) {
+        if let message {
+          Text(message).font(Theme.subtitle).foregroundStyle(Theme.ok)
             .fixedSize(horizontal: false, vertical: true)
         }
-        .themeRows()
-
-        ThemeSection("Password") {
-          if session.status?.hasEmail == false {
-            Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.")
-              .font(Theme.subtitle).foregroundStyle(Theme.muted)
-              .fixedSize(horizontal: false, vertical: true)
-          } else {
-            Button { Task { await resetPassword() } } label: {
-              Label("Reset password", systemImage: "key")
-            }
-            .disabled(busy)
-            Text("Email a reset link to your signed-in address.")
-              .font(Theme.subtitle).foregroundStyle(Theme.muted)
-          }
+        if let error {
+          ErrorBanner(message: error)
         }
-        .themeRows()
 
-        ThemeSection("Household") {
-          TextField("Household name", text: $householdName)
-            .textContentType(.organizationName)
-            .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
-            .onSubmit { Task { await saveHouseholdName() } }
-          Button("Save household name") { Task { await saveHouseholdName() } }
-            .disabled(busy || householdName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-          if let inviteURL {
-            ShareLink(item: inviteURL) {
-              Label("Share invite link", systemImage: "square.and.arrow.up")
-            }
-            StarTip(id: "settings.invite-link")
-          } else {
-            Button("Invite someone to this household") { Task { await invite() } }
-              .disabled(busy)
-          }
-          ForEach(otherMembers) { member in
-            VStack(alignment: .leading) {
-              Text(member.email).fixedSize(horizontal: false, vertical: true)
-              Text(member.householdRole ?? "member").font(Theme.subtitle).foregroundStyle(Theme.muted)
-              if myRole == "owner" {
-                Button("Transfer ownership") { successor = member }
-                Button(member.householdRole == "admin" ? "Remove admin role" : "Make admin") {
-                  Task { await householdAction { try await KitchenAPI.setRole(member.id, role: member.householdRole == "admin" ? "member" : "admin") } }
-                }
-              }
-            }
-            .deleteDisabled(!canManage || member.householdRole == "owner")
-          }
-          .onDelete { offsets in
-            let doomed = offsets.map { otherMembers[$0] }
-            Task { for member in doomed { await remove(member) } }
-          }
-        }
-        .themeRows()
-
-        Section {
-          Button("Sign out") { Task { await session.signOut() } }
-          Button("Sign out everywhere", role: .destructive) { confirmEverywhere = true }
-        } footer: {
-          StarTip(id: "settings.sign-out-everywhere")
-        }
-        .themeRows()
-
-        ThemeSection("Household membership") {
-          Text("Leaving creates an empty solo household. Your account stays active. Shared plans and kitchen data stay with the household.").font(Theme.subtitle)
-          Button("Leave household") { confirmLeave = true }.disabled(busy)
-          TextField("Invite link or token", text: $joinToken).textInputAutocapitalization(.never).autocorrectionDisabled()
-          Button("Join household") { confirmJoin = true }.disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-          if canManage {
-            Button("Delete household", role: .destructive) { deletingHome.toggle() }
-            if deletingHome {
-              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.").font(Theme.subtitle)
-              SecureField("Your password", text: $homePassword).textContentType(.password)
-              Button("Confirm household deletion", role: .destructive) {
-                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
-              }.disabled(busy || homePassword.isEmpty)
-            }
-          }
-        }.themeRows()
-        Section {
-          Button("Delete account", role: .destructive) { deletingAccount = true }
-        } footer: {
-          Text(otherMembers.isEmpty
-            ? "Deletes your account and this household’s plans, pantry, grocery list and your own recipes. This can’t be undone."
-            : "Deletes your account. The household stays for the other members.")
+        if signedIn {
+          accountSection
+          householdSection
+          dangerSection
+        } else {
+          VStack(alignment: .leading, spacing: 12) {
+            Text(
+              "You're using \(Copy.appName) as a guest. Create an account to keep your plan and share it with your household."
+            )
             .font(Theme.subtitle)
             .foregroundStyle(Theme.muted)
-        }
-        .themeRows()
-      } else {
-        Section {
-          Text(
-            "You're using \(Copy.appName) as a guest. Create an account to keep your plan and share it with your household."
-          )
-          .font(Theme.subtitle)
-          .foregroundStyle(Theme.muted)
-          .themeBareRow()
-          Button("Sign in or create account") { signingIn = true }
-            .font(Theme.mealName)
-            .themeRows()
+            .fixedSize(horizontal: false, vertical: true)
+            Button("Sign in or create account") { signingIn = true }
+              .font(Theme.mealName)
+          }
         }
       }
+      .padding(EdgeInsets(top: 20, leading: 16, bottom: 40, trailing: 16))
     }
-    .themeList()
+    .background(Theme.bg)
     .tint(Theme.accent)
     .navigationTitle("Account & security")
     .navigationBarTitleDisplayMode(.inline)
@@ -1066,11 +1006,21 @@ struct AccountView: View {
       Button("Transfer") { if let member = successor { Task { await householdAction { try await KitchenAPI.setRole(member.id, role: "owner") } } }; successor = nil }
       Button("Cancel", role: .cancel) { successor = nil }
     } message: { Text("The selected member becomes the creator. You become an admin.") }
+    .alert("Remove this person from the household?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+      Button("Remove", role: .destructive) { if let member = removing { Task { await remove(member) } }; removing = nil }
+      Button("Cancel", role: .cancel) { removing = nil }
+    } message: { Text("They'll lose access immediately.") }
     .sheet(isPresented: $deletingAccount) {
       DeleteAccountSheet(alone: otherMembers.isEmpty) {
         deletingAccount = false
         Task { await session.accountDeleted() }
       }
+    }
+    .confirmationDialog(
+      "Remove your recovery email? Without it, a forgotten password can't be reset.",
+      isPresented: $confirmRemoveRecovery, titleVisibility: .visible
+    ) {
+      Button("Remove recovery email", role: .destructive) { Task { await removeRecoveryEmail() } }
     }
     .confirmationDialog(
       "Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
@@ -1079,11 +1029,302 @@ struct AccountView: View {
     }
   }
 
+  private var accountSection: some View {
+    let name = session.status?.email ?? ""
+    let hasEmail = session.status?.hasEmail != false
+    let recovery = session.status?.recoveryEmail
+    let resetTo = hasEmail ? name : recovery
+    let verified = session.status?.emailVerified == true ? "verified" : "not verified"
+    return AccountGroup("Account") {
+      AccountCard {
+        HStack(spacing: 14) {
+          AccountAvatar(name: name, big: true)
+          VStack(alignment: .leading, spacing: 2) {
+            Text(name).font(AccountFont.strong).foregroundStyle(Theme.ink)
+              .fixedSize(horizontal: false, vertical: true)
+            Text(hasEmail ? "Signed in with email · \(verified)" : "Signed in with username")
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+            if let recovery {
+              Text("Recovery email: \(recovery) · \(verified)")
+                .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+          }
+          Spacer(minLength: 0)
+        }
+        .padding(16)
+        if let nudge = session.status?.emailNudge {
+          AccountDivider()
+          Text(nudge + (resetTo == nil ? " Add a recovery email below." : " Send a confirm link, or change it below if it has a typo."))
+            .font(AccountFont.sub).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .background(Theme.aubergineTint)
+        }
+        if let resetTo, session.status?.emailVerified != true {
+          AccountDivider()
+          AccountRow(title: "Send confirm link", subtitle: "To \(resetTo)", chevron: true) {
+            Task { await sendConfirmLink() }
+          }
+          .disabled(busy)
+        }
+        AccountDivider()
+        AccountRow(
+          title: hasEmail ? "Change or remove email" : recovery != nil ? "Change or remove recovery email" : "Add a recovery email",
+          subtitle: hasEmail ? "Fix a typo, or sign in with a username instead" : "Reset your password and sign in with it",
+          chevron: true, open: editingEmail
+        ) {
+          if editingEmail { closeEmailPane() } else { editingEmail = true }
+        }
+        if editingEmail {
+          VStack(alignment: .leading, spacing: 10) {
+            TextField(hasEmail ? "New email, or a username to remove your email" : "Recovery email", text: $newLogin)
+              .textContentType(.emailAddress).keyboardType(.emailAddress)
+              .textInputAutocapitalization(.never).autocorrectionDisabled()
+              .accountField()
+            SecureField("Your password", text: $loginPassword).textContentType(.password)
+              .accountField()
+            Text(!hasEmail || newLogin.isEmpty || newLogin.contains("@")
+                 ? "We'll email a confirm link. Nothing changes until you open it, so a typo can't lock you out."
+                 : "Without an email, a forgotten password can't be reset.")
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+            Button(!hasEmail || newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : "Use username") {
+              Task { await changeLogin() }
+            }
+            .font(AccountFont.button)
+            .disabled(busy || newLogin.trimmingCharacters(in: .whitespaces).isEmpty || loginPassword.isEmpty)
+            if recovery != nil {
+              Button("Remove recovery email", role: .destructive) { confirmRemoveRecovery = true }
+                .font(AccountFont.button)
+                .disabled(busy || loginPassword.isEmpty)
+            }
+          }
+          .padding(EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16))
+        }
+        if resetTo != nil {
+          AccountDivider()
+          AccountRow(title: "Reset password", subtitle: "We'll email you a reset link", chevron: true) {
+            Task { await resetPassword() }
+          }
+          .disabled(busy)
+        }
+        AccountDivider()
+        AccountRow(title: "Sign out") { Task { await session.signOut() } }
+        AccountDivider()
+        AccountRow(title: "Sign out of all devices", subtitle: "If a device was lost or you changed your password") {
+          confirmEverywhere = true
+        }
+      }
+      StarTip(id: "settings.sign-out-everywhere")
+    }
+  }
+
+  private var householdSection: some View {
+    AccountGroup("Household") {
+      AccountCard {
+        VStack(alignment: .leading, spacing: 6) {
+          Text("Household name").font(AccountFont.label).foregroundStyle(Theme.muted)
+          HStack(spacing: 8) {
+            TextField("Household name", text: $householdName)
+              .textContentType(.organizationName)
+              .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
+              .onSubmit { Task { await saveHouseholdName() } }
+              .accountField()
+            if nameDirty {
+              Button("Save") { Task { await saveHouseholdName() } }
+                .font(AccountFont.button)
+                .foregroundStyle(Theme.surface)
+                .padding(.horizontal, 16)
+                .frame(minHeight: 46)
+                .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .buttonStyle(.plain)
+                .disabled(busy)
+            }
+          }
+        }
+        .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
+        AccountDivider()
+        HStack(alignment: .firstTextBaseline) {
+          Text("Members").font(AccountFont.label)
+          Spacer()
+          Text("\(members.count)").font(AccountFont.sub)
+        }
+        .foregroundStyle(Theme.muted)
+        .padding(EdgeInsets(top: 12, leading: 16, bottom: 6, trailing: 16))
+        ForEach(Array(sortedMembers.enumerated()), id: \.element.id) { index, member in
+          if index > 0 { AccountDivider() }
+          memberRow(member)
+        }
+        AccountDivider()
+        Button { Task { await invite() } } label: {
+          HStack(spacing: 12) {
+            Image(systemName: "plus")
+              .font(.system(size: 14, weight: .bold))
+              .foregroundStyle(Theme.accent)
+              .frame(width: 36, height: 36)
+              .overlay(Circle().strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+              .accessibilityHidden(true)
+            Text("Invite someone").font(AccountFont.strong).foregroundStyle(Theme.accent)
+            Spacer(minLength: 0)
+          }
+          .padding(.horizontal, 16)
+          .padding(.vertical, 10)
+          .frame(minHeight: 56)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(busy)
+        if let inviteURL {
+          VStack(alignment: .leading, spacing: 8) {
+            StarTip(id: "settings.invite-link")
+            ShareLink(item: inviteURL) {
+              Label("Share invite link", systemImage: "square.and.arrow.up").font(AccountFont.strong)
+            }
+          }
+          .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
+        }
+      }
+
+      AccountCard {
+        AccountRow(title: "Join a different household", subtitle: "Have an invite link or code?", chevron: true, open: joining) {
+          withAnimation { joining.toggle() }
+        }
+        if joining {
+          VStack(alignment: .leading, spacing: 8) {
+            TextField("Invite link or token", text: $joinToken)
+              .textInputAutocapitalization(.never)
+              .autocorrectionDisabled()
+              .accountField()
+            Button("Join household") { confirmJoin = true }
+              .font(AccountFont.strong)
+              .disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+          }
+          .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
+        }
+      }
+      .padding(.top, 4)
+    }
+  }
+
+  private func memberRow(_ member: HouseholdMember) -> some View {
+    let me = member.email == session.status?.email
+    let canRole = myRole == "owner"
+    let canRemove = canManage && member.householdRole != "owner"
+    let hasMenu = !me && (canRole || canRemove)
+    let open = openMember == member.id
+    let detail = me ? member.email : Self.joined(member.joinedAt)
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 12) {
+        AccountAvatar(name: member.email)
+        VStack(alignment: .leading, spacing: 0) {
+          Text(me ? "You" : member.email)
+            .font(AccountFont.title).foregroundStyle(Theme.ink)
+            .lineLimit(1).truncationMode(.tail)
+          if let detail {
+            Text(detail).font(AccountFont.sub).foregroundStyle(Theme.muted).lineLimit(1)
+          }
+        }
+        Spacer(minLength: 0)
+        RoleBadge(role: member.householdRole ?? "member")
+        if hasMenu {
+          Button { withAnimation { openMember = open ? nil : member.id } } label: {
+            Image(systemName: "ellipsis")
+              .font(.system(size: 18, weight: .bold))
+              .foregroundStyle(Theme.ink)
+              .frame(width: 44, height: 44)
+              .background(open ? Theme.aubergineTint : .clear, in: Circle())
+          }
+          .buttonStyle(.plain)
+          .accessibilityLabel("Manage \(member.email)")
+          .accessibilityValue(open ? "Expanded" : "Collapsed")
+        } else {
+          Color.clear.frame(width: 44, height: 1)
+        }
+      }
+      .padding(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 4))
+      .frame(minHeight: 60)
+      if open {
+        KitchenFlow {
+          if canRole {
+            MemberChip(title: member.householdRole == "admin" ? "Remove admin" : "Make admin") {
+              Task { await householdAction { try await KitchenAPI.setRole(member.id, role: member.householdRole == "admin" ? "member" : "admin") } }
+            }
+            MemberChip(title: "Make owner…") { successor = member }
+          }
+          if canRemove {
+            MemberChip(title: "Remove…", danger: true) { removing = member }
+          }
+        }
+        .disabled(busy)
+        .padding(EdgeInsets(top: 0, leading: 64, bottom: 14, trailing: 16))
+      }
+    }
+  }
+
+  private var dangerSection: some View {
+    AccountGroup("Leave or delete") {
+      AccountCard {
+        AccountRow(title: "Leave household", subtitle: "You'll start fresh in your own household. Shared plans stay here.", danger: true) {
+          confirmLeave = true
+        }
+        .disabled(busy)
+        if canManage {
+          AccountDivider()
+          AccountRow(title: "Delete household", subtitle: "Removes plans and kitchen data for every member.", danger: true) {
+            withAnimation { deletingHome.toggle() }
+          }
+          if deletingHome {
+            VStack(alignment: .leading, spacing: 8) {
+              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.")
+                .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+              SecureField("Your password", text: $homePassword)
+                .textContentType(.password)
+                .accountField()
+              Button("Confirm household deletion", role: .destructive) {
+                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
+              }
+              .font(AccountFont.strong)
+              .foregroundStyle(Theme.danger)
+              .disabled(busy || homePassword.isEmpty)
+            }
+            .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
+          }
+        }
+        AccountDivider()
+        AccountRow(
+          title: "Delete account",
+          subtitle: otherMembers.isEmpty ? "Deletes this household too." : "The household stays for its other members.",
+          danger: true
+        ) {
+          deletingAccount = true
+        }
+      }
+      Text("Each of these asks you to confirm first.")
+        .font(Theme.subtitle).foregroundStyle(Theme.muted)
+        .padding(EdgeInsets(top: 4, leading: 4, bottom: 0, trailing: 4))
+    }
+    .padding(.top, 12)
+  }
+
+  /// "Joined Oct 3, 2026" from the server's created_at timestamp.
+  static func joined(_ raw: String?) -> String? {
+    guard let raw, raw.count >= 10 else { return nil }
+    let day = DateFormatter()
+    day.locale = Locale(identifier: "en_US_POSIX")
+    day.dateFormat = "yyyy-MM-dd"
+    guard let date = day.date(from: String(raw.prefix(10))) else { return nil }
+    return "Joined " + date.formatted(date: .abbreviated, time: .omitted)
+  }
+
   private func loadMembers() async {
     guard signedIn else { return }
     do {
       let household = try await KitchenAPI.json("household")
       householdName = household["name"] as? String ?? ""
+      savedName = householdName
       members = try await KitchenAPI.members()
     } catch {
       self.error = KitchenAPI.message(error)
@@ -1101,6 +1342,53 @@ struct AccountView: View {
     } catch { self.error = KitchenAPI.message(error) }
   }
 
+  private func sendConfirmLink() async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await AuthAPI.verifyEmail()
+      message = "Check your email for a confirm link."
+      error = nil
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  /// A new email gets a confirm link; a username replaces the email right away.
+  private func changeLogin() async {
+    let name = newLogin.trimmingCharacters(in: .whitespaces)
+    busy = true
+    defer { busy = false }
+    do {
+      if name.contains("@") || session.status?.hasEmail == false {
+        try await AuthAPI.verifyEmail(email: name, password: loginPassword)
+        message = "Check \(name) for a confirm link. Until you open it, you keep signing in as before."
+      } else {
+        try await AuthAPI.useUsername(name, password: loginPassword)
+        await session.refresh()
+        message = "You now sign in with your username."
+      }
+      error = nil
+      closeEmailPane()
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func removeRecoveryEmail() async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await AuthAPI.removeRecoveryEmail(password: loginPassword)
+      await session.refresh()
+      message = "Recovery email removed."
+      error = nil
+      closeEmailPane()
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func closeEmailPane() {
+    editingEmail = false
+    newLogin = ""
+    loginPassword = ""
+  }
+
   private func saveHouseholdName() async {
     let name = householdName.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !name.isEmpty else { return }
@@ -1109,6 +1397,7 @@ struct AccountView: View {
     do {
       _ = try await KitchenAPI.json("household", method: "PUT", body: ["name": name])
       householdName = name
+      savedName = name
       message = "Household name saved."
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
@@ -1213,6 +1502,163 @@ private struct DeleteAccountSheet: View {
     } catch {
       self.error = KitchenAPI.message(error)
     }
+  }
+}
+
+// MARK: - Account & security cards
+
+private enum AccountFont {
+  static let title = Font.custom("DMSans-Medium", size: 16, relativeTo: .body)
+  static let strong = Font.custom("DMSans-SemiBold", size: 16, relativeTo: .body)
+  static let sub = Font.custom("DMSans-Regular", size: 14, relativeTo: .subheadline)
+  static let label = Font.custom("DMSans-SemiBold", size: 14, relativeTo: .subheadline)
+  static let badge = Font.custom("DMSans-Bold", size: 12, relativeTo: .caption)
+  static let button = Font.custom("DMSans-Bold", size: 15, relativeTo: .subheadline)
+}
+
+/// Grey all-caps header over one or more cards.
+private struct AccountGroup<Content: View>: View {
+  let title: String
+  let content: Content
+
+  init(_ title: String, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.content = content()
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      ThemeHeader(title).padding(.leading, 4)
+      content
+    }
+  }
+}
+
+/// Rounded white card with a hairline border.
+private struct AccountCard<Content: View>: View {
+  let content: Content
+
+  init(@ViewBuilder content: () -> Content) {
+    self.content = content()
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 0) { content }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(Theme.surface)
+      .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(Theme.line))
+  }
+}
+
+private struct AccountDivider: View {
+  var body: some View {
+    Rectangle().fill(Theme.line).frame(height: 1)
+  }
+}
+
+/// Tappable card row: title, optional grey subtitle, optional chevron. Danger rows are red.
+private struct AccountRow: View {
+  let title: String
+  var subtitle: String?
+  var chevron = false
+  var open = false
+  var danger = false
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(title)
+            .font(danger ? AccountFont.strong : AccountFont.title)
+            .foregroundStyle(danger ? Theme.danger : Theme.ink)
+          if let subtitle {
+            Text(subtitle)
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+          }
+        }
+        Spacer(minLength: 0)
+        if chevron {
+          Image(systemName: "chevron.right")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(Theme.muted)
+            .rotationEffect(.degrees(open ? 90 : 0))
+            .accessibilityHidden(true)
+        }
+      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .frame(minHeight: subtitle == nil ? 56 : danger ? 68 : 64)
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+  }
+}
+
+/// Initial in a circle: big aubergine for you, small tinted for members.
+private struct AccountAvatar: View {
+  let name: String
+  var big = false
+
+  var body: some View {
+    Text(name.trimmingCharacters(in: .whitespaces).first.map { String($0).uppercased() } ?? "?")
+      .font(Font.custom("DMSans-Bold", size: big ? 18 : 15, relativeTo: .body))
+      .foregroundStyle(big ? Theme.surface : Theme.ink)
+      .frame(width: big ? 44 : 36, height: big ? 44 : 36)
+      .background(big ? Theme.ink : Theme.aubergineTint, in: Circle())
+      .accessibilityHidden(true)
+  }
+}
+
+/// Owner is solid aubergine, Admin tinted, Member outlined.
+private struct RoleBadge: View {
+  let role: String
+
+  var body: some View {
+    Text(role == "owner" ? "Owner" : role == "admin" ? "Admin" : "Member")
+      .font(AccountFont.badge)
+      .foregroundStyle(role == "owner" ? Theme.surface : role == "admin" ? Theme.ink : Theme.muted)
+      .padding(.horizontal, 10)
+      .frame(minHeight: 24)
+      .background(role == "owner" ? Theme.ink : role == "admin" ? Theme.aubergineTint : .clear, in: Capsule())
+      .overlay {
+        if role != "owner" && role != "admin" { Capsule().strokeBorder(Theme.line) }
+      }
+      .fixedSize()
+  }
+}
+
+/// Pill under a member's "…" menu (Make admin, Make owner…, Remove…).
+private struct MemberChip: View {
+  let title: String
+  var danger = false
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Text(title)
+        .font(Font.custom("DMSans-SemiBold", size: 14, relativeTo: .subheadline))
+        .foregroundStyle(danger ? Theme.danger : Theme.ink)
+        .padding(.horizontal, 14)
+        .frame(minHeight: 40)
+        .background(danger ? Theme.surface : Theme.bg, in: Capsule())
+        .overlay(Capsule().strokeBorder(danger ? Theme.dangerLine : Theme.line))
+    }
+    .buttonStyle(.plain)
+  }
+}
+
+extension View {
+  /// Rounded input on the cream page color, used inside account cards.
+  fileprivate func accountField() -> some View {
+    font(AccountFont.title)
+      .foregroundStyle(Theme.ink)
+      .padding(.horizontal, 14)
+      .frame(minHeight: 46)
+      .background(Theme.bg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+      .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.line))
   }
 }
 
@@ -1530,9 +1976,11 @@ private struct PrivacyView: View {
         section(
           "Account",
           """
-          If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
+          If you create an account we store your email (or the username you chose instead, plus a recovery email if you add one), whether and when you confirmed your email, a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
 
-          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account.
+          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email or username has an account (or a recovery email). You can change your email, swap it for a username, or add, change or remove a recovery email from Account & security; a new email only takes over once you open the confirm link we send it.
+
+          Confirm-email emails are also sent by Resend. While a confirm link is open we store the address it was sent to and a hash of the link, not the link. The link works once, for 24 hours.
 
           If you subscribe to the email newsletter, we store that choice with your household and may email you DinnerDesk Deals. Turn it off anytime from Settings.
           """)
@@ -1558,7 +2006,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
+          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
           """)
       }
       .font(Theme.body)
