@@ -270,7 +270,7 @@ export function App() {
       </aside>
       <div className="main" key={tabRootVersion}>
         {!authStatus.authenticated && !guestNoticeDismissed && <div className="guest-notice">Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data. <button type="button" onClick={() => setGuestNoticeDismissed(true)}>Dismiss</button></div>}
-        {emailNudge(authStatus) && !emailNoticeDismissed && page !== "account-security" && <div className="guest-notice">FYI: {emailNudge(authStatus)} <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email ? "Verify it in Settings" : "Add one in Settings"}</a> <button type="button" onClick={() => setEmailNoticeDismissed(true)}>Dismiss</button></div>}
+        {emailNudge(authStatus) && !emailNoticeDismissed && page !== "account-security" && <div className="guest-notice">FYI: {emailNudge(authStatus)} <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email || authStatus.recovery_email ? "Verify it in Settings" : "Add one in Settings"}</a> <button type="button" onClick={() => setEmailNoticeDismissed(true)}>Dismiss</button></div>}
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes />}
         {page === "recipe" && <Recipe id={route.id} />}

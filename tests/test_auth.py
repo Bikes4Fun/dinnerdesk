@@ -455,10 +455,11 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
                 "email": bad, "password": "correct horse battery staple", "household_name": "x"})
             assert res.json()["detail"] == "invalid_username", bad
 
-        # No email means no reset: say so plainly, and never try to send.
-        reset = client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"})
-        assert reset.status_code == 400
-        assert reset.json()["detail"] == "no_email"
+        # No email means no reset, but the answer matches every other name so nobody can probe
+        # which usernames have a recovery email.
+        for name in ("kitchen.fan", "nobody.here"):
+            assert client.post("/api/auth/forgot-password", json={"email": name}).json() == {"ok": True}
+
 
 def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
@@ -548,6 +549,59 @@ def test_confirm_email_refuses_an_address_taken_meanwhile(tmp_path, monkeypatch)
         res = client.post("/api/auth/confirm-email", json={"token": sent[-1].rsplit("/", 1)[1]})
         assert res.json()["detail"] == "email_taken"
 
+def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+    sent, links = [], []
+    monkeypatch.setattr("app.auth_routes.send_reset_email", lambda to, link: sent.append(to) or True)
+    monkeypatch.setattr("app.auth_routes.send_verify_email", lambda to, link: links.append(link.rsplit("/", 1)[1]))
+    password = "correct horse battery staple"
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "other@example.com", "password": password, "household_name": "x"})
+        client.post("/api/auth/logout")
+        client.post("/api/auth/signup", json={"email": "kitchen.fan", "password": password, "household_name": "Ours"})
+        add = lambda email, pw=password: client.post("/api/auth/verify-email", json={"email": email, "password": pw})
+        assert add("fan@example.com", "nope").json()["detail"] == "wrong_password"
+        assert add("nope").json()["detail"] == "invalid_email"
+        assert add("other@example.com").json()["detail"] == "email_taken"
+
+        # A typo changes nothing; only the opened link sets the recovery email.
+        assert add("fan@exmaple.com").status_code == 200
+        assert add(" Fan@Example.com ").status_code == 200
+        assert client.get("/api/auth/me").json()["recovery_email"] is None
+        assert client.post("/api/auth/confirm-email", json={"token": links[-1]}).status_code == 200
+        me = client.get("/api/auth/me").json()
+        assert me["email"] == "kitchen.fan" and me["recovery_email"] == "fan@example.com" and me["email_verified"]
+        assert client.post("/api/auth/confirm-email", json={"token": links[0]}).json()["detail"] == "verify_invalid"
+        assert client.post("/api/household/invites").status_code == 200
+
+        # Either name signs in; resets go to the recovery email.
+        client.post("/api/auth/logout")
+        assert client.post("/api/auth/login", json={"email": "fan@example.com", "password": password}).status_code == 200
+        client.post("/api/auth/logout")
+        assert client.post("/api/auth/login", json={"email": "kitchen.fan", "password": password}).status_code == 200
+        assert client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"}).status_code == 200
+        assert client.post("/api/auth/forgot-password", json={"email": "fan@example.com"}).status_code == 200
+        assert sent == ["fan@example.com", "fan@example.com"]
+
+        # Nobody else can take it as a login, recovery email, or by changing their own email.
+        client.post("/api/auth/logout")
+        taken = client.post("/api/auth/signup", json={"email": "fan@example.com", "password": password, "household_name": "x"})
+        assert taken.json()["detail"] == "email_taken"
+        assert client.post("/api/auth/login", json={"email": "other@example.com", "password": password}).status_code == 200
+        assert add("fan@example.com").json()["detail"] == "email_taken"
+        assert client.post("/api/auth/use-username", json={"username": "kitchen.fan", "password": password}).json()["detail"] == "email_taken"
+
+        # Removing it needs the password; then there's no reset address again.
+        client.post("/api/auth/logout")
+        client.post("/api/auth/login", json={"email": "kitchen.fan", "password": password})
+        assert client.post("/api/auth/remove-recovery-email", json={"password": "nope"}).json()["detail"] == "wrong_password"
+        assert client.post("/api/auth/remove-recovery-email", json={"password": password}).status_code == 200
+        me = client.get("/api/auth/me").json()
+        assert me["recovery_email"] is None and me["email_verified"] is False
+        assert client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"}).json() == {"ok": True}
+        assert sent == ["fan@example.com", "fan@example.com"]
 
 def test_tastelab_saves_only_to_own_history(tmp_path):
     vote = lambda rid: {"id": "shared-session", "anon_id": "guest-1", "kind": "snapshot",

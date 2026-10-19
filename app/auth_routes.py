@@ -10,9 +10,9 @@ from app.auth import leave_household, join_household, delete_household, manage_m
 from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin_email, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
-from app.auth import finish_password_reset, start_password_reset
+from app.auth import finish_password_reset, reset_address, reset_address_for, start_password_reset
 from app.auth import finish_email_verification, start_email_verification, use_username as do_use_username
-from app.auth import verify_password
+from app.auth import remove_recovery_email as do_remove_recovery_email, verify_password
 from app.auth import create_invite as do_create_invite
 from app.auth import delete_account as do_delete_account
 from app.auth import invite_info as do_invite_info
@@ -37,8 +37,6 @@ ERROR_MESSAGES = {
     "invalid_username": "Usernames are 3 to 30 letters, numbers, dots, dashes or underscores.",
     "email_taken": "An account with that email or username already exists.",
     "invalid_credentials": "That email or username, or the password, didn't work.",
-    "no_email": "Accounts made with a username have no email, so their password can't be reset.",
-    "has_email_already": "This account already signs in with an email, which is used for resets.",
     "email_required_to_invite": "You need an account with an email to invite people, so your household can recover your password.",
     "account_locked": "Too many failed attempts. Try again in a few minutes.",
     "not_authenticated": "Please sign in again.",
@@ -60,8 +58,8 @@ ERROR_MESSAGES = {
 }
 
 
-class RecoveryEmailBody(BaseModel):
-    email: str
+class PasswordBody(BaseModel):
+    password: str
 
 
 class ForgotPasswordBody(BaseModel):
@@ -248,10 +246,10 @@ def change_password(body: ChangePasswordBody, response: Response, conn=DbDep, us
     return {"ok": True}
 
 
-@router.post("/auth/recovery-email")
-def recovery_email(body: RecoveryEmailBody, conn=DbDep, user_id=UserDep):
+@router.post("/auth/remove-recovery-email")
+def remove_recovery_email(body: PasswordBody, conn=DbDep, user_id=UserDep):
     try:
-        set_recovery_email(conn, user_id, body.email)
+        do_remove_recovery_email(conn, user_id, body.password)
     except AuthError as e:
         raise _auth_error(e, 400)
     return {"ok": True}
@@ -259,16 +257,14 @@ def recovery_email(body: RecoveryEmailBody, conn=DbDep, user_id=UserDep):
 
 @router.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordBody, conn=DbDep):
-    # Same answer whether or not the email has an account. Email being down is checked first,
-    # for everyone, so the cook hears about it without learning whether the account exists.
+    # Same answer whether or not the email or username has an account, or a recovery email on
+    # file. Email being down is checked first, for everyone, so the cook hears about it without
+    # learning whether the account exists.
     if not mail_ready():
         log.error("Password reset requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
         raise _mail_down()
     email = (body.email or "").strip().lower()
     to = reset_address_for(conn, email)
-    # A username with no recovery email can't be reset; say so rather than pretend to send.
-    if email and not has_email(email) and not to:
-        raise _auth_error(AuthError("no_email"), 400)
     token = start_password_reset(conn, email)
     if token:
         try:
@@ -290,11 +286,13 @@ def _mail_down(what: str = "password reset") -> HTTPException:
 
 @router.post("/auth/verify-email")
 def verify_email(body: VerifyEmailBody, conn=DbDep, user_id=UserDep):
-    """Email a confirm link to the signed-in address, or to a new one (which needs the password).
-    The login only changes once the link is opened, so a mistyped address changes nothing."""
-    row = conn.execute("SELECT email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
-    email = (body.email or "").strip().lower() or row["email"]
-    if email != row["email"] and not verify_password(body.password, row["password_hash"]):
+    """Email a confirm link to the account's reset address, or to a new one (which needs the
+    password). Nothing changes until the link is opened, so a mistyped address changes nothing.
+    A username account keeps its username; the address becomes its recovery email."""
+    row = conn.execute("SELECT email, recovery_email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    current = reset_address(row)
+    email = (body.email or "").strip().lower() or current or row["email"]
+    if email != current and not verify_password(body.password, row["password_hash"]):
         raise _auth_error(AuthError("wrong_password"), 400)
     if not mail_ready():
         log.error("Email confirm requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")

@@ -896,40 +896,6 @@ struct AccountView: View {
         if let message {
           Text(message).font(Theme.subtitle).foregroundStyle(Theme.ok)
             .fixedSize(horizontal: false, vertical: true)
-          if let nudge = session.status?.emailNudge {
-            Text(nudge + (session.status?.hasEmail == false ? " Add one below." : " Send a confirm link, or change it below if it has a typo."))
-              .font(Theme.subtitle).foregroundStyle(Theme.ink)
-              .fixedSize(horizontal: false, vertical: true)
-              .listRowBackground(Theme.aubergineTint)
-          }
-          if session.status?.hasEmail == true {
-            if session.status?.emailVerified == true {
-              Text("Email verified").font(Theme.subtitle).foregroundStyle(Theme.muted)
-            } else {
-              Button { Task { await sendConfirmLink() } } label: {
-                Label("Send confirm link", systemImage: "envelope")
-              }
-              .disabled(busy)
-            }
-          }
-          if editingLogin {
-            TextField("New email, or a username to remove your email", text: $newLogin)
-              .textContentType(.emailAddress).keyboardType(.emailAddress)
-              .textInputAutocapitalization(.never).autocorrectionDisabled()
-            SecureField("Your password", text: $loginPassword).textContentType(.password)
-            Text(newLogin.isEmpty || newLogin.contains("@")
-                 ? "A new email takes over once you open the confirm link we send it."
-                 : "Without an email, a forgotten password can't be reset.")
-              .font(Theme.subtitle).foregroundStyle(Theme.muted)
-              .fixedSize(horizontal: false, vertical: true)
-            Button(newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : "Use username") {
-              Task { await changeLogin() }
-            }
-            .disabled(busy || newLogin.trimmingCharacters(in: .whitespaces).isEmpty || loginPassword.isEmpty)
-            Button("Cancel") { editingLogin = false; newLogin = ""; loginPassword = "" }
-          } else {
-            Button(session.status?.hasEmail == false ? "Add an email" : "Change or remove email") { editingLogin = true }
-          }
         }
         if let error {
           ErrorBanner(message: error)
@@ -984,6 +950,12 @@ struct AccountView: View {
       }
     }
     .confirmationDialog(
+      "Remove your recovery email? Without it, a forgotten password can't be reset.",
+      isPresented: $confirmRemoveRecovery, titleVisibility: .visible
+    ) {
+      Button("Remove recovery email", role: .destructive) { Task { await removeRecoveryEmail() } }
+    }
+    .confirmationDialog(
       "Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
     ) {
       Button("Sign out everywhere", role: .destructive) { Task { await signOutEverywhere() } }
@@ -993,6 +965,9 @@ struct AccountView: View {
   private var accountSection: some View {
     let name = session.status?.email ?? ""
     let hasEmail = session.status?.hasEmail != false
+    let recovery = session.status?.recoveryEmail
+    let resetTo = hasEmail ? name : recovery
+    let verified = session.status?.emailVerified == true ? "verified" : "not verified"
     return AccountGroup("Account") {
       AccountCard {
         HStack(spacing: 14) {
@@ -1000,23 +975,73 @@ struct AccountView: View {
           VStack(alignment: .leading, spacing: 2) {
             Text(name).font(AccountFont.strong).foregroundStyle(Theme.ink)
               .fixedSize(horizontal: false, vertical: true)
-            Text(hasEmail ? "Signed in with email" : "Signed in with username")
+            Text(hasEmail ? "Signed in with email · \(verified)" : "Signed in with username")
               .font(AccountFont.sub).foregroundStyle(Theme.muted)
+            if let recovery {
+              Text("Recovery email: \(recovery) · \(verified)")
+                .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            }
           }
           Spacer(minLength: 0)
         }
         .padding(16)
+        if let nudge = session.status?.emailNudge {
+          AccountDivider()
+          Text(nudge + (resetTo == nil ? " Add a recovery email below." : " Send a confirm link, or change it below if it has a typo."))
+            .font(AccountFont.sub).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .background(Theme.aubergineTint)
+        }
+        if let resetTo, session.status?.emailVerified != true {
+          AccountDivider()
+          AccountRow(title: "Send confirm link", subtitle: "To \(resetTo)", chevron: true) {
+            Task { await sendConfirmLink() }
+          }
+          .disabled(busy)
+        }
         AccountDivider()
-        if hasEmail {
+        AccountRow(
+          title: hasEmail ? "Change or remove email" : recovery != nil ? "Change or remove recovery email" : "Add a recovery email",
+          subtitle: hasEmail ? "Fix a typo, or sign in with a username instead" : "Reset your password and sign in with it",
+          chevron: true, open: editingEmail
+        ) {
+          if editingEmail { closeEmailPane() } else { editingEmail = true }
+        }
+        if editingEmail {
+          VStack(alignment: .leading, spacing: 10) {
+            TextField(hasEmail ? "New email, or a username to remove your email" : "Recovery email", text: $newLogin)
+              .textContentType(.emailAddress).keyboardType(.emailAddress)
+              .textInputAutocapitalization(.never).autocorrectionDisabled()
+              .accountField()
+            SecureField("Your password", text: $loginPassword).textContentType(.password)
+              .accountField()
+            Text(!hasEmail || newLogin.isEmpty || newLogin.contains("@")
+                 ? "We'll email a confirm link. Nothing changes until you open it, so a typo can't lock you out."
+                 : "Without an email, a forgotten password can't be reset.")
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+            Button(!hasEmail || newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : "Use username") {
+              Task { await changeLogin() }
+            }
+            .font(AccountFont.button)
+            .disabled(busy || newLogin.trimmingCharacters(in: .whitespaces).isEmpty || loginPassword.isEmpty)
+            if recovery != nil {
+              Button("Remove recovery email", role: .destructive) { confirmRemoveRecovery = true }
+                .font(AccountFont.button)
+                .disabled(busy || loginPassword.isEmpty)
+            }
+          }
+          .padding(EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16))
+        }
+        if resetTo != nil {
+          AccountDivider()
           AccountRow(title: "Reset password", subtitle: "We'll email you a reset link", chevron: true) {
             Task { await resetPassword() }
           }
           .disabled(busy)
-        } else {
-          Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.")
-            .font(AccountFont.sub).foregroundStyle(Theme.muted)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
         }
         AccountDivider()
         HStack {
@@ -1269,7 +1294,7 @@ struct AccountView: View {
     busy = true
     defer { busy = false }
     do {
-      if name.contains("@") {
+      if name.contains("@") || session.status?.hasEmail == false {
         try await AuthAPI.verifyEmail(email: name, password: loginPassword)
         message = "Check \(name) for a confirm link. Until you open it, you keep signing in as before."
       } else {
@@ -1278,10 +1303,26 @@ struct AccountView: View {
         message = "You now sign in with your username."
       }
       error = nil
-      editingLogin = false
-      newLogin = ""
-      loginPassword = ""
+      closeEmailPane()
     } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func removeRecoveryEmail() async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await AuthAPI.removeRecoveryEmail(password: loginPassword)
+      await session.refresh()
+      message = "Recovery email removed."
+      error = nil
+      closeEmailPane()
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func closeEmailPane() {
+    editingEmail = false
+    newLogin = ""
+    loginPassword = ""
   }
 
   private func saveHouseholdName() async {
@@ -1871,9 +1912,9 @@ private struct PrivacyView: View {
         section(
           "Account",
           """
-          If you create an account we store your email (or the username you chose instead), whether and when you confirmed that email, a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
+          If you create an account we store your email (or the username you chose instead, plus a recovery email if you add one), whether and when you confirmed your email, a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
 
-          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account. You can change your email, or swap it for a username, from Account & security; a new email only takes over once you open the confirm link we send it.
+          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email or username has an account (or a recovery email). You can change your email, swap it for a username, or add, change or remove a recovery email from Account & security; a new email only takes over once you open the confirm link we send it.
 
           Confirm-email emails are also sent by Resend. While a confirm link is open we store the address it was sent to and a hash of the link, not the link. The link works once, for 24 hours.
 

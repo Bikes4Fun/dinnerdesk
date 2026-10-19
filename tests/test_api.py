@@ -1323,6 +1323,16 @@ def test_download_my_data_has_the_kitchen_and_no_secrets(tmp_path):
         assert "password_hash" not in text and "token_hash" not in text
 
 
+def test_download_my_data_has_your_sign_in_details_only(tmp_path):
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "you@example.com", "password": "correct horse battery staple",
+                                              "household_name": "Ours"})
+        data = client.get("/api/household/export").json()
+        assert data["your_account"]["email"] == "you@example.com"
+        assert set(data["your_account"]) == {"email", "recovery_email", "email_verified_at", "created_at"}
+        assert all(set(m) == {"email", "created_at"} for m in data["members"])
+
+
 def test_download_recipes_include_ingredients_and_tags_only_for_this_household(tmp_path):
     with _client(tmp_path) as client:
         created = client.post('/api/recipes', json={

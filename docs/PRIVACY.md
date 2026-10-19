@@ -4,9 +4,9 @@ Dinnerdesk is a meal planner for a household. This is what we store, and what we
 
 ## Account
 
-If you create an account we store your email (or the username you chose instead), whether and when you confirmed that email, a hash of your password (not the password), and your household name. A cookie named `wp_session` keeps you signed in for 30 days. You can sign out of this device, or every device, from Account & security.
+If you create an account we store your email (or the username you chose instead, plus a recovery email if you add one), whether and when you confirmed your email, a hash of your password (not the password), and your household name. A cookie named `wp_session` keeps you signed in for 30 days. You can sign out of this device, or every device, from Account & security.
 
-Forgot-password emails are sent by [Resend](https://resend.com). We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account. You can change your email, or swap it for a username, from Account & security; a new email only takes over once you open the confirm link we send it.
+Forgot-password emails are sent by [Resend](https://resend.com). We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email or username has an account (or a recovery email). You can change your email, swap it for a username, or add, change or remove a recovery email from Account & security; a new email only takes over once you open the confirm link we send it.
 
 Confirm-email emails are also sent by Resend. While a confirm link is open we store the address it was sent to and a hash of the link, not the link. The link works once, for 24 hours.
 

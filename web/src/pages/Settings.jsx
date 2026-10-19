@@ -24,7 +24,7 @@ function Link({ href, children, extra, onClick }) {
 /** Why a signed-in account should verify (or add) an email, or "" when it's verified. */
 export function emailNudge(status) {
   if (!status || !status.authenticated || status.email_verified) return "";
-  return status.has_email
+  return status.has_email || status.recovery_email
     ? "Your email isn't verified yet, so a password reset link might not reach you."
     : "Your account has no email, so a forgotten password can't be reset.";
 }
@@ -504,9 +504,7 @@ export function AccountSecurity() {
   const [savedName, setSavedName] = useState("");
   const [menuFor, setMenuFor] = useState(null);
   const [joining, setJoining] = useState(false);
-  const [addingRecovery, setAddingRecovery] = useState(false);
-  const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [editingLogin, setEditingLogin] = useState(false);
+  const [editingEmail, setEditingEmail] = useState(false);
   const [newLogin, setNewLogin] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
 
@@ -551,29 +549,13 @@ export function AccountSecurity() {
     }
   }
 
-  async function saveRecoveryEmail(e) {
-    e.preventDefault();
-    setErr("");
-    setBusy(true);
-    try {
-      await api.auth.setRecoveryEmail(recoveryEmail.trim());
-      setStatus(await api.auth.status());
-      setAddingRecovery(false);
-      setToast("Recovery email saved. You can sign in with it or your username.");
-    } catch (e) {
-      setErr((e.body && e.body.message) || e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function sendConfirmLink(email) {
     setErr("");
     setBusy(true);
     try {
       const r = await api.auth.verifyEmail(email ? { email, password: loginPassword } : {});
       setToast(`Confirm link sent to ${r.email}. It works once, for 24 hours.`);
-      if (email) { setEditingLogin(false); setNewLogin(""); setLoginPassword(""); }
+      if (email) closeEmailPane();
     } catch (e) {
       setErr((e.body && e.body.message) || e.message);
     } finally {
@@ -585,20 +567,43 @@ export function AccountSecurity() {
     e.preventDefault();
     const name = newLogin.trim();
     if (!name || !loginPassword) return;
-    if (name.includes("@")) return sendConfirmLink(name);
+    if (name.includes("@") || !status.has_email) return sendConfirmLink(name);
     if (!confirm("Remove your email and sign in with this username? Without an email, a forgotten password can't be reset.")) return;
     setErr("");
     setBusy(true);
     try {
       await api.auth.useUsername({ username: name, password: loginPassword });
       setStatus(await api.auth.status());
-      setEditingLogin(false); setNewLogin(""); setLoginPassword("");
+      closeEmailPane();
       setToast("You now sign in with your username.");
     } catch (e) {
       setErr((e.body && e.body.message) || e.message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function removeRecoveryEmail() {
+    if (!loginPassword) return setErr("Enter your password to remove the recovery email.");
+    if (!confirm("Remove your recovery email? Without it, a forgotten password can't be reset.")) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await api.auth.removeRecoveryEmail({ password: loginPassword });
+      setStatus(await api.auth.status());
+      closeEmailPane();
+      setToast("Recovery email removed.");
+    } catch (e) {
+      setErr((e.body && e.body.message) || e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function closeEmailPane() {
+    setEditingEmail(false);
+    setNewLogin("");
+    setLoginPassword("");
   }
 
   async function makeInvite() {
@@ -709,66 +714,57 @@ export function AccountSecurity() {
                   <span className="acct-avatar is-big" aria-hidden="true">{initial(status.email)}</span>
                   <div className="acct-row-text">
                     <span className="acct-me-name">{status.email}</span>
-                    <span className="acct-sub">{status.has_email ? (status.email_verified ? "Signed in with email" : "Signed in with email · not verified") : "Signed in with username"}</span>
-                    {status.recovery_email && <span className="acct-sub">Recovery email: {status.recovery_email}</span>}
+                    <span className="acct-sub">{status.has_email ? `Signed in with email · ${status.email_verified ? "verified" : "not verified"}` : "Signed in with username"}</span>
+                    {status.recovery_email && <span className="acct-sub">Recovery email: {status.recovery_email} · {status.email_verified ? "verified" : "not verified"}</span>}
                   </div>
                 </div>
                 {emailNudge(status) && (
                   <div className="acct-pane">
-                    <p className="banner warn">{emailNudge(status)}</p>
+                    <p className="banner warn">
+                      {emailNudge(status)} {resetTo ? "Send a confirm link, or change it below if it has a typo." : "Add a recovery email below."}
+                    </p>
                   </div>
                 )}
-                {status.has_email && !status.email_verified && (
+                {resetTo && !status.email_verified && (
                   <button type="button" className="acct-row has-sub" disabled={busy} onClick={() => sendConfirmLink()}>
                     <span className="acct-row-text">
                       <span className="acct-row-title">Send confirm link</span>
-                      <span className="acct-sub">We'll email {status.email}</span>
+                      <span className="acct-sub">To {resetTo}</span>
                     </span>
                     <Chevron />
                   </button>
                 )}
-                <button type="button" className="acct-row has-sub" aria-expanded={editingLogin} onClick={() => setEditingLogin(!editingLogin)}>
+                <button type="button" className="acct-row has-sub" aria-expanded={editingEmail} onClick={() => (editingEmail ? closeEmailPane() : setEditingEmail(true))}>
                   <span className="acct-row-text">
-                    <span className="acct-row-title">{status.has_email ? "Change or remove email" : "Add an email"}</span>
-                    <span className="acct-sub">{status.has_email ? "A new address takes over after you open the link" : "Or switch to a username"}</span>
+                    <span className="acct-row-title">
+                      {status.has_email ? "Change or remove email" : status.recovery_email ? "Change or remove recovery email" : "Add a recovery email"}
+                    </span>
+                    <span className="acct-sub">
+                      {status.has_email ? "Fix a typo, or sign in with a username instead" : "Reset your password and sign in with it"}
+                    </span>
                   </span>
-                  <Chevron open={editingLogin} />
+                  <Chevron open={editingEmail} />
                 </button>
-                {editingLogin && (
+                {editingEmail && (
                   <form className="acct-pane" onSubmit={changeLogin}>
-                    <label className="block-label" htmlFor="new-login">New email, or a username to remove your email</label>
-                    <input className="field" id="new-login" autoComplete="email" autoCapitalize="none"
-                      value={newLogin} onChange={(e) => setNewLogin(e.target.value)} required />
-                    <p className="help">A new email takes over once you open the confirm link we send it. Until then you keep signing in as {status.email}.</p>
+                    <label className="block-label" htmlFor="new-login">
+                      {status.has_email ? "New email, or a username to remove your email" : "Recovery email"}
+                    </label>
+                    <input className="field" id="new-login" type={status.has_email ? "text" : "email"} autoComplete="email" autoCapitalize="none" required
+                      value={newLogin} onChange={(e) => setNewLogin(e.target.value)} />
+                    <p className="help">We'll email a confirm link. Nothing changes until you open it, so a typo can't lock you out.</p>
                     <label className="block-label" htmlFor="login-password">Your password</label>
-                    <input className="field" id="login-password" type="password" autoComplete="current-password"
-                      value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
+                    <input className="field" id="login-password" type="password" autoComplete="current-password" required
+                      value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
                     <button type="submit" className="btn-secondary block" disabled={busy || !newLogin.trim() || !loginPassword}>
-                      {newLogin.includes("@") || !newLogin.trim() ? "Send confirm link" : "Use username"}
+                      {!status.has_email || newLogin.includes("@") || !newLogin.trim() ? "Send confirm link" : "Use username"}
                     </button>
-                  </form>
-                )}
-                {!resetTo && (
-                  <>
-                    <div className="acct-pane">
-                      <p className="help">This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.</p>
-                    </div>
-                    <button type="button" className="acct-row has-sub" aria-expanded={addingRecovery} onClick={() => setAddingRecovery(!addingRecovery)}>
-                      <span className="acct-row-text">
-                        <span className="acct-row-title">Add a recovery email</span>
-                        <span className="acct-sub">Reset your password and sign in with it</span>
-                      </span>
-                      <Chevron open={addingRecovery} />
-                    </button>
-                    {addingRecovery && (
-                      <form className="acct-pane" onSubmit={saveRecoveryEmail}>
-                        <label className="block-label" htmlFor="recovery-email">Recovery email</label>
-                        <input className="field" id="recovery-email" type="email" autoComplete="email" required
-                          value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} />
-                        <button type="submit" className="btn-secondary block" disabled={busy || !recoveryEmail.trim()}>Save recovery email</button>
-                      </form>
+                    {status.recovery_email && (
+                      <button type="button" className="btn-secondary block danger" disabled={busy} onClick={removeRecoveryEmail}>
+                        Remove recovery email
+                      </button>
                     )}
-                  </>
+                  </form>
                 )}
                 {resetTo && (
                   <button type="button" className="acct-row has-sub" disabled={busy} onClick={emailResetLink}>

@@ -100,21 +100,10 @@ def reset_address(row) -> Optional[str]:
     return row["email"] if has_email(row["email"]) else row["recovery_email"]
 
 
-def set_recovery_email(conn: Any, user_id: int, email: str) -> None:
-    """Give a username account an email for password resets. It also works for signing in."""
-    user = _member(conn, user_id)
-    if has_email(user["email"]):
-        raise AuthError("has_email_already")
-    email = (email or "").strip().lower()
-    if not has_email(email):
-        raise AuthError("invalid_email")
-    other = conn.execute(
-        "SELECT id FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (email, email, user_id)
-    ).fetchone()
-    if other:
-        raise AuthError("email_taken")
-    conn.execute("UPDATE users SET recovery_email = ? WHERE id = ?", (email, user_id))
-    conn.commit()
+def _taken_by_other(conn: Any, name: str, user_id: int) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (name, name, user_id)
+    ).fetchone() is not None
 
 
 def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
@@ -290,14 +279,14 @@ def finish_password_reset(conn: Any, token: str, new_password: str) -> str:
 def start_email_verification(conn: Any, user_id: int, email: str) -> Optional[str]:
     """Make a one-time link that confirms `email` for this account, or None after too many asks.
 
-    For a new address the current login stays until the link is opened, so a typo never locks
-    anyone out. Raises invalid_email / email_taken.
+    An email account's login becomes the address; a username account keeps its username and
+    gets the address as its recovery email. Nothing changes until the link is opened, so a typo
+    never locks anyone out. Raises invalid_email / email_taken.
     """
     email = login_name(email)
     if not has_email(email):
         raise AuthError("invalid_email")
-    taken = conn.execute("SELECT id FROM users WHERE email = ? AND id <> ?", (email, user_id)).fetchone()
-    if taken:
+    if _taken_by_other(conn, email, user_id):
         raise AuthError("email_taken")
     since = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
     recent = conn.execute(
@@ -320,7 +309,8 @@ def start_email_verification(conn: Any, user_id: int, email: str) -> Optional[st
 
 
 def finish_email_verification(conn: Any, token: str) -> str:
-    """Open a confirm link: the address becomes this account's login, marked verified."""
+    """Open a confirm link: the address becomes this account's login (or, for a username
+    account, its recovery email), marked verified."""
     _lock_membership(conn)
     row = conn.execute(
         "SELECT user_id, email, expires_at, used_at FROM email_verifications WHERE token_hash = ?",
@@ -330,13 +320,12 @@ def finish_email_verification(conn: Any, token: str) -> str:
         raise AuthError("verify_invalid")
     if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
         raise AuthError("verify_expired")
-    taken = conn.execute(
-        "SELECT id FROM users WHERE email = ? AND id <> ?", (row["email"], row["user_id"])
-    ).fetchone()
-    if taken:
+    if _taken_by_other(conn, row["email"], row["user_id"]):
         raise AuthError("email_taken")
+    user = _member(conn, row["user_id"])
+    column = "email" if has_email(user["email"]) else "recovery_email"
     conn.execute(
-        "UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?",
+        f"UPDATE users SET {column} = ?, email_verified_at = ? WHERE id = ?",
         (row["email"], now(), row["user_id"]),
     )
     # Older links (to this or a mistyped address) stop working.
@@ -348,22 +337,40 @@ def finish_email_verification(conn: Any, token: str) -> str:
     return row["email"]
 
 
-def use_username(conn: Any, user_id: int, password: str, username: str) -> None:
-    """Swap the account's email for a username (removes the email). Needs the password."""
+def _check_password(conn: Any, user_id: int, password: str) -> None:
     row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row or not verify_password(password, row["password_hash"]):
         raise AuthError("wrong_password")
-    name = login_name(username)
-    if has_email(name):
-        raise AuthError("invalid_username")
-    taken = conn.execute("SELECT id FROM users WHERE email = ? AND id <> ?", (name, user_id)).fetchone()
-    if taken:
-        raise AuthError("email_taken")
-    conn.execute("UPDATE users SET email = ?, email_verified_at = NULL WHERE id = ?", (name, user_id))
+
+
+def _close_verifications(conn: Any, user_id: int) -> None:
     conn.execute(
         "UPDATE email_verifications SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
         (now(), user_id),
     )
+
+
+def use_username(conn: Any, user_id: int, password: str, username: str) -> None:
+    """Swap the account's email for a username (removes the email). Needs the password."""
+    _check_password(conn, user_id, password)
+    name = login_name(username)
+    if has_email(name):
+        raise AuthError("invalid_username")
+    if _taken_by_other(conn, name, user_id):
+        raise AuthError("email_taken")
+    conn.execute(
+        "UPDATE users SET email = ?, recovery_email = NULL, email_verified_at = NULL WHERE id = ?",
+        (name, user_id),
+    )
+    _close_verifications(conn, user_id)
+    conn.commit()
+
+
+def remove_recovery_email(conn: Any, user_id: int, password: str) -> None:
+    """Drop a username account's recovery email. Needs the password."""
+    _check_password(conn, user_id, password)
+    conn.execute("UPDATE users SET recovery_email = NULL, email_verified_at = NULL WHERE id = ?", (user_id,))
+    _close_verifications(conn, user_id)
     conn.commit()
 
 
