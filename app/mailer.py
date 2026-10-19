@@ -1,4 +1,4 @@
-"""Outgoing email (password reset links) through Resend's HTTP API.
+"""Outgoing email (password reset and email confirmation links) through Resend's HTTP API.
 
 Set on the server (Railway → service → Variables):
   RESEND_API_KEY  key from resend.com → API Keys
@@ -27,7 +27,7 @@ def mail_ready() -> bool:
 def public_url() -> str:
     url = (os.environ.get("PUBLIC_URL") or "").strip()
     if not url:
-        raise RuntimeError("PUBLIC_URL is required for password reset links")
+        raise RuntimeError("PUBLIC_URL is required for emailed links")
     return url.rstrip("/")
 
 
@@ -35,30 +35,56 @@ def reset_link(token: str) -> str:
     return f"{public_url()}/reset/{token}"
 
 
+def verify_link(token: str) -> str:
+    return f"{public_url()}/verify/{token}"
+
+
 def send_reset_email(to: str, link: str) -> bool:
     """Send the reset email. Raises on missing credentials or failed delivery."""
-    key = (os.environ.get("RESEND_API_KEY") or "").strip()
-    if not key:
-        raise RuntimeError("RESEND_API_KEY is required to send password reset emails")
-    sender = (os.environ.get("MAIL_FROM") or "").strip()
-    if not sender:
-        raise RuntimeError("MAIL_FROM is required for password reset emails")
-    body = {
-        "from": sender,
-        "to": [to],
-        "subject": "Reset your Dinnerdesk password",
-        "text": (
+    return _send(
+        to,
+        "Reset your Dinnerdesk password",
+        (
             "Someone (hopefully you) asked to reset your Dinnerdesk password.\n\n"
             f"Set a new password here (the link works once, for 1 hour):\n{link}\n\n"
             "If you didn't ask for this, you can ignore this email; your password hasn't changed."
         ),
-        "html": (
+        (
             "<p>Someone (hopefully you) asked to reset your Dinnerdesk password.</p>"
             f'<p><a href="{link}">Set a new password</a></p>'
             "<p>The link works once, for 1 hour. If you didn't ask for this, you can ignore this "
             "email; your password hasn't changed.</p>"
         ),
-    }
+    )
+
+
+def send_verify_email(to: str, link: str) -> bool:
+    """Send the confirm-this-address email. Raises on missing credentials or failed delivery."""
+    return _send(
+        to,
+        "Confirm your Dinnerdesk email",
+        (
+            "Someone (hopefully you) added this address to a Dinnerdesk account.\n\n"
+            f"Confirm it here (the link works once, for 24 hours):\n{link}\n\n"
+            "If this wasn't you, you can ignore this email; nothing changes until the link is opened."
+        ),
+        (
+            "<p>Someone (hopefully you) added this address to a Dinnerdesk account.</p>"
+            f'<p><a href="{link}">Confirm this email</a></p>'
+            "<p>The link works once, for 24 hours. If this wasn't you, you can ignore this email; "
+            "nothing changes until the link is opened.</p>"
+        ),
+    )
+
+
+def _send(to: str, subject: str, text: str, html: str) -> bool:
+    key = (os.environ.get("RESEND_API_KEY") or "").strip()
+    if not key:
+        raise RuntimeError("RESEND_API_KEY is required to send email")
+    sender = (os.environ.get("MAIL_FROM") or "").strip()
+    if not sender:
+        raise RuntimeError("MAIL_FROM is required to send email")
+    body = {"from": sender, "to": [to], "subject": subject, "text": text, "html": html}
     request = urllib.request.Request(
         "https://api.resend.com/emails",
         data=json.dumps(body).encode("utf-8"),
@@ -68,5 +94,5 @@ def send_reset_email(to: str, link: str) -> bool:
     )
     with urllib.request.urlopen(request, timeout=10) as response:
         if not 200 <= response.status < 300:
-            raise RuntimeError(f"Password reset email delivery failed ({response.status})")
+            raise RuntimeError(f"Email delivery failed ({response.status})")
         return True

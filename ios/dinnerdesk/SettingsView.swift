@@ -9,6 +9,16 @@ struct SettingsView: View {
 
   var body: some View {
     List {
+      if let nudge = session.status?.emailNudge {
+        NavigationLink {
+          AccountView()
+        } label: {
+          Text("\(nudge) Fix it in Account & security.")
+            .font(Theme.subtitle).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .listRowBackground(Theme.aubergineTint)
+      }
       Section {
         // NavigationLink {
         //   FiltersView()
@@ -919,6 +929,9 @@ struct AccountView: View {
   @State private var confirmJoin = false
   @State private var deletingHome = false
   @State private var successor: HouseholdMember?
+  @State private var editingLogin = false
+  @State private var newLogin = ""
+  @State private var loginPassword = ""
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
@@ -943,6 +956,40 @@ struct AccountView: View {
           Label(session.status?.email ?? "", systemImage: "person.crop.circle")
             .font(Theme.body).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
+          if let nudge = session.status?.emailNudge {
+            Text(nudge + (session.status?.hasEmail == false ? " Add one below." : " Send a confirm link, or change it below if it has a typo."))
+              .font(Theme.subtitle).foregroundStyle(Theme.ink)
+              .fixedSize(horizontal: false, vertical: true)
+              .listRowBackground(Theme.aubergineTint)
+          }
+          if session.status?.hasEmail == true {
+            if session.status?.emailVerified == true {
+              Text("Email verified").font(Theme.subtitle).foregroundStyle(Theme.muted)
+            } else {
+              Button { Task { await sendConfirmLink() } } label: {
+                Label("Send confirm link", systemImage: "envelope")
+              }
+              .disabled(busy)
+            }
+          }
+          if editingLogin {
+            TextField("New email, or a username to remove your email", text: $newLogin)
+              .textContentType(.emailAddress).keyboardType(.emailAddress)
+              .textInputAutocapitalization(.never).autocorrectionDisabled()
+            SecureField("Your password", text: $loginPassword).textContentType(.password)
+            Text(newLogin.isEmpty || newLogin.contains("@")
+                 ? "A new email takes over once you open the confirm link we send it."
+                 : "Without an email, a forgotten password can't be reset.")
+              .font(Theme.subtitle).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+            Button(newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : "Use username") {
+              Task { await changeLogin() }
+            }
+            .disabled(busy || newLogin.trimmingCharacters(in: .whitespaces).isEmpty || loginPassword.isEmpty)
+            Button("Cancel") { editingLogin = false; newLogin = ""; loginPassword = "" }
+          } else {
+            Button(session.status?.hasEmail == false ? "Add an email" : "Change or remove email") { editingLogin = true }
+          }
         }
         .themeRows()
 
@@ -1098,6 +1145,37 @@ struct AccountView: View {
       try await AuthAPI.forgotPassword(email: email)
       message = "Check your email for a password reset link."
       error = nil
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func sendConfirmLink() async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await AuthAPI.verifyEmail()
+      message = "Check your email for a confirm link."
+      error = nil
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  /// A new email gets a confirm link; a username replaces the email right away.
+  private func changeLogin() async {
+    let name = newLogin.trimmingCharacters(in: .whitespaces)
+    busy = true
+    defer { busy = false }
+    do {
+      if name.contains("@") {
+        try await AuthAPI.verifyEmail(email: name, password: loginPassword)
+        message = "Check \(name) for a confirm link. Until you open it, you keep signing in as before."
+      } else {
+        try await AuthAPI.useUsername(name, password: loginPassword)
+        await session.refresh()
+        message = "You now sign in with your username."
+      }
+      error = nil
+      editingLogin = false
+      newLogin = ""
+      loginPassword = ""
     } catch { self.error = KitchenAPI.message(error) }
   }
 
@@ -1530,9 +1608,11 @@ private struct PrivacyView: View {
         section(
           "Account",
           """
-          If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
+          If you create an account we store your email (or the username you chose instead), whether and when you confirmed that email, a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
 
-          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account.
+          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account. You can change your email, or swap it for a username, from Account & security; a new email only takes over once you open the confirm link we send it.
+
+          Confirm-email emails are also sent by Resend. While a confirm link is open we store the address it was sent to and a hash of the link, not the link. The link works once, for 24 hours.
 
           If you subscribe to the email newsletter, we store that choice with your household and may email you DinnerDesk Deals. Turn it off anytime from Settings.
           """)
@@ -1558,7 +1638,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
+          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
           """)
       }
       .font(Theme.body)
