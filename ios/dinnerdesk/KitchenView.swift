@@ -76,7 +76,7 @@ struct KitchenView: View {
       ThemeSection("Coming Soon"){
           ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
           ThemeIconRow(title: "New to Cooking", systemImage:"list.bullet",  value: "Coming soon")
-          ThemeIconRow(title: "Sync nutrition  data", systemImage:"list.bullet")
+          ThemeIconRow(title: "Sync nutrition data", systemImage:"list.bullet", value: "Coming soon")
       }.themeRows()
 
     }
