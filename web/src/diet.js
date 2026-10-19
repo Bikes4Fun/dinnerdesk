@@ -14,12 +14,28 @@ export const ALLERGENS = [
   ["sesame", "Sesame"],
   ["fish", "Fish"],
   ["shellfish", "Shellfish"],
-  ["poultry", "Poultry"],
-  ["red-meat", "Red meat"],
 ];
 export const AVOIDS = [
   "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
   "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
+];
+export const WHO = [
+  ["beginner", "Beginner"],
+  ["family", "Family"],
+  ["kids", "Kid-friendly"],
+  ["entertaining", "Entertaining"],
+];
+export const CUISINES = [
+  ["italian", "Italian"], ["mexican", "Mexican"], ["american", "American"], ["chinese", "Chinese"],
+  ["thai", "Thai"], ["indian", "Indian"], ["japanese", "Japanese"], ["mediterranean", "Mediterranean"],
+  ["korean", "Korean"], ["vietnamese", "Vietnamese"], ["greek", "Greek"], ["middle-eastern", "Middle Eastern"],
+  ["french", "French"], ["spanish", "Spanish"], ["southern", "Southern"], ["cajun", "Cajun & Creole"],
+  ["caribbean", "Caribbean"], ["latin-american", "Latin American"],
+];
+export const PROTEINS = [
+  ["chicken", "Chicken"], ["beef", "Beef"], ["pork", "Pork"], ["salmon", "Salmon"], ["shrimp", "Shrimp"],
+  ["tofu", "Tofu"], ["turkey", "Turkey"], ["white-fish", "White fish"], ["lamb", "Lamb"], ["sausage", "Sausage"],
+  ["tempeh", "Tempeh"], ["beans", "Beans & lentils"], ["eggs", "Eggs"], ["scallops", "Scallops"],
 ];
 
 // Pick one of these; gluten-free and dairy-free combine with it.

@@ -88,13 +88,29 @@ def matched_words(name: str, ingredients: list[str], groups: list[list[str]]) ->
 # The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these
 # (web/src/diet.js, tastelab/web/app.js and ios FiltersView copy them; a test keeps them equal).
 DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
-ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish", "poultry", "red-meat"]
+# Soft preferences. They rank suggestions; they do not hide recipes.
+WHO = ["beginner", "family", "kids", "entertaining"]
+CUISINES = [
+    "italian", "mexican", "american", "chinese", "thai", "indian", "japanese", "mediterranean",
+    "korean", "vietnamese", "greek", "middle-eastern", "french", "spanish", "southern", "cajun",
+    "caribbean", "latin-american",
+]
+PROTEINS = [
+    "chicken", "beef", "pork", "salmon", "shrimp", "tofu", "turkey", "white-fish", "lamb", "sausage",
+    "tempeh", "beans", "eggs", "scallops",
+]
+# Poultry and red meat were allergies once; they're preferences now (Proteins). Saved ones
+# still hide meals until the household removes them.
+ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish"]
 AVOIDS = [
     "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
     "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
 ]
 # Older Settings saved these allergies under Avoid.
 AVOID_TO_ALLERGEN = {"peanuts": "peanut", "peanut": "peanut", "shellfish": "shellfish"}
+# Older Filters had one Asian cuisine and one Seafood protein; they became these.
+SPLIT_CUISINES = {"asian": ["chinese", "thai", "japanese", "korean", "vietnamese"]}
+SPLIT_PROTEINS = {"seafood": ["salmon", "shrimp", "white-fish", "scallops"]}
 STRICTEST = ("vegan", "vegetarian", "pescatarian", "omnivore")
 
 
@@ -105,6 +121,10 @@ def _words_list(items) -> list[str]:
         if word and word != "none" and word not in out:
             out.append(word)
     return out
+
+
+def _split(items, splits: dict[str, list[str]]) -> list[str]:
+    return list(dict.fromkeys(part for word in _words_list(items) for part in splits.get(word, [word])))
 
 
 def clean_filters(filters: dict | None) -> dict:
@@ -120,6 +140,13 @@ def clean_filters(filters: dict | None) -> dict:
     out["diets"] = normalize_diets(_words_list(out.get("diets"))) or ["omnivore"]
     out["allergens"] = list(dict.fromkeys(allergens))
     out["avoids"] = avoids
+    out["who"] = [word for word in _words_list(out.get("who")) if word in WHO]
+    out["cuisines"] = [word for word in _split(out.get("cuisines"), SPLIT_CUISINES) if word in CUISINES]
+    more = [word for word in _split(out.get("protein_more"), SPLIT_PROTEINS) if word in PROTEINS]
+    out["protein_more"] = more
+    out["protein_less"] = [
+        word for word in _split(out.get("protein_less"), SPLIT_PROTEINS) if word in PROTEINS and word not in more
+    ]
     return out
 
 

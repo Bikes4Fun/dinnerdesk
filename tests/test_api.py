@@ -1,4 +1,6 @@
 import json
+
+import pytest
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -843,7 +845,7 @@ def test_catalog_lists_only_rewritten_recipes_with_real_photos(tmp_path):
 def test_suggestions_require_approval_and_keep_feedback(tmp_path, monkeypatch):
     import app.routes as routes
 
-    def suggestions(db, household_id, want):
+    def suggestions(db, household_id, want, kept=None):
         return ([{"id": 1, "reasons": []}], "Suggested dinners", {"1": []})
 
     monkeypatch.setattr(routes, "_suggest_meals", suggestions)
@@ -1523,6 +1525,149 @@ def test_avoided_meals_fill_in_only_when_too_few_fit(tmp_path, monkeypatch):
         assert reasons["1"][0] == routes.BACKUP_REASON
 
 
+def _fresh_suggestion_kitchen(monkeypatch):
+    """Twenty dinners with real rows, ranked from a fixed list. Dinners 3, 13 have chicken."""
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    foods = ["mushroom", "tomato", "rice", "chicken", "lemon", "pasta", "olives", "spinach", "tofu", "corn"]
+    db = connect()
+    ids = {}
+    for i in range(1, 21):
+        ts = now()
+        cur = db.execute("""INSERT INTO recipes (household_id, slug, name, servings, cooking_minutes,
+            instructions_json, cookware_json, source_url, provenance_json, photo_path, created_at, updated_at)
+            VALUES (NULL, ?, ?, 4, 20, '[]', '[]', '', '{}', '', ?, ?)""", (f"fresh-{i}", f"Dinner {i}", ts, ts))
+        ids[i] = int(cur.lastrowid)
+    db.commit()
+    db.close()
+    recipes = [{"id": ids[i], "keys": [str(ids[i])], "name": f"Dinner {i}", "ingredients": [foods[i % 10], foods[(i * 3) % 10]],
+                "tags": [], "cooking_minutes": 20} for i in range(1, 21)]
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [dict(r) for r in recipes])
+    return routes, ids
+
+
+def _ingredients(routes, ids):
+    recipes = {r["id"]: r for r in routes._load_household_recipes()}
+    return {food for rid in ids for food in recipes[rid]["ingredients"]}
+
+
+def test_saved_suggestion_is_shown_until_something_it_was_ranked_from_changes(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 4}).json()
+        ranked = routes._suggest_meals
+        monkeypatch.setattr(routes, "_suggest_meals", lambda *args: pytest.fail("a matching stamp must not re-rank"))
+        assert client.get("/api/suggestions/current").json()["plan"]["suggested_recipe_ids"] == proposal["suggested_recipe_ids"]
+        monkeypatch.setattr(routes, "_suggest_meals", ranked)
+        avoid = sorted(_ingredients(routes, proposal["suggested_recipe_ids"]))[0]
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": [avoid]}}})
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert fresh["id"] == proposal["id"]
+        assert len(fresh["suggested_recipe_ids"]) == 4
+        assert avoid not in _ingredients(routes, fresh["suggested_recipe_ids"])
+        assert [s["recipe_id"] for s in fresh["slots"]] == fresh["suggested_recipe_ids"]
+
+
+def test_swaps_keep_a_suggestion_and_survive_a_re_rank(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 3}).json()
+        swapped = client.post(f"/api/plans/{proposal['id']}/swap/{proposal['slots'][0]['id']}").json()
+        chosen = swapped["slots"][0]["recipe_id"]
+        assert client.get("/api/suggestions/current").json()["plan"]["suggested_recipe_ids"] == swapped["suggested_recipe_ids"]
+        monkeypatch.setattr(routes, "_ranking_code", lambda: "a new ranker")
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert chosen in fresh["suggested_recipe_ids"]
+        assert len(fresh["slots"]) == 3
+        assert fresh["changes"] == swapped["changes"]
+        assert client.get("/api/suggestions/current").json()["plan"] == fresh
+
+
+def test_suggestion_saved_before_stamps_is_re_ranked(tmp_path, monkeypatch):
+    import json
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 2}).json()
+        db = connect()
+        meta = json.loads(db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (proposal["id"],)).fetchone()["suggestion_json"])
+        del meta["stamp"], meta["ranked_with"]
+        db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), proposal["id"]))
+        db.commit()
+        db.close()
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert fresh["suggested_recipe_ids"] == proposal["suggested_recipe_ids"]
+        db = connect()
+        assert "stamp" in json.loads(db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (proposal["id"],)).fetchone()["suggestion_json"])
+        db.close()
+
+
+def test_new_diet_drops_a_swapped_in_meal_that_breaks_it(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 2}).json()
+        chicken = next(ids[i] for i in (3, 13) if ids[i] not in proposal["suggested_recipe_ids"])
+        swapped = client.post(f"/api/plans/{proposal['id']}/swap/{proposal['slots'][0]['id']}", json={"recipe_id": chicken}).json()
+        assert swapped["slots"][0]["recipe_id"] == chicken
+        client.put("/api/household", json={"prefs": {"filters": {"diets": ["vegetarian"]}}})
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert chicken not in fresh["suggested_recipe_ids"]
+        assert len(fresh["suggested_recipe_ids"]) == 2
+        assert "chicken" not in _ingredients(routes, fresh["suggested_recipe_ids"])
+
+
+def test_a_write_re_ranks_the_suggestion_before_it_is_opened(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, _ = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 4}).json()
+        routes._drain_refreshes()
+        avoid = sorted(_ingredients(routes, proposal["suggested_recipe_ids"]))[0]
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": [avoid]}}})
+        assert list(routes._REFRESH_DUE) == [1]
+        routes._drain_refreshes()
+        monkeypatch.setattr(routes, "_suggest_meals", lambda *args: pytest.fail("the background rank already ran"))
+        fresh = client.get("/api/suggestions/current").json()["plan"]
+        assert avoid not in _ingredients(routes, fresh["suggested_recipe_ids"])
+        client.get("/api/plans/current")
+        assert not routes._REFRESH_DUE  # reads schedule nothing
+
+
+def test_server_start_queues_every_pending_suggestion(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, _ = _fresh_suggestion_kitchen(monkeypatch)
+        client.post("/api/plans", json={"meal_count": 2})
+        routes._REFRESH_DUE.clear()
+        started = []
+        monkeypatch.setattr(routes.threading, "Thread", lambda **kw: type("T", (), {"start": lambda self: started.append(kw["name"])})())
+        monkeypatch.setattr(routes, "_REFRESH_WORKER", None)
+        db = connect()
+        routes.start_suggestion_refresher(db)
+        db.close()
+        assert started == ["suggestion-refresh"]
+        assert list(routes._REFRESH_DUE) == [1]
+
+
+def test_short_rank_matches_the_front_of_a_long_one(tmp_path, monkeypatch):
+    # Plans rank only the meals they need, which is safe only while this holds.
+    import app.routes as routes
+    monkeypatch.setattr(routes, "snapshots_for_accounts", lambda accounts: [])
+    foods = ["beans", "tomato", "rice", "chicken", "lemon", "pasta", "olives", "spinach", "tofu", "corn"]
+    monkeypatch.setattr(routes, "_load_household_recipes", lambda *args: [
+        {"id": i, "keys": [str(i)], "name": f"Dinner {i}", "ingredients": [foods[i % 10], foods[(i * 3) % 10], foods[(i + 4) % 10]],
+         "tags": [], "cooking_minutes": 20}
+        for i in range(1, 25)
+    ])
+    with _client(tmp_path) as client:
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        db = connect()
+        try:
+            long, _, _ = routes._suggest_meals(db, 1, 400)
+            for want in (1, 4, 10, 22):
+                short, _, _ = routes._suggest_meals(db, 1, want)
+                assert [m["id"] for m in short] == [m["id"] for m in long[:want]]
+        finally:
+            db.close()
+
+
 def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
     import app.routes as routes
     from app.db.catalog import upsert_catalog_recipe
@@ -1627,6 +1772,24 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert snap["recipe"]["ingredients"][0]["name"] == "kalamata olives"
         assert "olive" in snap["matched_avoid_words"]
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
+
+
+def test_admin_review_pages(tmp_path):
+    with _client(tmp_path) as client:
+        client.post("/api/recipes/1/report", json={"reason": "steps", "note": "Step 3 is missing"})
+        page = client.get("/admin/recipe-reports")
+        assert page.status_code == 200 and "text/html" in page.headers["content-type"]
+        assert "Step 3 is missing" in page.text and "/*DATA*/null" not in page.text
+        for name in ("variant-review", "plan-reports", "prep-feedback", "recipe-tags"):
+            page = client.get(f"/admin/{name}")
+            assert page.status_code == 200 and "/*DATA*/null" not in page.text, name
+        assert client.get("/admin/nope").status_code == 404
+
+
+def test_admin_review_pages_are_admin_only(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        for name in ("variant-review", "recipe-reports", "plan-reports", "prep-feedback", "recipe-tags"):
+            assert client.get(f"/admin/{name}").status_code == 403
 
 def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
     from app.domain import recipe_import
@@ -1864,3 +2027,4 @@ def test_admin_keeps_dev_notes_after_toggles(tmp_path):
         client.put("/api/recipes/1/dev-notes", json={"text": "note"})
         for toggle in ("favorite", "hidden", "try"):
             assert client.put(f"/api/recipes/1/{toggle}", json={"on": True}).json()["dev_notes"] == "note"
+
