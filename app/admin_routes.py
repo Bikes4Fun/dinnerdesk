@@ -9,12 +9,14 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 
+from app.assets import catalog_dir
 from app.db.database import PgConnection
 from app.deps import AdminDep, DbDep
 from app.domain.recipe_photos import usable_photo
 
 router = APIRouter()
 PAGES = Path(__file__).resolve().parent / "admin_pages"
+VOCABULARY = Path(__file__).resolve().parent / "domain" / "recipe_tag_vocabulary.json"
 
 # Same wording the app shows (web/src/pages/Prep.jsx PREP_REASONS).
 PREP_REASONS = {
@@ -102,20 +104,25 @@ def _recipe_tags(db: PgConnection) -> dict:
     tags: dict[int, list[str]] = {}
     for r in db.execute("SELECT recipe_id, tag FROM recipe_tags ORDER BY tag"):
         tags.setdefault(r["recipe_id"], []).append(r["tag"])
-    recipes = []
+    recipes, ids = [], {}
     for r in db.execute(
         "SELECT id, slug, name, cooking_minutes, photo_path, parent_recipe_id, provenance_json"
         " FROM recipes WHERE household_id IS NULL ORDER BY name"
     ):
         if json.loads(r["provenance_json"] or "{}").get("retired"):
             continue
+        ids[r["slug"]] = r["id"]
         photo = usable_photo(r["photo_path"], r["id"], r["parent_recipe_id"])
         recipes.append({"id": r["id"], "slug": r["slug"], "name": r["name"], "minutes": r["cooking_minutes"],
                         "photo": photo if not photo or photo.startswith(("/", "http")) else f"/{photo}",
                         "tags": tags.get(r["id"], [])})
-    # Proposed dimensional tags (from the AI tagger, and later from users) aren't stored yet, so
-    # every recipe starts with none. Each one will be {recipe_id, dimension, tag, source, by, note}.
-    return {"recipes": recipes, "suggestions": [], "source": "live"}
+    # Proposed dimensional tags aren't in the database yet. The AI sweep writes them next to the
+    # catalog, keyed by slug since catalog ids differ between databases.
+    path = catalog_dir() / "recipe_tag_suggestions.json"
+    proposed = json.loads(path.read_text())["suggestions"] if path.is_file() else []
+    suggestions = [{**s, "recipe_id": ids[s["slug"]]} for s in proposed if s["slug"] in ids]
+    vocabulary = json.loads(VOCABULARY.read_text())["dimensions"]
+    return {"recipes": recipes, "suggestions": suggestions, "vocabulary": vocabulary, "source": "live"}
 
 
 @router.get("/admin/{name}", response_class=HTMLResponse)

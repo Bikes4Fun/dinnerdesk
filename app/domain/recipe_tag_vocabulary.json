@@ -1,0 +1,41 @@
+{
+  "notes": "Dimensional recipe tags (#188). Weight is how much a dimension should count when learning a household's taste; down-weight tags most recipes share, and scale by each household's own consistency. Familiarity (classic to new) and formality (homestyle to restaurant) are separate: a recipe can be both classic and homestyle.",
+  "dimensions": [
+    {"name": "Who it's for", "weight": 1.0, "tags": [
+      "New to cooking / easy", "Good for kids / picky eaters", "Good for large families",
+      "Good for groups / entertaining", "Date night / cooking for two"]},
+    {"name": "Cuisine", "weight": 0.9, "tags": [
+      "Midwestern American", "Southern", "Cajun/Creole", "Tex-Mex", "Traditional Mexican", "Mexican-American",
+      "Salvadoran", "Caribbean", "Brazilian", "Peruvian", "Argentinian",
+      "Italian", "French", "Spanish", "Greek", "German", "British/Irish", "Eastern European", "Scandinavian",
+      "Middle Eastern", "Lebanese", "Turkish", "Persian", "Moroccan", "Ethiopian", "West African",
+      "Chinese", "Japanese", "Korean", "Thai", "Vietnamese", "Filipino", "Indian", "Indonesian/Malaysian",
+      "Mediterranean", "Fusion"]},
+    {"name": "Main protein", "weight": 0.8, "tags": [
+      "Beef", "Pork", "Lamb", "Chicken", "Turkey", "Fish (general)", "Salmon", "Shellfish",
+      "Tofu/tempeh", "Beans & lentils", "Eggs"]},
+    {"name": "Familiarity", "weight": 0.7, "tags": ["Classic / traditional", "New & unique / adventurous"]},
+    {"name": "Flavor", "weight": 0.6, "tags": [
+      "Spicy", "Mild", "Savory/umami", "Sweet", "Tangy", "Smoky", "Herby", "Cheesy", "Garlicky", "Creamy"]},
+    {"name": "Formality / vibe", "weight": 0.5, "tags": [
+      "Homestyle / comfort food", "Restaurant-style / impressive", "Rustic", "Light & fresh", "Indulgent"]},
+    {"name": "Primary carb", "weight": 0.4, "tags": [
+      "Pasta", "Rice", "Noodles", "Potatoes", "Bread/tortilla", "Vegetable-forward"]},
+    {"name": "Effort & time", "weight": 0.4, "tags": [
+      "Under 15 min", "Under 30 min", "Under 1 hour", "Long / project cook", "Intermediate", "Advanced",
+      "Few ingredients (≤5–7)", "Pantry staples", "Common ingredients", "Unique ingredients"]},
+    {"name": "Method / equipment", "weight": 0.3, "tags": [
+      "One-pot / one-pan", "Sheet pan", "Slow cooker", "Instant Pot", "Air fryer",
+      "Grill / BBQ", "Stir-fry", "Baked / roasted", "No-cook",
+      "Make-ahead", "Freezer-friendly", "Meal prep", "Good leftovers"]},
+    {"name": "Occasion / season", "weight": 0.2, "tags": [
+      "Weeknight", "Weekend", "Potluck", "Game day", "Picnic",
+      "Holiday", "Summer", "Fall/winter", "Cozy", "Budget-friendly"]},
+    {"name": "Meal type", "weight": 0.1, "tags": [
+      "Breakfast", "Brunch", "Lunch", "Dinner", "Snack",
+      "Appetizer", "Side", "Soup", "Salad", "Main", "Dessert", "Drink"]},
+    {"name": "Health & diet", "weight": null, "tags": [
+      "Healthy", "High-protein", "Low-carb", "Keto", "Low-calorie", "AIP", "Whole30",
+      "Vegetarian", "Vegan", "Pescatarian", "Gluten-free", "Dairy-free", "Nut-free"]}
+  ]
+}

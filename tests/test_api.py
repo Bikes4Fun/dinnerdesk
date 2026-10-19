@@ -1786,6 +1786,22 @@ def test_admin_review_pages(tmp_path):
         assert client.get("/admin/nope").status_code == 404
 
 
+def test_recipe_tags_page_shows_swept_suggestions(tmp_path, monkeypatch):
+    from app import admin_routes
+
+    with _client(tmp_path) as client:
+        recipe = client.get("/api/recipes").json()["recipes"][0]
+        slug = client.get(f"/api/recipes/{recipe['id']}").json()["slug"]
+        (tmp_path / "recipe_tag_suggestions.json").write_text(json.dumps({"suggestions": [
+            {"slug": slug, "dimension": "Cuisine", "tag": "Sweep-test cuisine", "source": "ai", "by": "", "note": ""},
+            {"slug": "not-in-this-catalog", "dimension": "Cuisine", "tag": "Orphan tag", "source": "ai", "by": "", "note": ""},
+        ]}))
+        monkeypatch.setattr(admin_routes, "catalog_dir", lambda: tmp_path)
+        page = client.get("/admin/recipe-tags").text
+        assert f'"tag": "Sweep-test cuisine", "source": "ai", "by": "", "note": "", "recipe_id": {recipe["id"]}' in page
+        assert "Orphan tag" not in page and "Good for kids / picky eaters" in page
+
+
 def test_admin_review_pages_are_admin_only(tmp_path):
     with _client(tmp_path, admin=False) as client:
         for name in ("variant-review", "recipe-reports", "plan-reports", "prep-feedback", "recipe-tags"):
