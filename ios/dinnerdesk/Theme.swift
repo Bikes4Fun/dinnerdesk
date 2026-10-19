@@ -32,6 +32,8 @@ enum Theme {
 
   // MARK: - Legacy / UI Helpers
   static let ok = Color(red: 63 / 255, green: 107 / 255, blue: 74 / 255)  // #3F6B4A Kept for validation / system status if needed
+  static let danger = Color(hex: 0xB3261E)  // Leave / delete rows on Account & security
+  static let dangerLine = Color(hex: 0xF2C9C4)  // Border on destructive chips
 
   /// Quieter, unselected chips use the newly introduced pale aubergine tint.
   static let chip = aubergineTint

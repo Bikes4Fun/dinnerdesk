@@ -10,9 +10,9 @@ from app.auth import leave_household, join_household, delete_household, manage_m
 from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin_email, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
-from app.auth import finish_password_reset, start_password_reset
+from app.auth import finish_password_reset, reset_address, reset_address_for, start_password_reset
 from app.auth import finish_email_verification, start_email_verification, use_username as do_use_username
-from app.auth import verify_password
+from app.auth import remove_recovery_email as do_remove_recovery_email, verify_password
 from app.auth import create_invite as do_create_invite
 from app.auth import delete_account as do_delete_account
 from app.auth import invite_info as do_invite_info
@@ -37,7 +37,8 @@ ERROR_MESSAGES = {
     "invalid_username": "Usernames are 3 to 30 letters, numbers, dots, dashes or underscores.",
     "email_taken": "An account with that email or username already exists.",
     "invalid_credentials": "That email or username, or the password, didn't work.",
-    "no_email": "Accounts made with a username have no email, so their password can't be reset.",
+    "no_email": "This account has a username and no recovery email, so its password can't be reset.",
+    "email_required_to_invite": "You need an account with an email to invite people, so your household can recover your password.",
     "account_locked": "Too many failed attempts. Try again in a few minutes.",
     "not_authenticated": "Please sign in again.",
     "invite_invalid": "This invite link isn't valid.",
@@ -56,6 +57,10 @@ ERROR_MESSAGES = {
     "verify_expired": "This confirm link has expired. Send a new one from Settings.",
     "verify_limit": "Too many confirm emails this hour. Try again later.",
 }
+
+
+class PasswordBody(BaseModel):
+    password: str
 
 
 class ForgotPasswordBody(BaseModel):
@@ -105,6 +110,7 @@ class AcceptInviteBody(BaseModel):
     token: str
     email: str
     password: str
+    existing: bool = False
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
@@ -206,6 +212,7 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
         "household_id": household_id,
         "email": email,
         "has_email": has_email(email),
+        "recovery_email": row["recovery_email"] if row else None,
         "email_verified": bool(row and row["email_verified_at"]),
         "admin": is_admin_email(email),
     }
@@ -222,6 +229,7 @@ def me(request: Request, conn=DbDep):
         "household_id": row["household_id"],
         "email": row["email"],
         "has_email": has_email(row["email"]),
+        "recovery_email": row["recovery_email"],
         "email_verified": bool(row["email_verified_at"]),
         "admin": is_admin_email(row["email"]),
     }
@@ -239,6 +247,15 @@ def change_password(body: ChangePasswordBody, response: Response, conn=DbDep, us
     return {"ok": True}
 
 
+@router.post("/auth/remove-recovery-email")
+def remove_recovery_email(body: PasswordBody, conn=DbDep, user_id=UserDep):
+    try:
+        do_remove_recovery_email(conn, user_id, body.password)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
 @router.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordBody, conn=DbDep):
     # Same answer whether or not the email has an account. Email being down is checked first,
@@ -247,12 +264,14 @@ def forgot_password(body: ForgotPasswordBody, conn=DbDep):
         log.error("Password reset requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
         raise _mail_down()
     email = (body.email or "").strip().lower()
-    if email and not has_email(email):
+    to = reset_address_for(conn, email)
+    # A username with no recovery email can't be reset; say so rather than pretend to send.
+    if email and not has_email(email) and not to:
         raise _auth_error(AuthError("no_email"), 400)
     token = start_password_reset(conn, email)
     if token:
         try:
-            send_reset_email(email, reset_link(token))
+            send_reset_email(to, reset_link(token))
         except Exception:
             log.exception("Password reset email failed to send")
             raise _mail_down()
@@ -270,11 +289,13 @@ def _mail_down(what: str = "password reset") -> HTTPException:
 
 @router.post("/auth/verify-email")
 def verify_email(body: VerifyEmailBody, conn=DbDep, user_id=UserDep):
-    """Email a confirm link to the signed-in address, or to a new one (which needs the password).
-    The login only changes once the link is opened, so a mistyped address changes nothing."""
-    row = conn.execute("SELECT email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
-    email = (body.email or "").strip().lower() or row["email"]
-    if email != row["email"] and not verify_password(body.password, row["password_hash"]):
+    """Email a confirm link to the account's reset address, or to a new one (which needs the
+    password). Nothing changes until the link is opened, so a mistyped address changes nothing.
+    A username account keeps its username; the address becomes its recovery email."""
+    row = conn.execute("SELECT email, recovery_email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    current = reset_address(row)
+    email = (body.email or "").strip().lower() or current or row["email"]
+    if email != current and not verify_password(body.password, row["password_hash"]):
         raise _auth_error(AuthError("wrong_password"), 400)
     if not mail_ready():
         log.error("Email confirm requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
@@ -343,7 +364,7 @@ def preview_invite(token: str, conn=DbDep):
 @router.post("/household/accept-invite")
 def accept_invite(body: AcceptInviteBody, response: Response, conn=DbDep):
     try:
-        token = do_accept_invite(conn, body.token, body.email, body.password)
+        token = do_accept_invite(conn, body.token, body.email, body.password, body.existing)
     except AuthError as e:
         raise _auth_error(e, 400)
     _set_session_cookie(response, token)

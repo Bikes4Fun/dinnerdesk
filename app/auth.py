@@ -88,13 +88,30 @@ def has_email(name: str | None) -> bool:
     return bool(name) and "@" in name
 
 
+def _name_taken(conn: Any, name: str) -> bool:
+    """A sign-in name is taken if any account uses it as its login or its recovery email."""
+    return conn.execute(
+        "SELECT 1 FROM users WHERE email = ? OR recovery_email = ?", (name, name)
+    ).fetchone() is not None
+
+
+def reset_address(row) -> Optional[str]:
+    """Where this account's reset links go: its login email, else its recovery email."""
+    return row["email"] if has_email(row["email"]) else row["recovery_email"]
+
+
+def _taken_by_other(conn: Any, name: str, user_id: int) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (name, name, user_id)
+    ).fetchone() is not None
+
+
 def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
     _lock_membership(conn)
     email = login_name(email)
     _check_password_strength(password)
 
-    existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if existing:
+    if _name_taken(conn, email):
         raise AuthError("email_taken")
 
     ts = now()
@@ -127,11 +144,17 @@ def signup(conn: Any, email: str, password: str, household_name: str, guest_hous
 
 
 def login(conn: Any, email: str, password: str) -> str:
+    row = _authenticate(conn, email, password)
+    return _create_session(conn, row["id"], row["household_id"])
+
+
+def _authenticate(conn: Any, email: str, password: str):
+    """Check credentials (with lockout) and return the user row; no session is created."""
     email = email.strip().lower()
     row = conn.execute(
         "SELECT id, household_id, password_hash, failed_attempts, locked_until "
-        "FROM users WHERE email = ?",
-        (email,),
+        "FROM users WHERE email = ? OR recovery_email = ?",
+        (email, email),
     ).fetchone()
 
     if not row:
@@ -153,7 +176,7 @@ def login(conn: Any, email: str, password: str) -> str:
         )
         conn.commit()
 
-    return _create_session(conn, row["id"], row["household_id"])
+    return row
 
 
 def _register_failed_attempt(conn: Any, user_id: int, current: int) -> None:
@@ -186,16 +209,26 @@ def _reset_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def reset_address_for(conn: Any, name: str) -> Optional[str]:
+    """The reset address for this email or username, or None (unknown, or no email on file)."""
+    name = (name or "").strip().lower()
+    row = conn.execute(
+        "SELECT email, recovery_email FROM users WHERE email = ? OR recovery_email = ?", (name, name)
+    ).fetchone()
+    return reset_address(row) if row else None
+
+
 def start_password_reset(conn: Any, email: str) -> Optional[str]:
-    """Make a one-time reset token for this email, or None (unknown email, or too many asks).
+    """Make a one-time reset token for this email or username, or None (unknown, no email on file,
+    or too many asks).
 
     Callers must answer the same way either way, so nobody can probe which emails have accounts.
     """
     email = (email or "").strip().lower()
-    if not has_email(email):
-        return None
-    row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if not row:
+    row = conn.execute(
+        "SELECT id, email, recovery_email FROM users WHERE email = ? OR recovery_email = ?", (email, email)
+    ).fetchone()
+    if not row or not reset_address(row):
         return None
     since = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
     recent = conn.execute(
@@ -246,14 +279,14 @@ def finish_password_reset(conn: Any, token: str, new_password: str) -> str:
 def start_email_verification(conn: Any, user_id: int, email: str) -> Optional[str]:
     """Make a one-time link that confirms `email` for this account, or None after too many asks.
 
-    For a new address the current login stays until the link is opened, so a typo never locks
-    anyone out. Raises invalid_email / email_taken.
+    An email account's login becomes the address; a username account keeps its username and
+    gets the address as its recovery email. Nothing changes until the link is opened, so a typo
+    never locks anyone out. Raises invalid_email / email_taken.
     """
     email = login_name(email)
     if not has_email(email):
         raise AuthError("invalid_email")
-    taken = conn.execute("SELECT id FROM users WHERE email = ? AND id <> ?", (email, user_id)).fetchone()
-    if taken:
+    if _taken_by_other(conn, email, user_id):
         raise AuthError("email_taken")
     since = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
     recent = conn.execute(
@@ -276,7 +309,8 @@ def start_email_verification(conn: Any, user_id: int, email: str) -> Optional[st
 
 
 def finish_email_verification(conn: Any, token: str) -> str:
-    """Open a confirm link: the address becomes this account's login, marked verified."""
+    """Open a confirm link: the address becomes this account's login (or, for a username
+    account, its recovery email), marked verified."""
     _lock_membership(conn)
     row = conn.execute(
         "SELECT user_id, email, expires_at, used_at FROM email_verifications WHERE token_hash = ?",
@@ -286,13 +320,12 @@ def finish_email_verification(conn: Any, token: str) -> str:
         raise AuthError("verify_invalid")
     if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
         raise AuthError("verify_expired")
-    taken = conn.execute(
-        "SELECT id FROM users WHERE email = ? AND id <> ?", (row["email"], row["user_id"])
-    ).fetchone()
-    if taken:
+    if _taken_by_other(conn, row["email"], row["user_id"]):
         raise AuthError("email_taken")
+    user = _member(conn, row["user_id"])
+    column = "email" if has_email(user["email"]) else "recovery_email"
     conn.execute(
-        "UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?",
+        f"UPDATE users SET {column} = ?, email_verified_at = ? WHERE id = ?",
         (row["email"], now(), row["user_id"]),
     )
     # Older links (to this or a mistyped address) stop working.
@@ -304,22 +337,40 @@ def finish_email_verification(conn: Any, token: str) -> str:
     return row["email"]
 
 
-def use_username(conn: Any, user_id: int, password: str, username: str) -> None:
-    """Swap the account's email for a username (removes the email). Needs the password."""
+def _check_password(conn: Any, user_id: int, password: str) -> None:
     row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row or not verify_password(password, row["password_hash"]):
         raise AuthError("wrong_password")
-    name = login_name(username)
-    if has_email(name):
-        raise AuthError("invalid_username")
-    taken = conn.execute("SELECT id FROM users WHERE email = ? AND id <> ?", (name, user_id)).fetchone()
-    if taken:
-        raise AuthError("email_taken")
-    conn.execute("UPDATE users SET email = ?, email_verified_at = NULL WHERE id = ?", (name, user_id))
+
+
+def _close_verifications(conn: Any, user_id: int) -> None:
     conn.execute(
         "UPDATE email_verifications SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
         (now(), user_id),
     )
+
+
+def use_username(conn: Any, user_id: int, password: str, username: str) -> None:
+    """Swap the account's email for a username (removes the email). Needs the password."""
+    _check_password(conn, user_id, password)
+    name = login_name(username)
+    if has_email(name):
+        raise AuthError("invalid_username")
+    if _taken_by_other(conn, name, user_id):
+        raise AuthError("email_taken")
+    conn.execute(
+        "UPDATE users SET email = ?, recovery_email = NULL, email_verified_at = NULL WHERE id = ?",
+        (name, user_id),
+    )
+    _close_verifications(conn, user_id)
+    conn.commit()
+
+
+def remove_recovery_email(conn: Any, user_id: int, password: str) -> None:
+    """Drop a username account's recovery email. Needs the password."""
+    _check_password(conn, user_id, password)
+    conn.execute("UPDATE users SET recovery_email = NULL, email_verified_at = NULL WHERE id = ?", (user_id,))
+    _close_verifications(conn, user_id)
     conn.commit()
 
 
@@ -338,6 +389,8 @@ def create_invite(conn: Any, household_id: int, invited_by_user_id: int) -> str:
     actor = _member(conn, invited_by_user_id)
     if actor["household_id"] != household_id:
         raise AuthError("household_forbidden")
+    if not reset_address(actor):
+        raise AuthError("email_required_to_invite")
     token = secrets.token_urlsafe(24)
     ts = now()
     expires = (datetime.now(timezone.utc) + timedelta(days=INVITE_TTL_DAYS)).replace(
@@ -368,7 +421,15 @@ def invite_info(conn: Any, token: str):
     return row
 
 
-def accept_invite(conn: Any, token: str, email: str, password: str) -> str:
+def accept_invite(conn: Any, token: str, email: str, password: str, existing: bool = False) -> str:
+    if existing:
+        # Someone who already has an account signs in and moves into the inviting household.
+        invite = invite_info(conn, token)
+        user = _authenticate(conn, email, password)
+        if user["household_id"] != invite["household_id"]:
+            join_household(conn, user["id"], token)
+        return _create_session(conn, user["id"], invite["household_id"])
+
     _lock_membership(conn)
     row = invite_info(conn, token)
     household_id = row["household_id"]
@@ -376,8 +437,7 @@ def accept_invite(conn: Any, token: str, email: str, password: str) -> str:
     email = login_name(email)
     _check_password_strength(password)
 
-    existing = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
-    if existing:
+    if _name_taken(conn, email):
         raise AuthError("email_taken")
 
     ts = now()
@@ -608,7 +668,7 @@ def session_info(conn: Any, token: Optional[str]):
     if not token:
         return None
     row = conn.execute(
-        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.email_verified_at
+        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email, u.email_verified_at
            FROM sessions s JOIN users u ON u.id = s.user_id
            WHERE s.token = ?""",
         (token,),

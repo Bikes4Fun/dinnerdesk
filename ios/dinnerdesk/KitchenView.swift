@@ -11,24 +11,35 @@ struct KitchenView: View {
       if let error {
         ErrorBanner(message: error).themeBareRow()
       }
+      
+        NavigationLink {
+          FiltersView()
+        } label: {
+          ThemeIconRow(title: "Filters", systemImage: "slider.horizontal.3")
+        }
 
       ThemeSection("Cooking") {
-        // The − / + drops below the label when "Family portions" can't stay on one line.
-        ViewThatFits(in: .horizontal) {
-          HStack(spacing: 14) {
-            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
-            portionsStepper
-          }
-          VStack(alignment: .leading, spacing: 8) {
-            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
-            portionsStepper.padding(.leading, 40)
-          }
-        }
+
         NavigationLink {
           PantryView()
         } label: {
           ThemeIconRow(title: "Pantry", systemImage: "shippingbox")
         }
+      }
+      .themeRows()
+
+      ThemeSection("Recipes") {
+        NavigationLink {
+          MyRecipesView()
+        } label: {
+          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
+        }
+        NavigationLink {
+          HiddenRecipesView()
+        } label: {
+          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+        }
+        ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
       }
       .themeRows()
 
@@ -50,26 +61,18 @@ struct KitchenView: View {
         }
       }
       .themeRows()
-
-      ThemeSection("Recipes") {
-        NavigationLink {
-          FiltersView()
-        } label: {
-          ThemeIconRow(title: "Filters", systemImage: "slider.horizontal.3")
+      
+      // The − / + drops below the label when "Family portions" can't stay on one line.
+      ViewThatFits(in: .horizontal) {
+          HStack(spacing: 14) {
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            portionsStepper
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            portionsStepper.padding(.leading, 40)
+          }
         }
-        NavigationLink {
-          HiddenRecipesView()
-        } label: {
-          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
-        }
-        NavigationLink {
-          MyRecipesView()
-        } label: {
-          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
-        }
-        ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
-      }
-      .themeRows()
     }
     .themeList()
     .navigationTitle("My Kitchen and Groceries")
