@@ -510,14 +510,49 @@ _CUISINE_CATEGORY = {
     "asian": "asian",
     "american": "comfort",
     "mediterranean": "mediterranean",
+    "indian": "curry",
     "curry": "curry",
     "healthy": "healthy",
+}
+# Cuisines with no category of their own: words in the recipe name.
+_CUISINE_NAME_WORDS = {
+    "chinese": ("chinese", "kung pao", "general tso", "lo mein", "chow mein", "fried rice", "orange chicken",
+                "szechuan", "sichuan", "mapo", "sweet and sour", "egg roll", "potsticker", "char siu", "cashew chicken"),
+    "thai": ("thai", "pad see ew", "tom yum", "tom kha", "larb", "satay", "massaman", "panang", "green curry", "red curry"),
+    "japanese": ("japanese", "teriyaki", "ramen", "udon", "soba", "miso", "katsu", "sushi", "yakitori", "tempura",
+                 "donburi", "poke"),
+    "korean": ("korean", "bulgogi", "bibimbap", "kimchi", "gochujang", "galbi", "japchae"),
+    "vietnamese": ("vietnamese", "pho", "banh mi", "nuoc cham", "lemongrass"),
+    "greek": ("greek", "gyro", "souvlaki", "tzatziki", "spanakopita", "moussaka"),
+    "middle-eastern": ("middle eastern", "lebanese", "shawarma", "falafel", "hummus", "kofta", "tahini", "za'atar",
+                       "shakshuka", "harissa", "tabbouleh", "fattoush"),
+    "french": ("french", "coq au vin", "ratatouille", "bourguignon", "provencal", "provençal", "nicoise", "niçoise",
+               "croque", "crepe", "crêpe", "cassoulet", "au gratin"),
+    "spanish": ("spanish", "paella", "gazpacho", "patatas bravas", "romesco", "tapas"),
+    "southern": ("southern", "fried chicken", "biscuit", "collard", "grits", "cornbread", "pulled pork", "barbecue",
+                 "bbq", "hush pupp", "chicken and dumplings"),
+    "cajun": ("cajun", "creole", "jambalaya", "gumbo", "etouffee", "étouffée", "po' boy", "po boy", "blackened",
+              "red beans and rice"),
+    "caribbean": ("caribbean", "jerk", "jamaican", "plantain", "mofongo", "curry goat"),
+    "latin-american": ("latin", "cuban", "peruvian", "brazilian", "argentin", "colombian", "venezuelan",
+                       "chimichurri", "empanada", "arepa", "pupusa", "lomo saltado", "ropa vieja", "mojo", "ceviche"),
 }
 _PROTEIN_WORDS = {
     "chicken": ("chicken",),
     "beef": ("beef", "steak"),
     "pork": ("pork",),
     "seafood": ("salmon", "shrimp", "fish", "cod", "tuna", "scallop", "crab"),
+    "salmon": ("salmon",),
+    "shrimp": ("shrimp", "prawn"),
+    "white-fish": ("white fish", "whitefish", "cod", "tilapia", "halibut", "haddock", "pollock", "snapper",
+                   "sea bass", "mahi", "flounder", "catfish"),
+    "scallops": ("scallop",),
+    "tofu": ("tofu",),
+    "tempeh": ("tempeh",),
+    "beans": ("black bean", "pinto", "kidney bean", "white bean", "cannellini", "navy bean", "refried bean",
+              "lentil", "chickpea", "garbanzo"),
+    "eggs": ("egg",),
+    "sausage": ("sausage", "chorizo", "kielbasa", "andouille", "bratwurst"),
     "turkey": ("turkey",),
     "lamb": ("lamb",),
     "venison": ("venison",),
@@ -535,18 +570,17 @@ def _soft_pref(recipe: dict, taste: Taste) -> tuple[float, str | None]:
     blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
     score = 0.0
     reason = None
+    name = (recipe.get("name") or "").lower()
     for cuisine in soft.get("cuisines") or []:
-        if _CUISINE_CATEGORY.get(cuisine) in kinds:
+        if _CUISINE_CATEGORY.get(cuisine) in kinds or hits(name, list(_CUISINE_NAME_WORDS.get(cuisine, ()))):
             score += 1.2
             reason = reason or "a cuisine you asked for"
     for protein in soft.get("protein_more") or []:
-        words = _PROTEIN_WORDS.get(protein, ())
-        if any(word in blob for word in words):
+        if hits(blob, list(_PROTEIN_WORDS.get(protein, ()))):
             score += 1.0
             reason = reason or f"more {protein}"
     for protein in soft.get("protein_less") or []:
-        words = _PROTEIN_WORDS.get(protein, ())
-        if any(word in blob for word in words):
+        if hits(blob, list(_PROTEIN_WORDS.get(protein, ()))):
             score -= 1.0
     return score, reason
 

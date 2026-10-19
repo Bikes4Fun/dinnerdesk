@@ -1,9 +1,10 @@
 import StoreKit
 import SwiftUI
 
-/// How to send a screenshot to the developer from TestFlight. Shown once on this device before
-/// the quick start tour (skipping the tour doesn't skip it), again after creating an account,
-/// and any time from More. Only in TestFlight builds, where Share Beta Feedback exists.
+/// How to send a screenshot to the developer from TestFlight, then how to quiet TestFlight's
+/// emails and notifications. Shown once on this device before the quick start tour (skipping the
+/// tour doesn't skip it), again after creating an account, and any time from More. Only in
+/// TestFlight builds, where Share Beta Feedback exists.
 struct FeedbackTipView: View {
   private struct Step: Identifiable {
     let id: Int
@@ -13,45 +14,39 @@ struct FeedbackTipView: View {
   // feedback-tip.N in copy.json.
   private static let steps = ["camera.viewfinder", "hand.tap", "exclamationmark.bubble", "paperplane"]
     .enumerated().map { Step(id: $0.offset + 1, systemImage: $0.element) }
+  // tester-alerts.N in copy.json.
+  private static let alertSteps = ["airplane", "envelope", "bell.slash", "arrow.down.circle"]
+    .enumerated().map { Step(id: $0.offset + 1, systemImage: $0.element) }
 
   @Environment(\.dismiss) private var dismiss
+  /// Second page: how to turn TestFlight's emails and notifications off.
+  @State private var showAlerts = false
 
   var body: some View {
     VStack(spacing: 0) {
       ScrollView {
-        VStack(alignment: .leading, spacing: 18) {
-          Text(Copy.text("feedback-tip.title"))
-            .font(Theme.tourTitle)
-            .foregroundStyle(Theme.ink)
-            .fixedSize(horizontal: false, vertical: true)
-          StarTip(id: "feedback-tip.intro")
-          ForEach(Self.steps) { step in
-            HStack(alignment: .top, spacing: 14) {
-              Image(systemName: step.systemImage)
-                .font(Theme.title)
+        if showAlerts {
+          page("tester-alerts", steps: Self.alertSteps) { _ in EmptyView() }
+          if let testFlight = URL(string: "itms-beta://") {
+            Link(destination: testFlight) {
+              Label(Copy.text("tester-alerts.open"), systemImage: "arrow.up.right.square")
+                .font(Theme.action)
                 .foregroundStyle(Theme.accent)
-                .frame(width: 28)
-                .accessibilityHidden(true)
-              VStack(alignment: .leading, spacing: 4) {
-                Text("\(step.id). \(Copy.text("feedback-tip.\(step.id).title"))")
-                  .font(Theme.mealName)
-                  .foregroundStyle(Theme.ink)
-                Text(Copy.text("feedback-tip.\(step.id)"))
-                  .font(Theme.body)
-                  .foregroundStyle(Theme.ink)
-                  .fixedSize(horizontal: false, vertical: true)
-              }
             }
-            .accessibilityElement(children: .combine)
-            if step.id == 3 { screenshots }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+          }
+        } else {
+          page("feedback-tip", steps: Self.steps) { id in
+            if id == 3 { screenshots }
           }
         }
-        .padding(24)
       }
       Button {
-        dismiss()
+        if showAlerts { dismiss() } else { withAnimation { showAlerts = true } }
       } label: {
-        Text("Got it")
+        Text(showAlerts ? "Got it" : "Next")
           .font(Theme.action)
           .frame(maxWidth: .infinity)
           .frame(minHeight: 50)
@@ -64,6 +59,40 @@ struct FeedbackTipView: View {
     }
     .background(Theme.bg)
     .presentationDragIndicator(.visible)
+  }
+
+  /// A title, a tip, then numbered steps; `extra` adds a picture under a step.
+  private func page<Extra: View>(
+    _ prefix: String, steps: [Step], @ViewBuilder extra: @escaping (Int) -> Extra
+  ) -> some View {
+    VStack(alignment: .leading, spacing: 18) {
+      Text(Copy.text("\(prefix).title"))
+        .font(Theme.tourTitle)
+        .foregroundStyle(Theme.ink)
+        .fixedSize(horizontal: false, vertical: true)
+      StarTip(id: "\(prefix).intro")
+      ForEach(steps) { step in
+        HStack(alignment: .top, spacing: 14) {
+          Image(systemName: step.systemImage)
+            .font(Theme.title)
+            .foregroundStyle(Theme.accent)
+            .frame(width: 28)
+            .accessibilityHidden(true)
+          VStack(alignment: .leading, spacing: 4) {
+            Text("\(step.id). \(Copy.text("\(prefix).\(step.id).title"))")
+              .font(Theme.mealName)
+              .foregroundStyle(Theme.ink)
+            Text(Copy.text("\(prefix).\(step.id)"))
+              .font(Theme.body)
+              .foregroundStyle(Theme.ink)
+              .fixedSize(horizontal: false, vertical: true)
+          }
+        }
+        .accessibilityElement(children: .combine)
+        extra(step.id)
+      }
+    }
+    .padding(24)
   }
 
   /// The two ways to reach Share Beta Feedback, side by side, each with its full screenshot.

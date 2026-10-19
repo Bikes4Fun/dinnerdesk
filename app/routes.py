@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import contextvars
+import functools
+import hashlib
+import inspect
 import json
 import logging
 import threading
@@ -17,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from app.db.catalog import public_recipe_sql
 from app.perf import Laps
 from app.db.seed import pantry_catalog
-from app.db.database import ROOT, now, transaction
+from app.db.database import ROOT, connect, now, transaction
 from app.assets import catalog_dir, feedback_dir
 from app.auth import SESSION_COOKIE, session_info
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
@@ -2882,14 +2885,12 @@ BACKUP_REASON = "backup pick: not enough meals fit all your preferences"
 _SUGGEST_CONTEXT: contextvars.ContextVar[dict | None] = contextvars.ContextVar("suggest_context", default=None)
 
 
-def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
-    kept = kept_recipe_ids or set()
-    laps = Laps()
+def _rank_inputs(db: PgConnection, household_id: int, kept: set[int], laps: Laps | None = None) -> dict:
+    """Everything a household's ranking reads, so a suggestion's stamp covers exactly that."""
+    laps = laps or Laps()
+    filters = household_filters(db, household_id)
     diets, allergens, avoids, max_minutes = _filter_prefs(db, household_id)
     pool, pool_hit = _household_pool(db, household_id, diets, allergens, avoids)
-    recipes = [recipe for recipe in pool.meals if recipe["id"] not in kept]
-    backup = [recipe for recipe in pool.backup_meals if recipe["id"] not in kept]
-    laps.counts.update(want=want, candidates=len(recipes), backup=len(backup), pool="hit" if pool_hit else "built")
     laps.lap("pool")
     selected_ingredients = []
     for rid in sorted(kept):
@@ -2927,20 +2928,51 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         {k: v for k, v in snap.items() if k != "profile"} for snap in snapshots_for_accounts(accounts)
     ]
     laps.lap("snapshots")
-    # Plan thumbs count like Taste Lab swipes: a 👎 drops the meal, a 👍 boosts it and similar meals.
     rated = _meal_ratings(db, household_id)
+    history = [(int(row["id"]), json.loads(row["suggestion_json"] or "{}")) for row in db.execute(
+        "SELECT id, suggestion_json FROM plans WHERE household_id = ? ORDER BY id", (household_id,))]
+    laps.lap("history")
+    cooked = {
+        int(row["recipe_id"])
+        for row in db.execute(
+            """SELECT DISTINCT s.recipe_id FROM plan_slots s
+               JOIN plans p ON p.id = s.plan_id
+               WHERE p.household_id = ? AND s.cooked = 1""",
+            (household_id,),
+        )
+    }
+    return {
+        "filters": filters, "diets": diets, "allergens": allergens, "avoids": avoids, "max_minutes": max_minutes,
+        "pool": pool, "pool_hit": pool_hit, "kept": kept, "selected_ingredients": selected_ingredients,
+        "aliases": aliases, "swaps": swaps, "pantry": pantry, "ignored": ignored, "snapshots": snapshots,
+        "rated": rated, "history": history, "favorites": _favorite_ids(db, household_id),
+        "to_try": _try_ids(db, household_id), "cooked": cooked,
+    }
+
+
+def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
+    kept = kept_recipe_ids or set()
+    laps = Laps()
+    inputs = _rank_inputs(db, household_id, kept, laps)
+    diets, allergens, avoids, max_minutes = inputs["diets"], inputs["allergens"], inputs["avoids"], inputs["max_minutes"]
+    pool, pool_hit = inputs["pool"], inputs["pool_hit"]
+    selected_ingredients, aliases, swaps = inputs["selected_ingredients"], inputs["aliases"], inputs["swaps"]
+    pantry, ignored, snapshots, rated = inputs["pantry"], inputs["ignored"], inputs["snapshots"], inputs["rated"]
+    favorites, to_try, cooked = inputs["favorites"], inputs["to_try"], inputs["cooked"]
+    recipes = [recipe for recipe in pool.meals if recipe["id"] not in kept]
+    backup = [recipe for recipe in pool.backup_meals if recipe["id"] not in kept]
+    laps.counts.update(want=want, candidates=len(recipes), backup=len(backup), pool="hit" if pool_hit else "built")
+    # Plan thumbs count like Taste Lab swipes: a 👎 drops the meal, a 👍 boosts it and similar meals.
     if rated:
-        snapshots.append({
+        snapshots = [*snapshots, {
             "account_id": f"household-{household_id}-ratings",
             "swipes": [{"recipe_id": str(rid), "liked": up > 0} for rid, up in rated.items()],
-        })
-    history = [json.loads(row["suggestion_json"] or "{}") for row in db.execute(
-        "SELECT suggestion_json FROM plans WHERE household_id = ? ORDER BY id", (household_id,))]
+        }]
+    history = [h for _, h in inputs["history"]]
     # Approvals are plan-level signals; refusals and swaps are graded evidence, not bans.
-    snapshots.append({"account_id": f"household-{household_id}-suggestions", "plans": [
+    snapshots = [*snapshots, {"account_id": f"household-{household_id}-suggestions", "plans": [
         {"verdict": "up", "recipe_ids": h.get("suggested_recipe_ids", [])}
-        for h in history if h.get("decision") == "approve"]})
-    laps.lap("history")
+        for h in history if h.get("decision") == "approve"]}]
     # Diets, allergies and avoids are already applied by the pool, so learn gets none of them.
     taste = learn(
         snapshots,
@@ -2960,17 +2992,6 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     }
     promote(taste, recipes + backup, {rid for rid, up in rated.items() if up > 0})
     laps.lap("learn")
-    favorites = _favorite_ids(db, household_id)
-    to_try = _try_ids(db, household_id)
-    cooked = {
-        int(row["recipe_id"])
-        for row in db.execute(
-            """SELECT DISTINCT s.recipe_id FROM plan_slots s
-               JOIN plans p ON p.id = s.plan_id
-               WHERE p.household_id = ? AND s.cooked = 1""",
-            (household_id,),
-        )
-    }
     plan_ings = norm_pantry(selected_ingredients, aliases, swaps)
     laps.lap("pick_inputs")
     picked = pick_meals(
@@ -3043,6 +3064,64 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     return picked, note, reasons
 
 
+@functools.cache
+def _ranking_code() -> str:
+    """The ranking code and the catalog files it loads. A deploy that changes either stales every stamp."""
+    from app.domain import categories, diet_filter, families, grocery, ingredients, neighbors, pool, suggest, taste_rank
+    digest = hashlib.sha256()
+    for part in (categories, diet_filter, families, grocery, ingredients, neighbors, pool, suggest, taste_rank,
+                 _rank_inputs, _suggest_meals, _rank_proposal):
+        digest.update(inspect.getsource(part).encode())
+    for name in ("ingredient_families.json", "ingredient_space.json", "ingredient_space.bin"):
+        digest.update((catalog_dir() / name).read_bytes())
+    return digest.hexdigest()
+
+
+def _suggestion_stamp(db: PgConnection, household_id: int, kept: set[int], current_ids: set[int], plan_id: int | None = None) -> str:
+    """A hash of everything a proposal is ranked from. plan_id is the proposal itself, left out
+    of history: it didn't exist when it was ranked, and swaps made on it shouldn't stale it."""
+    inputs = _rank_inputs(db, household_id, kept)
+    history = []
+    for pid, h in inputs["history"]:
+        signal = {"decision": h.get("decision"), "changes": [c.get("from") for c in h.get("changes") or []]}
+        if signal["decision"]:
+            signal["suggested"] = h.get("suggested_recipe_ids", [])
+        if pid != plan_id and (signal["decision"] or signal["changes"]):
+            history.append(signal)
+    pool = inputs["pool"]
+    payload = {
+        "code": _ranking_code(), "skip": sorted(TASTE_SKIP), "filters": inputs["filters"], "pool": pool.digest,
+        "kept": sorted(kept), "selected": inputs["selected_ingredients"], "current": sorted(current_ids),
+        "aliases": inputs["aliases"], "swaps": inputs["swaps"], "pantry": sorted(inputs["pantry"]),
+        "ignored": sorted(inputs["ignored"]), "snapshots": inputs["snapshots"],
+        "rated": sorted(inputs["rated"].items()), "history": history, "favorites": sorted(inputs["favorites"]),
+        "to_try": sorted(inputs["to_try"]), "cooked": sorted(inputs["cooked"]),
+    }
+    return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[int], current_ids: set[int],
+                   plan_id: int | None = None) -> tuple[list[dict], str, dict, dict | None, str]:
+    """count fresh meals next to the kept ones: picked, note, reasons, context and stamp.
+
+    plan_id is the proposal being re-ranked, if any. The stamp is taken first, so a change
+    that lands mid-rank stales it rather than hiding.
+    """
+    stamp = _suggestion_stamp(db, household_id, kept, current_ids, plan_id)
+    _SUGGEST_CONTEXT.set(None)
+    # The ranker is greedy, so its first picks don't depend on how many it ranks. Rank
+    # enough to fill the plan even if every meal already this week goes to the back.
+    candidates, note, reasons = _suggest_meals(db, household_id, count + len(current_ids - kept), kept)
+    available = [m for m in candidates if m["id"] not in kept]
+    # Prefer a fresh proposal; retain eligible familiar meals if the catalog is small.
+    available.sort(key=lambda meal: meal["id"] in current_ids)
+    picked = available[:count]
+    # Keep reasons and the note to the meals actually picked.
+    reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
+    note = _proposal_note(reasons, [m["id"] for m in picked])
+    return picked, note, reasons, _plan_context(_SUGGEST_CONTEXT.get(), picked), stamp
+
+
 def _proposal_note(reasons: dict, recipe_ids: list[int]) -> str:
     """Why these meals, for the suggested meals currently on a proposal."""
     count = len(recipe_ids)
@@ -3072,23 +3151,12 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
     note = None
     reasons = None
     context = None
+    stamp = None
     if body.meal_count and not body.draft and (not source or body.keep_current):
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
-        _SUGGEST_CONTEXT.set(None)
-        if body.keep_current:
-            candidates, note, reasons = _suggest_meals(db, household_id, body.meal_count, kept)
-        else:
-            candidates, note, reasons = _suggest_meals(db, household_id, 400)
-        available = [m for m in candidates if m["id"] not in kept]
         current = _plan_out(db, _ensure_plan(db, household_id), household_id)
         current_ids = {slot["recipe_id"] for slot in current["slots"]}
-        # Prefer a fresh proposal; retain eligible familiar meals if the catalog is small.
-        available.sort(key=lambda meal: meal["id"] in current_ids)
-        picked = available[:body.meal_count]
-        # Ranked from 400 candidates; keep reasons and the note to the meals actually picked.
-        reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
-        note = _proposal_note(reasons, [m["id"] for m in picked])
-        context = _plan_context(_SUGGEST_CONTEXT.get(), picked)
+        picked, note, reasons, context, stamp = _rank_proposal(db, household_id, body.meal_count, kept, current_ids)
         if not picked:
             raise HTTPException(409, "No matching suggestions. Loosen Settings → Filters or choose meals yourself.")
     with transaction(db):
@@ -3111,7 +3179,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
                     (pid, meal["id"], servings, sort),
                 )
         if picked:
-            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": [], "context": context}), pid))
+            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": [], "context": context, "stamp": stamp, "ranked_with": sorted(kept)}), pid))
         else:
             _rebuild_grocery(db, pid, household_id)
     out = _plan_out(db, pid, household_id)
@@ -3182,8 +3250,10 @@ def swap_suggestion(plan_id: int, slot_id: int, body: SuggestionSwap | None = No
             raise HTTPException(404, "Meal not found")
         excluded = set(plan["original_recipe_ids"]) | {s["recipe_id"] for s in plan["slots"]}
         excluded |= {c["to"] for c in plan["changes"]}
-        picked, _, _ = _suggest_meals(db, household_id, 400)
-        if body and body.recipe_id is not None:
+        # A chosen meal is checked against the wide list; otherwise the next one past what's excluded.
+        choosing = body and body.recipe_id is not None
+        picked, _, _ = _suggest_meals(db, household_id, 400 if choosing else len(excluded) + 1)
+        if choosing:
             current_ids = {s["recipe_id"] for s in plan["slots"]}
             meal = next((m for m in picked if m["id"] == body.recipe_id and m["id"] not in current_ids), None)
         else:
@@ -3208,10 +3278,131 @@ def swap_suggestion(plan_id: int, slot_id: int, body: SuggestionSwap | None = No
     return _plan_out(db, plan_id, household_id)
 
 
+_REFRESH_LOCKS: dict[int, threading.Lock] = {}
+_REFRESH_LOCKS_LOCK = threading.Lock()
+
+
+def _refresh_lock(household_id: int) -> threading.Lock:
+    with _REFRESH_LOCKS_LOCK:
+        return _REFRESH_LOCKS.setdefault(household_id, threading.Lock())
+
+
+def _fresh_suggestion(db: PgConnection, household_id: int) -> int | None:
+    """The household's pending suggestion, re-ranked first if anything it was ranked from changed.
+
+    A saved suggestion is never shown stale: filters, pantry, Taste Lab, thumbs, history, the
+    recipes and the ranking code all go into its stamp. The lock makes a read that arrives
+    during a background re-rank wait for it instead of ranking again.
+    """
+    with _refresh_lock(household_id):
+        row = db.execute("SELECT id, suggestion_json FROM plans WHERE household_id = ? AND status = 'suggested' AND hidden = 0 ORDER BY id DESC LIMIT 1", (household_id,)).fetchone()
+        if not row:
+            return None
+        plan_id, raw = int(row["id"]), row["suggestion_json"]
+        meta = json.loads(raw or "{}")
+        plan = _plan_out(db, plan_id, household_id)
+        suggested = meta.get("suggested_recipe_ids") or []
+        slot_ids = {s["recipe_id"] for s in plan["slots"]}
+        current_ids = {s["recipe_id"] for s in _plan_out(db, _ensure_plan(db, household_id), household_id)["slots"]}
+        ranked_with = set(meta.get("ranked_with", slot_ids - set(suggested))) & slot_ids
+        if meta.get("stamp") and meta["stamp"] == _suggestion_stamp(db, household_id, ranked_with, current_ids, plan_id):
+            return plan_id
+        # Keep the household's own picks: meals from its week, and swaps it chose that still
+        # keep its diets and allergies. Re-rank every other suggested meal.
+        pool, _ = _household_pool(db, household_id, *_filter_prefs(db, household_id)[:3])
+        swapped_in = {c["to"] for c in meta.get("changes") or []}
+        kept = (slot_ids - set(suggested)) | {rid for rid in swapped_in & slot_ids if rid in pool.allowed}
+        stale = [s for s in plan["slots"] if s["recipe_id"] not in kept]
+        picked, _, reasons, context, stamp = _rank_proposal(db, household_id, len(stale), kept, current_ids, plan_id)
+        with transaction(db):
+            db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+            now_row = db.execute("SELECT status, suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
+            if not now_row or now_row["status"] != "suggested" or now_row["suggestion_json"] != raw:
+                return plan_id  # reviewed, swapped or resized mid-rank; that change wins
+            for slot, meal in zip(stale, picked):
+                db.execute("UPDATE plan_slots SET recipe_id = ?, servings = ? WHERE id = ?",
+                           (meal["id"], _default_slot_servings(db, household_id, meal["id"]), slot["id"]))
+            for slot in stale[len(picked):]:
+                db.execute("DELETE FROM plan_slots WHERE id = ?", (slot["id"],))
+            fresh = [m["id"] for m in picked]
+            meta["suggested_recipe_ids"] = [rid for rid in suggested if rid in kept] + fresh
+            meta["original_recipe_ids"] = list(dict.fromkeys([*(meta.get("original_recipe_ids") or []), *fresh]))
+            meta["suggestion_reasons"] = {**{k: v for k, v in (meta.get("suggestion_reasons") or {}).items() if int(k) in kept}, **reasons}
+            meta["suggestion_note"] = (
+                _proposal_note(meta["suggestion_reasons"], meta["suggested_recipe_ids"])
+                + " Swap any meal or approve the plan when it feels right."
+            )
+            meta.update(context=context, stamp=stamp, ranked_with=sorted(kept), refreshed_at=now())
+            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), plan_id))
+        _log.info("suggestion refreshed hh=%d plan=%d replaced=%d", household_id, plan_id, len(stale))
+        return plan_id
+
+
+# Re-ranks off the request path, so a household's next open finds its suggestion already fresh.
+# Each write schedules one for its household; a later write pushes it back, so a run of Taste Lab
+# swipes ranks once. One worker thread, so ranks never compete with each other for the CPU.
+_REFRESH_DELAY = 2.0  # seconds after the last write
+_REFRESH_DUE: dict[int, float] = {}
+_REFRESH_WAKE = threading.Condition()
+_REFRESH_WORKER: threading.Thread | None = None
+
+
+def schedule_suggestion_refresh(household_id: int, delay: float = _REFRESH_DELAY) -> None:
+    with _REFRESH_WAKE:
+        _REFRESH_DUE[household_id] = time.monotonic() + delay
+        _REFRESH_WAKE.notify()
+
+
+def _refresh_now(household_id: int) -> None:
+    db = connect()
+    try:
+        _fresh_suggestion(db, household_id)
+    except Exception:
+        _log.exception("suggestion refresh failed hh=%d", household_id)
+    finally:
+        db.close()
+
+
+def _drain_refreshes() -> None:
+    """Run every scheduled refresh now, due or not (tests, and nothing else)."""
+    with _REFRESH_WAKE:
+        due = list(_REFRESH_DUE)
+        _REFRESH_DUE.clear()
+    for household_id in due:
+        _refresh_now(household_id)
+
+
+def _refresh_loop() -> None:
+    while True:
+        with _REFRESH_WAKE:
+            while not _REFRESH_DUE:
+                _REFRESH_WAKE.wait()
+            household_id, due = min(_REFRESH_DUE.items(), key=lambda item: item[1])
+            wait = due - time.monotonic()
+            if wait > 0:
+                _REFRESH_WAKE.wait(wait)
+                continue
+            del _REFRESH_DUE[household_id]
+        _refresh_now(household_id)
+
+
+def start_suggestion_refresher(db: PgConnection) -> None:
+    """Start the worker and queue every pending suggestion: a relaunch emptied the pools, and
+    a deploy may have changed the ranking code, so check each before its household opens it."""
+    global _REFRESH_WORKER
+    with _REFRESH_WAKE:
+        if _REFRESH_WORKER is not None:
+            return
+        _REFRESH_WORKER = threading.Thread(target=_refresh_loop, name="suggestion-refresh", daemon=True)
+        _REFRESH_WORKER.start()
+    for row in db.execute("SELECT DISTINCT household_id FROM plans WHERE status = 'suggested' AND hidden = 0"):
+        schedule_suggestion_refresh(int(row["household_id"]), 0)
+
+
 @router.get("/suggestions/current")
 def pending_suggestion(db: PgConnection = DbDep, household_id: int = HhDep):
-    row = db.execute("SELECT id FROM plans WHERE household_id = ? AND status = 'suggested' AND hidden = 0 ORDER BY id DESC LIMIT 1", (household_id,)).fetchone()
-    return {"plan": _plan_out(db, row["id"], household_id) if row else None}
+    plan_id = _fresh_suggestion(db, household_id)
+    return {"plan": _plan_out(db, plan_id, household_id) if plan_id else None}
 
 
 @router.get("/suggestions/recipes")
@@ -3233,9 +3424,9 @@ def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = D
             raise HTTPException(409, "Keep enough room for your selected meals")
         delta = body.meal_count - len(plan["slots"])
         if delta > 0:
-            picked, _, _ = _suggest_meals(db, household_id, 400)
             excluded = {s["recipe_id"] for s in plan["slots"]} | set(plan["original_recipe_ids"])
             excluded |= {c["to"] for c in plan["changes"]}
+            picked, _, _ = _suggest_meals(db, household_id, len(excluded) + delta)
             added = [m for m in picked if m["id"] not in excluded][:delta]
             if len(added) < delta:
                 raise HTTPException(409, "Not enough matching meals. Adjust filters or choose meals yourself.")

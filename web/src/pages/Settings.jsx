@@ -107,6 +107,7 @@ export function Settings() {
 
 const TIMES = [
   ["any", "Any time"],
+  ["20", "20 min or less"],
   ["30", "30 min or less"],
   ["45", "45 min or less"],
 ];
@@ -347,7 +348,7 @@ export function Filters() {
           </div>
           <h2>Cook time</h2>
           <div className="filter-time" role="radiogroup" aria-label="Cook time">
-            {[["any", "Any"], ["30", "30 min"], ["45", "45 min"]].map(([k, label]) => (
+            {[["any", "Any"], ["20", "20 min"], ["30", "30 min"], ["45", "45 min"]].map(([k, label]) => (
               <button key={k} type="button" role="radio" aria-checked={time === k} className={time === k ? "is-on" : ""} onClick={() => setFilter({ time: k })}>{label}</button>
             ))}
           </div>

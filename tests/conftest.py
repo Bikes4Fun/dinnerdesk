@@ -11,6 +11,7 @@ _TEST_PHOTOS = TemporaryDirectory(prefix="dinnerdesk-test-photos-")
 os.environ["DINNERDESK_CATALOG_DIR"] = str(Path(__file__).parent / "fixtures" / "catalog")
 os.environ["FOOD_DIR"] = _TEST_PHOTOS.name
 os.environ["ADMIN_EMAIL"] = "admin@example.test"
+os.environ["DINNERDESK_REFRESH_SUGGESTIONS"] = "0"
 
 
 @pytest.fixture(autouse=True)
@@ -39,5 +40,6 @@ def isolated_database(request, monkeypatch):
         # fresh schema reuses those ids, so start every test with no pools.
         import app.routes
         app.routes._invalidate_all_pools()
+        app.routes._REFRESH_DUE.clear()
         yield
         admin.execute(sql.SQL('DROP SCHEMA {} CASCADE').format(sql.Identifier(schema)))

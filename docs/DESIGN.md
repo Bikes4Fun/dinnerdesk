@@ -110,6 +110,12 @@ cards or suggested-plan sizing. Small screens and larger text can scroll.
   the proposal is approved.
 - **Must:** a proposal closed without a decision can be reopened later, including after
   restarting the app.
+- **Must:** a reopened proposal is ranked from the household's current filters, pantry, Taste
+  Lab, thumbs, and the current ranking code. If anything it was ranked from changed, its
+  suggested meals are re-ranked before it is shown. Meals from the week stay, and so do swaps
+  that still keep the diets and allergies. Changes start that re-rank in the background, so an
+  unchanged or already re-ranked proposal opens as fast as a saved one.
+- **Bug if:** a reopened proposal shows meals ranked before a filter, taste, or ranking change.
 - **Bug if:** a proposal replaces the plan before approval, or a 👎 meal is suggested.
 
 **How meals are ranked** (strongest signal first; weights live in `app/domain/suggest.py`):
