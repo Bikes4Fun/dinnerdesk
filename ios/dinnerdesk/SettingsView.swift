@@ -9,6 +9,16 @@ struct SettingsView: View {
 
   var body: some View {
     List {
+      if let nudge = session.status?.emailNudge {
+        NavigationLink {
+          AccountView()
+        } label: {
+          Text("\(nudge) Fix it in Account & security.")
+            .font(Theme.subtitle).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .listRowBackground(Theme.aubergineTint)
+      }
       Section {
         // NavigationLink {
         //   FiltersView()
@@ -282,7 +292,7 @@ struct FiltersView: View {
         choiceChip("Other", on: otherAllergenOpen) { otherAllergenOpen.toggle() }
       }
       if otherAllergenOpen {
-        OtherField(label: "Other allergies", selected: $otherAllergens) {
+        ItemSearchField(label: "Other allergies", selected: $otherAllergens) {
           let known = Self.allergens.map(\.0)
           allergens.formUnion(otherAllergens.filter { known.contains($0) })
           otherAllergens.removeAll { known.contains($0) }
@@ -305,7 +315,7 @@ struct FiltersView: View {
         }
       }
       showMoreButton("avoid", hidden: Self.avoids.count - shown.count, noun: "")
-      OtherField(label: "Foods to avoid", placeholder: "Add an ingredient…", dashed: true, presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+      ItemSearchField(label: "Foods to avoid", placeholder: "Add an ingredient…", dashed: true, presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
         avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
         otherAvoids.removeAll { Self.avoids.contains($0) }
         save()
@@ -808,79 +818,6 @@ private struct FilterSuggestionCard: View {
   }
 }
 
-/// Comma-separated words that aren't in the list. Saves when you press Return or leave the field.
-private struct OtherField: View {
-  let label: String
-  var placeholder = "Search foods, e.g. bell peppers or ground"
-  var dashed = false
-  var presets: [String] = []
-  var taken: Set<String> = []
-  @Binding var selected: [String]
-  let onCommit: () -> Void
-  @State private var query = ""
-  @State private var matches: [String] = []
-  @State private var loading = false
-  @State private var error: String?
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 10) {
-      TextField(placeholder, text: $query)
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
-        .font(Theme.body)
-        .padding(.horizontal, dashed ? 14 : 12)
-        .frame(height: dashed ? 46 : nil)
-        .padding(.vertical, dashed ? 0 : 12)
-        .background(dashed ? Color(hex: 0xFBF6EE) : Theme.surface, in: RoundedRectangle(cornerRadius: dashed ? 23 : 12))
-        .overlay(
-          RoundedRectangle(cornerRadius: dashed ? 23 : 12)
-            .stroke(dashed ? Color(hex: 0xD9C9D3) : Theme.line, style: StrokeStyle(lineWidth: 1, dash: dashed ? [4, 3] : []))
-        )
-        .accessibilityLabel("Search \(label.lowercased())")
-      if loading { ProgressView() }
-      if let error { Text(error).font(Theme.subtitle) }
-      // Matches as chips (#85): tap one to add it; it moves up with the other picked chips.
-      KitchenFlow(spacing: 6) {
-        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !q.isEmpty {
-          ForEach(presets.filter { $0.localizedCaseInsensitiveContains(q) && !selected.contains($0) && !taken.contains($0) }, id: \.self) { name in
-            FilterChip(label: "+ \(name)", on: false) {
-              selected.append(name)
-              query = ""
-              onCommit()
-            }
-          }
-        }
-        ForEach(matches.filter { !selected.contains($0) }, id: \.self) { name in
-          FilterChip(label: "+ \(name)", on: false) {
-            selected.append(name)
-            onCommit()
-          }
-          .accessibilityLabel("Add \(name)")
-        }
-      }
-      if !loading && error == nil && !query.isEmpty && matches.isEmpty {
-        Text("No matching foods. Try another name.").font(Theme.subtitle)
-      }
-    }
-    .task(id: query) {
-      matches = []
-      error = nil
-      guard !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { loading = false; return }
-      loading = true
-      do {
-        try await Task.sleep(for: .milliseconds(250))
-        let box: KitchenItemSearch = try await API.get("filter-items", query: ["q": query], reportErrors: false)
-        try Task.checkCancellation()
-        matches = box.items.map(\.name)
-        loading = false
-      } catch {
-        if !API.isCancellation(error) { self.error = "Couldn't search foods. Please try again."; loading = false }
-      }
-    }
-  }
-}
-
 /// Shared preference chip: pale tint, filled coral when on. Tour and Filters both use this.
 struct FilterChip: View {
   let label: String
@@ -923,6 +860,10 @@ struct AccountView: View {
   @State private var openMember: Int?
   @State private var joining = false
   @State private var savedName = ""
+  @State private var editingEmail = false
+  @State private var newLogin = ""
+  @State private var loginPassword = ""
+  @State private var confirmRemoveRecovery = false
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
@@ -1003,6 +944,12 @@ struct AccountView: View {
       }
     }
     .confirmationDialog(
+      "Remove your recovery email? Without it, a forgotten password can't be reset.",
+      isPresented: $confirmRemoveRecovery, titleVisibility: .visible
+    ) {
+      Button("Remove recovery email", role: .destructive) { Task { await removeRecoveryEmail() } }
+    }
+    .confirmationDialog(
       "Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
     ) {
       Button("Sign out everywhere", role: .destructive) { Task { await signOutEverywhere() } }
@@ -1012,6 +959,9 @@ struct AccountView: View {
   private var accountSection: some View {
     let name = session.status?.email ?? ""
     let hasEmail = session.status?.hasEmail != false
+    let recovery = session.status?.recoveryEmail
+    let resetTo = hasEmail ? name : recovery
+    let verified = session.status?.emailVerified == true ? "verified" : "not verified"
     return AccountGroup("Account") {
       AccountCard {
         HStack(spacing: 14) {
@@ -1019,23 +969,73 @@ struct AccountView: View {
           VStack(alignment: .leading, spacing: 2) {
             Text(name).font(AccountFont.strong).foregroundStyle(Theme.ink)
               .fixedSize(horizontal: false, vertical: true)
-            Text(hasEmail ? "Signed in with email" : "Signed in with username")
+            Text(hasEmail ? "Signed in with email · \(verified)" : "Signed in with username")
               .font(AccountFont.sub).foregroundStyle(Theme.muted)
+            if let recovery {
+              Text("Recovery email: \(recovery) · \(verified)")
+                .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+            }
           }
           Spacer(minLength: 0)
         }
         .padding(16)
+        if let nudge = session.status?.emailNudge {
+          AccountDivider()
+          Text(nudge + (resetTo == nil ? " Add a recovery email below." : " Send a confirm link, or change it below if it has a typo."))
+            .font(AccountFont.sub).foregroundStyle(Theme.ink)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+            .background(Theme.aubergineTint)
+        }
+        if let resetTo, session.status?.emailVerified != true {
+          AccountDivider()
+          AccountRow(title: "Send confirm link", subtitle: "To \(resetTo)", chevron: true) {
+            Task { await sendConfirmLink() }
+          }
+          .disabled(busy)
+        }
         AccountDivider()
-        if hasEmail {
+        AccountRow(
+          title: hasEmail ? "Change or remove email" : recovery != nil ? "Change or remove recovery email" : "Add a recovery email",
+          subtitle: hasEmail ? "Fix a typo, or sign in with a username instead" : "Reset your password and sign in with it",
+          chevron: true, open: editingEmail
+        ) {
+          if editingEmail { closeEmailPane() } else { editingEmail = true }
+        }
+        if editingEmail {
+          VStack(alignment: .leading, spacing: 10) {
+            TextField(hasEmail ? "New email, or a username to remove your email" : "Recovery email", text: $newLogin)
+              .textContentType(.emailAddress).keyboardType(.emailAddress)
+              .textInputAutocapitalization(.never).autocorrectionDisabled()
+              .accountField()
+            SecureField("Your password", text: $loginPassword).textContentType(.password)
+              .accountField()
+            Text(!hasEmail || newLogin.isEmpty || newLogin.contains("@")
+                 ? "We'll email a confirm link. Nothing changes until you open it, so a typo can't lock you out."
+                 : "Without an email, a forgotten password can't be reset.")
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+            Button(!hasEmail || newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : "Use username") {
+              Task { await changeLogin() }
+            }
+            .font(AccountFont.button)
+            .disabled(busy || newLogin.trimmingCharacters(in: .whitespaces).isEmpty || loginPassword.isEmpty)
+            if recovery != nil {
+              Button("Remove recovery email", role: .destructive) { confirmRemoveRecovery = true }
+                .font(AccountFont.button)
+                .disabled(busy || loginPassword.isEmpty)
+            }
+          }
+          .padding(EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16))
+        }
+        if resetTo != nil {
+          AccountDivider()
           AccountRow(title: "Reset password", subtitle: "We'll email you a reset link", chevron: true) {
             Task { await resetPassword() }
           }
           .disabled(busy)
-        } else {
-          Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.")
-            .font(AccountFont.sub).foregroundStyle(Theme.muted)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
         }
         AccountDivider()
         AccountRow(title: "Sign out") { Task { await session.signOut() } }
@@ -1267,6 +1267,53 @@ struct AccountView: View {
       message = "Check your email for a password reset link."
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func sendConfirmLink() async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await AuthAPI.verifyEmail()
+      message = "Check your email for a confirm link."
+      error = nil
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  /// A new email gets a confirm link; a username replaces the email right away.
+  private func changeLogin() async {
+    let name = newLogin.trimmingCharacters(in: .whitespaces)
+    busy = true
+    defer { busy = false }
+    do {
+      if name.contains("@") || session.status?.hasEmail == false {
+        try await AuthAPI.verifyEmail(email: name, password: loginPassword)
+        message = "Check \(name) for a confirm link. Until you open it, you keep signing in as before."
+      } else {
+        try await AuthAPI.useUsername(name, password: loginPassword)
+        await session.refresh()
+        message = "You now sign in with your username."
+      }
+      error = nil
+      closeEmailPane()
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func removeRecoveryEmail() async {
+    busy = true
+    defer { busy = false }
+    do {
+      try await AuthAPI.removeRecoveryEmail(password: loginPassword)
+      await session.refresh()
+      message = "Recovery email removed."
+      error = nil
+      closeEmailPane()
+    } catch { self.error = KitchenAPI.message(error) }
+  }
+
+  private func closeEmailPane() {
+    editingEmail = false
+    newLogin = ""
+    loginPassword = ""
   }
 
   private func saveHouseholdName() async {
@@ -1856,9 +1903,11 @@ private struct PrivacyView: View {
         section(
           "Account",
           """
-          If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
+          If you create an account we store your email (or the username you chose instead, plus a recovery email if you add one), whether and when you confirmed your email, a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
 
-          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email has an account.
+          Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link works once, for one hour. We answer the same way whether or not that email or username has an account (or a recovery email). You can change your email, swap it for a username, or add, change or remove a recovery email from Account & security; a new email only takes over once you open the confirm link we send it.
+
+          Confirm-email emails are also sent by Resend. While a confirm link is open we store the address it was sent to and a hash of the link, not the link. The link works once, for 24 hours.
 
           If you subscribe to the email newsletter, we store that choice with your household and may email you DinnerDesk Deals. Turn it off anytime from Settings.
           """)
@@ -1884,7 +1933,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins and reset links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
+          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
           """)
       }
       .font(Theme.body)

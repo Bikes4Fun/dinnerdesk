@@ -259,6 +259,7 @@ def init_db(conn) -> None:
     _add_column(conn, "prep_step_feedback", "category", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "prep_step_feedback", "note", "TEXT NOT NULL DEFAULT ''")
     _add_column(conn, "users", "household_role", "TEXT NOT NULL DEFAULT 'member'")
+    _add_column(conn, "users", "email_verified_at", "TEXT")
     _add_column(conn, "households", "is_test", "INTEGER NOT NULL DEFAULT 0")
     _add_column(conn, "users", "recovery_email", "TEXT")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_recovery_email ON users(recovery_email)")

@@ -221,6 +221,8 @@ function card(r) {
 // Every dimension and tag in use, for the add boxes' suggestions and the usage panel.
 function vocabulary() {
   const dims = {};
+  // The planned vocabulary, so the add boxes offer every tag (usage counts only what's on recipes).
+  for (const d of DATA.vocabulary || []) for (const t of d.tags) (dims[d.name] ||= {})[t] ??= 0;
   for (const r of DATA.recipes) for (const t of live(mine.recipes[r.id].tags)) {
     const d = (dims[t.dimension] ||= {});
     d[t.tag] = (d[t.tag] || 0) + 1;
@@ -230,8 +232,9 @@ function vocabulary() {
 function refreshVocabulary() {
   const dims = vocabulary(), total = DATA.recipes.length || 1;
   document.getElementById("dims").innerHTML = Object.keys(dims).sort().map(d => `<option value="${esc(d)}">`).join("");
-  document.getElementById("usage").innerHTML = Object.entries(dims).sort((a, b) => a[0].localeCompare(b[0])).map(([d, tags]) =>
-    `<div><h4>${esc(d)}</h4>${Object.entries(tags).sort((a, b) => b[1] - a[1]).map(([t, n]) =>
+  const used = Object.entries(dims).map(([d, tags]) => [d, Object.entries(tags).filter(([, n]) => n)]).filter(([, tags]) => tags.length);
+  document.getElementById("usage").innerHTML = used.sort((a, b) => a[0].localeCompare(b[0])).map(([d, tags]) =>
+    `<div><h4>${esc(d)}</h4>${tags.sort((a, b) => b[1] - a[1]).map(([t, n]) =>
       `<div class="row${n / total > COMMON_SHARE ? " common" : ""}" title="${n / total > COMMON_SHARE ? "On so many recipes it may not tell them apart" : ""}"><span>${esc(t)}</span><span>${n} · ${Math.round(100 * n / total)}%</span></div>`).join("")}</div>`
   ).join("") || `<div class="sub">No dimensional tags yet.</div>`;
   return dims;

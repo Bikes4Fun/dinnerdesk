@@ -1323,6 +1323,16 @@ def test_download_my_data_has_the_kitchen_and_no_secrets(tmp_path):
         assert "password_hash" not in text and "token_hash" not in text
 
 
+def test_download_my_data_has_your_sign_in_details_only(tmp_path):
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "you@example.com", "password": "correct horse battery staple",
+                                              "household_name": "Ours"})
+        data = client.get("/api/household/export").json()
+        assert data["your_account"]["email"] == "you@example.com"
+        assert set(data["your_account"]) == {"email", "recovery_email", "email_verified_at", "created_at"}
+        assert all(set(m) == {"email", "created_at"} for m in data["members"])
+
+
 def test_download_recipes_include_ingredients_and_tags_only_for_this_household(tmp_path):
     with _client(tmp_path) as client:
         created = client.post('/api/recipes', json={
@@ -1784,6 +1794,22 @@ def test_admin_review_pages(tmp_path):
             page = client.get(f"/admin/{name}")
             assert page.status_code == 200 and "/*DATA*/null" not in page.text, name
         assert client.get("/admin/nope").status_code == 404
+
+
+def test_recipe_tags_page_shows_swept_suggestions(tmp_path, monkeypatch):
+    from app import admin_routes
+
+    with _client(tmp_path) as client:
+        recipe = client.get("/api/recipes").json()["recipes"][0]
+        slug = client.get(f"/api/recipes/{recipe['id']}").json()["slug"]
+        (tmp_path / "recipe_tag_suggestions.json").write_text(json.dumps({"suggestions": [
+            {"slug": slug, "dimension": "Cuisine", "tag": "Sweep-test cuisine", "source": "ai", "by": "", "note": ""},
+            {"slug": "not-in-this-catalog", "dimension": "Cuisine", "tag": "Orphan tag", "source": "ai", "by": "", "note": ""},
+        ]}))
+        monkeypatch.setattr(admin_routes, "catalog_dir", lambda: tmp_path)
+        page = client.get("/admin/recipe-tags").text
+        assert f'"tag": "Sweep-test cuisine", "source": "ai", "by": "", "note": "", "recipe_id": {recipe["id"]}' in page
+        assert "Orphan tag" not in page and "Good for kids / picky eaters" in page
 
 
 def test_admin_review_pages_are_admin_only(tmp_path):

@@ -2302,7 +2302,7 @@ def _rows(cursor) -> list[dict]:
 
 
 @router.get("/household/export")
-def export_household(db: PgConnection = DbDep, household_id: int = HhDep):
+def export_household(request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
     """Everything stored for this household, as one JSON file to download (#64)."""
     home = db.execute("SELECT name, prefs_json, created_at FROM households WHERE id = ?", (household_id,)).fetchone()
     if not home:
@@ -2318,6 +2318,12 @@ def export_household(db: PgConnection = DbDep, household_id: int = HhDep):
             "SELECT * FROM recipes WHERE household_id = ? ORDER BY id", (household_id,))),
         "plans": [],
     }
+    # Your own sign-in details. Other members' recovery emails stay private to them.
+    account = session_info(db, request.cookies.get(SESSION_COOKIE))
+    if account:
+        data["your_account"] = _rows(db.execute(
+            "SELECT email, recovery_email, email_verified_at, created_at FROM users WHERE id = ?",
+            (account["user_id"],)))[0]
     for recipe in data["recipes_you_added"]:
         recipe["ingredients"] = _rows(db.execute(
             """SELECT ri.ingredient_id, i.canonical_name AS name,

@@ -28,6 +28,7 @@ LOCKOUT_MINUTES = 15
 INVITE_TTL_DAYS = 7
 RESET_TTL_MINUTES = 60
 RESET_MAX_PER_HOUR = 3
+VERIFY_TTL_HOURS = 24
 
 
 def hash_password(password: str) -> str:
@@ -114,6 +115,10 @@ def set_recovery_email(conn: Any, user_id: int, email: str) -> None:
         raise AuthError("email_taken")
     conn.execute("UPDATE users SET recovery_email = ? WHERE id = ?", (email, user_id))
     conn.commit()
+def _taken_by_other(conn: Any, name: str, user_id: int) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM users WHERE (email = ? OR recovery_email = ?) AND id <> ?", (name, name, user_id)
+    ).fetchone() is not None
 
 
 def signup(conn: Any, email: str, password: str, household_name: str, guest_household_id: int | None = None) -> str:
@@ -284,6 +289,104 @@ def finish_password_reset(conn: Any, token: str, new_password: str) -> str:
     conn.execute("DELETE FROM sessions WHERE user_id = ?", (row["user_id"],))
     conn.commit()
     return _create_session(conn, row["user_id"], row["household_id"])
+
+
+def start_email_verification(conn: Any, user_id: int, email: str) -> Optional[str]:
+    """Make a one-time link that confirms `email` for this account, or None after too many asks.
+
+    An email account's login becomes the address; a username account keeps its username and
+    gets the address as its recovery email. Nothing changes until the link is opened, so a typo
+    never locks anyone out. Raises invalid_email / email_taken.
+    """
+    email = login_name(email)
+    if not has_email(email):
+        raise AuthError("invalid_email")
+    if _taken_by_other(conn, email, user_id):
+        raise AuthError("email_taken")
+    since = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
+    recent = conn.execute(
+        "SELECT COUNT(*) AS c FROM email_verifications WHERE user_id = ? AND created_at > ?",
+        (user_id, since),
+    ).fetchone()["c"]
+    if recent >= RESET_MAX_PER_HOUR:
+        return None
+    token = secrets.token_urlsafe(32)
+    expires = (datetime.now(timezone.utc) + timedelta(hours=VERIFY_TTL_HOURS)).replace(
+        microsecond=0
+    ).isoformat()
+    conn.execute(
+        "INSERT INTO email_verifications (token_hash, user_id, email, created_at, expires_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (_reset_hash(token), user_id, email, now(), expires),
+    )
+    conn.commit()
+    return token
+
+
+def finish_email_verification(conn: Any, token: str) -> str:
+    """Open a confirm link: the address becomes this account's login (or, for a username
+    account, its recovery email), marked verified."""
+    _lock_membership(conn)
+    row = conn.execute(
+        "SELECT user_id, email, expires_at, used_at FROM email_verifications WHERE token_hash = ?",
+        (_reset_hash(token or ""),),
+    ).fetchone()
+    if not row or row["used_at"]:
+        raise AuthError("verify_invalid")
+    if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
+        raise AuthError("verify_expired")
+    if _taken_by_other(conn, row["email"], row["user_id"]):
+        raise AuthError("email_taken")
+    user = _member(conn, row["user_id"])
+    column = "email" if has_email(user["email"]) else "recovery_email"
+    conn.execute(
+        f"UPDATE users SET {column} = ?, email_verified_at = ? WHERE id = ?",
+        (row["email"], now(), row["user_id"]),
+    )
+    # Older links (to this or a mistyped address) stop working.
+    conn.execute(
+        "UPDATE email_verifications SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+        (now(), row["user_id"]),
+    )
+    conn.commit()
+    return row["email"]
+
+
+def _check_password(conn: Any, user_id: int, password: str) -> None:
+    row = conn.execute("SELECT password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not row or not verify_password(password, row["password_hash"]):
+        raise AuthError("wrong_password")
+
+
+def _close_verifications(conn: Any, user_id: int) -> None:
+    conn.execute(
+        "UPDATE email_verifications SET used_at = ? WHERE user_id = ? AND used_at IS NULL",
+        (now(), user_id),
+    )
+
+
+def use_username(conn: Any, user_id: int, password: str, username: str) -> None:
+    """Swap the account's email for a username (removes the email). Needs the password."""
+    _check_password(conn, user_id, password)
+    name = login_name(username)
+    if has_email(name):
+        raise AuthError("invalid_username")
+    if _taken_by_other(conn, name, user_id):
+        raise AuthError("email_taken")
+    conn.execute(
+        "UPDATE users SET email = ?, recovery_email = NULL, email_verified_at = NULL WHERE id = ?",
+        (name, user_id),
+    )
+    _close_verifications(conn, user_id)
+    conn.commit()
+
+
+def remove_recovery_email(conn: Any, user_id: int, password: str) -> None:
+    """Drop a username account's recovery email. Needs the password."""
+    _check_password(conn, user_id, password)
+    conn.execute("UPDATE users SET recovery_email = NULL, email_verified_at = NULL WHERE id = ?", (user_id,))
+    _close_verifications(conn, user_id)
+    conn.commit()
 
 
 def logout(conn: Any, token: str) -> None:
@@ -580,7 +683,7 @@ def session_info(conn: Any, token: Optional[str]):
     if not token:
         return None
     row = conn.execute(
-        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email
+        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email, u.email_verified_at
            FROM sessions s JOIN users u ON u.id = s.user_id
            WHERE s.token = ?""",
         (token,),

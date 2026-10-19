@@ -42,6 +42,24 @@ enum AuthAPI {
       body: ["current_password": current, "new_password": new]
     )
   }
+
+  /// Emails a confirm link to the signed-in address, or to a new one (needs the password).
+  /// The login only changes once that link is opened.
+  static func verifyEmail(email: String = "", password: String = "") async throws {
+    let _: Ok = try await API.send(
+      "auth/verify-email", method: "POST", body: ["email": email, "password": password])
+  }
+
+  /// Drops a username account's recovery email.
+  static func removeRecoveryEmail(password: String) async throws {
+    let _: Ok = try await API.send("auth/remove-recovery-email", method: "POST", body: ["password": password])
+  }
+
+  /// Removes the email: the account signs in with this username instead.
+  static func useUsername(_ username: String, password: String) async throws {
+    let _: Ok = try await API.send(
+      "auth/use-username", method: "POST", body: ["username": username, "password": password])
+  }
 }
 
 nonisolated struct AuthStatus: Decodable, Sendable {
@@ -50,5 +68,15 @@ nonisolated struct AuthStatus: Decodable, Sendable {
   let authenticated: Bool
   let email: String?
   let hasEmail: Bool?
+  let recoveryEmail: String?
+  let emailVerified: Bool?
   let admin: Bool?
+
+  /// Why a signed-in account should verify (or add) an email, or nil once it's verified.
+  var emailNudge: String? {
+    guard authenticated, emailVerified != true else { return nil }
+    return hasEmail == false && recoveryEmail == nil
+      ? "Your account has no email, so a forgotten password can't be reset."
+      : "Your email isn't verified yet, so a password reset link might not reach you."
+  }
 }
