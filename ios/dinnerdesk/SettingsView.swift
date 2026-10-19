@@ -863,7 +863,8 @@ struct AccountView: View {
   @State private var confirmJoin = false
   @State private var deletingHome = false
   @State private var successor: HouseholdMember?
-  @State private var editingLogin = false
+  @State private var editingEmail = false
+  @State private var confirmRemoveRecovery = false
   @State private var newLogin = ""
   @State private var loginPassword = ""
   @State private var removing: HouseholdMember?
