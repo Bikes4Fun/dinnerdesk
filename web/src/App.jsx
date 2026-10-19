@@ -17,7 +17,8 @@ import { Prep } from "./pages/Prep.jsx";
 import { Recipe } from "./pages/Recipe.jsx";
 import { Recipes } from "./pages/Recipes.jsx";
 import { ResetPassword } from "./pages/ResetPassword.jsx";
-import { AccountSecurity, Filters, Newsletter, Settings, Social } from "./pages/Settings.jsx";
+import { VerifyEmail } from "./pages/VerifyEmail.jsx";
+import { AccountSecurity, emailNudge, Filters, Newsletter, Settings, Social } from "./pages/Settings.jsx";
 import { TasteLab } from "./pages/TasteLab.jsx";
 import { Tour } from "./Tour.jsx";
 import { useEffect, useState } from "react";
@@ -30,6 +31,7 @@ function parsePath(pathname) {
   if (parts[0] === "support") return { page: "support" };
   if (parts[0] === "join" && parts[1]) return { page: "join", token: parts[1] };
   if (parts[0] === "reset" && parts[1]) return { page: "reset", token: parts[1] };
+  if (parts[0] === "verify" && parts[1]) return { page: "verify", token: parts[1] };
   if (parts[0] === "recipes" && parts[1] === "new") return { page: "new-recipe" };
   if (parts[0] === "recipes" && parts[1]) return { page: "recipe", id: Number(parts[1]) };
   if (parts[0] === "recipes") return { page: "recipes" };
@@ -130,6 +132,7 @@ export function App() {
   const [authStatus, setAuthStatus] = useState(null);
   const [fatalError, setFatalError] = useState("");
   const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
+  const [emailNoticeDismissed, setEmailNoticeDismissed] = useState(false);
 
   useEffect(() => {
     const fail = (event) => {
@@ -208,6 +211,18 @@ export function App() {
     );
   }
 
+  if (page === "verify") {
+    return (
+      <VerifyEmail
+        token={route.token}
+        onDone={() => {
+          refreshAuth();
+          go("/settings/account");
+        }}
+      />
+    );
+  }
+
   if (page === "reset") {
     return (
       <ResetPassword
@@ -255,6 +270,7 @@ export function App() {
       </aside>
       <div className="main" key={tabRootVersion}>
         {!authStatus.authenticated && !guestNoticeDismissed && <div className="guest-notice">Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data. <button type="button" onClick={() => setGuestNoticeDismissed(true)}>Dismiss</button></div>}
+        {emailNudge(authStatus) && !emailNoticeDismissed && page !== "account-security" && <div className="guest-notice">FYI: {emailNudge(authStatus)} <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email ? "Verify it in Settings" : "Add one in Settings"}</a> <button type="button" onClick={() => setEmailNoticeDismissed(true)}>Dismiss</button></div>}
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes />}
         {page === "recipe" && <Recipe id={route.id} />}

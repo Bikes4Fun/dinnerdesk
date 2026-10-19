@@ -247,6 +247,7 @@ CREATE TABLE IF NOT EXISTS users (
   household_role TEXT NOT NULL DEFAULT 'member',
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
+  email_verified_at TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -284,6 +285,18 @@ CREATE TABLE IF NOT EXISTS password_resets (
 );
 
 CREATE INDEX IF NOT EXISTS password_resets_user ON password_resets(user_id);
+
+-- One-time "confirm this email" links. The address only becomes the login once the link is opened.
+CREATE TABLE IF NOT EXISTS email_verifications (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS email_verifications_user ON email_verifications(user_id);
 
 CREATE TABLE IF NOT EXISTS grocery_places (
   household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,

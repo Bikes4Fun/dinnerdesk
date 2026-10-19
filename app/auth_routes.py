@@ -11,6 +11,8 @@ from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
 from app.auth import finish_password_reset, start_password_reset
+from app.auth import finish_email_verification, start_email_verification, use_username as do_use_username
+from app.auth import verify_password
 from app.auth import create_invite as do_create_invite
 from app.auth import delete_account as do_delete_account
 from app.auth import invite_info as do_invite_info
@@ -21,7 +23,7 @@ from app.auth import logout_everywhere as do_logout_everywhere
 from app.auth import remove_member as do_remove_member
 from app.auth import signup as do_signup
 from app.deps import auth_required, guest_household, GUEST_COOKIE, DbDep, HhDep, UserDep
-from app.mailer import mail_ready, reset_link, send_reset_email
+from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 
 log = logging.getLogger("dinnerdesk.auth")
 router = APIRouter()
@@ -50,6 +52,9 @@ ERROR_MESSAGES = {
     "invalid_role": "Choose another member and a valid role.",
     "already_member": "You already belong to this household.",
     "wrong_password": "That password isn't right.",
+    "verify_invalid": "This confirm link isn't valid or was already used. Send a new one from Settings.",
+    "verify_expired": "This confirm link has expired. Send a new one from Settings.",
+    "verify_limit": "Too many confirm emails this hour. Try again later.",
 }
 
 
@@ -79,6 +84,20 @@ class ChangePasswordBody(BaseModel):
 
 
 class DeleteAccountBody(BaseModel):
+    password: str
+
+
+class VerifyEmailBody(BaseModel):
+    email: str = ""
+    password: str = ""
+
+
+class ConfirmEmailBody(BaseModel):
+    token: str
+
+
+class UseUsernameBody(BaseModel):
+    username: str
     password: str
 
 
@@ -187,6 +206,7 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
         "household_id": household_id,
         "email": email,
         "has_email": has_email(email),
+        "email_verified": bool(row and row["email_verified_at"]),
         "admin": is_admin_email(email),
     }
 
@@ -202,6 +222,7 @@ def me(request: Request, conn=DbDep):
         "household_id": row["household_id"],
         "email": row["email"],
         "has_email": has_email(row["email"]),
+        "email_verified": bool(row["email_verified_at"]),
         "admin": is_admin_email(row["email"]),
     }
 
@@ -238,13 +259,57 @@ def forgot_password(body: ForgotPasswordBody, conn=DbDep):
     return {"ok": True}
 
 
-def _mail_down() -> HTTPException:
+def _mail_down(what: str = "password reset") -> HTTPException:
     return HTTPException(503, {
         "error": "mail",
         "detail": "mail_unavailable",
-        "message": "We can't send email right now, so password reset isn't working. "
+        "message": f"We can't send email right now, so {what} isn't working. "
                    "Please try again later, or contact Dinnerdesk support.",
     })
+
+
+@router.post("/auth/verify-email")
+def verify_email(body: VerifyEmailBody, conn=DbDep, user_id=UserDep):
+    """Email a confirm link to the signed-in address, or to a new one (which needs the password).
+    The login only changes once the link is opened, so a mistyped address changes nothing."""
+    row = conn.execute("SELECT email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
+    email = (body.email or "").strip().lower() or row["email"]
+    if email != row["email"] and not verify_password(body.password, row["password_hash"]):
+        raise _auth_error(AuthError("wrong_password"), 400)
+    if not mail_ready():
+        log.error("Email confirm requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
+        raise _mail_down("email confirmation")
+    try:
+        token = start_email_verification(conn, user_id, email)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    if not token:
+        raise _auth_error(AuthError("verify_limit"), 429)
+    try:
+        send_verify_email(email, verify_link(token))
+    except Exception:
+        log.exception("Confirm email failed to send")
+        raise _mail_down("email confirmation")
+    return {"ok": True, "email": email}
+
+
+@router.post("/auth/confirm-email")
+def confirm_email(body: ConfirmEmailBody, conn=DbDep):
+    try:
+        email = finish_email_verification(conn, body.token)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True, "email": email}
+
+
+@router.post("/auth/use-username")
+def use_username(body: UseUsernameBody, conn=DbDep, user_id=UserDep):
+    """Remove the account's email by signing in with a username instead."""
+    try:
+        do_use_username(conn, user_id, body.password, body.username)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
 
 
 @router.post("/auth/reset-password")

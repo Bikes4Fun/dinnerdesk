@@ -21,8 +21,17 @@ function Link({ href, children, extra, onClick }) {
   );
 }
 
+/** Why a signed-in account should verify (or add) an email, or "" when it's verified. */
+export function emailNudge(status) {
+  if (!status || !status.authenticated || status.email_verified) return "";
+  return status.has_email
+    ? "Your email isn't verified yet, so a password reset link might not reach you."
+    : "Your account has no email, so a forgotten password can't be reset.";
+}
+
 export function Settings() {
   const [authEmail, setAuthEmail] = useState("");
+  const [nudge, setNudge] = useState("");
   const [admin, setAdmin] = useState(false);
   const [syncSoon, setSyncSoon] = useState(false);
   const [err, setErr] = useState("");
@@ -31,7 +40,8 @@ export function Settings() {
     api.auth
       .status()
       .then((s) => {
-        setAuthEmail(s.email || "");
+        setAuthEmail(s.email ? (s.has_email && !s.email_verified ? `${s.email} · verify email` : s.email) : "");
+        setNudge(emailNudge(s));
         setAdmin(Boolean(s.admin));
       })
       .catch((e) => setErr(e.message));
@@ -45,6 +55,7 @@ export function Settings() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err" role="alert">{err}</p>}
+        {nudge && <p className="banner warn">{nudge} <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>Fix it in Account &amp; security</a></p>}
         <Link href="/settings/filters">Filters</Link>
         <Link href="/settings/account" extra={authEmail || "Not signed in"}>
           Account &amp; security
@@ -490,6 +501,9 @@ export function AccountSecurity() {
   const [homePassword, setHomePassword] = useState("");
   const [deletingHome, setDeletingHome] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
+  const [editingLogin, setEditingLogin] = useState(false);
+  const [newLogin, setNewLogin] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
   useEffect(() => {
     api.auth
@@ -524,6 +538,40 @@ export function AccountSecurity() {
     try {
       await api.auth.forgotPassword({ email: status.email });
       setToast(`Reset link sent to ${status.email}. It works once, for 1 hour.`);
+    } catch (e) {
+      setErr((e.body && e.body.message) || e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendConfirmLink(email) {
+    setErr("");
+    setBusy(true);
+    try {
+      const r = await api.auth.verifyEmail(email ? { email, password: loginPassword } : {});
+      setToast(`Confirm link sent to ${r.email}. It works once, for 24 hours.`);
+      if (email) { setEditingLogin(false); setNewLogin(""); setLoginPassword(""); }
+    } catch (e) {
+      setErr((e.body && e.body.message) || e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeLogin(e) {
+    e.preventDefault();
+    const name = newLogin.trim();
+    if (!name || !loginPassword) return;
+    if (name.includes("@")) return sendConfirmLink(name);
+    if (!confirm("Remove your email and sign in with this username? Without an email, a forgotten password can't be reset.")) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await api.auth.useUsername({ username: name, password: loginPassword });
+      setStatus(await api.auth.status());
+      setEditingLogin(false); setNewLogin(""); setLoginPassword("");
+      setToast("You now sign in with your username.");
     } catch (e) {
       setErr((e.body && e.body.message) || e.message);
     } finally {
@@ -625,7 +673,40 @@ export function AccountSecurity() {
         ) : (
           <>
             <label className="block-label">Signed in as</label>
-            <p>{status.email}</p>
+            <p>{status.email}{status.has_email && (status.email_verified ? " · verified" : " · not verified")}</p>
+            {emailNudge(status) && (
+              <p className="banner warn">
+                {emailNudge(status)} {status.has_email ? "Send a confirm link, or change it below if it has a typo." : "Add one below."}
+              </p>
+            )}
+            {status.has_email && !status.email_verified && (
+              <>
+                <button type="button" className="btn-secondary block" disabled={busy} onClick={() => sendConfirmLink()}>
+                  Send confirm link
+                </button>
+              </>
+            )}
+            {!editingLogin ? (
+              <button type="button" className="btn-secondary block" onClick={() => setEditingLogin(true)}>
+                {status.has_email ? "Change or remove email" : "Add an email"}
+              </button>
+            ) : (
+              <form onSubmit={changeLogin}>
+                <label className="block-label" htmlFor="new-login">New email, or a username to remove your email</label>
+                <input className="field" id="new-login" autoComplete="email" autoCapitalize="none"
+                  value={newLogin} onChange={(e) => setNewLogin(e.target.value)} required />
+                <p className="help">A new email takes over once you open the confirm link we send it. Until then you keep signing in as {status.email}.</p>
+                <label className="block-label" htmlFor="login-password">Your password</label>
+                <input className="field" id="login-password" type="password" autoComplete="current-password"
+                  value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required />
+                <button type="submit" className="btn-secondary block" disabled={busy || !newLogin.trim() || !loginPassword}>
+                  {newLogin.includes("@") || !newLogin.trim() ? "Send confirm link" : "Use username"}
+                </button>
+                <button type="button" className="btn-secondary block" onClick={() => { setEditingLogin(false); setNewLogin(""); setLoginPassword(""); }}>
+                  Cancel
+                </button>
+              </form>
+            )}
 
             <form onSubmit={saveHouseholdName}>
               <label className="block-label" htmlFor="household-name">Household name</label>

@@ -432,6 +432,60 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
         assert reset.status_code == 400
         assert reset.json()["detail"] == "no_email"
 
+def test_unverified_signup_can_confirm_change_and_remove_email(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+    sent = []
+    monkeypatch.setattr("app.auth_routes.send_verify_email", lambda to, link: sent.append((to, link)))
+    password = "correct horse battery staple"
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "you@exmaple.com", "password": password, "household_name": "Ours"})
+        me = client.get("/api/auth/me").json()
+        assert me["email_verified"] is False
+
+        # A new address needs the password, and nothing changes until its link is opened.
+        assert client.post("/api/auth/verify-email", json={"email": "you@example.com"}).json()["detail"] == "wrong_password"
+        assert client.post("/api/auth/verify-email", json={"email": "you@example.com", "password": password}).status_code == 200
+        assert sent[-1][0] == "you@example.com"
+        assert client.get("/api/auth/me").json()["email"] == "you@exmaple.com"
+
+        token = sent[-1][1].rsplit("/", 1)[1]
+        assert client.post("/api/auth/confirm-email", json={"token": token}).json()["email"] == "you@example.com"
+        me = client.get("/api/auth/me").json()
+        assert me["email"] == "you@example.com" and me["email_verified"] is True
+        assert client.post("/api/auth/confirm-email", json={"token": token}).json()["detail"] == "verify_invalid"
+        client.post("/api/auth/logout")
+        assert client.post("/api/auth/login", json={"email": "you@example.com", "password": password}).status_code == 200
+
+        # Re-sending to the current address needs no password.
+        assert client.post("/api/auth/verify-email", json={}).json()["email"] == "you@example.com"
+
+        # Removing the email: sign in with a username instead. Open links stop working.
+        open_token = sent[-1][1].rsplit("/", 1)[1]
+        assert client.post("/api/auth/use-username", json={"username": "cook", "password": "nope"}).json()["detail"] == "wrong_password"
+        assert client.post("/api/auth/use-username", json={"username": "cook", "password": password}).status_code == 200
+        me = client.get("/api/auth/me").json()
+        assert me["email"] == "cook" and me["has_email"] is False and me["email_verified"] is False
+        assert client.post("/api/auth/confirm-email", json={"token": open_token}).json()["detail"] == "verify_invalid"
+
+
+def test_confirm_email_refuses_an_address_taken_meanwhile(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+    sent = []
+    monkeypatch.setattr("app.auth_routes.send_verify_email", lambda to, link: sent.append(link))
+    password = "correct horse battery staple"
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "a@example.com", "password": password, "household_name": "A"})
+        client.post("/api/auth/verify-email", json={"email": "b@example.com", "password": password})
+        client.post("/api/auth/logout")
+        client.post("/api/auth/signup", json={"email": "b@example.com", "password": password, "household_name": "B"})
+        res = client.post("/api/auth/confirm-email", json={"token": sent[-1].rsplit("/", 1)[1]})
+        assert res.json()["detail"] == "email_taken"
+
+
 def test_tastelab_saves_only_to_own_history(tmp_path):
     vote = lambda rid: {"id": "shared-session", "anon_id": "guest-1", "kind": "snapshot",
                         "body": {"swipes": [{"recipe_id": rid, "liked": True}]}}
