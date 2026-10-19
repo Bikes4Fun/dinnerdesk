@@ -1012,11 +1012,14 @@ struct AccountView: View {
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
         }
         AccountDivider()
-        AccountRow(title: "Sign out") { Task { await session.signOut() } }
-        AccountDivider()
-        AccountRow(title: "Sign out of all devices", subtitle: "If a device was lost or you changed your password") {
-          confirmEverywhere = true
+        HStack {
+          AccountRow(title: "Sign out")
+            { Task { await session.signOut() } }
+          
+          AccountRow(title: "Sign out of all devices")
+            { confirmEverywhere = true }
         }
+
       }
       StarTip(id: "settings.sign-out-everywhere")
     }
