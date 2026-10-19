@@ -454,6 +454,7 @@ private struct ScheduleMealSheet: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
   @State private var date = Date()
+  @State private var initialDate: Date?
   @State private var saving = false
   var body: some View {
     NavigationStack {
@@ -495,9 +496,12 @@ private struct ScheduleMealSheet: View {
           } else {
             date = earliest
           }
+          initialDate = date
         }
         .onChange(of: date) { oldDate, newDate in
-          if oldDate != newDate {
+          // onAppear seeds the picker; only a user pick should save and close.
+          guard let initialDate else { return }
+          if !Calendar.current.isDate(newDate, inSameDayAs: initialDate) {
             saving = true
             Task {
               if await store.schedule(slot, date: newDate) {
