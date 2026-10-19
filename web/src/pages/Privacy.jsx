@@ -28,7 +28,7 @@ export function Privacy() {
         </p>
         <p>
           Forgot-password emails are sent by Resend. We store a hash of the reset link, not the link. The link
-          works once, for one hour. We answer the same way whether or not that email has an account. You can change
+          works once, for one hour. We answer the same way whether or not that email or username has an account (or a recovery email). You can change
           your email, swap it for a username, or add, change or remove a recovery email from Account &amp;
           security; a new email only takes over once you
           open the confirm link we send it.

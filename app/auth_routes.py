@@ -37,7 +37,6 @@ ERROR_MESSAGES = {
     "invalid_username": "Usernames are 3 to 30 letters, numbers, dots, dashes or underscores.",
     "email_taken": "An account with that email or username already exists.",
     "invalid_credentials": "That email or username, or the password, didn't work.",
-    "no_email": "This account has a username and no recovery email, so its password can't be reset.",
     "email_required_to_invite": "You need an account with an email to invite people, so your household can recover your password.",
     "account_locked": "Too many failed attempts. Try again in a few minutes.",
     "not_authenticated": "Please sign in again.",
@@ -258,16 +257,14 @@ def remove_recovery_email(body: PasswordBody, conn=DbDep, user_id=UserDep):
 
 @router.post("/auth/forgot-password")
 def forgot_password(body: ForgotPasswordBody, conn=DbDep):
-    # Same answer whether or not the email has an account. Email being down is checked first,
-    # for everyone, so the cook hears about it without learning whether the account exists.
+    # Same answer whether or not the email or username has an account, or a recovery email on
+    # file. Email being down is checked first, for everyone, so the cook hears about it without
+    # learning whether the account exists.
     if not mail_ready():
         log.error("Password reset requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
         raise _mail_down()
     email = (body.email or "").strip().lower()
     to = reset_address_for(conn, email)
-    # A username with no recovery email can't be reset; say so rather than pretend to send.
-    if email and not has_email(email) and not to:
-        raise _auth_error(AuthError("no_email"), 400)
     token = start_password_reset(conn, email)
     if token:
         try:

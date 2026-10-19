@@ -455,10 +455,10 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
                 "email": bad, "password": "correct horse battery staple", "household_name": "x"})
             assert res.json()["detail"] == "invalid_username", bad
 
-        # No email means no reset: say so plainly, and never try to send.
-        reset = client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"})
-        assert reset.status_code == 400
-        assert reset.json()["detail"] == "no_email"
+        # No email means no reset, but the answer matches every other name so nobody can probe
+        # which usernames have a recovery email.
+        for name in ("kitchen.fan", "nobody.here"):
+            assert client.post("/api/auth/forgot-password", json={"email": name}).json() == {"ok": True}
 
 
 def test_unverified_signup_can_confirm_change_and_remove_email(tmp_path, monkeypatch):
@@ -566,7 +566,8 @@ def test_username_account_adds_a_recovery_email(tmp_path, monkeypatch):
         assert client.post("/api/auth/remove-recovery-email", json={"password": password}).status_code == 200
         me = client.get("/api/auth/me").json()
         assert me["recovery_email"] is None and me["email_verified"] is False
-        assert client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"}).json()["detail"] == "no_email"
+        assert client.post("/api/auth/forgot-password", json={"email": "kitchen.fan"}).json() == {"ok": True}
+        assert sent == ["fan@example.com", "fan@example.com"]
 
 
 def test_tastelab_saves_only_to_own_history(tmp_path):
