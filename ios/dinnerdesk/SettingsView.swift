@@ -50,15 +50,14 @@ struct SettingsView: View {
         } label: {
           ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
         }
+        Button {
+          session.showTour = true
+        } label: {
+          ThemeIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
+        }
+        .accessibilityHint("Replays the first-run tour")
 
-Button {
-            session.showTour = true
-          } label: {
-            ThemeIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
-          }
-          .accessibilityHint("Replays the first-run tour")
-
-          if let url = URL(string: "https://dinnerdesk.computerscience.build") {
+        if let url = URL(string: "https://dinnerdesk.computerscience.build") {
             Link(destination: url) {
               ThemeIconRow(title: "\(Copy.appName) on the web", systemImage: "safari")
             }
