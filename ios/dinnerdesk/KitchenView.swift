@@ -12,23 +12,39 @@ struct KitchenView: View {
         ErrorBanner(message: error).themeBareRow()
       }
       
+      ThemeSection("Everyday"){
         NavigationLink {
           FiltersView()
         } label: {
           ThemeIconRow(title: "Filters", systemImage: "slider.horizontal.3")
         }
-
-      ThemeSection("Cooking") {
-
+        
+        NavigationLink {
+          MyRecipesView()
+        } label: {
+          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
+        }
+        
         NavigationLink {
           PantryView()
         } label: {
           ThemeIconRow(title: "Pantry", systemImage: "shippingbox")
         }
-      }
-      .themeRows()
 
-      ThemeSection("Recipes") {
+      }.themeRows()
+
+      ThemeSection("Shopping") {
+        NavigationLink {
+          GroceryStoreView()
+        } label: {
+          ThemeIconRow(title: "Stores & aisles", systemImage: "storefront")
+        }
+
+        NavigationLink {
+          AlwaysCheckedView()
+        } label: {
+          ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
+        }
         NavigationLink {
           MyRecipesView()
         } label: {
@@ -48,6 +64,21 @@ struct KitchenView: View {
           AlwaysCheckedView()
         } label: {
           ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
+        
+      }
+      .themeRows()
+
+      ThemeSection("General"){
+      // The − / + drops below the label when "Family portions" can't stay on one line.
+      ViewThatFits(in: .horizontal) {
+          HStack(spacing: 14) {
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            portionsStepper
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            portionsStepper.padding(.leading, 40)
+          }
         }
         NavigationLink {
           SubstitutionsView()
@@ -73,9 +104,17 @@ struct KitchenView: View {
             portionsStepper.padding(.leading, 40)
           }
         }
+      }.themeRows()
+
+      ThemeSection("Coming Soon"){
+          ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
+          ThemeIconRow(title: "New to Cooking", systemImage:"list.bullet",  value: "Coming soon")
+          ThemeIconRow(title: "Sync nutrition data", systemImage:"list.bullet", value: "Coming soon")
+      }.themeRows()
+
     }
     .themeList()
-    .navigationTitle("My Kitchen and Groceries")
+    .navigationTitle("My Kitchen")
     .largeNavigationTitle()
     .task { await load() }
     .refreshable { await load() }
