@@ -44,13 +44,20 @@ struct SettingsView: View {
           ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
         .accessibilityHint("Opens the support page in Safari")
+        
         NavigationLink {
           FeedbackView()
         } label: {
           ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
         }
+        Button {
+          session.showTour = true
+        } label: {
+          ThemeIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
+        }
+        .accessibilityHint("Replays the first-run tour")
 
-          if let url = URL(string: "https://dinnerdesk.computerscience.build") {
+        if let url = URL(string: "https://dinnerdesk.computerscience.build") {
             Link(destination: url) {
               ThemeIconRow(title: "\(Copy.appName) on the web", systemImage: "safari")
             }
@@ -856,14 +863,14 @@ struct AccountView: View {
   @State private var confirmJoin = false
   @State private var deletingHome = false
   @State private var successor: HouseholdMember?
+  @State private var editingEmail = false
+  @State private var confirmRemoveRecovery = false
+  @State private var newLogin = ""
+  @State private var loginPassword = ""
   @State private var removing: HouseholdMember?
   @State private var openMember: Int?
   @State private var joining = false
   @State private var savedName = ""
-  @State private var editingEmail = false
-  @State private var newLogin = ""
-  @State private var loginPassword = ""
-  @State private var confirmRemoveRecovery = false
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
@@ -1038,11 +1045,14 @@ struct AccountView: View {
           .disabled(busy)
         }
         AccountDivider()
-        AccountRow(title: "Sign out") { Task { await session.signOut() } }
-        AccountDivider()
-        AccountRow(title: "Sign out of all devices", subtitle: "If a device was lost or you changed your password") {
-          confirmEverywhere = true
+        HStack {
+          AccountRow(title: "Sign out")
+            { Task { await session.signOut() } }
+          
+          AccountRow(title: "Sign out of all devices", subtitle: "If a device was lost or you changed your password")
+            { confirmEverywhere = true }
         }
+
       }
       StarTip(id: "settings.sign-out-everywhere")
     }

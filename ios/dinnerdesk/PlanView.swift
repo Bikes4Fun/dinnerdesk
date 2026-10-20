@@ -39,14 +39,7 @@ struct PlanView: View {
                 .contentShape(Rectangle())
                 .accessibilityLabel("Done editing plan")
             } 
-            // else { Button {
-            //     Task { await store.openSuggestions() }
-            // } label: {
-            //     Label("New meal plan", systemImage: "sparkles")
-            // }
-            // .buttonStyle(.borderedProminent)
-            // .tint(Theme.accent)
-            // }
+            
             Button {
               menu = true
             } label: {
@@ -139,16 +132,18 @@ struct PlanView: View {
               }
             }
             if !plan.slots.isEmpty { 
-              // Button {
-              //     Task { await store.openSuggestions() }
-              //   } label: {
-              //     Label("New meal plan", systemImage: "sparkles")
-              //   }
-              //   .buttonStyle(.borderedProminent)
-              //   .tint(Theme.accent)
-                Button { selectTab(.recipes) } label: {
-                  Label("Add meals", systemImage: "plus")
-                }.font(Theme.action).frame(minHeight: 44)
+              HStack {
+                Button {
+                    Task { await store.openSuggestions() }
+                  } label: {
+                    Label("New meal plan", systemImage: "sparkles")
+                  }
+                  .buttonStyle(.borderedProminent)
+                  .tint(Theme.accent)
+                  Button { selectTab(.recipes) } label: {
+                    Label("Add meals", systemImage: "plus")
+                  }.font(Theme.action).frame(minHeight: 44)
+              }
             }
           } else {
             ProgressView()
