@@ -46,10 +46,24 @@ struct KitchenView: View {
           ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
         }
         NavigationLink {
-          SubstitutionsView()
+          MyRecipesView()
         } label: {
-          ThemeIconRow(title: "Substitutions", systemImage: "arrow.left.arrow.right")
+          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
         }
+        NavigationLink {
+          HiddenRecipesView()
+        } label: {
+          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+        }
+        ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
+      }
+      .themeRows()
+
+      ThemeSection("Grocery list") {
+        NavigationLink {
+          AlwaysCheckedView()
+        } label: {
+          ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
         
       }
       .themeRows()
@@ -67,9 +81,28 @@ struct KitchenView: View {
           }
         }
         NavigationLink {
-          HiddenRecipesView()
+          SubstitutionsView()
         } label: {
-          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+          ThemeIconRow(title: "Substitutions", systemImage: "arrow.left.arrow.right")
+        }
+        NavigationLink {
+          GroceryStoreView()
+        } label: {
+          ThemeIconRow(title: "Stores & aisles", systemImage: "storefront")
+        }
+      }
+      .themeRows()
+      
+      // The − / + drops below the label when "Family portions" can't stay on one line.
+      ViewThatFits(in: .horizontal) {
+          HStack(spacing: 14) {
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            portionsStepper
+          }
+          VStack(alignment: .leading, spacing: 8) {
+            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            portionsStepper.padding(.leading, 40)
+          }
         }
       }.themeRows()
 

@@ -609,6 +609,23 @@ export function AccountSecurity() {
     }
   }
 
+  async function removeRecoveryEmail() {
+    if (!loginPassword) return setErr("Enter your password to remove the recovery email.");
+    if (!confirm("Remove your recovery email? Without it, a forgotten password can't be reset.")) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await api.auth.removeRecoveryEmail({ password: loginPassword });
+      setStatus(await api.auth.status());
+      closeEmailPane();
+      setToast("Recovery email removed.");
+    } catch (e) {
+      setErr((e.body && e.body.message) || e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function closeEmailPane() {
     setEditingEmail(false);
     setNewLogin("");
