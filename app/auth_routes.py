@@ -37,8 +37,6 @@ ERROR_MESSAGES = {
     "invalid_username": "Usernames are 3 to 30 letters, numbers, dots, dashes or underscores.",
     "email_taken": "An account with that email or username already exists.",
     "invalid_credentials": "That email or username, or the password, didn't work.",
-    "no_email": "Accounts made with a username have no email, so their password can't be reset.",
-    "has_email_already": "This account already signs in with an email, which is used for resets.",
     "email_required_to_invite": "You need an account with an email to invite people, so your household can recover your password.",
     "account_locked": "Too many failed attempts. Try again in a few minutes.",
     "not_authenticated": "Please sign in again.",
@@ -60,9 +58,6 @@ ERROR_MESSAGES = {
 }
 
 
-class RecoveryEmailBody(BaseModel):
-    email: str
-      
 class PasswordBody(BaseModel):
     password: str
 
