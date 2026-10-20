@@ -549,15 +549,6 @@ export function AccountSecurity() {
     }
   }
 
-  async function saveRecoveryEmail(e) {
-    e.preventDefault();
-    setErr("");
-    setBusy(true);
-    try {
-      await api.auth.setRecoveryEmail(recoveryEmail.trim());
-      setStatus(await api.auth.status());
-      setAddingRecovery(false);
-      setToast("Recovery email saved. You can sign in with it or your username.");
   async function sendConfirmLink(email) {
     setErr("");
     setBusy(true);
@@ -585,23 +576,6 @@ export function AccountSecurity() {
       setStatus(await api.auth.status());
       closeEmailPane();
       setToast("You now sign in with your username.");
-    } catch (e) {
-      setErr((e.body && e.body.message) || e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeRecoveryEmail() {
-    if (!loginPassword) return setErr("Enter your password to remove the recovery email.");
-    if (!confirm("Remove your recovery email? Without it, a forgotten password can't be reset.")) return;
-    setErr("");
-    setBusy(true);
-    try {
-      await api.auth.removeRecoveryEmail({ password: loginPassword });
-      setStatus(await api.auth.status());
-      closeEmailPane();
-      setToast("Recovery email removed.");
     } catch (e) {
       setErr((e.body && e.body.message) || e.message);
     } finally {
@@ -740,37 +714,6 @@ export function AccountSecurity() {
                   <span className="acct-avatar is-big" aria-hidden="true">{initial(status.email)}</span>
                   <div className="acct-row-text">
                     <span className="acct-me-name">{status.email}</span>
-                    <span className="acct-sub">{status.has_email ? "Signed in with email" : "Signed in with username"}</span>
-                    {status.recovery_email && <span className="acct-sub">Recovery email: {status.recovery_email}</span>}
-                  </div>
-                </div>
-                {!resetTo && (
-                  <>
-                    <div className="acct-pane">
-                      <p className="help">This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.</p>
-                    </div>
-                    <button type="button" className="acct-row has-sub" aria-expanded={addingRecovery} onClick={() => setAddingRecovery(!addingRecovery)}>
-                      <span className="acct-row-text">
-                        <span className="acct-row-title">Add a recovery email</span>
-                        <span className="acct-sub">Reset your password and sign in with it</span>
-                      </span>
-                      <Chevron open={addingRecovery} />
-                    </button>
-                    {addingRecovery && (
-                      <form className="acct-pane" onSubmit={saveRecoveryEmail}>
-                        <label className="block-label" htmlFor="recovery-email">Recovery email</label>
-                        <input className="field" id="recovery-email" type="email" autoComplete="email" required
-                          value={recoveryEmail} onChange={(e) => setRecoveryEmail(e.target.value)} />
-                        <button type="submit" className="btn-secondary block" disabled={busy || !recoveryEmail.trim()}>Save recovery email</button>
-                      </form>
-                    )}
-                  </>
-                )}
-                {resetTo && (
-                  <button type="button" className="acct-row has-sub" disabled={busy} onClick={emailResetLink}>
-                    <span className="acct-row-text">
-                      <span className="acct-row-title">Reset password</span>
-                      <span className="acct-sub">We'll email you a reset link</span>
                     <span className="acct-sub">{status.has_email ? `Signed in with email · ${status.email_verified ? "verified" : "not verified"}` : "Signed in with username"}</span>
                     {status.recovery_email && <span className="acct-sub">Recovery email: {status.recovery_email} · {status.email_verified ? "verified" : "not verified"}</span>}
                   </div>
@@ -791,77 +734,6 @@ export function AccountSecurity() {
                     <Chevron />
                   </button>
                 )}
-                <button type="button" className="acct-row" onClick={signOut}>
-                  <span className="acct-row-title">Sign out</span>
-                </button>
-                <button type="button" className="acct-row has-sub" onClick={signOutEverywhere}>
-                  <span className="acct-row-text">
-                    <span className="acct-row-title">Sign out of all devices</span>
-                    <span className="acct-sub">If a device was lost or you changed your password</span>
-                  </span>
-                </button>
-              </div>
-              <Tip id="settings.sign-out-everywhere">
-                Signs out every device using this account — use this if a phone or laptop was lost
-                or you just changed your password and want to be sure.
-              </Tip>
-            </section>
-
-            <section className="acct-section">
-              <h2>Household</h2>
-              <div className="acct-card">
-                <form className="acct-name" onSubmit={saveHouseholdName}>
-                  <label htmlFor="household-name">Household name</label>
-                  <div>
-                    <input className="acct-input" id="household-name" value={householdName} maxLength={80} onChange={(e) => setHouseholdName(e.target.value)} required />
-                    {householdName.trim() && householdName.trim() !== savedName && (
-                      <button type="submit" className="acct-save" disabled={busy}>Save</button>
-                    )}
-                  </div>
-                </form>
-                <div className="acct-members-head">
-                  <h3>Members</h3>
-                  <span>{members.length}</span>
-                </div>
-                {members.map((m) => {
-                  const me = m.email === status.email;
-                  const canRole = myRole === "owner";
-                  const canRemove = canManage && m.household_role !== "owner";
-                  const hasMenu = !me && (canRole || canRemove);
-                  const open = menuFor === m.id;
-                  return (
-                    <div key={m.id} className={`acct-member${me ? " is-me" : ""}`}>
-                      <div className="acct-member-row">
-                        <span className="acct-avatar" aria-hidden="true">{initial(m.email)}</span>
-                        <div className="acct-row-text">
-                          <span className="acct-member-name">{me ? "You" : m.email}</span>
-                          <span className="acct-sub">{me ? m.email : joined(m.joined_at)}</span>
-                        </div>
-                        <span className={`acct-badge is-${m.household_role}`}>{roleName[m.household_role] || m.household_role}</span>
-                        {hasMenu ? (
-                          <button type="button" className="acct-more" aria-label={`Manage ${m.email}`} aria-expanded={open} onClick={() => setMenuFor(open ? null : m.id)}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--brand)" aria-hidden="true"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
-                          </button>
-                        ) : <span className="acct-more-spacer" />}
-                      </div>
-                      {open && (
-                        <div className="acct-chips">
-                          {canRole && <>
-                            <button type="button" className="acct-chip" disabled={busy} onClick={() => householdAction(() => api.householdRole(m.id, m.household_role === "admin" ? "member" : "admin"))}>{m.household_role === "admin" ? "Remove admin" : "Make admin"}</button>
-                            <button type="button" className="acct-chip" disabled={busy} onClick={() => { if (confirm("Make this member the household creator? You become an admin.")) householdAction(() => api.householdRole(m.id, "owner")); }}>Make owner…</button>
-                          </>}
-                          {canRemove && <button type="button" className="acct-chip is-danger" onClick={() => removeMember(m.id)}>Remove…</button>}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                <button type="button" className="acct-row" onClick={makeInvite}>
-                  <span className="acct-invite-plus" aria-hidden="true">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-                  </span>
-                  <span className="acct-invite-label">Invite someone</span>
-                </button>
                 <button type="button" className="acct-row has-sub" aria-expanded={editingEmail} onClick={() => (editingEmail ? closeEmailPane() : setEditingEmail(true))}>
                   <span className="acct-row-text">
                     <span className="acct-row-title">

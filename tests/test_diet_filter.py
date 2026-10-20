@@ -92,7 +92,10 @@ def test_clean_filters_moves_old_allergy_avoids_and_drops_none():
     assert out["allergens"] == ["peanut", "shellfish"]
     assert out["avoids"] == ["olives"]
     assert out["time"] == "30"
-    assert clean_filters(None) == {"diets": ["omnivore"], "allergens": [], "avoids": []}
+    assert clean_filters(None) == {
+        "diets": ["omnivore"], "allergens": [], "avoids": [],
+        "who": [], "cuisines": [], "protein_more": [], "protein_less": [],
+    }
 
 
 def test_merge_keeps_what_the_other_screen_set():
@@ -104,7 +107,10 @@ def test_merge_keeps_what_the_other_screen_set():
     assert out["time"] == "30"
     # Taste Lab sends diets, allergens and avoids but not time.
     out = merge_filters(out, {"diets": ["vegan"], "allergens": [], "avoids": ["kale"]})
-    assert out == {"diets": ["vegan"], "allergens": [], "avoids": ["kale"], "time": "30"}
+    assert out == {
+        "diets": ["vegan"], "allergens": [], "avoids": ["kale"], "time": "30",
+        "who": [], "cuisines": [], "protein_more": [], "protein_less": [],
+    }
 
 
 def test_fold_profiles_keeps_every_allergy_and_the_strictest_diet():
