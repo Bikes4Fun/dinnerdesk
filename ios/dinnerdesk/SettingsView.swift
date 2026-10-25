@@ -896,7 +896,6 @@ struct AccountView: View {
         if signedIn {
           accountSection
           householdSection
-          dangerSection
         } else {
           VStack(alignment: .leading, spacing: 12) {
             Text(
@@ -1147,16 +1146,20 @@ struct AccountView: View {
       }
 
       // Solo: just Delete (leaving would only make another solo kitchen). Shared: Leave or delete behind one link.
-      if alone ? canManage : true {
-        Button(alone ? "Delete household" : canManage ? "Leave or delete household…" : "Leave household…") {
-          if alone { withAnimation { deletingHome.toggle() } } else { confirmLeaveOrDelete = true }
+      HStack(spacing: 10) {
+        if alone ? canManage : true {
+          Button(alone ? "Delete household" : canManage ? "Leave or delete household…" : "Leave household…") {
+            if alone { withAnimation { deletingHome.toggle() } } else { confirmLeaveOrDelete = true }
+          }
+          Text("·").accessibilityHidden(true)
         }
-        .font(AccountFont.sub)
-        .foregroundStyle(Theme.muted)
-        .frame(maxWidth: .infinity, minHeight: 44)
-        .padding(.top, 8)
-        .disabled(busy)
+        Button("Delete account") { deletingAccount = true }
       }
+      .font(AccountFont.sub)
+      .foregroundStyle(Theme.muted)
+      .frame(maxWidth: .infinity, minHeight: 44)
+      .padding(.top, 8)
+      .disabled(busy)
       if deletingHome {
         AccountCard {
           VStack(alignment: .leading, spacing: 8) {
@@ -1284,25 +1287,6 @@ struct AccountView: View {
         .padding(EdgeInsets(top: 0, leading: 64, bottom: 14, trailing: 16))
       }
     }
-  }
-
-  private var dangerSection: some View {
-    AccountGroup("Leave or delete") {
-      AccountCard {
-      
-        AccountDivider()
-        AccountRow(
-          title: "Delete account",
-          subtitle: otherMembers.isEmpty ? "Deletes this household too." : "The household stays for its other members.",
-          danger: true
-        ) {
-          deletingAccount = true
-        }
-      }
-        .font(Theme.subtitle).foregroundStyle(Theme.muted)
-        .padding(EdgeInsets(top: 4, leading: 4, bottom: 0, trailing: 4))
-    }
-    .padding(.top, 12)
   }
 
   /// "Joined Oct 3, 2026" from the server's created_at timestamp.
