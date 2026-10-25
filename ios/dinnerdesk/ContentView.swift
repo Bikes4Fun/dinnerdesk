@@ -36,32 +36,7 @@ struct ContentView: View {
 
   var body: some View {
     AuthGate {
-      TabView(selection: Binding(get: { tab }, set: { showTab($0) })) {
-        PlanView()
-          .id(navigationIDs[.plan])
-          .tabItem { Label("Plan", systemImage: "calendar") }
-          .badge(mealsLeft)
-          .tag(AppTab.plan)
-        RecipesView()
-          .id(navigationIDs[.recipes])
-          .tabItem { Label("Recipes", systemImage: "book") }
-          .tag(AppTab.recipes)
-        GroceryView()
-          .id(navigationIDs[.grocery])
-          .tabItem { Label("Grocery", systemImage: "cart") }
-          .badge(itemsLeft)
-          .tag(AppTab.grocery)
-        if UIScreen.main.bounds.width >= 390 && !textSize.isAccessibilitySize {
-          NavigationStack { PrepView() }
-            .id(navigationIDs[.prep])
-            .tabItem { Label("Prep", systemImage: "list.bullet.clipboard") }
-            .tag(AppTab.prep)
-        }
-        MoreView()
-          .id(navigationIDs[.more])
-          .tabItem {(systemImage: "ellipsis.circle") }
-          .tag(AppTab.more)
-      }
+      tabs
       .tint(Theme.accent)
       // iOS 18+ cross-fades tab content. Keep switches immediate.
       .animation(nil, value: tab)
@@ -78,10 +53,10 @@ struct ContentView: View {
       .onReceive(NotificationCenter.default.publisher(for: .dinnerdeskAccountChanged)) { _ in
         Task { await store.switchAccount() }
       }
+      // Coming back while the app is still in memory keeps the tab and screen the person left.
+      // A fresh launch starts on Plan, since `tab` isn't saved anywhere.
       .onChange(of: scenePhase) { _, next in
-        if next == .background {
-          showTab(.plan)
-        } else if next == .active {
+        if next == .active {
           // Coming back to the app: refetch only data older than Freshness.window.
           Task { await store.loadAll(onlyIfStale: true) }
         }
@@ -89,6 +64,35 @@ struct ContentView: View {
     }
     // The Quick start tour, presented by AuthGate, shows FiltersView too.
     .environmentObject(store)
+  }
+
+  private var tabs: some View {
+    TabView(selection: Binding(get: { tab }, set: { showTab($0) })) {
+      PlanView()
+        .id(navigationIDs[.plan])
+        .tabItem { Label("Plan", systemImage: "calendar") }
+        .badge(mealsLeft)
+        .tag(AppTab.plan)
+      RecipesView()
+        .id(navigationIDs[.recipes])
+        .tabItem { Label("Recipes", systemImage: "book") }
+        .tag(AppTab.recipes)
+      GroceryView()
+        .id(navigationIDs[.grocery])
+        .tabItem { Label("Grocery", systemImage: "cart") }
+        .badge(itemsLeft)
+        .tag(AppTab.grocery)
+      if UIScreen.main.bounds.width >= 390 && !textSize.isAccessibilitySize {
+        NavigationStack { PrepView() }
+          .id(navigationIDs[.prep])
+          .tabItem { Label("Prep", systemImage: "list.bullet.clipboard") }
+          .tag(AppTab.prep)
+      }
+      MoreView()
+        .id(navigationIDs[.more])
+        .tabItem { Label("More", systemImage: "ellipsis.circle") }
+        .tag(AppTab.more)
+    }
   }
 
   /// Reset the destination before showing it, including when the current tab is tapped.
