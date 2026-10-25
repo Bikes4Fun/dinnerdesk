@@ -46,16 +46,10 @@ struct KitchenView: View {
           ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
         }
         NavigationLink {
-          MyRecipesView()
-        } label: {
-          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
-        }
-        NavigationLink {
           HiddenRecipesView()
         } label: {
           ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
         }
-        ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
       }
       .themeRows()
 
@@ -69,17 +63,6 @@ struct KitchenView: View {
       .themeRows()
 
       ThemeSection("General"){
-      // The − / + drops below the label when "Family portions" can't stay on one line.
-      ViewThatFits(in: .horizontal) {
-          HStack(spacing: 14) {
-            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
-            portionsStepper
-          }
-          VStack(alignment: .leading, spacing: 8) {
-            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
-            portionsStepper.padding(.leading, 40)
-          }
-        }
         NavigationLink {
           SubstitutionsView()
         } label: {
@@ -96,11 +79,11 @@ struct KitchenView: View {
       // The − / + drops below the label when "Family portions" can't stay on one line.
       ViewThatFits(in: .horizontal) {
           HStack(spacing: 14) {
-            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            ThemeIconRow(title: "Portions", systemImage: "person.2", value: "\(portions)")
             portionsStepper
           }
           VStack(alignment: .leading, spacing: 8) {
-            ThemeIconRow(title: "Family portions", systemImage: "person.2", value: "\(portions)")
+            ThemeIconRow(title: "Portions", systemImage: "person.2", value: "\(portions)")
             portionsStepper.padding(.leading, 40)
           }
         }

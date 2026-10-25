@@ -1137,7 +1137,7 @@ struct AccountView: View {
           }
           .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
         }
-      AccountRow(title: "Leave household", subtitle: "You'll start fresh in your own household. Shared plans stay here.", danger: true) {
+      AccountRow(title: "Leave household", subtitle: "Start fresh. Shared plans stay here.", danger: true) {
           confirmLeave = true
         }
         .disabled(busy)
@@ -1256,7 +1256,6 @@ struct AccountView: View {
           deletingAccount = true
         }
       }
-      Text("Each of these asks you to confirm first.")
         .font(Theme.subtitle).foregroundStyle(Theme.muted)
         .padding(EdgeInsets(top: 4, leading: 4, bottom: 0, trailing: 4))
     }
