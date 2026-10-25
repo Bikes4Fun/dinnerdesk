@@ -2054,3 +2054,91 @@ def test_admin_keeps_dev_notes_after_toggles(tmp_path):
         for toggle in ("favorite", "hidden", "try"):
             assert client.put(f"/api/recipes/1/{toggle}", json={"on": True}).json()["dev_notes"] == "note"
 
+
+
+def _guest_home(client) -> int:
+    client.get("/api/household")
+    with connect() as db:
+        return db.execute("SELECT household_id FROM guest_sessions").fetchone()["household_id"]
+
+
+def test_download_my_data_folds_old_taste_lab_filters_in(tmp_path, monkeypatch):
+    """#101: an allergy set only in old Taste Lab is in the file, even before Settings is opened."""
+    import app.taste_lab as taste_lab
+    lab = [{"account_id": "x", "profile": {"allergens": ["sesame"]}, "swipes": []}]
+    monkeypatch.setattr(taste_lab, "snapshots_for_accounts", lambda accounts: [dict(s) for s in lab])
+    with _client(tmp_path) as client:
+        data = client.get("/api/household/export").json()
+        assert data["household"]["prefs"]["filters"]["allergens"] == ["sesame"]
+        assert data["complete"] is True and data["missing"] == []
+
+
+def test_download_my_data_says_when_taste_lab_is_missing(tmp_path, monkeypatch):
+    import app.routes as routes
+    import app.taste_lab as taste_lab
+
+    def offline(accounts):
+        raise RuntimeError("taste lab offline")
+    monkeypatch.setattr(taste_lab, "snapshots_for_accounts", offline)
+    monkeypatch.setattr(routes, "snapshots_for_accounts", offline)
+    with _client(tmp_path) as client:
+        res = client.get("/api/household/export")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["complete"] is False
+        assert set(data["missing"]) == {"taste_lab", "taste_lab_filters"}
+        assert "plans" in data
+
+
+def test_guest_can_clear_ratings_and_prep_votes(tmp_path):
+    with _client(tmp_path) as client:
+        home = _guest_home(client)
+        with connect() as db:
+            db.execute("INSERT INTO household_meal_ratings (household_id, recipe_id, rating, updated_at) VALUES (?, 1, 1, 'now')", (home,))
+            db.execute("INSERT INTO prep_step_feedback (household_id, recipe_id, step_key, rating, updated_at) VALUES (?, 1, 'k', 1, 'now')", (home,))
+            db.commit()
+        assert client.post("/api/data/clear", json={"kinds": ["bogus"]}).status_code == 400
+        assert client.post("/api/data/clear", json={"kinds": ["meal_ratings"]}).status_code == 200
+        with connect() as db:
+            assert not db.execute("SELECT 1 FROM household_meal_ratings").fetchone()
+            assert db.execute("SELECT 1 FROM prep_step_feedback").fetchone()  # only what was chosen
+            assert db.execute("SELECT scope FROM anonymous_taste_history").fetchone()["scope"] == "household"
+        assert client.post("/api/data/clear", json={"kinds": ["prep_votes", "taste_lab"]}).status_code == 200
+        with connect() as db:
+            assert not db.execute("SELECT 1 FROM prep_step_feedback").fetchone()
+            assert db.execute("SELECT 1 FROM households WHERE id = ?", (home,)).fetchone()  # the kitchen stays
+
+
+def test_only_creator_or_admin_clears_household_votes(tmp_path):
+    with _client(tmp_path) as client:
+        owner = {"email": "own@example.com", "password": "ownerpassword"}
+        client.post("/api/auth/signup", json={**owner, "household_name": "Ours"})
+        token = client.post("/api/household/invites").json()["token"]
+        client.post("/api/auth/logout")
+        joined = client.post("/api/household/accept-invite",
+                             json={"token": token, "email": "mem@example.com", "password": "memberpassword"})
+        assert joined.status_code == 200
+        assert client.post("/api/data/clear", json={"kinds": ["meal_ratings"]}).status_code == 400
+        assert client.post("/api/data/clear", json={"kinds": ["taste_lab"]}).status_code == 200
+        client.post("/api/auth/logout")
+        client.post("/api/auth/login", json=owner)
+        assert client.post("/api/data/clear", json={"kinds": ["meal_ratings"]}).status_code == 200
+
+
+def test_guest_can_delete_their_kitchen_from_the_server(tmp_path):
+    with _client(tmp_path) as client:
+        home = _guest_home(client)
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["olives"]}}})
+        assert client.post("/api/guest/delete-kitchen").status_code == 200
+        with connect() as db:
+            assert not db.execute("SELECT 1 FROM households WHERE id = ?", (home,)).fetchone()
+            assert not db.execute("SELECT 1 FROM guest_sessions").fetchone()
+        client.cookies.clear()
+        assert "olives" not in json.dumps(client.get("/api/household").json())
+
+
+def test_signed_in_user_cant_use_guest_delete(tmp_path):
+    with _client(tmp_path) as client:
+        client.post("/api/auth/signup", json={"email": "acct@example.com", "password": "accountpassword"})
+        assert client.post("/api/guest/delete-kitchen").status_code == 400
+        assert client.get("/api/auth/me").status_code == 200

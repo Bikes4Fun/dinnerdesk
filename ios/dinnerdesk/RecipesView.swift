@@ -61,25 +61,16 @@ struct RecipesView: View {
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        HStack {
-          Text("Recipes").font(Theme.bigTitle)
-          Spacer()
-          Button {
+        TabHeader("Recipes") {
+          TabHeaderButton("Search Recipes", systemImage: "magnifyingglass") {
             searchOpen.toggle()
             if !searchOpen {
               query = ""
               searchTask?.cancel()
               Task { await store.searchRecipes("") }
             }
-          } label: {
-            Image(systemName: "magnifyingglass")
-              .font(.title3)
           }
-          .accessibilityLabel("Search Recipes")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Theme.bg)
         if searchOpen {
           TextField(store.recipeTotal.map { "Search \($0) recipes or ingredients" } ?? "Search recipes or ingredients", text: $query)
             .textFieldStyle(.plain)

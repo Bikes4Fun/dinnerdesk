@@ -1,4 +1,99 @@
+import { useEffect, useState } from "react";
+import { api } from "../api.js";
 import { go } from "../nav.js";
+
+const CLEARABLE = [
+  ["taste_lab", "Taste Lab history", "Your likes and passes in Taste Lab. Your filters stay in Settings."],
+  ["meal_ratings", "Meal ratings", "Thumbs up or down on planned meals, for the whole household."],
+  ["prep_votes", "Prep votes", "Thumbs up or down on prep steps, and steps you added, for the whole household."],
+];
+
+/** "Download my data", plus clearing parts of it (#101). */
+function YourData() {
+  const [signedIn, setSignedIn] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  const [err, setErr] = useState("");
+  const [partial, setPartial] = useState(false);
+
+  useEffect(() => {
+    api.auth.status().then((s) => setSignedIn(s.authenticated)).catch(() => setSignedIn(false));
+  }, []);
+
+  async function run(work) {
+    setErr("");
+    setNote("");
+    setBusy(true);
+    try {
+      await work();
+    } catch (e) {
+      setErr((e.body && e.body.message) || e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const download = () => run(async () => {
+    const data = await api.exportData();
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `dinnerdesk-data-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setPartial(data.complete === false);
+  });
+
+  const clear = (kind, label) => {
+    if (!window.confirm(`Clear your ${label.toLowerCase()}? This can’t be undone.`)) return;
+    run(async () => {
+      await api.clearData([kind]);
+      setNote(`${label} cleared.`);
+    });
+  };
+
+  const deleteKitchen = () => {
+    if (!window.confirm("Delete this kitchen from our server? Plans, pantry, grocery lists, ratings and Taste Lab answers are removed. It can’t be undone.")) return;
+    run(async () => {
+      await api.deleteGuestKitchen();
+      window.location.assign("/");
+    });
+  };
+
+  return (
+    <>
+      <h2>Your data</h2>
+      <p>
+        Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings,
+        prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.
+      </p>
+      <p><button type="button" className="btn-secondary" disabled={busy} onClick={download}>Download my data</button></p>
+      {partial && (
+        <p className="banner err" role="alert">
+          Taste Lab was unavailable, so this file is missing your Taste Lab answers.{" "}
+          <button type="button" className="text-link" disabled={busy} onClick={download}>Try again</button>
+        </p>
+      )}
+
+      <h2>Clear part of your data</h2>
+      <p>Clear one kind of data and keep the rest of your kitchen and your account. Only the household creator or an admin can clear the household’s ratings and prep votes.</p>
+      {CLEARABLE.map(([kind, label, about]) => (
+        <p key={kind}>
+          <button type="button" className="btn-secondary danger" disabled={busy} onClick={() => clear(kind, label)}>Clear {label.toLowerCase()}</button>
+          <br /><span className="help">{about}</span>
+        </p>
+      ))}
+      {signedIn === false && (
+        <p>
+          <button type="button" className="btn-secondary danger" disabled={busy} onClick={deleteKitchen}>Delete this kitchen</button>
+          <br /><span className="help">Removes this guest kitchen from our server, not just from this browser.</span>
+        </p>
+      )}
+      {note && <p className="banner ok" role="status">{note}</p>}
+      {err && <p className="banner err" role="alert">{err}</p>}
+    </>
+  );
+}
 
 export function Privacy() {
   return (
@@ -13,12 +108,7 @@ export function Privacy() {
       <div className="scroll pad privacy">
         <p>Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it.</p>
 
-        <h2>Your data</h2>
-        <p>
-          Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings,
-          prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.
-        </p>
-        <p><a className="btn-secondary" href="/api/household/export" download>Download my data</a></p>
+        <YourData />
 
         <h2>Account</h2>
         <p>
@@ -58,7 +148,7 @@ export function Privacy() {
 
         <h2>Without an account</h2>
         <p>
-          Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it.
+          Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it, or delete the kitchen from our server under Your data.
         </p>
 
         <h2>What we don’t collect</h2>
@@ -74,7 +164,7 @@ export function Privacy() {
 
         <h2>Deleting data</h2>
         <p>
-          Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
+          Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history. The same is true when you clear Taste Lab history or meal ratings.
         </p>
 
         <h2>Questions</h2>
