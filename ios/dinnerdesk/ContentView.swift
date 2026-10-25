@@ -59,7 +59,7 @@ struct ContentView: View {
         }
         MoreView()
           .id(navigationIDs[.more])
-          .tabItem {(systemImage: "ellipsis.circle") }
+          .tabItem { Label("More", systemImage: "ellipsis.circle") }
           .tag(AppTab.more)
       }
       .tint(Theme.accent)
