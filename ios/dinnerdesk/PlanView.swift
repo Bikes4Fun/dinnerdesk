@@ -150,9 +150,6 @@ struct PlanView: View {
           MenuSheetItem.newMealPlan {
             Task { await store.openSuggestions() }
           },
-          MenuSheetItem(title: "Fill in this plan", systemImage: "plus.circle") {
-            Task { await store.openSuggestions(keepCurrent: true) }
-          },
           MenuSheetItem(title: editing ? "Finish editing" : "Edit plan", systemImage: editing ? "checkmark.circle" : "pencil") {
             setEditing(!editing)
           },

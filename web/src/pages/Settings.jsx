@@ -106,11 +106,6 @@ export function Settings() {
           </p>
         ) : null}
         <label className="block-label">About recipes &amp; photos</label>
-        <Tip id="settings.gold-star">
-          A gold ★ means we (Dinnerdesk) have reviewed and tested the recipe. Only we
-          can add that mark. It’s there so you can see which recipes we definitively trust. Other
-          recipes still come from trusted sources; their photos are public-use or AI-generated. Real photos are updated as we test recipes.
-        </Tip>
       </div>
     </section>
   );
