@@ -44,8 +44,7 @@ struct MoreView: View {
       }
       .themeList()
       .tint(Theme.accent)
-      .navigationTitle("More")
-      .largeNavigationTitle()
+      .safeAreaInset(edge: .top, spacing: 0) { TabHeader("More") }
       .task { isBeta = await FeedbackTipView.isBeta() }
     }
   }

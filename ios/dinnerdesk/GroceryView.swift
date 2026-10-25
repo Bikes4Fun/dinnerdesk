@@ -19,30 +19,10 @@ struct GroceryView: View {
   var body: some View {
     NavigationStack {
       VStack(spacing: 0) {
-        HStack {
-            Text("Grocery")
-                .font(Theme.bigTitle)
-
-            Spacer()
-            
-            Button {
-              sharing = true
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-            }
-            
-            Button {
-                menu = true
-            } label: {
-                Image(systemName: "ellipsis")
-                    .fontWeight(.semibold)
-            }
-            .tint(Theme.accent)
-            .accessibilityLabel("Grocery List Settings")
+        TabHeader("Grocery") {
+          TabHeaderButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
+          TabHeaderButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Theme.bg)
 
         List {
           if let err = store.error {
