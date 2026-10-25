@@ -65,7 +65,7 @@ struct SettingsView: View {
       .themeRows()
     }
     .themeList()
-    .navigationTitle("Settings")
+    // .navigationTitle("Settings")
     .largeNavigationTitle()
   }
 }
