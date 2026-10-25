@@ -1,6 +1,6 @@
 # Dinnerdesk for Android
 
-Issue [#112](https://github.com/Bikes4Fun/dinnerdesk/issues/112), branch `issue-112-android-google-play`.
+This Android app is a native Kotlin/Jetpack Compose port of the iOS app (`ios/dinnerdesk`): the same tabs (Plan, Recipes, Grocery, Prep, More), screens, theme, fonts, server API calls and on-device cache. Taste Lab is a web view, as on iOS. Shared words come from `ios/dinnerdesk/copy.json`, bundled at build time. The app uses the system photo picker and document picker and requests no storage, camera, location, or microphone permissions. External links open in the user's browser or matching app.
 
 This Android app presents Dinnerdesk's mobile website in a restricted WebView. The server supplies meal planning, groceries, prep, preferences, and recipe editing, so web changes reach both platforms. Native Android code provides back navigation, keyboard/system-bar insets, connection recovery, a system photo picker, a native grocery share sheet, and an authenticated JSON data export saved through the system document picker. It does not request storage, camera, location, or microphone permissions. External links open in the user's browser or matching app. Only the Dinnerdesk HTTPS origin stays inside the app.
 
