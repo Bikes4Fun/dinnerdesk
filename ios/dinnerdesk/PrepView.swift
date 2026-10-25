@@ -99,8 +99,7 @@ struct PrepView: View {
       do { try await Task.sleep(for: .seconds(4)) } catch { return }
       if toast == id { toast = nil }
     }
-    .navigationTitle("Weekend prep")
-    .largeNavigationTitle()
+    .safeAreaInset(edge: .top, spacing: 0) { TabHeader("Weekend prep") }
     .sheet(isPresented: $missingOpen) { MissingPrepSheet() }
     .refreshable { await store.loadPrep() }
     .task { await store.loadPrep(onlyIfStale: true) }

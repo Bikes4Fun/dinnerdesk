@@ -2303,7 +2303,16 @@ def _rows(cursor) -> list[dict]:
 
 @router.get("/household/export")
 def export_household(request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
-    """Everything stored for this household, as one JSON file to download (#64)."""
+    """Everything stored for this household, as one JSON file to download (#64).
+
+    When Taste Lab's store is offline the rest still downloads, marked `complete: false` with
+    what's missing, so the app can say so and offer a retry (#101)."""
+    missing: list[str] = []
+    try:
+        household_filters(db, household_id)  # Fold old Taste Lab filters in, so the file has them.
+    except Exception:
+        _log.exception("Export couldn't fold Taste Lab filters for household %s", household_id)
+        missing.append("taste_lab_filters")
     home = db.execute("SELECT name, prefs_json, created_at FROM households WHERE id = ?", (household_id,)).fetchone()
     if not home:
         raise HTTPException(404, {"error": "not_found", "detail": "household"})
@@ -2346,7 +2355,11 @@ def export_household(request: Request, db: PgConnection = DbDep, household_id: i
     try:
         data["taste_lab"] = snapshots_for_accounts([*accounts, f"guest:{household_id}"])
     except Exception:  # Taste Lab's own store can be offline; the rest of the export still works.
+        _log.exception("Export couldn't read Taste Lab for household %s", household_id)
         data["taste_lab"] = "unavailable right now"
+        missing.append("taste_lab")
+    data["complete"] = not missing
+    data["missing"] = missing
     return JSONResponse(
         data, headers={"Content-Disposition": f'attachment; filename="dinnerdesk-data-{date.today().isoformat()}.json"'})
 

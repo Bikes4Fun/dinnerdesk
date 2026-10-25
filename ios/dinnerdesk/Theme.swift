@@ -24,6 +24,7 @@ enum Theme {
 
   static let ink = Color(red: 74 / 255, green: 22 / 255, blue: 70 / 255)  // #4A1646 Aubergine: Titles, main buttons, active tabs
   static let muted = Color(red: 122 / 255, green: 106 / 255, blue: 118 / 255)  // #7A6A76 Subtitles, counts
+  static let pageTitle = Color.black  // Tab titles (TabHeader)
 
   static let accent = Color(red: 194 / 255, green: 70 / 255, blue: 42 / 255)  // #C2462A Deep Coral: Text links (+ Add a meal, Edit)
 
@@ -236,6 +237,62 @@ struct ThemeHeader: View {
 }
 
 /// Grey outline icon, bold label, optional grey value on the right.
+/// The title row pinned at the top of every tab (Plan, Recipes, Grocery, Prep, More). Font,
+/// color, spacing and button sizing live only here, so tabs can't drift apart; a tab passes its
+/// title and buttons and never styles them. tests/test_ios_tab_headers.py enforces this.
+struct TabHeader<Actions: View>: View {
+  let title: String
+  let actions: Actions
+
+  init(_ title: String, @ViewBuilder actions: () -> Actions) {
+    self.title = title
+    self.actions = actions()
+  }
+
+  var body: some View {
+    HStack(spacing: 4) {
+      Text(title)
+        .font(Theme.bigTitle)
+        .foregroundStyle(Theme.pageTitle)
+        .accessibilityAddTraits(.isHeader)
+      Spacer(minLength: 8)
+      actions
+        .font(.title3)
+        .tint(Theme.accent)
+    }
+    .padding(.horizontal, 16)
+    .padding(.vertical, 12)
+    .background(Theme.bg)
+  }
+}
+
+extension TabHeader where Actions == EmptyView {
+  init(_ title: String) {
+    self.init(title) { EmptyView() }
+  }
+}
+
+/// An icon button in a TabHeader, at the standard 44-point tap size.
+struct TabHeaderButton: View {
+  let systemImage: String
+  let label: String
+  let action: () -> Void
+
+  init(_ label: String, systemImage: String, action: @escaping () -> Void) {
+    self.label = label
+    self.systemImage = systemImage
+    self.action = action
+  }
+
+  var body: some View {
+    Button(action: action) {
+      Image(systemName: systemImage)
+        .frame(minWidth: 44, minHeight: 44)
+    }
+    .accessibilityLabel(label)
+  }
+}
+
 struct ThemeIconRow: View {
   let title: String
   let systemImage: String

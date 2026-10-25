@@ -22,35 +22,6 @@ struct PlanView: View {
       ScrollView {
         // Tighter than 16 so a default-size 4-meal plan fits on iPhone 16 without scrolling.
         VStack(alignment: .leading, spacing: 12) {
-
-          // New inline custom header replacing the native toolbar
-          HStack {
-            Text(store.plan?.title ?? "This week")
-              .font(Theme.bigTitle)
-
-            Spacer()
-
-            // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
-            if editing {
-              Button("Done") { setEditing(false) }
-                .font(Theme.action)
-                .foregroundStyle(Theme.accent)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Done editing plan")
-            } 
-            
-            Button {
-              menu = true
-            } label: {
-              Image(systemName: "ellipsis")
-                .font(.title3)
-                .frame(minWidth: 44, minHeight: 44)
-            }
-            .accessibilityLabel("Plan menu")
-          }
-          .padding(.bottom, 4)
-
           if let error = store.error {
             ErrorBanner(message: error)
             if error.localizedCaseInsensitiveContains("filter") {
@@ -157,6 +128,19 @@ struct PlanView: View {
         .padding()
       }
       .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
+      .safeAreaInset(edge: .top, spacing: 0) {
+        TabHeader(store.plan?.title ?? "This week") {
+          // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
+          if editing {
+            Button("Done") { setEditing(false) }
+              .font(Theme.action)
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+              .accessibilityLabel("Done editing plan")
+          }
+          TabHeaderButton("Plan menu", systemImage: "ellipsis") { menu = true }
+        }
+      }
       .background(Theme.bg)
       .navigationBarTitleDisplayMode(.inline)
       .tint(Theme.accent)
