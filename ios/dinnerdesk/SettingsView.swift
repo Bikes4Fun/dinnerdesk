@@ -1104,7 +1104,7 @@ struct AccountView: View {
             memberRow(member)
           }
           if alone {
-            Text("Share meal plans and the grocery list with the people you cook with.")
+            Text("Share meal plans, grocery lists, and preferences.")
               .font(AccountFont.sub).foregroundStyle(Theme.muted)
               .fixedSize(horizontal: false, vertical: true)
               .padding(EdgeInsets(top: 6, leading: 16, bottom: 0, trailing: 16))
