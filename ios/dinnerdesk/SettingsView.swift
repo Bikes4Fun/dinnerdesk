@@ -1036,7 +1036,7 @@ struct AccountView: View {
         HStack {
           AccountRow(title: "Sign out")
             { Task { await session.signOut() } }
-          Divider()
+          AccountDivider()
           AccountRow(title: "Sign out of all devices")
             { confirmEverywhere = true }
         }
