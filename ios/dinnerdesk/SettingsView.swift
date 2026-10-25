@@ -1915,14 +1915,28 @@ private struct FeedbackView: View {
 }
 
 private struct PrivacyView: View {
+  @EnvironmentObject private var session: Session
   @State private var exportFile: URL?
   @State private var exporting = false
   @State private var exportError: String?
+  @State private var exportPartial = false
+  @State private var clearing: (kind: String, label: String)?
+  @State private var confirmDeleteKitchen = false
+  @State private var dataBusy = false
+  @State private var dataNote: String?
+  @State private var dataError: String?
+
+  private static let clearable = [
+    ("taste_lab", "Taste Lab history", "Your likes and passes in Taste Lab. Your filters stay in Settings."),
+    ("meal_ratings", "Meal ratings", "Thumbs up or down on planned meals, for the whole household."),
+    ("prep_votes", "Prep votes", "Thumbs up or down on prep steps, and steps you added, for the whole household."),
+  ]
 
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
         yourData
+        clearData
         Text(
           "Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it."
         )
@@ -1947,7 +1961,7 @@ private struct PrivacyView: View {
         section(
           "Without an account",
           """
-          Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it.
+          Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it, or delete the kitchen from our server at the top of this page.
           """)
         section(
           "What we don’t collect",
@@ -1959,7 +1973,7 @@ private struct PrivacyView: View {
         section(
           "Deleting data",
           """
-          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history.
+          Download a copy of your data at the top of this page. Delete your account from Account & security after confirming your password. Your sign-ins, reset links and confirm links are removed. If other members remain, a household creator must transfer ownership before deleting their account. The last member’s deletion also removes their solo kitchen. The household creator or a designated household admin can separately delete a household: its kitchen and plans are removed, but members keep their accounts and receive empty solo households. Leaving or being removed from a household also preserves your account. Meal votes may be retained without account, household, browser, or session identifiers, grouped as individual history or household history. The same is true when you clear Taste Lab history or meal ratings.
           """)
       }
       .font(Theme.body)
@@ -1970,6 +1984,77 @@ private struct PrivacyView: View {
     .background(Theme.bg)
     .navigationTitle("Privacy")
     .navigationBarTitleDisplayMode(.inline)
+    .confirmationDialog(
+      "Clear your \(clearing?.label.lowercased() ?? "data")? This can’t be undone.",
+      isPresented: Binding(get: { clearing != nil }, set: { if !$0 { clearing = nil } }),
+      titleVisibility: .visible
+    ) {
+      Button("Clear", role: .destructive) {
+        if let clearing { Task { await clear(clearing.kind, clearing.label) } }
+      }
+    }
+    .confirmationDialog(
+      "Delete this kitchen from our server? Plans, pantry, grocery lists, ratings and Taste Lab answers are removed. It can’t be undone.",
+      isPresented: $confirmDeleteKitchen, titleVisibility: .visible
+    ) {
+      Button("Delete this kitchen", role: .destructive) { Task { await deleteKitchen() } }
+    }
+  }
+
+  /// Clear one kind of data and keep the rest (#101).
+  private var clearData: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Text("Clear part of your data").font(Theme.title)
+      Text("Clear one kind of data and keep the rest of your kitchen and your account. Only the household creator or an admin can clear the household’s ratings and prep votes.")
+        .foregroundStyle(Theme.muted)
+      ForEach(Self.clearable, id: \.0) { item in
+        VStack(alignment: .leading, spacing: 2) {
+          Button("Clear \(item.1.lowercased())") { clearing = (item.0, item.1) }
+            .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+            .disabled(dataBusy)
+          Text(item.2).font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
+      }
+      if session.status?.authenticated == false {
+        VStack(alignment: .leading, spacing: 2) {
+          Button("Delete this kitchen") { confirmDeleteKitchen = true }
+            .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+            .disabled(dataBusy)
+          Text("Removes this guest kitchen from our server, not just from this device.")
+            .font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
+      }
+      if let dataNote { Text(dataNote).font(Theme.subtitle).foregroundStyle(Theme.muted) }
+      if let dataError { Text(dataError).font(Theme.subtitle).foregroundStyle(Theme.accent) }
+    }
+    .padding(.bottom, 8)
+  }
+
+  private func clear(_ kind: String, _ label: String) async {
+    dataBusy = true
+    dataNote = nil
+    dataError = nil
+    defer { dataBusy = false }
+    do {
+      let _: Ok = try await API.send("data/clear", method: "POST", body: ["kinds": [kind]])
+      ResponseCache.clear()
+      dataNote = "\(label) cleared."
+    } catch {
+      dataError = KitchenAPI.message(error)
+    }
+  }
+
+  private func deleteKitchen() async {
+    dataBusy = true
+    dataError = nil
+    defer { dataBusy = false }
+    do {
+      let _: Ok = try await API.send("guest/delete-kitchen", method: "POST")
+      ResponseCache.clear()
+      await session.accountDeleted()
+    } catch {
+      dataError = KitchenAPI.message(error)
+    }
   }
 
   /// "Download my data" (#64): everything stored for this household as one JSON file.
@@ -1995,6 +2080,13 @@ private struct PrivacyView: View {
         }
         .disabled(exporting)
       }
+      if exportPartial {
+        Text("Taste Lab was unavailable, so this file is missing your Taste Lab answers.")
+          .font(Theme.subtitle).foregroundStyle(Theme.accent)
+        Button("Try again") { Task { await download() } }
+          .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
+          .disabled(exporting)
+      }
       if let exportError { Text(exportError).font(Theme.subtitle).foregroundStyle(Theme.accent) }
     }
     .padding(.bottom, 8)
@@ -2010,6 +2102,8 @@ private struct PrivacyView: View {
       let file = FileManager.default.temporaryDirectory.appendingPathComponent("dinnerdesk-data-\(day).json")
       try data.write(to: file, options: .atomic)
       exportFile = file
+      let summary = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+      exportPartial = summary?["complete"] as? Bool == false
     } catch {
       exportError = "Couldn’t prepare your data. Please try again."
     }

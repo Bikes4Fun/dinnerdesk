@@ -188,6 +188,9 @@ export const api = {
     useUsername: (body) =>
       req("/api/auth/use-username", { method: "POST", body: JSON.stringify(body) }),
   },
+  exportData: () => req("/api/household/export"),
+  clearData: (kinds) => req("/api/data/clear", { method: "POST", body: JSON.stringify({ kinds }) }),
+  deleteGuestKitchen: () => req("/api/guest/delete-kitchen", { method: "POST" }),
   householdMembers: () => req("/api/household/members"),
   removeHouseholdMember: (userId) =>
     req(`/api/household/members/${userId}`, { method: "DELETE" }),
