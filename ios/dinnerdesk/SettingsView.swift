@@ -906,9 +906,9 @@ struct AccountView: View {
             .fixedSize(horizontal: false, vertical: true)
             Button("Sign in or create account") { signingIn = true }
               .font(Theme.mealName)
+            privacySection
           }
         }
-        privacySection
       }
       .padding(EdgeInsets(top: 20, leading: 16, bottom: 40, trailing: 16))
     }
@@ -974,7 +974,8 @@ struct AccountView: View {
           Spacer(minLength: 0)
         }
         .padding(16)
-        if let nudge = session.status?.emailNudge {
+        // No email at all: the tinted "Add a recovery email" row carries the warning instead.
+        if let nudge = session.status?.emailNudge, resetTo != nil {
           AccountDivider()
           Text(nudge + (resetTo == nil ? " Add a recovery email below." : " Send a confirm link, or change it below if it has a typo."))
             .font(AccountFont.sub).foregroundStyle(Theme.ink)
@@ -993,11 +994,13 @@ struct AccountView: View {
         AccountDivider()
         AccountRow(
           title: hasEmail ? "Change or remove email" : recovery != nil ? "Change or remove recovery email" : "Add a recovery email",
-          subtitle: hasEmail ? "Fix a typo, or sign in with a username instead" : "Reset your password and sign in with it",
+          subtitle: hasEmail ? "Fix a typo, or sign in with a username instead"
+            : resetTo == nil ? "Without one, a forgotten password can't be reset" : "Reset your password and sign in with it",
           chevron: true, open: editingEmail
         ) {
           if editingEmail { closeEmailPane() } else { editingEmail = true }
         }
+        .background(resetTo == nil ? Theme.aubergineTint : .clear)
         if editingEmail {
           VStack(alignment: .leading, spacing: 10) {
             TextField(hasEmail ? "New email, or a username to remove your email" : "Recovery email", text: $newLogin)
@@ -1031,7 +1034,8 @@ struct AccountView: View {
           }
           .disabled(busy)
         }
-        
+        AccountDivider()
+        privacyRow
         AccountDivider()
         HStack(spacing: 0) {
           Button { Task { await session.signOut() } } label: {
@@ -1058,28 +1062,30 @@ struct AccountView: View {
   }
 
   private var privacySection: some View {
-    AccountCard {
-      NavigationLink {
-        PrivacyView()
-      } label: {
-        HStack(spacing: 12) {
-          Text("Privacy")
-            .font(AccountFont.title)
-            .foregroundStyle(Theme.ink)
-          Spacer(minLength: 0)
-          Image(systemName: "chevron.right")
-            .font(.system(size: 14, weight: .semibold))
-            .foregroundStyle(Theme.muted)
-            .accessibilityHidden(true)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minHeight: 56)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
+    AccountCard { privacyRow }
+  }
+
+  private var privacyRow: some View {
+    NavigationLink {
+      PrivacyView()
+    } label: {
+      HStack(spacing: 12) {
+        Text("Privacy")
+          .font(AccountFont.title)
+          .foregroundStyle(Theme.ink)
+        Spacer(minLength: 0)
+        Image(systemName: "chevron.right")
+          .font(.system(size: 14, weight: .semibold))
+          .foregroundStyle(Theme.muted)
+          .accessibilityHidden(true)
       }
-      .buttonStyle(.plain)
+      .padding(.horizontal, 16)
+      .padding(.vertical, 12)
+      .frame(minHeight: 56)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
   }
 
   /// Name as a tappable heading, members, one Invite button. Leave/delete stay quiet below the card.
