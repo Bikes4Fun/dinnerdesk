@@ -1032,14 +1032,27 @@ struct AccountView: View {
           }
           .disabled(busy)
         }
+        
         AccountDivider()
-        HStack {
-          AccountRow(title: "Sign out")
-            { Task { await session.signOut() } }
-          AccountDivider()
-          AccountRow(title: "Sign out of all devices")
-            { confirmEverywhere = true }
+        HStack(spacing: 0) {
+          Button { Task { await session.signOut() } } label: {
+            Text("Sign out")
+              .frame(maxWidth: .infinity, minHeight: 56)
+              .contentShape(Rectangle())
+          }
+          Rectangle().fill(Theme.line).frame(width: 1)
+          Button { confirmEverywhere = true } label: {
+            Text("Sign out everywhere")
+              .frame(maxWidth: .infinity, minHeight: 56)
+              .contentShape(Rectangle())
+          }
         }
+        .font(AccountFont.title)
+        .foregroundStyle(Theme.ink)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .buttonStyle(.plain)
+        .fixedSize(horizontal: false, vertical: true)
 
       }
     }
