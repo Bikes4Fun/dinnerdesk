@@ -849,7 +849,6 @@ struct AccountView: View {
   @State private var deletingAccount = false
   @State private var joinToken = ""
   @State private var homePassword = ""
-  @State private var confirmLeave = false
   @State private var confirmJoin = false
   @State private var deletingHome = false
   @State private var successor: HouseholdMember?
@@ -861,6 +860,8 @@ struct AccountView: View {
   @State private var openMember: Int?
   @State private var joining = false
   @State private var savedName = ""
+  @State private var editingName = false
+  @State private var confirmLeaveOrDelete = false
   @State private var busy = false
   @State private var message: String?
   @State private var error: String?
@@ -921,9 +922,6 @@ struct AccountView: View {
       AuthView(isSheet: true)
         .environmentObject(session)
     }
-    .confirmationDialog("Leave this household and start an empty solo household?", isPresented: $confirmLeave, titleVisibility: .visible) {
-      Button("Leave household", role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
-    }
     .confirmationDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", isPresented: $confirmJoin, titleVisibility: .visible) {
       Button("Join household") { Task { await householdAction { try await KitchenAPI.joinHousehold(joinToken.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/").last.map(String.init) ?? "") } } }
     }
@@ -947,8 +945,7 @@ struct AccountView: View {
     ) {
       Button("Remove recovery email", role: .destructive) { Task { await removeRecoveryEmail() } }
     }
-    .confirmationDialog(
-      "Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
+    .confirmationDialog("Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
     ) {
       Button("Sign out everywhere", role: .destructive) { Task { await signOutEverywhere() } }
     }
@@ -1073,118 +1070,148 @@ struct AccountView: View {
     }
   }
 
+  /// Name as a tappable heading, members, one Invite button. Leave/delete stay quiet below the card.
   private var householdSection: some View {
-    AccountGroup("Household") {
+    let alone = otherMembers.isEmpty
+    return AccountGroup("Household") {
       AccountCard {
-        VStack(alignment: .leading, spacing: 6) {
-          Text("Household name").font(AccountFont.label).foregroundStyle(Theme.muted)
-          HStack(spacing: 8) {
-            TextField("Household name", text: $householdName)
-              .textContentType(.organizationName)
-              .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
-              .onSubmit { Task { await saveHouseholdName() } }
-              .accountField()
-            if nameDirty {
-              Button("Save") { Task { await saveHouseholdName() } }
-                .font(AccountFont.button)
-                .foregroundStyle(Theme.surface)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 46)
-                .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .buttonStyle(.plain)
-                .disabled(busy)
-            }
+        VStack(alignment: .leading, spacing: 0) {
+          householdNameHeader
+          if !alone {
+            Text("\(members.count) people")
+              .font(AccountFont.label).foregroundStyle(Theme.muted)
+              .padding(EdgeInsets(top: 4, leading: 16, bottom: 2, trailing: 16))
           }
-        }
-        .padding(EdgeInsets(top: 14, leading: 16, bottom: 16, trailing: 16))
-        AccountDivider()
-        HStack(alignment: .firstTextBaseline) {
-          Text("Members").font(AccountFont.label)
-          Spacer()
-          Text("\(members.count)").font(AccountFont.sub)
-        }
-        .foregroundStyle(Theme.muted)
-        .padding(EdgeInsets(top: 12, leading: 16, bottom: 6, trailing: 16))
-        ForEach(Array(sortedMembers.enumerated()), id: \.element.id) { index, member in
-          if index > 0 { AccountDivider() }
-          memberRow(member)
-        }
-        AccountDivider()
-        Button { Task { await invite() } } label: {
-          HStack(spacing: 12) {
-            Image(systemName: "plus")
-              .font(.system(size: 14, weight: .bold))
-              .foregroundStyle(Theme.accent)
-              .frame(width: 36, height: 36)
-              .overlay(Circle().strokeBorder(Theme.accent, style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
-              .accessibilityHidden(true)
-            Text("Invite someone").font(AccountFont.strong).foregroundStyle(Theme.accent)
-            Spacer(minLength: 0)
+          ForEach(sortedMembers) { member in
+            memberRow(member)
           }
-          .padding(.horizontal, 16)
-          .padding(.vertical, 10)
-          .frame(minHeight: 56)
-          .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .disabled(busy)
-        if let inviteURL {
-          VStack(alignment: .leading, spacing: 8) {
-            StarTip(id: "settings.invite-link")
-            ShareLink(item: inviteURL) {
-              Label("Share invite link", systemImage: "square.and.arrow.up").font(AccountFont.strong)
-            }
+          if alone {
+            Text("Share meal plans and the grocery list with the people you cook with.")
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+              .padding(EdgeInsets(top: 6, leading: 16, bottom: 0, trailing: 16))
           }
-          .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
-        }
-      AccountRow(title: "Leave household", subtitle: "Start fresh. Shared plans stay here.", danger: true) {
-          confirmLeave = true
-        }
-        .disabled(busy)
-        if canManage {
-          AccountDivider()
-          AccountRow(title: "Delete household", subtitle: "Removes plans and kitchen data for every member.", danger: true) {
-            withAnimation { deletingHome.toggle() }
-          }
-          if deletingHome {
-            VStack(alignment: .leading, spacing: 8) {
-              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.")
-                .font(AccountFont.sub).foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-              SecureField("Your password", text: $homePassword)
-                .textContentType(.password)
-                .accountField()
-              Button("Confirm household deletion", role: .destructive) {
-                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
-              }
+          Button { Task { await invite() } } label: {
+            Label("Invite someone", systemImage: "plus")
               .font(AccountFont.strong)
-              .foregroundStyle(Theme.danger)
-              .disabled(busy || homePassword.isEmpty)
+              .foregroundStyle(Theme.surface)
+              .frame(maxWidth: .infinity, minHeight: 48)
+              .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+          }
+          .buttonStyle(.plain)
+          .disabled(busy)
+          .padding(EdgeInsets(top: 14, leading: 16, bottom: 0, trailing: 16))
+          if let inviteURL {
+            VStack(alignment: .leading, spacing: 8) {
+              StarTip(id: "settings.invite-link")
+              ShareLink(item: inviteURL) {
+                Label("Share invite link", systemImage: "square.and.arrow.up").font(AccountFont.strong)
+              }
             }
-            .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
+            .padding(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
+          }
+          Button(alone ? "Have an invite code? Join a household" : "Join a different household") {
+            withAnimation { joining.toggle() }
+          }
+          .font(AccountFont.label)
+          .foregroundStyle(Theme.accent)
+          .frame(maxWidth: .infinity, minHeight: 44)
+          .padding(.top, 6)
+          if joining {
+            VStack(alignment: .leading, spacing: 8) {
+              TextField("Invite link or token", text: $joinToken)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .accountField()
+              Button("Join household") { confirmJoin = true }
+                .font(AccountFont.strong)
+                .disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            .padding(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
           }
         }
-      
+        .padding(.bottom, 10)
       }
 
-      AccountCard {
-        AccountRow(title: "Join a different household", subtitle: "Have an invite link or code?", chevron: true, open: joining) {
-          withAnimation { joining.toggle() }
+      // Solo: just Delete (leaving would only make another solo kitchen). Shared: Leave or delete behind one link.
+      if alone ? canManage : true {
+        Button(alone ? "Delete household" : canManage ? "Leave or delete household…" : "Leave household…") {
+          if alone { withAnimation { deletingHome.toggle() } } else { confirmLeaveOrDelete = true }
         }
-        if joining {
+        .font(AccountFont.sub)
+        .foregroundStyle(Theme.muted)
+        .frame(maxWidth: .infinity, minHeight: 44)
+        .padding(.top, 8)
+        .disabled(busy)
+      }
+      if deletingHome {
+        AccountCard {
           VStack(alignment: .leading, spacing: 8) {
-            TextField("Invite link or token", text: $joinToken)
-              .textInputAutocapitalization(.never)
-              .autocorrectionDisabled()
+            Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.")
+              .font(AccountFont.sub).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+            SecureField("Your password", text: $homePassword)
+              .textContentType(.password)
               .accountField()
-            Button("Join household") { confirmJoin = true }
-              .font(AccountFont.strong)
-              .disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Button("Confirm household deletion", role: .destructive) {
+              Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
+            }
+            .font(AccountFont.strong)
+            .foregroundStyle(Theme.danger)
+            .disabled(busy || homePassword.isEmpty)
           }
-          .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
+          .padding(16)
         }
       }
-      .padding(.top, 4)
+    }
+    .confirmationDialog("Leave or delete this household?", isPresented: $confirmLeaveOrDelete, titleVisibility: .visible) {
+      Button("Leave household", role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
+      if canManage {
+        Button("Delete household for everyone", role: .destructive) { withAnimation { deletingHome = true } }
+      }
+    } message: {
+      Text("Leaving starts you an empty solo household; shared plans stay here.")
+    }
+  }
+
+  /// The household name as a heading; the pencil (or tapping the name) turns it into a field.
+  @ViewBuilder private var householdNameHeader: some View {
+    if editingName {
+      HStack(spacing: 8) {
+        TextField("Household name", text: $householdName)
+          .textContentType(.organizationName)
+          .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
+          .onSubmit { Task { await saveHouseholdName() } }
+          .accountField()
+        Button(nameDirty ? "Save" : "Done") {
+          if nameDirty { Task { await saveHouseholdName() } } else { householdName = savedName; editingName = false }
+        }
+        .font(AccountFont.button)
+        .foregroundStyle(Theme.surface)
+        .padding(.horizontal, 16)
+        .frame(minHeight: 46)
+        .background(Theme.ink, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .buttonStyle(.plain)
+        .disabled(busy)
+      }
+      .padding(EdgeInsets(top: 14, leading: 16, bottom: 8, trailing: 16))
+    } else {
+      Button { editingName = true } label: {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(savedName.isEmpty ? "My household" : savedName)
+            .font(Theme.title).foregroundStyle(Theme.ink)
+            .multilineTextAlignment(.leading)
+          Spacer(minLength: 0)
+          Image(systemName: "pencil")
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(Theme.muted)
+        }
+        .padding(EdgeInsets(top: 16, leading: 16, bottom: 8, trailing: 16))
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Household name, \(savedName)")
+      .accessibilityHint("Edit")
     }
   }
 
@@ -1207,7 +1234,10 @@ struct AccountView: View {
           }
         }
         Spacer(minLength: 0)
-        RoleBadge(role: member.householdRole ?? "member")
+        // Badges only mean something with company; plain members get none.
+        if !otherMembers.isEmpty, let role = member.householdRole, role != "member" {
+          RoleBadge(role: role)
+        }
         if hasMenu {
           Button { withAnimation { openMember = open ? nil : member.id } } label: {
             Image(systemName: "ellipsis")
@@ -1351,6 +1381,7 @@ struct AccountView: View {
       _ = try await KitchenAPI.json("household", method: "PUT", body: ["name": name])
       householdName = name
       savedName = name
+      editingName = false
       message = "Household name saved."
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
@@ -1565,17 +1596,17 @@ private struct AccountAvatar: View {
   }
 }
 
-/// Owner is solid aubergine, Admin tinted, Member outlined.
+/// Owner and Admin are soft tinted tags, Member outlined.
 private struct RoleBadge: View {
   let role: String
 
   var body: some View {
     Text(role == "owner" ? "Owner" : role == "admin" ? "Admin" : "Member")
       .font(AccountFont.badge)
-      .foregroundStyle(role == "owner" ? Theme.surface : role == "admin" ? Theme.ink : Theme.muted)
+      .foregroundStyle(role == "member" ? Theme.muted : Theme.ink)
       .padding(.horizontal, 10)
       .frame(minHeight: 24)
-      .background(role == "owner" ? Theme.ink : role == "admin" ? Theme.aubergineTint : .clear, in: Capsule())
+      .background(role == "member" ? .clear : Theme.aubergineTint, in: Capsule())
       .overlay {
         if role != "owner" && role != "admin" { Capsule().strokeBorder(Theme.line) }
       }
