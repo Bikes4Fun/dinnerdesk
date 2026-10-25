@@ -35,11 +35,6 @@ struct SettingsView: View {
           )
         }
 
-        NavigationLink {
-          PrivacyView()
-        } label: {
-          ThemeIconRow(title: "Privacy", systemImage: "hand.raised")
-        }
         Link(destination: API.origin.appending(path: "support")) {
           ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
@@ -68,11 +63,6 @@ struct SettingsView: View {
           }
       }
       .themeRows()
-
-      ThemeSection("About recipes & photos") {
-        StarTip(id: "settings.gold-star")
-          .themeBareRow()
-      }
     }
     .themeList()
     .navigationTitle("Settings")
@@ -918,6 +908,7 @@ struct AccountView: View {
               .font(Theme.mealName)
           }
         }
+        privacySection
       }
       .padding(EdgeInsets(top: 20, leading: 16, bottom: 40, trailing: 16))
     }
@@ -1049,12 +1040,36 @@ struct AccountView: View {
           AccountRow(title: "Sign out")
             { Task { await session.signOut() } }
           
-          AccountRow(title: "Sign out of all devices", subtitle: "If a device was lost or you changed your password")
+          AccountRow(title: "Sign out of all devices")
             { confirmEverywhere = true }
         }
 
       }
-      StarTip(id: "settings.sign-out-everywhere")
+    }
+  }
+
+  private var privacySection: some View {
+    AccountCard {
+      NavigationLink {
+        PrivacyView()
+      } label: {
+        HStack(spacing: 12) {
+          Text("Privacy")
+            .font(AccountFont.title)
+            .foregroundStyle(Theme.ink)
+          Spacer(minLength: 0)
+          Image(systemName: "chevron.right")
+            .font(.system(size: 14, weight: .semibold))
+            .foregroundStyle(Theme.muted)
+            .accessibilityHidden(true)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(minHeight: 56)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
     }
   }
 
@@ -1122,6 +1137,34 @@ struct AccountView: View {
           }
           .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
         }
+      AccountRow(title: "Leave household", subtitle: "You'll start fresh in your own household. Shared plans stay here.", danger: true) {
+          confirmLeave = true
+        }
+        .disabled(busy)
+        if canManage {
+          AccountDivider()
+          AccountRow(title: "Delete household", subtitle: "Removes plans and kitchen data for every member.", danger: true) {
+            withAnimation { deletingHome.toggle() }
+          }
+          if deletingHome {
+            VStack(alignment: .leading, spacing: 8) {
+              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.")
+                .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+              SecureField("Your password", text: $homePassword)
+                .textContentType(.password)
+                .accountField()
+              Button("Confirm household deletion", role: .destructive) {
+                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
+              }
+              .font(AccountFont.strong)
+              .foregroundStyle(Theme.danger)
+              .disabled(busy || homePassword.isEmpty)
+            }
+            .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
+          }
+        }
+      
       }
 
       AccountCard {
@@ -1203,33 +1246,7 @@ struct AccountView: View {
   private var dangerSection: some View {
     AccountGroup("Leave or delete") {
       AccountCard {
-        AccountRow(title: "Leave household", subtitle: "You'll start fresh in your own household. Shared plans stay here.", danger: true) {
-          confirmLeave = true
-        }
-        .disabled(busy)
-        if canManage {
-          AccountDivider()
-          AccountRow(title: "Delete household", subtitle: "Removes plans and kitchen data for every member.", danger: true) {
-            withAnimation { deletingHome.toggle() }
-          }
-          if deletingHome {
-            VStack(alignment: .leading, spacing: 8) {
-              Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.")
-                .font(AccountFont.sub).foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
-              SecureField("Your password", text: $homePassword)
-                .textContentType(.password)
-                .accountField()
-              Button("Confirm household deletion", role: .destructive) {
-                Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
-              }
-              .font(AccountFont.strong)
-              .foregroundStyle(Theme.danger)
-              .disabled(busy || homePassword.isEmpty)
-            }
-            .padding(EdgeInsets(top: 4, leading: 16, bottom: 16, trailing: 16))
-          }
-        }
+      
         AccountDivider()
         AccountRow(
           title: "Delete account",
