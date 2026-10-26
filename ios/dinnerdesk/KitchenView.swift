@@ -45,37 +45,21 @@ struct KitchenView: View {
         } label: {
           ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
         }
-        NavigationLink {
-          HiddenRecipesView()
-        } label: {
-          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
-        }
-      }
-      .themeRows()
-
-      ThemeSection("Grocery list") {
-        NavigationLink {
-          AlwaysCheckedView()
-        } label: {
-          ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
-        
       }
       .themeRows()
 
       ThemeSection("General"){
         NavigationLink {
+          HiddenRecipesView()
+        } label: {
+          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+        }
+        NavigationLink {
           SubstitutionsView()
         } label: {
           ThemeIconRow(title: "Substitutions", systemImage: "arrow.left.arrow.right")
         }
-        NavigationLink {
-          GroceryStoreView()
-        } label: {
-          ThemeIconRow(title: "Stores & aisles", systemImage: "storefront")
-        }
-      }
-      .themeRows()
-      
+
       // The − / + drops below the label when "Family portions" can't stay on one line.
       ViewThatFits(in: .horizontal) {
           HStack(spacing: 14) {
