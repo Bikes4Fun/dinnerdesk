@@ -9,42 +9,16 @@ struct SettingsView: View {
 
   var body: some View {
     List {
-      if let nudge = session.status?.emailNudge {
-        NavigationLink {
-          AccountView()
-        } label: {
-          Text("\(nudge) Fix it in Account & security.")
-            .font(Theme.subtitle).foregroundStyle(Theme.ink)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .listRowBackground(Theme.aubergineTint)
-      }
       Section {
         // NavigationLink {
         //   FiltersView()
         // } label: {
         //   ThemeIconRow(title: "Filters", systemImage: "slider.horizontal.3")
         // }
-        NavigationLink {
-          AccountView()
-        } label: {
-          ThemeIconRow(
-            title: "Account & security",
-            systemImage: "person.crop.circle",
-            value: session.status?.email ?? "Guest"
-          )
-        }
-
         Link(destination: API.origin.appending(path: "support")) {
           ThemeIconRow(title: "Help & support", systemImage: "questionmark.circle")
         }
         .accessibilityHint("Opens the support page in Safari")
-        
-        NavigationLink {
-          FeedbackView()
-        } label: {
-          ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
-        }
         Button {
           session.showTour = true
         } label: {
@@ -1798,7 +1772,7 @@ enum FeedbackKind: String, CaseIterable, Identifiable {
 }
 
 /// "Report a bug or suggest a feature". The server keeps it with the app build that sent it.
-private struct FeedbackView: View {
+struct FeedbackView: View {
   @State private var kind = FeedbackKind.bug
   @State private var note = ""
   @State private var sending = false

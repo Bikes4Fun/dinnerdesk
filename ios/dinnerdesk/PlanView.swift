@@ -5,7 +5,7 @@ struct PlanView: View {
   @EnvironmentObject private var store: Store
   @Environment(\.selectTab) private var selectTab
   @Environment(\.dynamicTypeSize) private var typeSize
-  @State private var grid = false
+  @AppStorage("plan.grid") private var grid = false
   @State private var editing = false
   @State private var selected: Set<Int> = []
   @State private var menu = false
@@ -85,7 +85,11 @@ struct PlanView: View {
               .disabled(selected.isEmpty)
             }
             ForEach(groups(plan), id: \.key) { group in
-              if group.key >= 0 { ThemeHeader(dayTitle(plan.startDate, group.key)) }
+              if group.key == Int.max {
+                ThemeHeader("Cooked")
+              } else if group.key >= 0 {
+                ThemeHeader(dayTitle(plan.startDate, group.key))
+              }
               // At accessibility text sizes the grid shows as the list, so names don't break mid-word.
               if grid && !editing && !typeSize.isAccessibilitySize {
                 LazyVGrid(
@@ -137,6 +141,11 @@ struct PlanView: View {
               .frame(minHeight: 44)
               .contentShape(Rectangle())
               .accessibilityLabel("Done editing plan")
+          } else {
+            TabHeaderButton("Edit plan", systemImage: "pencil") { setEditing(true) }
+            TabHeaderButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
+              grid.toggle()
+            }
           }
           TabHeaderButton("Plan menu", systemImage: "ellipsis") { menu = true }
         }
@@ -150,15 +159,9 @@ struct PlanView: View {
           MenuSheetItem.newMealPlan {
             Task { await store.openSuggestions() }
           },
-          MenuSheetItem(title: editing ? "Finish editing" : "Edit plan", systemImage: editing ? "checkmark.circle" : "pencil") {
-            setEditing(!editing)
-          },
           MenuSheetItem(title: "Mark all cooked", systemImage: "checkmark.circle") {
             Task { await store.markAllCooked() }
           },
-          MenuSheetItem(
-            title: grid ? "List View" : "Grid View", systemImage: "square.grid.2x2"
-          ) { grid.toggle() },
           MenuSheetItem(title: "Save as draft", systemImage: "square.and.arrow.down") {
             draftTitle = store.plan?.title ?? "Saved plan"
             savingDraft = true
@@ -190,16 +193,14 @@ struct PlanView: View {
     if !on { selected = [] }
   }
 
+  /// Uncooked meals grouped by day; cooked meals go in one last group (key Int.max) whatever their day.
   private func groups(_ plan: Plan) -> [(key: Int, slots: [PlanSlot])] {
-    Set(plan.slots.map { $0.dayIndex ?? -1 }).sorted().map { day in
-      (
-        day,
-        plan.slots.filter { ($0.dayIndex ?? -1) == day }.sorted {
-          if $0.cooked != $1.cooked { return !$0.cooked }
-          return $0.id < $1.id
-        }
-      )
+    let pending = plan.slots.filter { !$0.cooked }
+    let cooked = plan.slots.filter(\.cooked).sorted { $0.id < $1.id }
+    let days: [(key: Int, slots: [PlanSlot])] = Set(pending.map { $0.dayIndex ?? -1 }).sorted().map { day in
+      (day, pending.filter { ($0.dayIndex ?? -1) == day }.sorted { $0.id < $1.id })
     }
+    return cooked.isEmpty ? days : days + [(Int.max, cooked)]
   }
 
   /// Keep meal photos at their intended size; names wrap instead of shrinking the photo.

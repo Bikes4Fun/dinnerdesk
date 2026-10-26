@@ -161,7 +161,7 @@ struct AuthGate<Content: View>: View {
               }.padding().background(Theme.bg)
             } else if let nudge = session.status?.emailNudge, !emailNoticeDismissed {
               VStack(alignment: .leading, spacing: 6) {
-                Text("FYI: \(nudge) Fix it in Settings → Account & security.")
+                Text("FYI: \(nudge) Fix it in More → Account & security.")
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
                   .fixedSize(horizontal: false, vertical: true)
                 HStack {

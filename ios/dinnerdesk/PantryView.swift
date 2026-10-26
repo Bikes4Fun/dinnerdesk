@@ -16,6 +16,7 @@ struct PantryView: View {
         ErrorBanner(message: error).themeBareRow()
       }
       ThemeAddRow(title: "Add item") { adding = true }.themeRows()
+      
       Toggle(isOn: Binding(get: { autoCheck }, set: { on in Task { await setAutoCheck(on) } })) {
         Text("Always check off pantry items")
           .font(Theme.mealName)
@@ -24,8 +25,6 @@ struct PantryView: View {
       .tint(Theme.accent)
       .padding(.vertical, 6)
       .themeRows()
-      // The tip sits right under the toggle it explains, outside its tap target.
-      StarTip(id: "kitchen.pantry-auto-check").themeBareRow()
 
       ThemeSection("In your pantry · \(items.count)") {
         if items.isEmpty {
