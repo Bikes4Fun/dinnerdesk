@@ -17,6 +17,11 @@ extension EnvironmentValues {
 }
 
 struct ContentView: View {
+  /// Prep gets its own tab only when the tab bar has room; otherwise it lives in More.
+  static func showsPrepTab(_ textSize: DynamicTypeSize) -> Bool {
+    UIScreen.main.bounds.width >= 390 && !textSize.isAccessibilitySize
+  }
+
   @StateObject private var store = Store()
   @Environment(\.dynamicTypeSize) private var textSize
   @State private var navigationIDs: [AppTab: UUID] = [:]
@@ -82,7 +87,7 @@ struct ContentView: View {
         .tabItem { Label("Grocery", systemImage: "cart") }
         .badge(itemsLeft)
         .tag(AppTab.grocery)
-      if UIScreen.main.bounds.width >= 390 && !textSize.isAccessibilitySize {
+      if Self.showsPrepTab(textSize) {
         NavigationStack { PrepView() }
           .id(navigationIDs[.prep])
           .tabItem { Label("Prep", systemImage: "list.bullet.clipboard") }

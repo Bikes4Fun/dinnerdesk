@@ -363,7 +363,6 @@ private struct RecipeGridPage: View {
   }
 }
 
-/// Square photo with a this-week check, bold name underneath. Long-press for favorite / to try / hide.
 struct RecipeTile: View {
   @EnvironmentObject private var store: Store
   let recipe: RecipeSummary
@@ -578,12 +577,22 @@ struct RecipeDetailView: View {
             .disabled(adding)
             .accessibilityLabel(added ? "Remove from this plan" : "Add to this plan")
             .accessibilityValue(adding ? "Adding" : added ? "Added" : "Not added")
+            
             Button {
               Task { await favorite(recipe) }
             } label: {
               Image(systemName: recipe.favorited ? "heart.fill" : "heart")
                 .foregroundStyle(recipe.favorited ? Theme.accent : Theme.muted)
             }
+
+            Button {
+                Task { await tryLater(recipe) }
+              }
+              label: { 
+                Image(systemName: recipe.toTry ? "bookmark.fill" : "bookmark")
+            }
+            .accessibilityLabel(recipe.toTry ? "Remove from To try" : "To try")
+
             Button { showingMenu = true } label: {
               Image(systemName: "ellipsis.circle")
                 .frame(minWidth: 44, minHeight: 44)
@@ -597,9 +606,6 @@ struct RecipeDetailView: View {
     .menuSheet(isPresented: $showingMenu) {
       if let recipe {
         [
-          MenuSheetItem(title: recipe.toTry ? "Remove from To try" : "To try", systemImage: "bookmark") {
-            Task { await tryLater(recipe) }
-          },
           MenuSheetItem(title: recipe.hidden ? "Unhide recipe" : "Hide recipe", systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
             Task { await hide(on: !recipe.hidden) }
           }
