@@ -15,6 +15,7 @@ from app.auth import finish_email_verification, start_email_verification, use_us
 from app.auth import remove_recovery_email as do_remove_recovery_email, verify_password
 from app.auth import create_invite as do_create_invite
 from app.auth import delete_account as do_delete_account
+from app.auth import clear_data as do_clear_data, delete_guest_kitchen
 from app.auth import invite_info as do_invite_info
 from app.auth import list_members as do_list_members
 from app.auth import login as do_login
@@ -23,6 +24,7 @@ from app.auth import logout_everywhere as do_logout_everywhere
 from app.auth import remove_member as do_remove_member
 from app.auth import signup as do_signup
 from app.deps import auth_required, guest_household, GUEST_COOKIE, DbDep, HhDep, UserDep
+from app.taste_lab import household_filters
 from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 
 log = logging.getLogger("dinnerdesk.auth")
@@ -54,6 +56,8 @@ ERROR_MESSAGES = {
     "invalid_role": "Choose another member and a valid role.",
     "already_member": "You already belong to this household.",
     "wrong_password": "That password isn't right.",
+    "invalid_clear": "Choose what to clear: Taste Lab history, meal ratings or prep votes.",
+    "not_a_guest": "This kitchen belongs to an account. Delete it from Account & security.",
     "verify_invalid": "This confirm link isn't valid or was already used. Send a new one from Settings.",
     "verify_expired": "This confirm link has expired. Send a new one from Settings.",
     "verify_limit": "Too many confirm emails this hour. Try again later.",
@@ -94,6 +98,10 @@ class ChangePasswordBody(BaseModel):
 
 class DeleteAccountBody(BaseModel):
     password: str
+
+
+class ClearDataBody(BaseModel):
+    kinds: list[str]
 
 
 class VerifyEmailBody(BaseModel):
@@ -203,6 +211,37 @@ def delete_account(body: DeleteAccountBody, response: Response, conn=DbDep, user
         raise _auth_error(e, 400)
     response.delete_cookie(SESSION_COOKIE, path="/")
     return {"ok": True, "household_deleted": household_deleted}
+
+
+@router.post("/data/clear")
+def clear_data(body: ClearDataBody, request: Request, conn=DbDep, household_id: int = HhDep):
+    """Clear Taste Lab history, meal ratings or prep votes, keeping the account (#101)."""
+    row = session_info(conn, request.cookies.get(SESSION_COOKIE))
+    if "taste_lab" in body.kinds:
+        # Old Taste Lab filters live in its records; fold them into Settings first so clearing
+        # history doesn't drop an allergy.
+        household_filters(conn, household_id)
+    try:
+        do_clear_data(conn, household_id, row["user_id"] if row else None, body.kinds)
+    except AuthError as e:
+        raise _auth_error(e, 400)
+    return {"ok": True}
+
+
+@router.post("/guest/delete-kitchen")
+def delete_guest(request: Request, response: Response, conn=DbDep):
+    """A guest deletes their kitchen from the server, not just the cookie (#101). The next
+    visit starts a fresh, empty kitchen."""
+    if session_info(conn, request.cookies.get(SESSION_COOKIE)):
+        raise _auth_error(AuthError("not_a_guest"), 400)
+    household_id = guest_household(conn, request.cookies.get(GUEST_COOKIE))
+    if household_id is not None:
+        try:
+            delete_guest_kitchen(conn, household_id)
+        except AuthError:
+            raise _auth_error(AuthError("not_a_guest"), 400)
+    response.delete_cookie(GUEST_COOKIE, path="/")
+    return {"ok": True}
 
 
 @router.get("/auth/status")

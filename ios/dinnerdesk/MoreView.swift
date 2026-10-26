@@ -13,19 +13,14 @@ struct MoreView: View {
           NavigationLink {
             KitchenView()
           } label: {
-            ThemeIconRow(title: "My Kitchen and Groceries", systemImage: "refrigerator")
+            ThemeIconRow(title: "My Kitchen", systemImage: "refrigerator")
           }
           NavigationLink {
             TasteLabView()
           } label: {
             ThemeIconRow(title: "Taste Lab", systemImage: "hand.draw")
           }
-          Button {
-            session.showTour = true
-          } label: {
-            ThemeIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
-          }
-          .accessibilityHint("Replays the first-run tour")
+          
           if isBeta {
             Button {
               session.showFeedbackTip = true
@@ -36,7 +31,7 @@ struct MoreView: View {
           NavigationLink {
               SettingsView()
             } label: {
-              ThemeIconRow(title: "Settings", systemImage: "gearshape")
+              ThemeIconRow(title: "Account and More", systemImage: "gearshape")
             }
           
           NavigationLink {
@@ -49,8 +44,7 @@ struct MoreView: View {
       }
       .themeList()
       .tint(Theme.accent)
-      .navigationTitle("More")
-      .largeNavigationTitle()
+      .safeAreaInset(edge: .top, spacing: 0) { TabHeader("More") }
       .task { isBeta = await FeedbackTipView.isBeta() }
     }
   }

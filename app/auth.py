@@ -482,22 +482,27 @@ def _forget_user(conn: Any, user_id: int) -> None:
     """Remove one person: their login, sessions, reset links and the invites they sent
     (cascades), plus identifying Taste Lab records after preserving unlinked votes. An invite they accepted keeps its row, without them."""
     conn.execute("UPDATE household_invites SET used_by = NULL WHERE used_by = ?", (user_id,))
-    taste = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
-    if taste and taste["present"]:
-        account = str(user_id)
-        _archive_taste(conn, account, "individual")
-        conn.execute(
-            """DELETE FROM taste_events WHERE session_id IN (
-                 SELECT s.id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id
-                 WHERE p.account_id = ?)""",
-            (account,),
-        )
-        conn.execute(
-            "DELETE FROM taste_sessions WHERE person_id IN (SELECT id FROM taste_people WHERE account_id = ?)",
-            (account,),
-        )
-        conn.execute("DELETE FROM taste_people WHERE account_id = ?", (account,))
+    _forget_taste(conn, str(user_id), "individual")
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+
+def _forget_taste(conn: Any, account: str, scope: str) -> None:
+    """One Taste Lab account's identifying records, after keeping its votes unlinked."""
+    _archive_taste(conn, account, scope)
+    present = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
+    if not present or not present["present"]:
+        return
+    conn.execute(
+        """DELETE FROM taste_events WHERE session_id IN (
+             SELECT s.id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id
+             WHERE p.account_id = ?)""",
+        (account,),
+    )
+    conn.execute(
+        "DELETE FROM taste_sessions WHERE person_id IN (SELECT id FROM taste_people WHERE account_id = ?)",
+        (account,),
+    )
+    conn.execute("DELETE FROM taste_people WHERE account_id = ?", (account,))
 
 
 def _archive_taste(conn: Any, account: str | list[str], scope: str) -> None:
@@ -535,17 +540,8 @@ def _archive_taste(conn: Any, account: str | list[str], scope: str) -> None:
 def _delete_household(conn: Any, household_id: int) -> None:
     """Everything a household owns. Most tables cascade from households; plans, the pantry and
     the household's own recipes don't, so they go first."""
-    _archive_taste(conn, f"guest:{household_id}", "household")
-    present = conn.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()
-    if present and present["present"]:
-        account = f"guest:{household_id}"
-        conn.execute("DELETE FROM taste_events WHERE session_id IN (SELECT s.id FROM taste_sessions s JOIN taste_people p ON p.id = s.person_id WHERE p.account_id = ?)", (account,))
-        conn.execute("DELETE FROM taste_sessions WHERE person_id IN (SELECT id FROM taste_people WHERE account_id = ?)", (account,))
-        conn.execute("DELETE FROM taste_people WHERE account_id = ?", (account,))
-    ratings = conn.execute("SELECT recipe_id, rating FROM household_meal_ratings WHERE household_id = ?", (household_id,)).fetchall()
-    if ratings:
-        conn.execute("INSERT INTO anonymous_taste_history (scope, votes_json) VALUES ('household', ?)",
-                     (json.dumps({str(r["recipe_id"]): r["rating"] for r in ratings}),))
+    _forget_taste(conn, f"guest:{household_id}", "household")
+    _archive_ratings(conn, household_id)
     own = "SELECT id FROM recipes WHERE household_id = ?"
     # Another household's copy of one of these recipes keeps its copy, just not the link.
     conn.execute(f"UPDATE recipes SET parent_recipe_id = NULL WHERE parent_recipe_id IN ({own}) AND "
@@ -556,6 +552,55 @@ def _delete_household(conn: Any, household_id: int) -> None:
     conn.execute("UPDATE recipes SET parent_recipe_id = NULL WHERE household_id = ?", (household_id,))
     conn.execute("DELETE FROM recipes WHERE household_id = ?", (household_id,))
     conn.execute("DELETE FROM households WHERE id = ?", (household_id,))
+
+
+def _archive_ratings(conn: Any, household_id: int) -> None:
+    ratings = conn.execute("SELECT recipe_id, rating FROM household_meal_ratings WHERE household_id = ?", (household_id,)).fetchall()
+    if ratings:
+        conn.execute("INSERT INTO anonymous_taste_history (scope, votes_json) VALUES ('household', ?)",
+                     (json.dumps({str(r["recipe_id"]): r["rating"] for r in ratings}),))
+
+
+def delete_guest_kitchen(conn: Any, household_id: int) -> None:
+    """A guest's "Delete my kitchen" (#101): the kitchen and its Taste Lab answers go from the
+    server, not just the cookie. A household with an account in it is never a guest's."""
+    if conn.execute("SELECT id FROM users WHERE household_id = ?", (household_id,)).fetchone():
+        raise AuthError("household_forbidden")
+    try:
+        _delete_household(conn, household_id)  # guest_sessions cascade
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+CLEARABLE = ("taste_lab", "meal_ratings", "prep_votes")
+
+
+def clear_data(conn: Any, household_id: int, user_id: int | None, kinds: list[str]) -> None:
+    """Clear parts of your data without deleting the account (#101). Taste Lab history is your
+    own; meal ratings and prep votes belong to the household, so only its creator or an admin
+    (or a guest, alone in their kitchen) can clear them. Votes are kept unlinked, as on delete."""
+    if not kinds or any(kind not in CLEARABLE for kind in kinds):
+        raise AuthError("invalid_clear")
+    if user_id is not None and {"meal_ratings", "prep_votes"} & set(kinds):
+        if _member(conn, user_id)["household_role"] not in ("owner", "admin"):
+            raise AuthError("household_forbidden")
+    try:
+        if "taste_lab" in kinds:
+            if user_id is None:
+                _forget_taste(conn, f"guest:{household_id}", "household")
+            else:
+                _forget_taste(conn, str(user_id), "individual")
+        if "meal_ratings" in kinds:
+            _archive_ratings(conn, household_id)
+            conn.execute("DELETE FROM household_meal_ratings WHERE household_id = ?", (household_id,))
+        if "prep_votes" in kinds:
+            conn.execute("DELETE FROM prep_step_feedback WHERE household_id = ?", (household_id,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 def delete_account(conn: Any, user_id: int, password: str) -> bool:
