@@ -1,7 +1,7 @@
 # Dinnerdesk design
 
 What the app does and how it's built. This file describes how things work; it has no
-checkboxes. Work still to do, ideas, and open questions live in [`TODO.md`](TODO.md).
+checkboxes. Work still to do, ideas, and open questions live on GitHub issues. [`TODO.md`](TODO.md) lists which issue covers which area.
 
 - **Features** are in the same order as [`TESTER_CHECKLIST.md`](TESTER_CHECKLIST.md). When a rule
   here changes, update the matching tester step in the same commit.
@@ -357,7 +357,7 @@ sign out everywhere live there too.
 builds → shop → prep → cook.
 
 **Not built yet:** template dinners (pick format, protein, base, sauce → generate a recipe) and
-"make this a meal" (attach sides to any recipe). See [`TODO.md`](TODO.md) → Ideas.
+"make this a meal" (attach sides to any recipe). See #88 and #89.
 
 ---
 
@@ -438,7 +438,7 @@ exclude the website fallback, and log the requesting app build without crashing.
 
 Build it ourselves by default, and prefer data tables we own (ingredients, nutrients, package
 sizes) over live calls. Outside services only when a feature needs one: USDA FoodData Central for
-nutrients, retailer programs for shop-my-list (notes in [grocery shopping research](TODO.md#grocery-shopping-research)),
+nutrients, retailer programs for shop-my-list (notes on #90),
 HealthKit for nutrition sync.
 
 ---
@@ -453,7 +453,7 @@ HealthKit for nutrition sync.
 - Prep check marks follow the meal and step, so they survive regrouping.
 - Template rules are still open: families are JSON lists of recipes, not a slot generator.
 
-**Reference notes:** [grocery shopping research](TODO.md#grocery-shopping-research) (grocery retailer programs) · [`PRIVACY.md`](PRIVACY.md).
+**Reference notes:** grocery retailer programs are on #90 · [`PRIVACY.md`](PRIVACY.md).
 
 Plan removal confirms the selected meal count with singular/plural wording. On iPhone,
 accessibility text sizes open a full-height, scrolling confirmation with reachable Cancel.

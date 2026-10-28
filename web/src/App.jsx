@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { Icon } from "./icons.jsx";
 import { ADMIN_PAGES, go, inboxCount } from "./nav.js";
+import { About } from "./pages/About.jsx";
 import { AcceptInvite } from "./pages/AcceptInvite.jsx";
 import { Auth } from "./pages/Auth.jsx";
 import { Grocery } from "./pages/Grocery.jsx";
@@ -27,6 +28,7 @@ function parsePath(pathname) {
   const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
   if (parts.length === 0) return { page: "plan" };
   if (parts[0] === "login") return { page: "login" };
+  if (parts[0] === "about") return { page: "about" };
   if (parts[0] === "privacy") return { page: "privacy" };
   if (parts[0] === "support") return { page: "support" };
   if (parts[0] === "join" && parts[1]) return { page: "join", token: parts[1] };
@@ -98,7 +100,8 @@ function isOn(page, key) {
       page === "admin" ||
       page === "taste-lab" ||
       page === "kitchen" ||
-      page === "prep"
+      page === "prep" ||
+      page === "about"
     );
   }
   return page === key;
@@ -315,6 +318,7 @@ export function App() {
           <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} />
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
           <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} className="side-break" />
+          <NavLink href="/about" navKey="about" label="About" icon="about" page={page} />
           {admin && <AdminNav page={page} />}
         </nav>
       </aside>
@@ -329,6 +333,7 @@ export function App() {
         {page === "prep" && <Prep />}
         {page === "kitchen" && <Kitchen view={route.view || "hub"} />}
         {page === "more" && <More />}
+        {page === "about" && <About />}
         {page === "settings" && <Settings />}
         {page === "account-security" && <AccountSecurity />}
         {page === "ingredient-review" && admin && <IngredientReview />}
