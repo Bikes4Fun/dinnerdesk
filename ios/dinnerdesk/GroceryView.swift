@@ -21,7 +21,9 @@ struct GroceryView: View {
       VStack(spacing: 0) {
         TabHeader("Grocery") {
           TabHeaderButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
+            .font(.title2)
           TabHeaderButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
+            .font(.title2)
         }
 
         List {
