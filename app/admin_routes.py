@@ -6,14 +6,17 @@ a page save in that browser, and the page's Export button downloads them.
 import json
 from pathlib import Path
 
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app import auth
 from app.assets import catalog_dir
 from app.db.database import PgConnection, now
 from app.deps import AdminDep, DbDep
 from app.domain.recipe_photos import usable_photo
+from app.routes import _app_versions
 from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 
 router = APIRouter()
@@ -183,6 +186,120 @@ def _email(make, send) -> None:
         raise HTTPException(503, {"error": "mail", "detail": "mail_unavailable", "message": "The email didn't send."})
 
 
+INBOX_STATUSES = ("new", "planned", "done", "declined")
+# Each Inbox source: its table and how one item is found. Prep items are keyed household:recipe:step.
+INBOX_SOURCES = {
+    "feedback": ("feedback", "id = ?"),
+    "recipe": ("recipe_reports", "id = ?"),
+    "plan": ("plan_reports", "id = ?"),
+    "prep": ("prep_step_feedback", "household_id = ? AND recipe_id = ? AND step_key = ?"),
+}
+# Prep votes worth a look: 👎 and steps the cook said were missing. 👍 only feed the counts.
+PREP_ISSUE = "(rating < 0 OR reason = 'missing')"
+
+
+def _since(days: int) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=days)).replace(microsecond=0).isoformat()
+
+
+def _inbox_new(db: PgConnection) -> int:
+    return db.execute(f"""SELECT
+        (SELECT COUNT(*) FROM feedback WHERE status = 'new') + (SELECT COUNT(*) FROM recipe_reports WHERE status = 'new') +
+        (SELECT COUNT(*) FROM plan_reports WHERE status = 'new') +
+        (SELECT COUNT(*) FROM prep_step_feedback WHERE status = 'new' AND {PREP_ISSUE}) AS n""").fetchone()["n"]
+
+
+def _inbox(db: PgConnection) -> dict:
+    """Everything people sent in, one list: bugs and ideas, recipe and plan reports, prep votes."""
+    who = lambda r: {"household_id": r["household_id"], "household_name": r["household_name"],
+                     "email": r["email"], "guest": not r["has_account"]}
+    feedback = [{**dict(r), "snapshot": json.loads(r["snapshot_json"] or "{}")} for r in db.execute(
+        f"""SELECT f.*, h.name AS household_name, u.email, {_has_account_sql("f")} AS has_account FROM feedback f
+            LEFT JOIN households h ON h.id = f.household_id LEFT JOIN users u ON u.id = f.user_id""")]
+    versions = _app_versions(feedback)
+    items = [{"source": "feedback", "id": r["id"], "kind": "bug" if r["kind"] == "bug" else "idea",
+              "status": r["status"], "admin_note": r["admin_note"], "created_at": r["created_at"], "note": r["note"],
+              **who(r), **versions[r["id"]], "screen": r["snapshot"].get("screen", ""),
+              "user_agent": r["snapshot"].get("user_agent", ""),
+              "screenshots": [f"/api/dev/feedback/{r['id']}/screenshots/{i}"
+                              for i in range(len(r["snapshot"].get("screenshots") or []))]}
+             for r in feedback]
+    items += [{"source": "recipe", "id": r["id"], "kind": "recipe", "status": r["status"], "admin_note": r["admin_note"],
+               "created_at": r["created_at"], "note": r["note"], **who(r), "reason": r["reason"],
+               "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"],
+               "snapshot": json.loads(r["snapshot_json"] or "{}")}
+              for r in db.execute(
+                  f"""SELECT p.*, h.name AS household_name, rc.name AS recipe_name, NULL AS email,
+                             {_has_account_sql("p")} AS has_account
+                      FROM recipe_reports p LEFT JOIN households h ON h.id = p.household_id
+                      LEFT JOIN recipes rc ON rc.id = p.recipe_id""")]
+    items += [{"source": "plan", "id": r["id"], "kind": "plan", "status": r["status"], "admin_note": r["admin_note"],
+               "created_at": r["created_at"], "note": r["note"], **who(r), "plan_id": r["plan_id"],
+               "snapshot": json.loads(r["snapshot_json"] or "{}")}
+              for r in db.execute(
+                  f"""SELECT p.*, h.name AS household_name, NULL AS email, {_has_account_sql("p")} AS has_account
+                      FROM plan_reports p LEFT JOIN households h ON h.id = p.household_id""")]
+    items += [{"source": "prep", "id": f"{r['household_id']}:{r['recipe_id']}:{r['step_key']}", "kind": "prep",
+               "status": r["status"], "admin_note": r["admin_note"], "created_at": r["updated_at"], "note": r["note"],
+               **who(r), "missing": r["reason"] == "missing",
+               "reason": "" if r["reason"] == "missing" else PREP_REASONS.get(r["reason"], r["reason"]),
+               "step": r["step_text"], "task": r["category"], "suggested_by_app": bool(r["auto"]),
+               "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"]}
+              for r in db.execute(
+                  f"""SELECT f.*, r.name AS recipe_name, h.name AS household_name, NULL AS email,
+                             {_has_account_sql("f")} AS has_account
+                      FROM prep_step_feedback f JOIN recipes r ON r.id = f.recipe_id
+                      LEFT JOIN households h ON h.id = f.household_id WHERE {PREP_ISSUE.replace("rating", "f.rating").replace("reason", "f.reason")}""")]
+    items.sort(key=lambda i: str(i["created_at"] or ""), reverse=True)
+    week = _since(7)
+    votes = db.execute("""SELECT COUNT(*) FILTER (WHERE rating > 0 AND reason <> 'missing') AS up,
+                                 COUNT(*) FILTER (WHERE rating < 0) AS down,
+                                 COUNT(*) FILTER (WHERE reason = 'missing') AS missing FROM prep_step_feedback""").fetchone()
+    overview = {
+        "signups_week": db.execute("SELECT COUNT(*) AS n FROM users WHERE created_at > ?", (week,)).fetchone()["n"],
+        "active_week": db.execute("SELECT COUNT(*) AS n FROM users WHERE last_seen_at > ?", (week,)).fetchone()["n"],
+        "accounts": db.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"],
+        "locked": db.execute("SELECT COUNT(*) AS n FROM users WHERE locked_until > ?", (now(),)).fetchone()["n"],
+        "mail": mail_ready(),
+        "prep_votes": dict(votes),
+    }
+    return {"items": items, "overview": overview, "now": now()}
+
+
+@router.get("/admin/inbox/count")
+def inbox_count(_admin=AdminDep, db: PgConnection = DbDep):
+    """New items waiting in the Inbox, for the badge on its link."""
+    return JSONResponse({"new": _inbox_new(db)}, headers={"Cache-Control": "no-store"})
+
+
+@router.post("/admin/inbox/{source}/{item_id}")
+def inbox_update(source: str, item_id: str, body: dict, _admin=AdminDep, db: PgConnection = DbDep):
+    """Set an Inbox item's status and/or the admin's note on it."""
+    if source not in INBOX_SOURCES:
+        raise HTTPException(404, {"error": "not_found", "detail": "inbox source"})
+    table, where = INBOX_SOURCES[source]
+    key = item_id.split(":", 2) if source == "prep" else [item_id]
+    if len(key) != where.count("?"):
+        raise HTTPException(404, {"error": "not_found", "detail": "inbox item"})
+    changes = {}
+    if "status" in body:
+        if body["status"] not in INBOX_STATUSES:
+            raise HTTPException(400, {"error": "invalid", "detail": "status", "message": "Unknown status."})
+        changes["status"] = body["status"]
+    if "admin_note" in body:
+        changes["admin_note"] = str(body["admin_note"] or "")[:5000]
+    if source == "feedback" and changes:
+        changes["updated_at"] = now()
+    if not changes:
+        raise HTTPException(400, {"error": "invalid", "detail": "empty", "message": "Nothing to change."})
+    if not db.execute(f"SELECT 1 FROM {table} WHERE {where}", key).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "inbox item"})
+    sets = ", ".join(f"{k} = ?" for k in changes)
+    db.execute(f"UPDATE {table} SET {sets} WHERE {where}", (*changes.values(), *key))
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/admin/users/{user_id}/{action}")
 def user_action(user_id: int, action: str, body: dict, _admin=AdminDep, db: PgConnection = DbDep):
     """One change to one account, from the Users page."""
@@ -229,4 +346,6 @@ def admin_page(name: str, _admin=AdminDep, db: PgConnection = DbDep):
         return _page("recipe_tags", _recipe_tags(db))
     if name == "users":
         return _page("users", _users(db))
+    if name == "inbox":
+        return _page("inbox", _inbox(db))
     raise HTTPException(404, {"error": "not_found", "detail": "admin page"})

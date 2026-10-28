@@ -2285,7 +2285,8 @@ _EXPORT_TABLES = [
     ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
     ("feedback", "feedback"),
 ]
-_EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
+# admin_note is the admin's own triage note in the Inbox, not the household's data.
+_EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id", "admin_note"}
 
 
 def _rows(cursor) -> list[dict]:

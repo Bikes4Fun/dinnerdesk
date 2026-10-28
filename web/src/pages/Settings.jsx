@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
-import { ADMIN_APP_PAGES, ADMIN_PAGES, go } from "../nav.js";
+import { ADMIN_PAGES, go, inboxCount } from "../nav.js";
 import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
 
@@ -95,6 +95,10 @@ export function Settings() {
 
 /** Every admin page in one list, for screens without the sidebar. */
 export function AdminHub() {
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    inboxCount().then(setWaiting);
+  }, []);
   return (
     <section className="screen">
       <header className="top sub">
@@ -105,12 +109,16 @@ export function AdminHub() {
         <span />
       </header>
       <div className="scroll pad">
-        {ADMIN_APP_PAGES.map(([href, label]) => (
-          <Link key={href} href={href}>{label}</Link>
-        ))}
-        {ADMIN_PAGES.map(([href, label]) => (
-          <a key={href} className="list-link" href={href}>{label}</a>
-        ))}
+        {ADMIN_PAGES.map(([href, label, key]) =>
+          key ? (
+            <Link key={href} href={href}>{label}</Link>
+          ) : (
+            <a key={href} className="list-link" href={href}>
+              {label}
+              {href === "/admin/inbox" && waiting ? <em>{waiting} new</em> : null}
+            </a>
+          ),
+        )}
       </div>
     </section>
   );

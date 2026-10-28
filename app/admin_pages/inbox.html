@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inbox</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #fff; --ink: #222; --muted: #666; --faint: #777; --line: #e3e0da; --rule: #eeece8;
+    --field: #d9d6d0; --sel: #f1efeb; --warn: #b3401f; --ok: #2f6b3a; --solid: #222; --on-solid: #fff; --chip: #f1efeb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --card: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --faint: #a9a89f; --line: #35322d;
+            --rule: #2c2a26; --field: #45413b; --sel: #24231f; --warn: #e8805f; --ok: #7cc48a; --solid: #f0efec;
+            --on-solid: #121211; --chip: #2c2a26; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+  a, .link { color: var(--ink); }
+  a:hover, .link:hover { opacity: .8; }
+  .link { background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+  main { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; display: flex; flex-direction: column; gap: 16px; }
+  header { display: flex; flex-direction: column; gap: 2px; }
+  header a { font-size: 13px; color: var(--muted); }
+  h1 { margin: 4px 0 0; font-size: 26px; font-weight: 700; }
+  h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--muted); }
+  p { margin: 0; }
+  .sub, .muted { color: var(--muted); }
+  .faint { color: var(--faint); font-size: 13px; }
+  .warn { color: var(--warn); font-weight: 500; }
+  .ok { color: var(--ok); font-weight: 500; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  input, select, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--field); border-radius: 8px; }
+  .overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 0; overflow: hidden; }
+  .stat { padding: 12px 16px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: none; border-top: 0; border-left: 0;
+    font: inherit; color: inherit; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+  button.stat { cursor: pointer; }
+  button.stat:hover { background: var(--sel); }
+  .stat .n { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .l { font-size: 13px; color: var(--muted); }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .tools label { flex: 1 1 300px; min-width: 0; }
+  #find { width: 100%; height: 40px; padding: 0 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.chip { min-height: 36px; padding: 0 12px; border-radius: 8px; font: inherit; cursor: pointer;
+    border: 1px solid var(--field); background: var(--card); color: var(--ink); }
+  button.chip[aria-pressed="true"] { border-color: var(--solid); font-weight: 600; }
+  button.chip span { color: var(--faint); font-weight: 400; }
+  .split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .list { flex: 999 1 520px; min-width: 0; overflow: hidden; }
+  .scrollx { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  .list table { min-width: 640px; }
+  th { text-align: left; color: var(--muted); font-size: 13px; font-weight: 500; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  .list tbody tr { cursor: pointer; }
+  .list tbody tr:hover, .list tbody tr[aria-selected="true"] { background: var(--sel); }
+  .list tbody tr:last-child td { border-bottom: 0; }
+  .title { font-weight: 600; display: block; }
+  .excerpt { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  .nowrap { white-space: nowrap; color: var(--muted); }
+  .empty { padding: 24px 14px; text-align: center; color: var(--muted); }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
+  .chipline .tag { margin: 1px 4px 1px 0; }
+  .tag.hit, .tag.changed { box-shadow: inset 0 0 0 1px var(--warn); }
+  aside { flex: 1 1 440px; max-width: 620px; min-width: 0; }
+  .d-head { padding: 16px 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--rule); }
+  .d-head h2 { margin: 0; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+  .d-head p { margin-top: 2px; font-size: 13px; }
+  .close { flex: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--field); background: var(--card);
+    color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .block { padding: 14px 18px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .d-head + .block { border-top: 0; }
+  .quote { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; }
+  .quote.none { color: var(--muted); font-style: italic; font-size: 14px; }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .btn { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--field); background: var(--card);
+    color: var(--ink); font: inherit; cursor: pointer; }
+  .btn[aria-pressed="true"] { border-color: var(--solid); background: var(--solid); color: var(--on-solid); font-weight: 500; }
+  textarea { width: 100%; min-height: 64px; padding: 8px; resize: vertical; }
+  dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; row-gap: 6px; }
+  dt { color: var(--muted); }
+  dd { margin: 0; overflow-wrap: anywhere; }
+  .shots { display: flex; gap: 8px; flex-wrap: wrap; }
+  .shots img { width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 1px solid var(--line); }
+  details summary { cursor: pointer; color: var(--muted); }
+  details ul, details ol { margin: 6px 0 0; padding-left: 20px; }
+  .inner th, .inner td { padding: 6px 8px; font-size: 13px; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--solid); color: var(--on-solid);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: calc(100% - 32px); }
+  #toast.err { background: var(--warn); color: #fff; }
+  @media (max-width: 600px) { main { padding: 20px 16px 40px; } aside { max-width: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a href="/">← Dinnerdesk</a>
+    <h1>Inbox</h1>
+    <p class="sub" id="sub"></p>
+  </header>
+  <section class="panel overview" id="overview" aria-label="Overview"></section>
+  <div class="tools">
+    <label><span class="sr">Search the inbox</span>
+      <input id="find" type="search" autocomplete="off" placeholder="Search words, recipe, household or email"></label>
+    <div class="chips" role="group" aria-label="Type" id="kinds"></div>
+    <div class="chips" role="group" aria-label="Status" id="states"></div>
+  </div>
+  <div class="split">
+    <section class="panel list" aria-label="Inbox items"><div class="scrollx"><table>
+      <thead><tr><th scope="col">Type</th><th scope="col">What they said</th><th scope="col">From</th>
+        <th scope="col">Status</th><th scope="col">Sent</th></tr></thead>
+      <tbody id="rows"></tbody></table></div></section>
+    <aside class="panel" id="detail" aria-label="Selected item" hidden></aside>
+  </div>
+</main>
+<div id="toast" role="status"></div>
+<script>
+const DATA = /*DATA*/null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const NOW = new Date(DATA.now);
+const day = s => new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+const stamp = s => new Date(s).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+function ago(s) {
+  const min = (NOW - new Date(s)) / 60000;
+  if (min < 2) return "Just now";
+  if (min < 60) return `${Math.floor(min)} min ago`;
+  if (min < 48 * 60) return `${Math.floor(min / 60)} hours ago`;
+  if (min < 14 * 1440) return `${Math.floor(min / 1440)} days ago`;
+  return day(s);
+}
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+const KINDS = [["all", "All"], ["bug", "Bugs"], ["idea", "Ideas"], ["recipe", "Recipe reports"], ["plan", "Plan reports"], ["prep", "Prep"]];
+const KIND_LABEL = { bug: "Bug", idea: "Idea", recipe: "Recipe report", plan: "Plan report", prep: "Prep step" };
+const STATUSES = [["new", "New"], ["planned", "Planned"], ["done", "Done"], ["declined", "Declined"]];
+const STATUS_LABEL = Object.fromEntries(STATUSES);
+const STATES = [["open", "Open", i => i.status === "new" || i.status === "planned"], ["new", "New", i => i.status === "new"],
+                ["planned", "Planned", i => i.status === "planned"], ["closed", "Done & declined", i => i.status === "done" || i.status === "declined"]];
+// Same wording the app shows (web/src/pages/Recipe.jsx REPORT_REASONS).
+const REASONS = { ingredients: "Ingredients are wrong or missing", steps: "Steps are wrong or confusing",
+  diet: "Shows up despite my diet or allergies", photo: "Photo doesn't match", duplicate: "Duplicate of another recipe",
+  turned_out: "Didn't turn out well", other: "Something else" };
+
+const key = i => `${i.source}/${i.id}`;
+const state = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const find = document.getElementById("find");
+find.value = state.q || "";
+let kind = state.k || "all", which = state.s || "open", selected = state.i || null;
+
+const from = i => i.email || `${i.household_name || "household"} (h${i.household_id})${i.guest ? " · guest" : ""}`;
+function title(i) {
+  if (i.kind === "recipe") return `${i.recipe_name || `Recipe ${i.recipe_id}`}: ${REASONS[i.reason] || i.reason}`;
+  if (i.kind === "plan") return `Plan #${i.plan_id ?? "deleted"}`;
+  if (i.kind === "prep") return `${i.recipe_name}: ${i.missing ? "missing prep step" : i.reason || "👎 not helpful"}`;
+  return i.note.split("\n")[0].slice(0, 80);
+}
+function said(i) {
+  if (i.kind === "prep") return i.note || i.step;
+  return i.kind === "bug" || i.kind === "idea" ? i.note.split("\n").slice(1).join(" ") || "" : i.note;
+}
+const recipeLink = (id, name) => id ? `<a href="/recipes/${esc(id)}" target="_blank" rel="noopener">${esc(name || `recipe ${id}`)} ↗</a>` : esc(name || "deleted recipe");
+
+function searched() {
+  const t = find.value.trim().toLowerCase();
+  if (!t) return DATA.items;
+  return DATA.items.filter(i => [i.note, i.admin_note, i.recipe_name, i.household_name, i.email, i.step, title(i), `h${i.household_id}`]
+    .some(v => String(v || "").toLowerCase().includes(t)));
+}
+
+function overview() {
+  const o = DATA.overview, isNew = DATA.items.filter(i => i.status === "new");
+  const count = k => isNew.filter(i => i.kind === k).length;
+  const stat = (n, label, attrs = "") => attrs
+    ? `<button type="button" class="stat" ${attrs}><span class="n">${n}</span><span class="l">${label}</span></button>`
+    : `<div class="stat"><span class="n">${n}</span><span class="l">${label}</span></div>`;
+  const pv = o.prep_votes;
+  document.getElementById("overview").innerHTML =
+    stat(count("bug"), "New bugs", `data-k="bug"`) + stat(count("idea"), "New ideas", `data-k="idea"`) +
+    stat(count("recipe"), "New recipe reports", `data-k="recipe"`) + stat(count("plan"), "New plan reports", `data-k="plan"`) +
+    stat(count("prep"), `New prep issues <span class="faint">· ${pv.up} 👍 ${pv.down} 👎 overall</span>`, `data-k="prep"`) +
+    stat(o.signups_week, `Signups this week <span class="faint">· ${o.accounts} accounts</span>`) +
+    stat(o.active_week, "Active this week") +
+    stat(o.locked, `<a href="/admin/users#f=locked">Locked accounts</a>`) +
+    stat(o.mail ? `<span class="ok">On</span>` : `<span class="warn">Off</span>`, "Email sending");
+}
+
+function row(i) {
+  const s = said(i);
+  return `<tr data-key="${esc(key(i))}" aria-selected="${key(i) === selected}">
+    <td><span class="tag">${KIND_LABEL[i.kind]}</span></td>
+    <td><span class="title">${esc(title(i))}</span>${s ? `<span class="excerpt">${esc(s)}</span>` : ""}
+      ${i.behind ? `<span class="faint warn">Older version</span>` : ""}</td>
+    <td><span style="overflow-wrap:anywhere">${esc(from(i))}</span></td>
+    <td><span class="${i.status === "new" ? "warn" : "muted"}">${STATUS_LABEL[i.status] || esc(i.status)}</span>${i.admin_note ? ` <span class="faint" title="Has a note">✎</span>` : ""}</td>
+    <td class="nowrap">${ago(i.created_at)}</td></tr>`;
+}
+
+// What each kind of item needs to be understood.
+function feedbackBody(i) {
+  return `<div class="block"><dl>
+      <dt>Version</dt><dd>${esc(i.version)}${i.behind ? ` <span class="warn">· older version (${esc(i.behind)})</span>` : ""}</dd>
+      ${i.screen ? `<dt>Screen</dt><dd>${esc(i.screen)}</dd>` : ""}
+      ${i.user_agent ? `<dt>Browser</dt><dd class="faint">${esc(i.user_agent)}</dd>` : ""}</dl>
+    ${i.screenshots.length ? `<div class="shots">${i.screenshots.map((src, n) => `<a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="Screenshot ${n + 1}"></a>`).join("")}</div>` : ""}</div>`;
+}
+
+function chipline(items, cls = "") {
+  return items && items.length ? `<span class="chipline">${items.map(v => `<span class="tag ${cls}">${esc(v)}</span>`).join("")}</span>` : `<span class="faint">none</span>`;
+}
+
+function recipeBody(i) {
+  const s = i.snapshot || {}, f = s.filters || {}, r = s.recipe;
+  const check = `<div>${s.passes_diets_and_allergies === false
+      ? `<span class="warn">Breaks their diet or allergies</span> ${chipline(s.matched_diet_or_allergy_words, "hit")} <span class="faint">(the filter should have hidden it)</span>`
+      : `<span class="ok">Passes their diets and allergies</span>`}
+    ${(s.matched_avoid_words || []).length ? ` · has avoided ${chipline(s.matched_avoid_words, "hit")}` : ""}</div>
+    <dl><dt>Diets</dt><dd>${chipline(f.diets)}</dd><dt>Allergies</dt><dd>${chipline(f.allergens)}</dd><dt>Avoids</dt><dd>${chipline(f.avoids)}</dd></dl>`;
+  const seen = r ? `<details><summary>The recipe as they saw it${r.edited ? " (with their edits)" : ""}: ${(r.ingredients || []).length} ingredients, ${(r.instructions || []).length} steps</summary>
+      <h3 style="margin-top:8px">Ingredients</h3><ul>${(r.ingredients || []).map(x => `<li>${esc([x.quantity, x.name].filter(Boolean).join(" "))}</li>`).join("")}</ul>
+      <h3 style="margin-top:8px">Steps</h3><ol>${(r.instructions || []).map(st => `<li>${esc(st.text || st.step || st)}</li>`).join("")}</ol></details>` : "";
+  return `<div class="block"><dl><dt>Recipe</dt><dd>${recipeLink(i.recipe_id, i.recipe_name)}</dd>
+      <dt>Reason</dt><dd>${esc(REASONS[i.reason] || i.reason)}</dd></dl></div>
+    <div class="block"><h3>Their filters when they reported it</h3>${check}${seen}</div>`;
+}
+
+function planBody(i) {
+  const plan = i.snapshot?.plan || {}, ctx = plan.context, now = i.snapshot?.filters_when_reported || {};
+  const decision = plan.decision ? (plan.decision === "approve" ? "approved" : "declined") : plan.status;
+  const meals = ctx?.meals || (plan.original_recipe_ids || []).map(id => ({ id }));
+  const names = Object.fromEntries((plan.slots || []).map(s => [s.recipe_id, s.recipe_name]));
+  const reasons = plan.suggestion_reasons || {};
+  const kept = new Set((plan.slots || []).map(s => s.recipe_id));
+  const rows = meals.map(m => `<tr><td class="num">${m.rank ? `#${m.rank}` : "–"}</td>
+      <td>${recipeLink(m.id, m.name || names[m.id])}${m.backup ? ` <span class="tag">backup</span>` : ""}${kept.has(m.id) ? "" : ` <span class="tag changed">swapped out</span>`}</td>
+      <td class="num">${m.score != null ? Number(m.score).toFixed(2) : "–"}</td>
+      <td>${chipline(m.reasons || reasons[String(m.id)])}</td></tr>`).join("");
+  const swaps = (plan.changes || []).map(c => `<li>${recipeLink(c.from, names[c.from])} → ${recipeLink(c.to, names[c.to])}${c.reason ? ` <span class="tag">${esc(c.reason)}</span>` : ""}</li>`).join("");
+  const t = ctx?.taste || {}, p = ctx?.pool || {};
+  return `<div class="block"><dl><dt>Plan</dt><dd>#${esc(i.plan_id ?? "deleted")}${decision ? ` · ${esc(decision)}` : ""}</dd>
+      ${ctx ? `<dt>Meals to pick from</dt><dd>${p.priority ?? "?"} that fit · ${p.backup ?? "?"} backup</dd>
+      <dt>Taste so far</dt><dd>${t.liked ?? 0} liked · ${t.passed ?? 0} passed · ${t.favorites ?? 0} ♥ · ${t.thumbs_up ?? 0} 👍 · ${t.thumbs_down ?? 0} 👎</dd>` : `<dt>Why</dt><dd class="faint">Suggested before the app saved its reasoning.</dd>`}
+      <dt>Filters then</dt><dd>${ctx ? `${chipline(ctx.filters?.diets)} ${chipline(ctx.filters?.allergens)} ${chipline(ctx.filters?.avoids)}` : `<span class="faint">not saved</span>`}</dd>
+      <dt>Filters when reported</dt><dd>${chipline(now.diets)} ${chipline(now.allergens)} ${chipline(now.avoids)}</dd></dl>
+      ${plan.suggestion_note ? `<p class="faint">The app said: ${esc(plan.suggestion_note)}</p>` : ""}</div>
+    <div class="block"><h3>Meals as suggested</h3><div class="scrollx"><table class="inner"><thead><tr><th>Rank</th><th>Meal</th><th>Score</th><th>Reasons</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="faint">No meals saved</td></tr>`}</tbody></table></div>
+      ${swaps ? `<details open><summary>Swaps they made (${plan.changes.length})</summary><ul>${swaps}</ul></details>` : ""}</div>`;
+}
+
+function prepBody(i) {
+  return `<div class="block"><dl><dt>Recipe</dt><dd>${recipeLink(i.recipe_id, i.recipe_name)}</dd>
+      <dt>Step</dt><dd>${esc(i.step)}</dd>
+      ${i.task ? `<dt>Prep task</dt><dd>${esc(i.task)}</dd>` : ""}
+      <dt>Vote</dt><dd>${i.missing ? "They added this step: prep had skipped it" : `👎 ${esc(i.reason || "no reason given")}`}</dd>
+      <dt>Picked by</dt><dd>${i.suggested_by_app ? "the app" : "the recipe's Prep tag"}</dd></dl>
+      <p class="faint"><a href="/admin/prep-feedback">All prep votes, with charts</a></p></div>`;
+}
+
+function detail(i) {
+  const body = { bug: feedbackBody, idea: feedbackBody, recipe: recipeBody, plan: planBody, prep: prepBody }[i.kind](i);
+  const words = i.note;
+  return `<div class="d-head"><div style="min-width:0"><h2>${esc(title(i))}</h2>
+      <p class="muted">${KIND_LABEL[i.kind]} · ${esc(from(i))} · ${stamp(i.created_at)}</p></div>
+      <button class="close" data-close aria-label="Close panel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="block"><p class="quote${words ? "" : " none"}">${words ? esc(words) : "No note"}</p></div>
+    <div class="block"><h3>Status</h3><div class="seg" role="group" aria-label="Status">
+      ${STATUSES.map(([k, l]) => `<button type="button" class="btn" data-status="${k}" aria-pressed="${i.status === k}">${l}</button>`).join("")}</div>
+      <label for="note" class="sr">My note</label>
+      <textarea id="note" placeholder="My note: what to fix, what I decided… (only admins see this)">${esc(i.admin_note)}</textarea>
+      <div><button type="button" class="btn" data-save-note>Save note</button></div></div>
+    ${body}`;
+}
+
+function render() {
+  const open = DATA.items.filter(STATES[0][2]);
+  document.getElementById("sub").textContent = `${plural(open.length, "open item")} · ${DATA.items.filter(i => i.status === "new").length} new`;
+  overview();
+  const base = searched();
+  const stateTest = (STATES.find(s => s[0] === which) || STATES[0])[2];
+  document.getElementById("kinds").innerHTML = KINDS.map(([k, l]) =>
+    `<button type="button" class="chip" data-k="${k}" aria-pressed="${kind === k}">${l} <span>${base.filter(i => stateTest(i) && (k === "all" || i.kind === k)).length}</span></button>`).join("");
+  document.getElementById("states").innerHTML = STATES.map(([k, l, test]) =>
+    `<button type="button" class="chip" data-s="${k}" aria-pressed="${which === k}">${l} <span>${base.filter(i => test(i) && (kind === "all" || i.kind === kind)).length}</span></button>`).join("");
+  const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind));
+  document.getElementById("rows").innerHTML = shown.map(row).join("")
+    || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
+  const item = DATA.items.find(i => key(i) === selected);
+  const aside = document.getElementById("detail");
+  aside.hidden = !item;
+  if (!item || aside.dataset.key !== selected) aside.innerHTML = item ? detail(item) : "";
+  aside.dataset.key = item ? selected : "";
+  const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(kind !== "all" ? { k: kind } : {}),
+    ...(which !== "open" ? { s: which } : {}), ...(selected ? { i: selected } : {}) });
+  history.replaceState(null, "", hash.toString() ? `#${hash}` : location.pathname);
+}
+
+function toast(text, err) {
+  const t = document.getElementById("toast");
+  t.textContent = text; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = "none"), 3000);
+}
+
+async function save(item, change) {
+  const res = await fetch(`/admin/inbox/${item.source}/${encodeURIComponent(item.id)}`, {
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(change) });
+  const out = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(out.message || `Failed (${res.status})`);
+  Object.assign(item, change);
+}
+
+document.getElementById("detail").addEventListener("click", async e => {
+  if (e.target.closest("[data-close]")) { selected = null; return render(); }
+  const item = DATA.items.find(i => key(i) === selected); if (!item) return;
+  const s = e.target.closest("[data-status]");
+  if (s) {
+    try {
+      await save(item, { status: s.dataset.status });
+      e.currentTarget.querySelectorAll("[data-status]").forEach(b => b.setAttribute("aria-pressed", b === s));
+      toast(item.status === "done" || item.status === "declined" ? `${STATUS_LABEL[item.status]}. It's under Done & declined now.` : "Saved.");
+      render();
+    } catch (err) { toast(err.message, true); }
+  }
+  if (e.target.closest("[data-save-note]")) {
+    try { await save(item, { admin_note: document.getElementById("note").value }); toast("Note saved."); render(); }
+    catch (err) { toast(err.message, true); }
+  }
+});
+document.getElementById("rows").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-key]"); if (!tr) return;
+  selected = tr.dataset.key; render();
+  if (window.innerWidth < 900) document.getElementById("detail").scrollIntoView({ behavior: "smooth" });
+});
+document.getElementById("kinds").addEventListener("click", e => {
+  const b = e.target.closest("[data-k]"); if (b) { kind = b.dataset.k; render(); }
+});
+document.getElementById("states").addEventListener("click", e => {
+  const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }
+});
+document.getElementById("overview").addEventListener("click", e => {
+  const b = e.target.closest("button[data-k]"); if (!b) return;
+  kind = b.dataset.k; which = "new"; render();
+});
+find.addEventListener("input", render);
+render();
+</script>
+</body>
+</html>

@@ -1310,8 +1310,11 @@ img { display: block; max-width: 100%; }
   .sidebar .nav-link.side-break { margin-top: 1rem; }
   .mob-back { display: none !important; }
   .sidebar .admin-toggle { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
-  .sidebar .admin-toggle::after { content: "▸"; margin-left: auto; font-size: 0.8em; color: var(--muted); }
+  .sidebar .admin-toggle::after { content: "▸"; margin-left: 0.4rem; font-size: 0.8em; color: var(--muted); }
   .sidebar .admin-toggle[aria-expanded="true"]::after { content: "▾"; }
+  .sidebar .nav-count { margin-left: auto; min-width: 1.4rem; padding: 0 0.4rem; border-radius: 999px; background: var(--accent-dark);
+    color: #fff; font-size: 0.72rem; font-weight: 700; line-height: 1.4rem; text-align: center; }
+  .sidebar .admin-toggle > span:not(.nav-count) { flex: 1; }
   .admin-links { display: flex; flex-direction: column; gap: 0.12rem; padding-left: 1.6rem; }
   .admin-links .nav-link { padding-top: 0.42rem; padding-bottom: 0.42rem; font-size: 0.92em; }
   .tabbar { display: none; }
