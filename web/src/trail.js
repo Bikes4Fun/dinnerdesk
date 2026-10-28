@@ -13,14 +13,19 @@ function stamp() {
   return new Date().toISOString().slice(11, 19);
 }
 
+// Invite, reset and confirm links carry one-time tokens; they never go in a report.
+function redact(text) {
+  return text.replace(/\/(join|reset|verify|invites)\/[^\s/?#:]+/g, "/$1/[token]");
+}
+
 export function recordPage() {
-  const path = window.location.pathname + window.location.search;
+  const path = redact(window.location.pathname + window.location.search);
   if (pages.at(-1)?.endsWith(` ${path}`)) return;
   push(pages, `${stamp()} ${path}`.slice(0, 200));
 }
 
 export function recordError(text) {
-  push(errors, `${stamp()} ${text}`.slice(0, 500));
+  push(errors, `${stamp()} ${redact(text)}`.slice(0, 500));
 }
 
 export function trail() {

@@ -789,3 +789,28 @@ def test_inbox_shows_who_sent_it_their_device_settings_and_trail(tmp_path):
         assert bug["settings"]["diets"] == ["vegetarian"] and bug["settings"]["family_portions"] == 4
         assert (report["email"], report["user_id"]) == ("reporter@example.com", uid)
         assert [a["login"] for a in report["household_accounts"]] == ["reporter@example.com"]
+
+
+def test_promoted_admin_cannot_demote_an_admin_by_making_someone_else_owner(tmp_path):
+    with _client(tmp_path) as boss, TestClient(create_app()) as helper, TestClient(create_app()) as partner:
+        _signup(boss, "admin@example.test")
+        hid = _signup(helper, "helper@example.com")
+        boss.post(f"/admin/users/{hid}/site-admin", json={"admin": True})
+        invite = boss.post("/api/household/invites").json()
+        token = invite.get("token") or invite["url"].rsplit("/", 1)[-1]
+        partner.post("/api/household/accept-invite", json={"token": token, "email": "partner@example.com", "password": "userpassword"})
+        pid = partner.get("/api/auth/me").json()["user_id"]
+        # The boss owns that household; making the partner owner would demote the boss.
+        assert helper.post(f"/admin/users/{pid}/role", json={"role": "owner"}).status_code == 403
+        assert helper.post(f"/admin/users/{pid}/role", json={"role": "admin"}).status_code == 200
+
+
+def test_deleted_account_addresses_leave_the_admin_log(tmp_path):
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "gone@example.com")
+        admin.post(f"/admin/users/{uid}/login", json={"login": "renamed@example.com"})
+        user.post("/api/auth/login", json={"email": "renamed@example.com", "password": "userpassword"})
+        assert user.post("/api/auth/delete-account", json={"password": "userpassword"}).status_code == 200
+        page = admin.get("/admin/users").text
+        assert "renamed@example.com" not in page and "gone@example.com" not in page

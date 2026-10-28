@@ -241,10 +241,11 @@ export function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!admin && (page === "ingredient-review" || page === "recipe-flags" || page === "admin")) {
+    // Wait for the auth status: until it loads, nobody looks like an admin.
+    if (authStatus !== null && !admin && (page === "ingredient-review" || page === "recipe-flags" || page === "admin")) {
       go("/settings");
     }
-  }, [admin, page]);
+  }, [authStatus, admin, page]);
 
   if (page === "privacy") return <Privacy />;
   if (page === "support") return <Support />;

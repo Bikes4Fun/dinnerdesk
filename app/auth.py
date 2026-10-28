@@ -474,7 +474,9 @@ def _forget_user(conn: Any, user_id: int) -> None:
     """Remove one person: their login, sessions, reset links and the invites they sent
     (cascades), plus identifying Taste Lab records after preserving unlinked votes. An invite they accepted keeps its row, without them."""
     conn.execute("UPDATE household_invites SET used_by = NULL WHERE used_by = ?", (user_id,))
-    conn.execute("UPDATE admin_actions SET target_label = 'deleted account' WHERE target_user_id = ?", (user_id,))
+    conn.execute("UPDATE admin_actions SET target_label = 'deleted account', detail = CASE WHEN action IN"
+                 " ('login', 'recovery-email') THEN 'changed sign-in details' ELSE detail END WHERE target_user_id = ?",
+                 (user_id,))
     conn.execute("UPDATE admin_actions SET admin_label = 'deleted account' WHERE admin_user_id = ?", (user_id,))
     _forget_taste(conn, str(user_id), "individual")
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))

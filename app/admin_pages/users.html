@@ -248,11 +248,11 @@ function detail(u) {
         <input id="pw" data-k="password" type="password" autocomplete="new-password" placeholder="8+ characters">
         <button class="btn" data-a="password" data-confirm="Set this password? They'll be signed out everywhere.">Set…</button></div></div>
     </div></details>
-    ${history(DATA.log.filter(l => l.target_user_id === u.id), false)}`;
+    ${logList(DATA.log.filter(l => l.target_user_id === u.id), false)}`;
 }
 
 // The admin log: who changed which account, newest first.
-function history(entries, all) {
+function logList(entries, all) {
   const line = l => `<li><span>${esc(l.admin_label)} ${esc(l.detail)}${all ? ` · <span class="muted">${esc(l.target_label)}</span>` : ""}</span>
     <span class="faint">${started(l.created_at)}</span></li>`;
   return `<details class="history"${all ? "" : " open"}><summary>${all ? "Admin log" : "History"} (${entries.length})</summary>
@@ -276,7 +276,7 @@ function render() {
   const aside = document.getElementById("detail");
   aside.hidden = !u;
   aside.innerHTML = u ? detail(u) : "";
-  document.getElementById("log").innerHTML = history(DATA.log, true);
+  document.getElementById("log").innerHTML = logList(DATA.log, true);
   const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(show !== "all" ? { f: show } : {}),
                                      ...(selected ? { u: selected } : {}) });
   history.replaceState(null, "", hash.toString() ? `#${hash}` : location.pathname);

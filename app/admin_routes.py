@@ -291,9 +291,15 @@ def inbox_update(source: str, item_id: str, body: dict, _admin=AdminDep, db: PgC
 def user_action(user_id: int, action: str, body: dict, admin=AdminDep, db: PgConnection = DbDep):
     """One change to one account, from the Users page. Only the super admin can change admins
     (other than themselves) or who is one. Each change goes in the admin log."""
-    target = db.execute("SELECT email, site_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    target = db.execute("SELECT id, email, site_admin FROM users WHERE id = ?", (user_id,)).fetchone()
     is_super = auth.is_admin_email(admin["email"])
-    if target and not is_super and (action == "site-admin" or (auth.is_admin(target) and user_id != admin["user_id"])):
+    affected = [target] if target else []
+    if target and action == "role" and body.get("role") == "owner":
+        # Making someone owner demotes the household's current owner too.
+        affected += db.execute("""SELECT o.id, o.email, o.site_admin FROM users o JOIN users t ON t.household_id = o.household_id
+                                  WHERE t.id = ? AND o.household_role = 'owner'""", (user_id,)).fetchall()
+    protected = [a for a in affected if auth.is_admin(a) and a["id"] != admin["user_id"]]
+    if target and not is_super and (action == "site-admin" or protected):
         raise HTTPException(403, {"error": "forbidden", "detail": "super_admin_only",
                                   "message": "Only the super admin can change admins."})
     actions = {
