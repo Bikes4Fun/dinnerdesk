@@ -292,9 +292,8 @@ struct PlanView: View {
       if !selected.insert(slot.id).inserted { selected.remove(slot.id) }
     } label: {
       Image(systemName: selected.contains(slot.id) ? "checkmark.square.fill" : "square")
-        .font(.system(size: 22))
+        .scaledIcon(size: 22, width: 32, height: 44)
         .foregroundStyle(selected.contains(slot.id) ? Theme.accent : Theme.muted)
-        .frame(width: 32, height: 44)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)

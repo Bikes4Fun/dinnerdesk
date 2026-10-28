@@ -389,12 +389,11 @@ struct RecipeTile: View {
               Image(
                 systemName: store.onWeek(recipe.id) ? "checkmark.circle.fill" : "plus.circle.fill"
               )
-              .font(.system(size: 32))
+              .scaledIcon(size: 32, width: 44, height: 44)
               .symbolRenderingMode(.palette)
               .foregroundStyle(
                 Color.white, store.onWeek(recipe.id) ? Theme.accent : Color.black.opacity(0.35)
               )
-              .frame(width: 44, height: 44)
               .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)

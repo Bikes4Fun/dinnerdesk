@@ -56,7 +56,7 @@ always under More. Guests can use the app without an account.
 | Doc | What it's for |
 |---|---|
 | [`docs/DESIGN.md`](docs/DESIGN.md) | How each feature works, screens, architecture, decisions |
-| [`docs/TODO.md`](docs/TODO.md) | Issues, fixes, ideas, open questions and proposals |
+| [`docs/TODO.md`](docs/TODO.md) | Which GitHub issue covers which area |
 | [`docs/TESTER_CHECKLIST.md`](docs/TESTER_CHECKLIST.md) | What testers try on each build |
 | [`docs/PRIVACY.md`](docs/PRIVACY.md) | Privacy policy shown in the app |
 
@@ -131,8 +131,8 @@ Database tests create and drop their own schema. They never fall back to `DATABA
   [`docs/TESTER_CHECKLIST.md`](docs/TESTER_CHECKLIST.md) in the same commit.
 - Before a test round, update the checklist's date and build line, rewrite **Focus for this
   build**, and move anything newly built out of **Not built yet**.
-- New issues go in [`docs/TODO.md`](docs/TODO.md) → Inbox, with screenshots in the matching
-  private `dd_support/review/` folder.
+- New issues go on GitHub. [`docs/TODO.md`](docs/TODO.md) only maps areas to issue numbers.
+  Screenshots stay in the matching private `dd_support/review/` folder.
 
 **Tips:** help text that explains a feature is a *tip*, shown on a pale purple card with a
 sparkle star beside what it explains. Use `<Tip id>` (web) or `StarTip(id:)` (iPhone);
