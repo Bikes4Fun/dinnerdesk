@@ -4,6 +4,7 @@ import { GroceryPick } from "../GroceryPick.jsx";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Tip } from "../Tip.jsx";
+import { Icon } from "../icons.jsx";
 
 const DEFAULT_STORES = [
   { id: "costco", name: "Costco" },
@@ -225,13 +226,16 @@ export function Grocery() {
       if (l.never_shop) return false;
       if (hideChecked && l.checked) return false;
       const sid = l.store;
-      if (groupByStore && storeFilter !== "all" && sid !== storeFilter) return false;
+      if (storeFilter !== "all" && sid !== storeFilter) return false;
       return true;
     });
   }, [lines, hideChecked, groupByStore, storeFilter]);
 
   const checkedN = lines.filter((l) => l.checked && !l.never_shop).length;
   const remaining = lines.filter((l) => !l.checked && !l.never_shop).length;
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("dinnerdesk-grocery-count", { detail: remaining }));
+  }, [remaining]);
   const item = lines.find((l) => l.id === itemId);
 
   function aisleBlocks(items) {
@@ -346,54 +350,25 @@ export function Grocery() {
   }));
 
   return (
-    <section className="screen">
-      <header className="top">
+    <section className="screen narrow col-720">
+      <header className="top page-top">
         <h1>Grocery</h1>
         <div className="top-actions">
-          <span className="count-pill">{remaining ? `${remaining} to buy` : "List clear"}</span>
-          <button type="button" className="icon-btn" onClick={() => setSheet((v) => !v)} aria-label="More">
-            ⋯
+          <label className="store-pick">
+            <span className="sr-only">Store</span>
+            <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
+              <option value="all">All stores</option>
+              {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <Icon name="chevron-down" size={14} />
+          </label>
+          <button type="button" className="more-btn" onClick={() => setSheet((v) => !v)} aria-label="More">
+            <Icon name="dots" size={24} />
           </button>
         </div>
       </header>
       <div className="scroll pad grocery">
         {err && <p className="banner err">{err}</p>}
-        <div className="chip-row flush-chips">
-          <button
-            type="button"
-            className={`chip${groupByStore ? " is-on" : ""}`}
-            onClick={() => {
-              const next = !groupByStore;
-              setGroupByStore(next);
-              if (!next) setStoreFilter("all");
-              persist({ groupByStore: next });
-            }}
-          >
-            {groupByStore ? "Hide stores" : "All stores"}
-          </button>
-          <button
-            type="button"
-            className={`chip${showMeals ? " is-on" : ""}`}
-            onClick={() => {
-              const next = !showMeals;
-              setShowMeals(next);
-              persist({ showMeals: next });
-            }}
-          >
-            {showMeals ? "Hide meals under items" : "Show meals under items"}
-          </button>
-          {groupByStore &&
-            stores.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                className={`chip${storeFilter === s.id ? " is-on" : ""}`}
-                onClick={() => setStoreFilter((cur) => (cur === s.id ? "all" : s.id))}
-              >
-                {s.name}
-              </button>
-            ))}
-        </div>
 
         {adding && (
           <form className="add-line" onSubmit={addLine}>
@@ -449,7 +424,7 @@ export function Grocery() {
           setSheet(false);
         }}
       >
-        +
+        <Icon name="plus" size={26} />
       </button>
 
       {sheet && (
@@ -486,7 +461,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
       onClick={onOpen}
     >
       <button type="button" className={`check${line.checked ? " on" : ""}`} aria-pressed={line.checked} aria-label={`${line.checked ? "Uncheck" : "Check off"} ${line.name}`} onClick={(e) => { e.stopPropagation(); onCheck(); }}>
-        {line.checked ? "✓" : ""}
+        {line.checked && <Icon name="check" size={13} />}
       </button>
       {showEmoji ? <span className="g-emo">{groceryEmoji(line.name)}</span> : null}
       {line.ingredient_photo_path ? (

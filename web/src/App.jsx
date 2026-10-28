@@ -21,7 +21,9 @@ import { ResetPassword } from "./pages/ResetPassword.jsx";
 import { VerifyEmail } from "./pages/VerifyEmail.jsx";
 import { AccountSecurity, AdminHub, emailNudge, Filters, Newsletter, Settings, Social } from "./pages/Settings.jsx";
 import { TasteLab } from "./pages/TasteLab.jsx";
-import { Tour } from "./Tour.jsx";
+import { Notice } from "./Notice.jsx";
+import { Tour, WhatsNew } from "./Tour.jsx";
+import { useWeek } from "./week.jsx";
 import { useEffect, useState } from "react";
 
 function parsePath(pathname) {
@@ -107,7 +109,7 @@ function isOn(page, key) {
   return page === key;
 }
 
-function NavLink({ href, navKey, label, icon, page, className = "" }) {
+function NavLink({ href, navKey, label, icon, page, count, className = "" }) {
   return (
     <a
       href={href}
@@ -121,6 +123,7 @@ function NavLink({ href, navKey, label, icon, page, className = "" }) {
     >
       {icon ? <Icon name={icon} /> : null}
       <span>{label}</span>
+      {count ? <span className="nav-count" aria-label={`${count} items`}>{count}</span> : null}
     </a>
   );
 }
@@ -192,6 +195,10 @@ export function App() {
   const [fatalError, setFatalError] = useState("");
   const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
   const [emailNoticeDismissed, setEmailNoticeDismissed] = useState(false);
+  const week = useWeek();
+  const mealCount = week?.plan?.slots?.length || 0;
+  // Items left to buy, for the sidebar. Grocery sends its own count as you check things off.
+  const [groceryCount, setGroceryCount] = useState(0);
 
   useEffect(() => {
     const fail = (event) => {
@@ -231,6 +238,19 @@ export function App() {
 
   const page = route.page;
   const admin = Boolean(authStatus && authStatus.admin);
+
+  useEffect(() => {
+    const onCount = (e) => setGroceryCount(e.detail);
+    window.addEventListener("dinnerdesk-grocery-count", onCount);
+    return () => window.removeEventListener("dinnerdesk-grocery-count", onCount);
+  }, []);
+
+  useEffect(() => {
+    if (!authStatus || page === "grocery" || !week?.plan?.id) return;
+    api.grocery(week.plan.id)
+      .then((data) => setGroceryCount(data.lines.filter((l) => !l.checked && !l.never_shop).length))
+      .catch((e) => setFatalError(e.message));
+  }, [authStatus, page, week?.plan]);
 
   function refreshAuth() {
     api.auth
@@ -311,19 +331,24 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">Dinnerdesk</div>
         <nav className="side-nav">
-          <NavLink href="/" navKey="plan" label="Plan" icon="plan" page={page} />
+          <NavLink href="/" navKey="plan" label="Plan" icon="plan" page={page} count={mealCount} />
           <NavLink href="/recipes" navKey="recipes" label="Recipes" icon="recipes" page={page} />
-          <NavLink href="/grocery" navKey="grocery" label="Grocery" icon="grocery" page={page} />
+          <NavLink href="/grocery" navKey="grocery" label="Grocery" icon="grocery" page={page} count={groceryCount} />
           <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} />
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
-          <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} className="side-break" />
+          <div className="nav-divider" />
+          <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} />
           <NavLink href="/about" navKey="about" label="About" icon="about" page={page} />
           {admin && <AdminNav page={page} />}
         </nav>
       </aside>
       <div className="main" key={tabRootVersion}>
-        {!authStatus.authenticated && !guestNoticeDismissed && <div className="guest-notice">Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data. <button type="button" onClick={() => setGuestNoticeDismissed(true)}>Dismiss</button></div>}
-        {emailNudge(authStatus) && !emailNoticeDismissed && page !== "account-security" && <div className="guest-notice">FYI: {emailNudge(authStatus)} <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email || authStatus.recovery_email ? "Verify it in Settings" : "Add one in Settings"}</a> <button type="button" onClick={() => setEmailNoticeDismissed(true)}>Dismiss</button></div>}
+        {!authStatus.authenticated && !guestNoticeDismissed && <Notice onDismiss={() => setGuestNoticeDismissed(true)}>Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data.</Notice>}
+        {emailNudge(authStatus) && !emailNoticeDismissed && page !== "account-security" && <Notice onDismiss={() => setEmailNoticeDismissed(true)}>
+          {authStatus.has_email || authStatus.recovery_email ? "Your email isn't verified yet." : "Your account has no email, so a forgotten password can't be reset."}{" "}
+          <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email || authStatus.recovery_email ? "Verify email" : "Add email"}</a>
+        </Notice>}
+        <WhatsNew />
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes />}
         {page === "recipe" && <Recipe id={route.id} />}
@@ -345,9 +370,9 @@ export function App() {
         {page === "newsletter" && <Newsletter />}
       </div>
       <nav className="tabbar" aria-label="Primary">
-        <NavLink href="/" navKey="plan" label="Plan" icon="plan" page={page} />
+        <NavLink href="/" navKey="plan" label="Plan" icon="plan" page={page} count={mealCount} />
         <NavLink href="/recipes" navKey="recipes" label="Recipes" icon="recipes" page={page} />
-        <NavLink href="/grocery" navKey="grocery" label="Grocery" icon="grocery" page={page} />
+        <NavLink href="/grocery" navKey="grocery" label="Grocery" icon="grocery" page={page} count={groceryCount} />
         <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} className="optional-prep" />
         <NavLink href="/more" navKey="more-tab" label="More" icon="settings" page={page} />
       </nav>
