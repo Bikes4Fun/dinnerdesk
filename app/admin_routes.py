@@ -1,7 +1,8 @@
 """Admin review pages: plain HTML with the data filled in on the server. Admins only.
 
-Each page in app/admin_pages has `/*DATA*/null` where its data goes. Notes and decisions made on
-a page save in that browser, and the page's Export button downloads them.
+Each page in app/admin_pages has `/*DATA*/null` where its data goes. The Inbox and Users pages
+save changes on the server; on the review pages (recipe tags, similar recipes) notes save in that
+browser, and the page's Export button downloads them.
 """
 import json
 from pathlib import Path
@@ -49,62 +50,6 @@ def _variant_review() -> dict:
     return {"groups": [], "source": {"groups": []}}
 
 
-def _prep_feedback(db: PgConnection) -> dict:
-    votes = [
-        {
-            "id": f"{r['household_id']}:{r['recipe_id']}:{r['step_key']}",
-            "prep_task": None,
-            "recipe_steps": None,
-            "up": r["rating"] > 0,
-            "missing": r["reason"] == "missing",
-            "task": r["category"] or "(no task)",
-            "step": r["step_text"] or "",
-            "recipe": r["recipe_name"] or f"recipe {r['recipe_id']}",
-            "recipe_url": f"/recipes/{r['recipe_id']}",
-            "household": f"{r['household_name'] or 'household'} (#{r['household_id']})",
-            "guest": not r["has_account"],
-            "reason": PREP_REASONS.get(r["reason"] or "", r["reason"] or ""),
-            "note": (r["note"] or "").strip(),
-            "suggested_by_app": bool(r["auto"]),
-            "date": str(r["updated_at"] or "")[:10],
-        }
-        for r in db.execute(
-            f"""SELECT f.*, r.name AS recipe_name, h.name AS household_name, {_has_account_sql("f")} AS has_account
-                FROM prep_step_feedback f JOIN recipes r ON r.id = f.recipe_id
-                LEFT JOIN households h ON h.id = f.household_id ORDER BY f.updated_at DESC"""
-        )
-    ]
-    return {"votes": votes, "source": "live", "review": {}}
-
-
-def _plan_reports(db: PgConnection) -> dict:
-    reports = [
-        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
-         "guest": not r["has_account"], "plan_id": r["plan_id"], "note": r["note"],
-         "created_at": str(r["created_at"]), "snapshot": json.loads(r["snapshot_json"] or "{}")}
-        for r in db.execute(
-            f"""SELECT p.*, h.name AS household_name, {_has_account_sql("p")} AS has_account
-                FROM plan_reports p LEFT JOIN households h ON h.id = p.household_id ORDER BY p.created_at DESC"""
-        )
-    ]
-    return {"reports": reports, "source": "live", "site": "", "review": {}}
-
-
-def _recipe_reports(db: PgConnection) -> dict:
-    reports = [
-        {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
-         "guest": not r["has_account"], "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"],
-         "reason": r["reason"], "note": r["note"], "created_at": str(r["created_at"]),
-         "snapshot": json.loads(r["snapshot_json"] or "{}")}
-        for r in db.execute(
-            f"""SELECT p.*, h.name AS household_name, rc.name AS recipe_name, {_has_account_sql("p")} AS has_account
-                FROM recipe_reports p LEFT JOIN households h ON h.id = p.household_id
-                LEFT JOIN recipes rc ON rc.id = p.recipe_id ORDER BY p.created_at DESC"""
-        )
-    ]
-    return {"reports": reports, "source": "live", "site": "", "review": {}}
-
-
 def _recipe_tags(db: PgConnection) -> dict:
     tags: dict[int, list[str]] = {}
     for r in db.execute("SELECT recipe_id, tag FROM recipe_tags ORDER BY tag"):
@@ -130,7 +75,7 @@ def _recipe_tags(db: PgConnection) -> dict:
     return {"recipes": recipes, "suggestions": suggestions, "vocabulary": vocabulary, "source": "live"}
 
 
-def _users(db: PgConnection) -> dict:
+def _users(db: PgConnection, me) -> dict:
     sessions: dict[int, list] = {}
     # Expired sessions linger until their token is next used; they aren't signed in.
     for r in db.execute("SELECT token, user_id, created_at, expires_at, device FROM sessions WHERE expires_at > ?"
@@ -150,12 +95,16 @@ def _users(db: PgConnection) -> dict:
          "failed_attempts": r["failed_attempts"], "locked_until": r["locked_until"], "created_at": r["created_at"],
          # Accounts from before last seen was kept fall back to their newest sign-in.
          "last_seen": r["last_seen_at"] or max((x["created_at"] for x in sessions.get(r["id"], [])), default=None),
-         "admin": auth.is_admin_email(r["email"]), "sessions": sessions.get(r["id"], []),
+         "admin": auth.is_admin(r), "super": auth.is_admin_email(r["email"]), "sessions": sessions.get(r["id"], []),
          "taste_sessions": taste.get(str(r["id"]), 0)}
         for r in db.execute("""SELECT u.*, h.name AS household_name FROM users u
                                JOIN households h ON h.id = u.household_id ORDER BY u.id""")
     ]
-    return {"users": users, "now": now(), "mail": mail_ready()}
+    log = [dict(r) for r in db.execute(
+        "SELECT admin_user_id, admin_label, target_user_id, target_label, action, detail, created_at"
+        " FROM admin_actions ORDER BY id DESC LIMIT 500")]
+    return {"users": users, "log": log, "now": now(), "mail": mail_ready(), "me": me["user_id"],
+            "super": auth.is_admin_email(me["email"])}
 
 
 # Admin wording for errors; app/auth_routes.py ERROR_MESSAGES speaks to the account's owner.
@@ -170,6 +119,20 @@ USER_ERRORS = {
     "successor_required": "They own a household others are in. Make someone else its owner first.",
     "invalid_role": "Choose owner, admin or member.",
     "too_many": "Already sent 3 this hour. Try again later.",
+    "super_admin": "The super admin is set by ADMIN_EMAIL on the server, not here.",
+}
+
+# What the admin log says each action did. Passwords and tokens are never logged.
+LOG_TEXT = {
+    "password": lambda b: "set a new password", "unlock": lambda b: "cleared the lockout",
+    "send-reset": lambda b: "emailed a reset link", "resend-confirmation": lambda b: "emailed a confirm link",
+    "login": lambda b: f"changed sign-in to {b.get('login')}",
+    "recovery-email": lambda b: f"set recovery email to {b.get('email')}" if b.get("email") else "removed the recovery email",
+    "end-sessions": lambda b: "signed out one session" if b.get("session") else "signed out everywhere",
+    "reset-taste": lambda b: "reset Taste Lab",
+    "household": lambda b: f"moved to household h{b['household_id']}" if b.get("household_id") else "gave them their own household",
+    "role": lambda b: f"set household role to {b.get('role')}",
+    "site-admin": lambda b: "made them an admin" if b.get("admin") else "removed admin",
 }
 
 
@@ -222,7 +185,12 @@ def _inbox(db: PgConnection) -> dict:
     items = [{"source": "feedback", "id": r["id"], "kind": "bug" if r["kind"] == "bug" else "idea",
               "status": r["status"], "admin_note": r["admin_note"], "created_at": r["created_at"], "note": r["note"],
               **who(r), **versions[r["id"]], "screen": r["snapshot"].get("screen", ""),
-              "user_agent": r["snapshot"].get("user_agent", ""),
+              "user_agent": r["snapshot"].get("user_agent", ""), "user_id": r["user_id"],
+              # Reports from before the device was saved get it from their browser text.
+              "device": r["snapshot"].get("device") or auth.describe_device(r["snapshot"].get("user_agent", ""),
+                                                                           r["snapshot"].get("app", "")),
+              "settings": r["snapshot"].get("settings"), "pages": r["snapshot"].get("pages", []),
+              "errors": r["snapshot"].get("errors", []),
               "screenshots": [f"/api/dev/feedback/{r['id']}/screenshots/{i}"
                               for i in range(len(r["snapshot"].get("screenshots") or []))]}
              for r in feedback]
@@ -252,6 +220,18 @@ def _inbox(db: PgConnection) -> dict:
                              {_has_account_sql("f")} AS has_account
                       FROM prep_step_feedback f JOIN recipes r ON r.id = f.recipe_id
                       LEFT JOIN households h ON h.id = f.household_id WHERE {PREP_ISSUE.replace("rating", "f.rating").replace("reason", "f.reason")}""")]
+    # Who sent each one: their account when signed in, and everyone who shares that kitchen.
+    accounts: dict[int, list] = {}
+    logins = {}
+    for r in db.execute("SELECT id, email, household_id FROM users ORDER BY id"):
+        accounts.setdefault(r["household_id"], []).append({"id": r["id"], "login": r["email"]})
+        logins[r["id"]] = r["email"]
+    for item in items:
+        snap = item.get("snapshot") or {}
+        if item["source"] in ("recipe", "plan"):
+            item.update(user_id=snap.get("user_id"), device=snap.get("device", ""), settings=snap.get("settings"))
+        item["email"] = logins.get(item.get("user_id")) or item["email"]
+        item["household_accounts"] = accounts.get(item["household_id"], [])
     items.sort(key=lambda i: str(i["created_at"] or ""), reverse=True)
     week = _since(7)
     votes = db.execute("""SELECT COUNT(*) FILTER (WHERE rating > 0 AND reason <> 'missing') AS up,
@@ -263,6 +243,12 @@ def _inbox(db: PgConnection) -> dict:
         "accounts": db.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"],
         "locked": db.execute("SELECT COUNT(*) AS n FROM users WHERE locked_until > ?", (now(),)).fetchone()["n"],
         "prep_votes": dict(votes),
+        "prep_by_reason": {PREP_REASONS.get(r["reason"], r["reason"] or "No reason given"): r["n"] for r in db.execute(
+            "SELECT reason, COUNT(*) AS n FROM prep_step_feedback WHERE rating < 0 GROUP BY reason ORDER BY n DESC")},
+        "prep_by_task": {r["task"]: {"up": r["up"], "down": r["down"]} for r in db.execute(
+            """SELECT COALESCE(NULLIF(category, ''), '(no task)') AS task,
+                      COUNT(*) FILTER (WHERE rating > 0 AND reason <> 'missing') AS up, COUNT(*) FILTER (WHERE rating < 0) AS down
+               FROM prep_step_feedback GROUP BY 1 ORDER BY 3 DESC, 2 DESC""")},
     }
     return {"items": items, "overview": overview, "now": now()}
 
@@ -302,9 +288,16 @@ def inbox_update(source: str, item_id: str, body: dict, _admin=AdminDep, db: PgC
 
 
 @router.post("/admin/users/{user_id}/{action}")
-def user_action(user_id: int, action: str, body: dict, _admin=AdminDep, db: PgConnection = DbDep):
-    """One change to one account, from the Users page."""
+def user_action(user_id: int, action: str, body: dict, admin=AdminDep, db: PgConnection = DbDep):
+    """One change to one account, from the Users page. Only the super admin can change admins
+    (other than themselves) or who is one. Each change goes in the admin log."""
+    target = db.execute("SELECT email, site_admin FROM users WHERE id = ?", (user_id,)).fetchone()
+    is_super = auth.is_admin_email(admin["email"])
+    if target and not is_super and (action == "site-admin" or (auth.is_admin(target) and user_id != admin["user_id"])):
+        raise HTTPException(403, {"error": "forbidden", "detail": "super_admin_only",
+                                  "message": "Only the super admin can change admins."})
     actions = {
+        "site-admin": lambda: auth.admin_set_site_admin(db, user_id, bool(body.get("admin"))),
         "password": lambda: auth.admin_set_password(db, user_id, str(body.get("password") or "")),
         "unlock": lambda: auth.admin_unlock(db, user_id),
         "send-reset": lambda: _email(lambda: auth.admin_send_reset(db, user_id),
@@ -330,23 +323,18 @@ def user_action(user_id: int, action: str, body: dict, _admin=AdminDep, db: PgCo
     except ValueError:
         db.rollback()
         raise HTTPException(400, {"error": "auth", "detail": "not_found", "message": USER_ERRORS["not_found"]})
+    auth.log_admin_action(db, admin, user_id, action, LOG_TEXT[action](body))
     return {"ok": True}
 
 
 @router.get("/admin/{name}", response_class=HTMLResponse)
-def admin_page(name: str, _admin=AdminDep, db: PgConnection = DbDep):
+def admin_page(name: str, admin=AdminDep, db: PgConnection = DbDep):
     if name == "variant-review":
         return _page("variant_review", _variant_review())
-    if name == "prep-feedback":
-        return _page("prep_feedback", _prep_feedback(db))
-    if name == "plan-reports":
-        return _page("plan_reports", _plan_reports(db))
-    if name == "recipe-reports":
-        return _page("recipe_reports", _recipe_reports(db))
     if name == "recipe-tags":
         return _page("recipe_tags", _recipe_tags(db))
     if name == "users":
-        return _page("users", _users(db))
+        return _page("users", _users(db, admin))
     if name == "inbox":
         return _page("inbox", _inbox(db))
     raise HTTPException(404, {"error": "not_found", "detail": "admin page"})

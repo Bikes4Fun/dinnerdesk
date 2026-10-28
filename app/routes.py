@@ -24,7 +24,7 @@ from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
 from app.assets import catalog_dir, feedback_dir
-from app.auth import SESSION_COOKIE, session_info
+from app.auth import SESSION_COOKIE, describe_device, session_info
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
@@ -2445,13 +2445,31 @@ def get_prep_feedback(_admin=AdminDep, db: PgConnection = DbDep):
     return {"votes": rows, "by_category": by_category}
 
 
+def _sender(request: Request, db: PgConnection, household_id: int) -> dict:
+    """What a report keeps about who sent it and how they had the app set up, so it can be
+    understood later: their account, device, filters, portions and how many accounts share the kitchen."""
+    row = db.execute("SELECT prefs_json FROM households WHERE id = ?", (household_id,)).fetchone()
+    prefs = json.loads((row["prefs_json"] if row else None) or "{}")
+    filters = household_filters(db, household_id)
+    account = session_info(db, request.cookies.get(SESSION_COOKIE))
+    return {
+        "user_id": account["user_id"] if account else None,
+        "device": describe_device(request.headers.get("user-agent", ""), request.headers.get("x-dinnerdesk-app", "")),
+        "settings": {"diets": filters.get("diets", []), "allergens": filters.get("allergens", []),
+                     "avoids": filters.get("avoids", []), "family_portions": prefs.get("family_portions"),
+                     "accounts": db.execute("SELECT COUNT(*) AS n FROM users WHERE household_id = ?",
+                                            (household_id,)).fetchone()["n"]},
+    }
+
+
 @router.post("/plans/{plan_id}/report")
-def report_plan(plan_id: int, body: PlanReportCreate, db: PgConnection = DbDep, household_id: int = HhDep):
+def report_plan(plan_id: int, body: PlanReportCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
     """Report a bad suggestion. Saves the note with the plan as it is now and its suggestion
     context (filters, pantry, taste, each meal's score and reasons when it was suggested)."""
     if not db.execute("SELECT id FROM plans WHERE id = ? AND household_id = ?", (plan_id, household_id)).fetchone():
         raise HTTPException(404, {"error": "not_found", "detail": "plan"})
-    snapshot = {"plan": _plan_out(db, plan_id, household_id), "filters_when_reported": household_filters(db, household_id)}
+    snapshot = {"plan": _plan_out(db, plan_id, household_id), "filters_when_reported": household_filters(db, household_id),
+                **_sender(request, db, household_id)}
     with transaction(db):
         cur = db.execute(
             "INSERT INTO plan_reports (household_id, plan_id, note, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -2461,7 +2479,7 @@ def report_plan(plan_id: int, body: PlanReportCreate, db: PgConnection = DbDep, 
 
 
 @router.post("/recipes/{recipe_id}/report")
-def report_recipe(recipe_id: int, body: RecipeReportCreate, db: PgConnection = DbDep, household_id: int = HhDep):
+def report_recipe(recipe_id: int, body: RecipeReportCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
     """Report a problem with a recipe. Saves the recipe as this household sees it now (with its
     edits) and how it stands against their filters, so a diet or allergy report shows whether
     the filter let it through or the recipe is mislabeled."""
@@ -2478,6 +2496,7 @@ def report_recipe(recipe_id: int, body: RecipeReportCreate, db: PgConnection = D
         "passes_diets_and_allergies": diet_allowed(name, names, hard),
         "matched_diet_or_allergy_words": matched_words(name, names, hard),
         "matched_avoid_words": matched_words(name, names, soft),
+        **_sender(request, db, household_id),
     }
     with transaction(db):
         cur = db.execute(
@@ -2558,6 +2577,9 @@ def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbD
         "user_agent": request.headers.get("user-agent", "")[:300],
         "screen": body.screen.strip(),
         "screenshots": screenshots,
+        "pages": body.pages,
+        "errors": body.errors,
+        **_sender(request, db, household_id),
     }
     ts = now()
     with transaction(db):

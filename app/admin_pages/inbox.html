@@ -83,6 +83,10 @@
   details ul, details ol { margin: 6px 0 0; padding-left: 20px; }
   .inner th, .inner td { padding: 6px 8px; font-size: 13px; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .prepsum { padding: 14px 18px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .prepsum ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .prepsum li { display: flex; justify-content: space-between; gap: 12px; }
+  .block details ol, .block details ul { margin: 6px 0 0; padding-left: 20px; }
   #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--solid); color: var(--on-solid);
     padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: calc(100% - 32px); }
   #toast.err { background: var(--warn); color: #fff; }
@@ -102,6 +106,7 @@
     <div class="chips" role="group" aria-label="Type" id="kinds"></div>
     <div class="chips" role="group" aria-label="Status" id="states"></div>
   </div>
+  <section class="panel prepsum" id="prepsum" aria-label="Prep votes" hidden></section>
   <div class="split">
     <section class="panel list" aria-label="Inbox items"><div class="scrollx"><table>
       <thead><tr><th scope="col">Type</th><th scope="col">What they said</th><th scope="col">From</th>
@@ -187,8 +192,9 @@ function row(i) {
 function feedbackBody(i) {
   return `<div class="block"><dl>
       <dt>Version</dt><dd>${esc(i.version)}${i.behind ? ` <span class="warn">· older version (${esc(i.behind)})</span>` : ""}</dd>
-      ${i.screen ? `<dt>Screen</dt><dd>${esc(i.screen)}</dd>` : ""}
-      ${i.user_agent ? `<dt>Browser</dt><dd class="faint">${esc(i.user_agent)}</dd>` : ""}</dl>
+      ${i.screen ? `<dt>Sent from</dt><dd>${esc(i.screen)}</dd>` : ""}</dl>
+    ${i.pages.length ? `<details><summary>Screens before sending (${i.pages.length})</summary><ol>${i.pages.map(p => `<li>${esc(p)}</li>`).join("")}</ol></details>` : ""}
+    ${i.errors.length ? `<details open><summary class="warn">Errors before sending (${i.errors.length})</summary><ol>${i.errors.map(e => `<li>${esc(e)}</li>`).join("")}</ol></details>` : ""}
     ${i.screenshots.length ? `<div class="shots">${i.screenshots.map((src, n) => `<a href="${esc(src)}" target="_blank" rel="noopener"><img src="${esc(src)}" alt="Screenshot ${n + 1}"></a>`).join("")}</div>` : ""}</div>`;
 }
 
@@ -222,6 +228,7 @@ function planBody(i) {
       <td>${recipeLink(m.id, m.name || names[m.id])}${m.backup ? ` <span class="tag">backup</span>` : ""}${kept.has(m.id) ? "" : ` <span class="tag changed">swapped out</span>`}</td>
       <td class="num">${m.score != null ? Number(m.score).toFixed(2) : "–"}</td>
       <td>${chipline(m.reasons || reasons[String(m.id)])}</td></tr>`).join("");
+  const added = (plan.slots || []).filter(x => !meals.some(m => m.id === x.recipe_id));
   const swaps = (plan.changes || []).map(c => `<li>${recipeLink(c.from, names[c.from])} → ${recipeLink(c.to, names[c.to])}${c.reason ? ` <span class="tag">${esc(c.reason)}</span>` : ""}</li>`).join("");
   const t = ctx?.taste || {}, p = ctx?.pool || {};
   return `<div class="block"><dl><dt>Plan</dt><dd>#${esc(i.plan_id ?? "deleted")}${decision ? ` · ${esc(decision)}` : ""}</dd>
@@ -232,7 +239,14 @@ function planBody(i) {
       ${plan.suggestion_note ? `<p class="faint">The app said: ${esc(plan.suggestion_note)}</p>` : ""}</div>
     <div class="block"><h3>Meals as suggested</h3><div class="scrollx"><table class="inner"><thead><tr><th>Rank</th><th>Meal</th><th>Score</th><th>Reasons</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="4" class="faint">No meals saved</td></tr>`}</tbody></table></div>
-      ${swaps ? `<details open><summary>Swaps they made (${plan.changes.length})</summary><ul>${swaps}</ul></details>` : ""}</div>`;
+      ${swaps ? `<details open><summary>Swaps they made (${plan.changes.length})</summary><ul>${swaps}</ul></details>` : ""}
+      ${added.length ? `<details><summary>Plan now also has (${added.length})</summary><p>${added.map(x => recipeLink(x.recipe_id, x.recipe_name)).join(", ")}</p></details>` : ""}
+      ${ctx ? `<details><summary>Kept meals, pantry and timing</summary><dl>
+        <dt>Kept meals</dt><dd>${(ctx.kept_recipe_ids || []).map(id => recipeLink(id, names[id])).join(", ") || "none"}</dd>
+        <dt>Backup picks</dt><dd>${ctx.counts?.backup_picked ?? 0}</dd>
+        <dt>Pantry</dt><dd>${chipline(ctx.pantry)}</dd><dt>Never buy</dt><dd>${chipline(ctx.never_shop)}</dd>
+        <dt>Time taken</dt><dd>${Object.values(ctx.steps_ms || {}).reduce((a, b) => a + b, 0).toFixed(0)} ms ·
+          ${Object.entries(ctx.steps_ms || {}).map(([k, v]) => `${esc(k)} ${v} ms`).join(", ")}</dd></dl></details>` : ""}</div>`;
 }
 
 function prepBody(i) {
@@ -240,8 +254,26 @@ function prepBody(i) {
       <dt>Step</dt><dd>${esc(i.step)}</dd>
       ${i.task ? `<dt>Prep task</dt><dd>${esc(i.task)}</dd>` : ""}
       <dt>Vote</dt><dd>${i.missing ? "They added this step: prep had skipped it" : `👎 ${esc(i.reason || "no reason given")}`}</dd>
-      <dt>Picked by</dt><dd>${i.suggested_by_app ? "the app" : "the recipe's Prep tag"}</dd></dl>
-      <p class="faint"><a href="/admin/prep-feedback">All prep votes, with charts</a></p></div>`;
+      <dt>Picked by</dt><dd>${i.suggested_by_app ? "the app" : "the recipe's Prep tag"}</dd></dl></div>`;
+}
+
+// Who sent it and how their app was set up, plus anything else from the same kitchen.
+function sender(i) {
+  const st = i.settings;
+  const others = i.household_accounts.filter(a => a.id !== i.user_id);
+  const earlier = DATA.items.filter(x => x.household_id === i.household_id && key(x) !== key(i));
+  const person = i.user_id ? `<a href="/admin/users#u=${i.user_id}">${esc(i.email)}</a>`
+    : i.guest ? "A guest (no account)" : "Not signed in, or sent before accounts were saved";
+  return `<div class="block"><h3>Who sent it</h3><dl>
+      <dt>Account</dt><dd>${person}</dd>
+      <dt>Household</dt><dd>${esc(i.household_name || "household")} (h${i.household_id})${others.length
+        ? ` · with ${others.map(a => `<a href="/admin/users#u=${a.id}">${esc(a.login)}</a>`).join(", ")}` : ""}</dd>
+      ${i.device ? `<dt>Device</dt><dd>${esc(i.device)}</dd>` : ""}
+      ${st ? `<dt>Their settings</dt><dd>diets ${chipline(st.diets)} allergies ${chipline(st.allergens)} avoids ${chipline(st.avoids)}
+        <span class="faint">· ${st.family_portions ? `${esc(st.family_portions)} portions` : "default portions"} · ${plural(st.accounts, "account")} in the kitchen</span></dd>` : ""}
+    </dl>
+    ${earlier.length ? `<details><summary>More from this household (${earlier.length})</summary><ul>${earlier.map(x =>
+      `<li><a href="#" data-goto="${esc(key(x))}">${KIND_LABEL[x.kind]}: ${esc(title(x))}</a> <span class="faint">${day(x.created_at)} · ${STATUS_LABEL[x.status]}</span></li>`).join("")}</ul></details>` : ""}</div>`;
 }
 
 function detail(i) {
@@ -256,7 +288,8 @@ function detail(i) {
       <label for="note" class="sr">My note</label>
       <textarea id="note" placeholder="My note: what to fix, what I decided… (only admins see this)">${esc(i.admin_note)}</textarea>
       <div><button type="button" class="btn" data-save-note>Save note</button></div></div>
-    ${body}`;
+    ${body}
+    ${sender(i)}`;
 }
 
 // "3 · 1 new": what the status filter shows, plus how many of this type are new. Prep adds
@@ -266,6 +299,16 @@ function chipCount(items, stateTest, k) {
   const fresh = mine.filter(i => i.status === "new").length;
   const votes = k === "prep" ? ` · ${DATA.overview.prep_votes.up} 👍 ${DATA.overview.prep_votes.down} 👎` : "";
   return `${mine.filter(stateTest).length}${fresh && which !== "new" ? ` · <b class="warn">${fresh} new</b>` : ""}${votes}`;
+}
+
+// With Prep picked: why steps got 👎 and how each prep task is voted, 👍 included.
+function prepSummary() {
+  const box = document.getElementById("prepsum"), o = DATA.overview;
+  box.hidden = kind !== "prep";
+  if (box.hidden) return;
+  const reasons = Object.entries(o.prep_by_reason), tasks = Object.entries(o.prep_by_task);
+  box.innerHTML = `<div><h3>Why steps got 👎</h3>${reasons.length ? `<ul>${reasons.map(([r, n]) => `<li>${esc(r)} <b>${n}</b></li>`).join("")}</ul>` : `<p class="faint">No 👎 yet.</p>`}</div>
+    <div><h3>By prep task</h3>${tasks.length ? `<ul>${tasks.map(([t, v]) => `<li>${esc(t)} <b>${v.up} 👍 ${v.down} 👎</b></li>`).join("")}</ul>` : `<p class="faint">No votes yet.</p>`}</div>`;
 }
 
 function render() {
@@ -283,6 +326,7 @@ function render() {
     ? `Showing ${closed} done &amp; declined · <button type="button" class="link" data-s="open">Back to open</button>`
     : `<button type="button" class="link" data-s="closed">Show done &amp; declined (${closed})</button>`;
   const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind));
+  prepSummary();
   document.getElementById("rows").innerHTML = shown.map(row).join("")
     || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
   const item = DATA.items.find(i => key(i) === selected);
@@ -311,6 +355,8 @@ async function save(item, change) {
 
 document.getElementById("detail").addEventListener("click", async e => {
   if (e.target.closest("[data-close]")) { selected = null; return render(); }
+  const goto = e.target.closest("[data-goto]");
+  if (goto) { e.preventDefault(); selected = goto.dataset.goto; return render(); }
   const item = DATA.items.find(i => key(i) === selected); if (!item) return;
   const s = e.target.closest("[data-status]");
   if (s) {

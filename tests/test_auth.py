@@ -733,3 +733,59 @@ def test_users_page_leaves_out_expired_sessions(tmp_path):
             db.commit()
         data = json.loads(admin.get("/admin/users").text.split("const DATA = ")[1].split(";\n")[0])
         assert next(u for u in data["users"] if u["id"] == uid)["sessions"] == []
+
+
+def _page_data(client, path):
+    import json
+    return json.loads(client.get(path).text.split("const DATA = ")[1].split(";\n")[0])
+
+
+def test_super_admin_promotes_admins_and_every_change_is_logged(tmp_path):
+    with _client(tmp_path) as boss, TestClient(create_app()) as helper, TestClient(create_app()) as cook:
+        _signup(boss, "admin@example.test")
+        hid, cid = _signup(helper, "helper@example.com"), _signup(cook, "cook@example.com")
+        assert helper.get("/admin/users").status_code == 403
+        assert boss.post(f"/admin/users/{hid}/site-admin", json={"admin": True}).status_code == 200
+        assert helper.get("/admin/users").status_code == 200 and helper.get("/api/auth/me").json()["admin"] is True
+
+        # A promoted admin can manage cooks, but not admins or who is one.
+        assert helper.post(f"/admin/users/{cid}/unlock", json={}).status_code == 200
+        boss_id = boss.get("/api/auth/me").json()["user_id"]
+        assert helper.post(f"/admin/users/{boss_id}/unlock", json={}).status_code == 403
+        assert helper.post(f"/admin/users/{cid}/site-admin", json={"admin": True}).status_code == 403
+        assert boss.post(f"/admin/users/{boss_id}/site-admin", json={"admin": False}).json()["detail"] == "super_admin"
+
+        log = _page_data(boss, "/admin/users")["log"]
+        assert [(e["admin_label"], e["target_label"], e["detail"]) for e in log] == [
+            ("helper@example.com", "cook@example.com", "cleared the lockout"),
+            ("admin@example.test", "helper@example.com", "made them an admin"),
+        ]
+        assert boss.post(f"/admin/users/{hid}/site-admin", json={"admin": False}).status_code == 200
+        assert helper.get("/admin/users").status_code == 403
+
+        # A deleted account's address doesn't stay in the log.
+        assert cook.post("/api/auth/delete-account", json={"password": "userpassword"}).status_code == 200
+        labels = {e["target_label"] for e in _page_data(boss, "/admin/users")["log"]}
+        assert "cook@example.com" not in labels and "deleted account" in labels
+
+
+def test_inbox_shows_who_sent_it_their_device_settings_and_trail(tmp_path):
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "reporter@example.com")
+        user.put("/api/household", json={"prefs": {"filters": {"diets": ["vegetarian"]}, "family_portions": 4}})
+        sent = user.post("/api/feedback", json={"kind": "bug", "note": "Broke", "pages": ["10:00:00 /grocery"],
+                                                "errors": ["10:00:01 GET /api/plans 500: boom"]},
+                         headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile Safari/604.1"})
+        assert sent.status_code == 200
+        with connect() as db:
+            recipe = db.execute("INSERT INTO recipes (name, created_at, updated_at) VALUES ('Soup', 'now', 'now') RETURNING id").fetchone()["id"]
+            db.commit()
+        assert user.post(f"/api/recipes/{recipe}/report", json={"reason": "steps", "note": "x"}).status_code == 200
+        items = {i["kind"]: i for i in _page_data(admin, "/admin/inbox")["items"]}
+        bug, report = items["bug"], items["recipe"]
+        assert (bug["email"], bug["user_id"], bug["device"]) == ("reporter@example.com", uid, "Safari on iPhone")
+        assert bug["pages"] == ["10:00:00 /grocery"] and bug["errors"] == ["10:00:01 GET /api/plans 500: boom"]
+        assert bug["settings"]["diets"] == ["vegetarian"] and bug["settings"]["family_portions"] == 4
+        assert (report["email"], report["user_id"]) == ("reporter@example.com", uid)
+        assert [a["login"] for a in report["household_accounts"]] == ["reporter@example.com"]

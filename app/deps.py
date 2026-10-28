@@ -6,7 +6,7 @@ import secrets
 
 from fastapi import Depends, HTTPException, Request, Response
 
-from app.auth import SESSION_COOKIE, household_for_token, is_admin_email, session_info
+from app.auth import SESSION_COOKIE, household_for_token, is_admin, session_info
 from app.db.database import connect, now
 
 GUEST_COOKIE = "dd_guest"
@@ -73,7 +73,7 @@ def get_current_user(request: Request, conn=Depends(get_db)) -> int:
 def require_admin(request: Request, conn=Depends(get_db)):
     token = request.cookies.get(SESSION_COOKIE)
     row = session_info(conn, token)
-    if row is None or not is_admin_email(row["email"]):
+    if not is_admin(row):
         raise HTTPException(403, {"error": "forbidden", "detail": "admin"})
     return row
 
@@ -81,7 +81,7 @@ def require_admin(request: Request, conn=Depends(get_db)):
 def optional_admin(request: Request, conn=Depends(get_db)):
     """The admin's session row, or None for everyone else (for routes open to both)."""
     row = session_info(conn, request.cookies.get(SESSION_COOKIE))
-    return row if row is not None and is_admin_email(row["email"]) else None
+    return row if is_admin(row) else None
 
 
 DbDep = Depends(get_db)
