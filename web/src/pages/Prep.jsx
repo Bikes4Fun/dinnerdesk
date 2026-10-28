@@ -1,22 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
-import { Thumbs } from "../Thumbs.jsx";
 import { Icon } from "../icons.jsx";
 import "./prep.css";
-import { Tip } from "../Tip.jsx";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
-   a progress ring plus one bar per section, collapsible sections, thumbs up/down on every item, and
-   check-off that works like the grocery list (done items leave unless "Show completed"). */
+   one progress bar, and check-off that works like the grocery list (done items leave unless
+   "Show completed"). One item is open at a time (prep.html, #220): its steps, the meals it's for,
+   Done / Skip (both move on to the next item) and "Worth prepping ahead?". */
 
 const SECTIONS = [
-  ["veg", "Vegetables", "Veg"],
-  ["herbs", "Aromatics, herbs & citrus", "Aromatics"],
-  ["protein", "Protein", "Protein"],
-  ["cheese", "Cheese & dairy", "Cheese"],
-  ["sauce", "Sauces & dressings", "Sauce"],
-  ["other", "More prep", "More"],
+  ["veg", "Vegetables"],
+  ["herbs", "Aromatics, herbs & citrus"],
+  ["protein", "Protein"],
+  ["cheese", "Cheese & dairy"],
+  ["sauce", "Sauces & dressings"],
+  ["other", "More prep"],
 ];
 export const PREP_REASONS = [
   ["day_of", "Better done day-of"],
@@ -25,7 +24,6 @@ export const PREP_REASONS = [
   ["prep_differently", "Prep it differently"],
   ["not_prep", "Not a prep step"],
 ];
-const reasonLabel = (id) => PREP_REASONS.find(([key]) => key === id)?.[1] || "";
 
 const store = {
   get(key, fallback) {
@@ -41,15 +39,16 @@ export function Prep() {
   const [loaded, setLoaded] = useState(false);
   const [err, setErr] = useState("");
   const [showDone, setShowDone] = useState(() => store.get("prep.showDone", false));
-  const [closed, setClosed] = useState(() => new Set(store.get("prep.closed", [])));
-  const [why, setWhy] = useState(null); // task id whose "Why not?" is open
-  const [open, setOpen] = useState(() => new Set()); // rows showing their per-meal steps
+  const [openId, setOpenId] = useState(null); // the one item showing its steps
+  const [report, setReport] = useState(null); // task id whose "What's wrong?" box is open
+  const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState(null); // { id, why }
 
   async function load() {
     const plan = await api.plan();
     const data = await api.prep(plan.id);
     setTasks(data.tasks);
+    setOpenId((cur) => cur ?? data.tasks.find((t) => !t.done)?.id ?? null);
     setLoaded(true);
   }
 
@@ -83,16 +82,17 @@ export function Prep() {
     }
   }
 
-  function thumbsOnRow(task, next) {
-    rate(task, next, next < 0 ? task.reason : "");
-    setWhy(next < 0 ? task.id : null);
+  // Items in the order they're listed, for Done / Skip moving on.
+  const order = SECTIONS.flatMap(([key]) => tasks.filter((t) => (t.section || "other") === key));
+  function openNext(task) {
+    const i = order.findIndex((t) => t.id === task.id);
+    const next = [...order.slice(i + 1), ...order.slice(0, i)].find((t) => !t.done);
+    setOpenId(next ? next.id : null);
+    setReport(null);
   }
-
-  function toggleSection(key) {
-    const next = new Set(closed);
-    if (next.has(key)) next.delete(key); else next.add(key);
-    setClosed(next);
-    store.set("prep.closed", [...next]);
+  function check(task) {
+    toggle(task);
+    if (!task.done && openId === task.id) openNext(task);
   }
 
   function toggleShowDone() {
@@ -104,24 +104,36 @@ export function Prep() {
   const doneCount = tasks.filter((t) => t.done).length;
   const pct = total ? Math.round((100 * doneCount) / total) : 0;
   const sections = useMemo(
-    () => SECTIONS.map(([key, title, short]) => {
+    () => SECTIONS.map(([key, title]) => {
       const all = tasks.filter((t) => (t.section || "other") === key);
       const done = all.filter((t) => t.done);
       const shown = showDone ? [...all.filter((t) => !t.done), ...done] : all.filter((t) => !t.done);
-      return { key, title, short, all, done: done.length, shown };
+      return { key, title, all, done: done.length, shown };
     }).filter((s) => s.all.length),
     [tasks, showDone],
   );
   const toastTask = toast && tasks.find((t) => t.id === toast.id);
 
   return (
-    <section className="screen prep-screen">
-      <header className="top">
+    <section className="screen narrow col-720 prep-screen">
+      <header className="top page-top">
         <button type="button" className="icon-btn mob-back" onClick={() => go("/more")} aria-label="Back">
           ←
         </button>
         <h1>Weekend prep</h1>
+        {total > 0 && (
+          <button type="button" className="more-btn" aria-label="More options" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+            <Icon name="dots" size={24} />
+          </button>
+        )}
       </header>
+      {menu && (
+        <div className="action-sheet prep-options">
+          {doneCount > 0 && <button type="button" onClick={() => { toggleShowDone(); setMenu(false); }}>{showDone ? "Hide completed" : `Show completed (${doneCount})`}</button>}
+          <button type="button" onClick={() => { setMenu(false); window.print(); }}>Print prep</button>
+          <button type="button" onClick={() => setMenu(false)}>Done</button>
+        </div>
+      )}
       <div className="scroll pad">
         {err && <p className="banner err" role="alert">{err}</p>}
         {loaded && total === 0 ? (
@@ -133,59 +145,29 @@ export function Prep() {
           </>
         ) : total > 0 && (
           <>
-            <div className="pz-head">
-              <div className="pz-ring" style={{ background: `conic-gradient(var(--coral) 0 ${pct}%, #f1e7ef ${pct}% 100%)` }}
-                role="img" aria-label={`${doneCount} of ${total} prep items done`}>
-                <span>{doneCount}/{total}</span>
-              </div>
-              <Tip id="prep.about">Built from this plan’s meals. Chop and batch now; cook fresh later in the week.</Tip>
-            </div>
-            <nav className="pz-bars" aria-label="Jump to section">
-              {sections.map((s) => (
-                <a key={s.key} href={`#prep-${s.key}`} onClick={(e) => { e.preventDefault(); document.getElementById(`prep-${s.key}`)?.scrollIntoView({ block: "start" }); }}>
-                  <span className="pz-bar"><span style={{ width: `${Math.round((100 * s.done) / s.all.length)}%` }} /></span>
-                  <span className="pz-bar-label">{s.short} <span>{s.done}/{s.all.length}</span></span>
-                </a>
-              ))}
-            </nav>
-            <div className="pz-done-row">
-              <span className="muted">{doneCount} completed</span>
-              {doneCount > 0 && <button type="button" className="text-link" onClick={toggleShowDone}>{showDone ? "Hide completed" : "Show completed"}</button>}
+            <p className="pz-progress-text" data-tip="prep.about"><strong>{doneCount} of {total} done.</strong> Chop and batch now; cook fresh later in the week.</p>
+            <div className="pz-progress" role="progressbar" aria-label="Prep progress" aria-valuemin={0} aria-valuemax={total} aria-valuenow={doneCount}>
+              <div style={{ width: `${pct}%` }} />
             </div>
 
-            {sections.map((s) => {
-              const isOpen = !closed.has(s.key);
-              return (
-                <section key={s.key} id={`prep-${s.key}`} className="pz-section">
-                  <h2>
-                    <button type="button" className="pz-section-head" aria-expanded={isOpen} onClick={() => toggleSection(s.key)}>
-                      <span className="pz-section-title">{s.title}</span>
-                      <span className="muted">{s.done} of {s.all.length}</span>
-                      <span className={`pz-arrow${isOpen ? "" : " is-closed"}`} aria-hidden="true">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 15l6-6 6 6" /></svg>
-                      </span>
-                    </button>
-                  </h2>
-                  {isOpen && (s.shown.length === 0
-                    ? <p className="pz-empty">All prepped here.</p>
-                    : <ul className="pz-card">
-                      {s.shown.map((t) => (
-                        <PrepRow key={t.id} task={t}
-                          why={why === t.id} details={open.has(t.id)}
-                          onToggle={() => toggle(t)}
-                          onRate={(next) => thumbsOnRow(t, next)}
-                          onReason={(reason) => rate(t, -1, reason)}
-                          onNote={(note) => { rate(t, -1, t.reason || "", note); setWhy(null); }}
-                          onDetails={() => setOpen((cur) => { const n = new Set(cur); if (n.has(t.id)) n.delete(t.id); else n.add(t.id); return n; })} />
-                      ))}
-                    </ul>)}
-                </section>
-              );
-            })}
+            {sections.map((s) => (
+              <section key={s.key} id={`prep-${s.key}`} className="pz-section">
+                <h2 className="pz-group-label"><span>{s.title}</span><span>{s.done} of {s.all.length}</span></h2>
+                {s.shown.length === 0
+                  ? <p className="pz-empty">All prepped here.</p>
+                  : s.shown.map((t) => (
+                    <PrepRow key={t.id} task={t} open={openId === t.id} reporting={report === t.id}
+                      onCheck={() => check(t)}
+                      onOpen={() => { setOpenId(openId === t.id ? null : t.id); setReport(null); }}
+                      onDone={() => { if (!t.done) toggle(t); openNext(t); }}
+                      onSkip={() => openNext(t)}
+                      onRate={(next) => { rate(t, next, next < 0 ? t.reason : ""); setReport(next < 0 ? t.id : null); }}
+                      onReport={() => setReport(report === t.id ? null : t.id)}
+                      onSend={(note) => { rate(t, -1, t.reason || "", note); setReport(null); }} />
+                  ))}
+              </section>
+            ))}
             <MissingPrep onChange={() => load().catch((e) => setErr(e.message))} onError={setErr} />
-            <button type="button" className="list-foot-link" onClick={() => window.print()}>
-              Print prep
-            </button>
           </>
         )}
       </div>
@@ -219,78 +201,73 @@ export function Prep() {
   );
 }
 
-function PrepRow({ task: t, why, details, onToggle, onRate, onReason, onNote, onDetails }) {
+function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onReport, onSend }) {
   const [note, setNote] = useState(t.reason_note || "");
-  const sub = (t.quantities || []).filter(Boolean).join(" · ");
-  // Each different step once, with the meals that use it as light pill links (#78 D).
-  const groups = [];
+  const amount = (t.quantities || []).filter(Boolean).join(" · ");
+  // Each different step once (several meals often share the same words).
+  const how = [];
   for (const meal of t.meals || []) {
     for (const text of meal.steps?.length ? meal.steps.map((s) => s.text) : meal.instructions || []) {
-      const hit = groups.find((g) => g.text.toLowerCase() === text.trim().toLowerCase());
-      if (hit) { if (!hit.meals.some((m) => m.id === meal.id)) hit.meals.push(meal); }
-      else groups.push({ text: text.trim(), meals: [meal] });
+      if (!how.some((h) => h.text.toLowerCase() === text.trim().toLowerCase())) {
+        how.push({ text: text.trim(), added: Boolean(meal.steps?.some((st) => st.added && st.text.trim() === text.trim())) });
+      }
     }
   }
   return (
-    <li className={`pz-item${t.done ? " is-done" : ""}${details ? " is-open" : ""}`}>
-      <div className="pz-row">
-        <button type="button" role="checkbox" aria-checked={t.done} className={`pz-check${t.done ? " on" : ""}`}
-          aria-label={`${t.done ? "Uncheck" : "Check off"} ${t.title}`} onClick={onToggle}>
-          {t.done ? "✓" : ""}
+    <div className={`pz-step-item${open ? " open" : ""}${t.done ? " done" : ""}`}>
+      <div className="pz-step-head">
+        <button type="button" className="pz-check" aria-label={`${t.done ? "Mark not done" : "Mark done"}: ${t.title}`} onClick={onCheck}>
+          {t.done && <Icon name="check" size={13} />}
         </button>
-        <button type="button" className="pz-text" aria-expanded={details} onClick={onDetails}>
-          <span className="pz-name">{t.title}</span>
-          {sub && <span className="pz-sub">{sub}</span>}
-        </button>
-        {/* 👍/👎 only on the open item (#78 D). */}
-        {details && <Thumbs size={18} rating={t.rating || 0} subject={`prepping ${t.title} ahead`} onRate={onRate} />}
-        <button type="button" className={`pz-chevron${details ? " on" : ""}`} aria-expanded={details}
-          aria-label={`${details ? "Hide" : "Show"} steps for ${t.title}`} onClick={onDetails}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+        <button type="button" className="pz-toggle" aria-expanded={open} aria-controls={`pz-step-${t.id}`} onClick={onOpen}>
+          <span className="pz-title">{t.title}</span>
+          {amount && <span className="pz-amount">{amount}</span>}
+          <span className="pz-chev" aria-hidden="true"><Icon name="chevron-down" size={14} /></span>
         </button>
       </div>
-      {t.rating < 0 && (t.reason || t.reason_note) && !why && (
-        <div className="pz-indent">
-          {t.reason && <span className="pz-tag">{reasonLabel(t.reason)}</span>}
-          {t.reason_note && <span className="pz-why-note">“{t.reason_note}”</span>}
-        </div>
-      )}
-      {why && (
-        <div className="pz-indent pz-why">
-          <span className="pz-why-q">Why not?</span>
-          <div className="pz-chips">
-            {PREP_REASONS.map(([id, label]) => (
-              <button key={id} type="button" className="pz-chip" aria-pressed={t.reason === id} onClick={() => onReason(id)}>{label}</button>
-            ))}
-          </div>
-          {/* Same as "Missing a prep step?": the user's own words go with the 👎. */}
-          <label className="pz-why-q" htmlFor={`pz-why-note-${t.id}`}>Anything to add? (optional)</label>
-          <textarea id={`pz-why-note-${t.id}`} className="pz-why-text" rows={2} maxLength={500} value={note}
-            placeholder="What would you do instead?" onChange={(e) => setNote(e.target.value)} />
-          <div><button type="button" className="pz-chip" onClick={() => onNote(note.trim())}>Done</button></div>
-        </div>
-      )}
-      {details && (
-        <div className="pz-details">
-          {groups.map((g, i) => (
-            <div key={i} className="pz-step-group">
-              <span className="pz-day" aria-hidden={!g.meals[0]?.day}>{g.meals[0]?.day || ""}</span>
-              <div className="pz-step-body">
-                <p className="pz-step">{g.text}</p>
-                {g.meals.some((m) => m.steps?.some((st) => st.added && st.text.trim() === g.text)) && <span className="pz-added">Added by you</span>}
-                {g.meals.map((meal) => (
-                  <button key={meal.id} type="button" className="pz-pill" onClick={() => go(`/recipes/${meal.id}`)}
-                    aria-label={`${meal.name}${meal.day ? `, ${meal.day}` : ""}: open recipe`}>
-                    <span>{meal.name}</span>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-                  </button>
-                ))}
-              </div>
-            </div>
+      {open && (
+        <div className="pz-step-body" id={`pz-step-${t.id}`}>
+          {how.map((h, i) => (
+            <p key={i} className="pz-how">{h.text}{h.added && <span className="pz-added">Added by you</span>}</p>
           ))}
+          {t.meals?.length > 0 && (
+            <div>
+              <p className="pz-meals-label">{t.meals.length > 1 ? "Split between" : "For"}</p>
+              {t.meals.map((meal) => (
+                <a key={meal.id} className="pz-meal-link" href={`/recipes/${meal.id}`} onClick={(e) => { e.preventDefault(); go(`/recipes/${meal.id}`); }}>
+                  <span className="pz-meal-name">{meal.name}</span>
+                  {meal.day && <span className="pz-meal-day">{meal.day}</span>}
+                </a>
+              ))}
+            </div>
+          )}
+          <div className="pz-actions">
+            <button type="button" className="pz-btn-done" onClick={onDone}>Done</button>
+            <button type="button" className="pz-btn-skip" onClick={onSkip}>Skip</button>
+          </div>
+          <div className="pz-feedback">
+            <span className="pz-feedback-q">Worth prepping ahead?</span>
+            <button type="button" className="pz-fb-btn" aria-label="Yes, worth it" aria-pressed={t.rating > 0} onClick={() => onRate(t.rating > 0 ? 0 : 1)}>
+              <Icon name="thumbs-up" size={18} />
+            </button>
+            <button type="button" className="pz-fb-btn" aria-label="No, not worth it" aria-pressed={t.rating < 0} onClick={() => onRate(t.rating < 0 ? 0 : -1)}>
+              <Icon name="thumbs-down" size={18} />
+            </button>
+            <button type="button" className="pz-fb-btn" aria-label="Report a problem or send feedback" aria-expanded={reporting} onClick={onReport}>
+              <Icon name="flag" size={18} />
+            </button>
+          </div>
+          {reporting && (
+            <div className="pz-report">
+              <label htmlFor={`pz-report-${t.id}`}>What's wrong with this step?</label>
+              <textarea id={`pz-report-${t.id}`} rows={2} maxLength={500} value={note}
+                placeholder="Wrong amount, unclear step, missing ingredient…" onChange={(e) => setNote(e.target.value)} />
+              <button type="button" onClick={() => onSend(note.trim())}>Send feedback</button>
+            </div>
+          )}
         </div>
       )}
-    </li>
+    </div>
   );
 }
 

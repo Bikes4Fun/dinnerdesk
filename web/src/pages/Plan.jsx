@@ -71,6 +71,8 @@ export function Plan() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [suggested, setSuggested] = useState(false);
+  // The suggested plan's meals, in a sheet like the iPhone's "Review your suggestions".
+  const [reviewing, setReviewing] = useState(false);
 
   useEffect(() => {
     if (!swapping || !proposal) return;
@@ -114,7 +116,7 @@ export function Plan() {
     if (source != null) body.source_plan_id = source;
     if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = keepCurrent; }
     const created = await api.createPlan(body);
-    if (created.status === "suggested") setProposal(created);
+    if (created.status === "suggested") { setProposal(created); setReviewing(true); }
     else setPlan(created);
     setSuggested(Boolean(created.suggestion_note));
 
@@ -139,13 +141,13 @@ export function Plan() {
   const today = new Date();
   const earliest = [plan.start_date, `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`].sort().at(-1);
 
-  return <section className="screen">
-    <header className="top">
+  return <section className="screen narrow">
+    <header className="top page-top">
       <h1>{plan.title}</h1>
       <div className="top-actions">
-        <button type="button" className="text-link" onClick={() => { setEditing(!editing); setSelected(new Set()); }}>{editing ? "Done" : "Edit"}</button>
+        {editing && <button type="button" className="text-link" onClick={() => { setEditing(false); setSelected(new Set()); }}>Done</button>}
         <details className="plan-menu">
-          <summary aria-label="Plan menu">⋯</summary>
+          <summary aria-label="Plan menu"><Icon name="dots" size={24} /></summary>
           <div>
             <button type="button" onClick={() => { setEditing(!editing); setSelected(new Set()); }}> {editing ? "Finish editing" : "Edit this plan"}</button>
             <button type="button" disabled={busy} onClick={() => act(() => markCooked(new Set(plan.slots.map((s) => s.id))))}>Mark all cooked</button>
@@ -163,7 +165,82 @@ export function Plan() {
     <div className="scroll pad">
       {err && <p role="alert" className="banner err">{err}</p>}
       {message && <p role="status">{message}</p>}
-      {proposal && <section className="suggested-plan" aria-labelledby="suggested-title">
+      {proposal && <div className="suggest-bar" role="status">
+        <p><strong>New plan suggested.</strong> <span className="muted">Your current plan stays until you approve.</span> <button type="button" className="text-link" onClick={() => setReviewing(true)}>See meals</button></p>
+        <div className="suggest-bar-actions">
+          {proposal.status === "suggested" && <button type="button" className="pill pill-secondary" disabled={busy} onClick={() => act(async () => { await api.decideSuggestion(proposal.id, "decline"); setProposal(null); setReviewing(false); })}>Discard</button>}
+          {proposal.status === "suggested" && <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); setReviewing(false); await week.load(); })}>Approve plan</button>}
+        </div>
+      </div>}
+      {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
+      {saved && <section className="saved-plans">
+        <h2>Drafts</h2>
+        {!saved.some((p) => p.status === "draft") && <p className="muted">No drafts yet. Use ⋯ → Save as draft to keep a plan for later.</p>}
+        {saved.filter((p) => p.status === "draft").map((p) => <div key={p.id} className="saved-row">
+          <button type="button" className="saved-row-main" disabled={busy} onClick={() => act(() => newPlan(p.id))}><SavedPlanSummary plan={p} /></button>
+          <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>
+        </div>)}
+        <h2>Plan history</h2>
+        {!saved.some(inHistory) && <p className="muted">No past plans yet. Plans you approve or finish show up here.</p>}
+        {saved.filter(inHistory).map((p) => <div key={p.id} className="saved-row">
+          <details className="saved-row-main"><summary><SavedPlanSummary plan={p} /></summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>
+          {p.status !== "active" && <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>}
+        </div>)}
+        <button type="button" className="text-link" onClick={() => setSaved(null)}>Close saved plans</button>
+      </section>}
+      {editing && plan.slots.length > 0 && <div className="plan-bulk">
+        <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? "Deselect all" : "Select all"}</button>
+        <span>{selected.size} selected</span>
+        <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected))}>Mark cooked</button>
+        <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
+      </div>}
+      {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
+      {groups.map((day) => <section key={day}>
+        {(() => { const n = plan.slots.filter((s) => (s.day_index ?? -1) === day).length; return <h2 className="section-label">{day >= 0 ? dayLabel(plan, day) : "Not scheduled"} · {n} {n === 1 ? "meal" : "meals"}</h2>; })()}
+        <div className={grid ? "plan-meal-grid" : "plan-meal-list"}>
+          {plan.slots.filter((s) => (s.day_index ?? -1) === day).sort((a, b) => Number(a.cooked) - Number(b.cooked) || a.id - b.id).map((slot) => <article key={slot.id} className={`plan-meal${grid ? " grid" : ""}${editing ? " editing" : ""}${slot.cooked ? " is-cooked" : ""}`}>
+            {editing && <label className="meal-select"><input aria-label={`Select ${slot.recipe_name}`} type="checkbox" checked={selected.has(slot.id)} onChange={() => toggleSelection(slot.id)} /></label>}
+            <div className={`meal-photo-wrap${slot.cooked ? " plan-completed" : ""}`}>
+              <button type="button" className="meal-photo-btn" aria-label={`Open ${slot.recipe_name}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}>
+                <FoodPhoto path={slot.photo_path} />
+              </button>
+              {!editing && <button type="button" className="meal-check" disabled={busy} aria-pressed={slot.cooked} aria-label={slot.cooked ? "Mark not cooked" : "Mark cooked"} onClick={() => act(() => patch(slot, { cooked: !slot.cooked }))}>{slot.cooked && <Icon name="check" size={14} />}</button>}
+            </div>
+            <div className="meal-copy">
+              <button type="button" className={`meal-title${slot.cooked ? " plan-completed" : ""}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}><strong>{slot.recipe_name}</strong></button>
+              {!editing && <>
+                {slot.cooking_minutes ? <span className="meal-time">{slot.cooking_minutes} min</span> : null}
+                {!grid && <button type="button" className="meal-schedule" disabled={busy} aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={15} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</button>}
+              </>}
+        
+              {editing && <>
+                <div className="meal-edit-controls">
+                  <button type="button" className="meal-schedule" aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={15} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  </button>
+                  <div className="meal-servings">
+                    <button type="button" aria-label={`Decrease servings for ${slot.recipe_name}`} disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
+                      <Icon name="minus" size={16} />
+                    </button>
+                    <span>{slot.servings} servings</span>
+                    <button type="button" aria-label={`Increase servings for ${slot.recipe_name}`} disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
+                      <Icon name="plus" size={16} />
+                    </button>
+                  </div>
+                </div>
+                <div className="meal-thumbs">
+                  <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
+                  {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
+                </div>
+                {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
+              </>}
+            </div>
+          </article>)}
+        </div>
+      </section>)}
+      {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
+    </div>
+    <div className="fab-pill-wrap"><button type="button" className="fab-pill" onClick={() => go("/recipes")}>Add meals</button></div>
+      {proposal && reviewing && <div className="sheet-backdrop"><section className="suggested-plan schedule-sheet review-sheet" role="dialog" aria-modal="true" aria-labelledby="suggested-title">
         <h2 id="suggested-title">Review your suggestions</h2>
         <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
@@ -188,7 +265,7 @@ export function Plan() {
         })}
         </div>
         <div className="proposal-actions">
-        {proposal.status === "suggested" && <button type="button" className="sp-approve" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); await week.load(); })}>Approve plan</button>}
+        {proposal.status === "suggested" && <button type="button" className="sp-approve" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); setReviewing(false); await week.load(); })}>Approve plan</button>}
         <button type="button" className="sp-another" disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids?.length || proposal.slots.length), proposal.slots.some((slot) => !proposal.suggested_recipe_ids?.includes(slot.recipe_id))); })} aria-label={proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}>{proposal.status === "suggested" ? "Suggest another" : "Try another suggestion"}</button>
         </div>
         <button type="button" className="text-link sp-improve" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
@@ -206,75 +283,8 @@ export function Plan() {
                   <button type="button" className="sp-another" disabled={busy} onClick={() => setReportNote(null)}>Cancel</button>
                 </div>
               </form>}
-      </section>}
-      {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
-      {saved && <section className="saved-plans">
-        <h2>Drafts</h2>
-        {!saved.some((p) => p.status === "draft") && <p className="muted">No drafts yet. Use ⋯ → Save as draft to keep a plan for later.</p>}
-        {saved.filter((p) => p.status === "draft").map((p) => <div key={p.id} className="saved-row">
-          <button type="button" className="saved-row-main" disabled={busy} onClick={() => act(() => newPlan(p.id))}><SavedPlanSummary plan={p} /></button>
-          <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>
-        </div>)}
-        <h2>Plan history</h2>
-        {!saved.some(inHistory) && <p className="muted">No past plans yet. Plans you approve or finish show up here.</p>}
-        {saved.filter(inHistory).map((p) => <div key={p.id} className="saved-row">
-          <details className="saved-row-main"><summary><SavedPlanSummary plan={p} /></summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>
-          {p.status !== "active" && <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>}
-        </div>)}
-        <button type="button" className="text-link" onClick={() => setSaved(null)}>Close saved plans</button>
-      </section>}
-      {editing && plan.slots.length > 0 && <div className="plan-bulk">
-        <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? "Deselect all" : "Select all"}</button>
-        <span>{selected.size} selected</span>
-        <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected))}>Mark cooked</button>
-        <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
-      </div>}
-      {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
-      {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
-      {groups.map((day) => <section key={day}>
-        {day >= 0 && <h2 className="block">{dayLabel(plan, day)}</h2>}
-        <div className={grid ? "plan-meal-grid" : "plan-meal-list"}>
-          {plan.slots.filter((s) => (s.day_index ?? -1) === day).sort((a, b) => Number(a.cooked) - Number(b.cooked) || a.id - b.id).map((slot) => <article key={slot.id} className={`plan-meal${grid ? " grid" : ""}${editing ? " editing" : ""}`}>
-            {editing && <label className="meal-select"><input aria-label={`Select ${slot.recipe_name}`} type="checkbox" checked={selected.has(slot.id)} onChange={() => toggleSelection(slot.id)} /></label>}
-            <div className={`meal-photo-wrap${slot.cooked ? " plan-completed" : ""}`}>
-              <button type="button" className="meal-photo-btn" aria-label={`Open ${slot.recipe_name}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}>
-                <FoodPhoto path={slot.photo_path} />
-              </button>
-              {!editing && <button type="button" className="meal-check" disabled={busy} aria-pressed={slot.cooked} aria-label={slot.cooked ? "Mark not cooked" : "Mark cooked"} onClick={() => act(() => patch(slot, { cooked: !slot.cooked }))}>{slot.cooked ? "✓" : ""}</button>}
-            </div>
-            <div className="meal-copy">
-              <button type="button" className={`meal-title${slot.cooked ? " plan-completed" : ""}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}><strong>{slot.recipe_name}</strong></button>
-              {!editing && <>
-                <span className="muted">{slot.servings} servings</span>
-                {!grid && <button type="button" className="meal-schedule" disabled={busy} aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</button>}
-              </>}
-        
-              {editing && <>
-                <div className="meal-edit-controls">
-                  <button type="button" className="meal-schedule" aria-label={`Schedule ${slot.recipe_name}`} onClick={() => schedule(slot)}><Icon name="calendar" size={16} /> {slot.day_index == null ? "Schedule" : new Date(`${slotDate(plan, slot.day_index)}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  </button>
-                  <div className="meal-servings">
-                    <button type="button" aria-label={`Decrease servings for ${slot.recipe_name}`} disabled={busy || slot.servings <= 1} onClick={() => act(() => patch(slot, { servings: slot.servings - 1 }))}>
-                      <Icon name="minus" size={16} />
-                    </button>
-                    <span>{slot.servings} servings</span>
-                    <button type="button" aria-label={`Increase servings for ${slot.recipe_name}`} disabled={busy || slot.servings >= 50} onClick={() => act(() => patch(slot, { servings: slot.servings + 1 }))}>
-                      <Icon name="plus" size={16} />
-                    </button>
-                  </div>
-                </div>
-                <div className="meal-thumbs">
-                  <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
-                  {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
-                </div>
-                {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
-              </>}
-            </div>
-          </article>)}
-        </div>
-      </section>)}
-      <button type="button" className="ghost-add" onClick={() => go("/recipes")}>+ Add meals</button>
-    </div>
+        <button type="button" className="sp-close" onClick={() => setReviewing(false)}>Close</button>
+      </section></div>}
     {swapping && <div className="sheet-backdrop"><section className="schedule-sheet" style={{maxHeight: "calc(100dvh - 32px)", overflowY: "auto"}} role="dialog" aria-modal="true" aria-labelledby="swap-title">
       <h2 id="swap-title">Choose a replacement</h2>
       <p>Replace {swapping.recipe_name}</p>
