@@ -65,6 +65,10 @@ const AI = [
   ["Real photos are coming", "We’ll replace AI photos as we cook, and you’ll be able to share yours."],
 ];
 
+// Same words as tour.update in ios/dinnerdesk/copy.json.
+const UPDATE =
+  "Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.";
+
 // Raise this (and TourView.version on iPhone) with a major update: everyone who saw an older tour
 // gets it once more. Households that finished the tour before versions existed count as 1.
 export const TOUR_VERSION = 2;
@@ -72,6 +76,35 @@ export const TOUR_VERSION = 2;
 // The tour version this household last finished or skipped; 0 if never.
 function tourSeen(prefs = {}) {
   return prefs.tour_version ?? (prefs.tour_done ? 1 : 0);
+}
+
+/** After a major update, a one-line notice at the top of the page instead of the tour popup.
+ *  Dismiss marks the current tour version seen. */
+export function WhatsNew() {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    api
+      .household()
+      .then((hh) => {
+        const seen = tourSeen(hh.prefs);
+        setShow(seen > 0 && seen < TOUR_VERSION);
+      })
+      .catch((error) => { throw error; });
+  }, []);
+
+  async function dismiss() {
+    setShow(false);
+    const hh = await api.household();
+    await api.putHousehold({ prefs: { ...(hh.prefs || {}), tour_done: true, tour_version: TOUR_VERSION } });
+  }
+
+  if (!show) return null;
+  return (
+    <div className="guest-notice" data-tip="tour.update">
+      What’s new: {UPDATE} <button type="button" onClick={dismiss}>Dismiss</button>
+    </div>
+  );
 }
 
 export function Tour() {
@@ -82,12 +115,9 @@ export function Tour() {
   const [avoids, setAvoids] = useState([]);
   const [time, setTime] = useState("any");
   const [busy, setBusy] = useState(false);
-  // They saw an older tour, so this is the one after a major update: welcome says What's new.
-  const [isUpdate, setIsUpdate] = useState(false);
 
   useEffect(() => {
     function start() {
-      setIsUpdate(false);
       setStep("welcome");
       setHow(0);
       setOpen(true);
@@ -100,11 +130,8 @@ export function Tour() {
         if (Array.isArray(f.diets) && f.diets.length) setDiets(cleanDiets(f.diets));
         if (Array.isArray(f.avoids)) setAvoids(f.avoids);
         if (f.time) setTime(f.time);
-        const seen = tourSeen(hh.prefs);
-        if (seen < TOUR_VERSION) {
-          setIsUpdate(seen > 0);
-          setOpen(true);
-        }
+        // Only a first visit opens the tour; after a major update WhatsNew shows a notice instead.
+        if (tourSeen(hh.prefs) === 0) setOpen(true);
       })
       .catch((error) => { throw error; });
     return () => window.removeEventListener("dinnerdesk-tour", start);
@@ -138,16 +165,10 @@ export function Tour() {
       <div className="tour-card">
         {step === "welcome" && (
           <>
-            <h2 id="tour-title">{isUpdate ? "What’s new in Dinnerdesk" : "Welcome to Dinnerdesk"}</h2>
-            {isUpdate ? (
-              <p className="help" data-tip="tour.update">
-                Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.
-              </p>
-            ) : (
-              <p className="help" data-tip="tour.welcome">
-                Quick start walks through eat and how. Taste Lab is the swipe kitchen. Skip anytime.
-              </p>
-            )}
+            <h2 id="tour-title">Welcome to Dinnerdesk</h2>
+            <p className="help" data-tip="tour.welcome">
+              Quick start walks through eat and how. Taste Lab is the swipe kitchen. Skip anytime.
+            </p>
             <div className="tour-actions">
               <button type="button" className="btn-primary" onClick={() => setStep("ai")}>
                 Quick start

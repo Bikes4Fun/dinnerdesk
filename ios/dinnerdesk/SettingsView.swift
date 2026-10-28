@@ -205,12 +205,8 @@ struct FiltersView: View {
   /// Always open: it's the filter people change most.
   private var cookTimeCard: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .firstTextBaseline) {
-        Text("Cook time").font(Self.sectionFont).foregroundStyle(Theme.ink)
-          .accessibilityAddTraits(.isHeader)
-        Spacer()
-        Text("Prep to plate").font(Self.noteFont).foregroundStyle(Theme.muted)
-      }
+      Text("Cook time").font(Self.sectionFont).foregroundStyle(Theme.ink)
+        .accessibilityAddTraits(.isHeader)
       HStack(spacing: 4) {
         ForEach(Self.times) { option in
           let on = time == option.id
