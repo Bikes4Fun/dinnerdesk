@@ -231,6 +231,43 @@ function ChoiceBlock({ label, items, saved, onChange, otherLabel, compact }) {
   );
 }
 
+/** "Missing a filter?" at the bottom of Filters, like the iPhone: sends a feature request. */
+function MissingFilter() {
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState("");
+
+  async function send() {
+    setSending(true);
+    setErr("");
+    try {
+      await api.sendFeedback("feature", note.trim(), [], "filters");
+      setNote("");
+      setSent(true);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <section className="missing-filter" aria-labelledby="missing-filter-title">
+      <h2 id="missing-filter-title">Missing a filter?</h2>
+      <p className="help">Tell us what you’d like to filter by, and we’ll look into adding it.</p>
+      <textarea aria-label="Filter suggestion" rows={2} maxLength={1000} value={note}
+        placeholder="e.g. low sodium, no pork, more one-pan meals"
+        onChange={(e) => { setNote(e.target.value); setSent(false); }} />
+      {err && <p role="alert" className="banner err">{err}</p>}
+      {sent && <p role="status" className="muted">✓ Thanks! We got it.</p>}
+      <button type="button" className="pill pill-primary" disabled={!note.trim() || sending} onClick={send}>
+        {sending ? "Sending…" : "Send suggestion"}
+      </button>
+    </section>
+  );
+}
+
 export function Filters() {
   const [diets, setDiets] = useState(["omnivore"]);
   const [allergens, setAllergens] = useState([]);
@@ -371,6 +408,7 @@ export function Filters() {
               <button key={k} type="button" role="radio" aria-checked={time === k} className={time === k ? "is-on" : ""} onClick={() => setFilter({ time: k })}>{label}</button>
             ))}
           </div>
+          <MissingFilter />
         </div>
       </div>
       <footer className="filters-footer">
