@@ -29,6 +29,7 @@ INVITE_TTL_DAYS = 7
 RESET_TTL_MINUTES = 60
 RESET_MAX_PER_HOUR = 3
 VERIFY_TTL_HOURS = 24
+LAST_SEEN_MINUTES = 5
 
 
 def hash_password(password: str) -> str:
@@ -717,6 +718,42 @@ def session_id(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
 
 
+def describe_device(user_agent: str, app: str = "") -> str:
+    """A short name for what signed in: "iOS app 1.2 (34)", "Safari on Mac"."""
+    if app.startswith("ios "):
+        return f"iOS app {app[4:]}"
+    ua = user_agent or ""
+    browser = next((name for key, name in (("Edg/", "Edge"), ("Firefox/", "Firefox"), ("CriOS/", "Chrome"),
+                    ("Chrome/", "Chrome"), ("Safari/", "Safari")) if key in ua), "")
+    system = next((name for key, name in (("iPhone", "iPhone"), ("iPad", "iPad"), ("Android", "Android"),
+                   ("Mac OS X", "Mac"), ("Windows", "Windows"), ("Linux", "Linux")) if key in ua), "")
+    return " on ".join(part for part in (browser, system) if part) or ua[:60]
+
+
+def record_device(conn: Any, token: str, user_agent: str, app: str = "") -> None:
+    conn.execute("UPDATE sessions SET device = ? WHERE token = ?", (describe_device(user_agent, app), token))
+    conn.commit()
+
+
+def admin_send_reset(conn: Any, user_id: int) -> tuple[str, str] | None:
+    """A reset token and where to send it, or None (no email on file, or too many this hour)."""
+    user = _member(conn, user_id)
+    to = reset_address(user)
+    token = start_password_reset(conn, user["email"]) if to else None
+    return (to, token) if token else None
+
+
+def admin_resend_confirmation(conn: Any, user_id: int) -> tuple[str, str] | None:
+    """A confirm token for the account's unconfirmed address and the address, or None after too
+    many this hour. Raises invalid_email when there's no address to confirm."""
+    user = _member(conn, user_id)
+    to = reset_address(user)
+    if not to:
+        raise AuthError("invalid_email")
+    token = start_email_verification(conn, user_id, to)
+    return (to, token) if token else None
+
+
 def admin_set_password(conn: Any, user_id: int, password: str) -> None:
     """Set a password for someone, unlock them, close their reset links and sign them out."""
     _member(conn, user_id)
@@ -837,7 +874,8 @@ def session_info(conn: Any, token: Optional[str]):
     if not token:
         return None
     row = conn.execute(
-        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email, u.email_verified_at
+        """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email, u.email_verified_at,
+                  u.last_seen_at
            FROM sessions s JOIN users u ON u.id = s.user_id
            WHERE s.token = ?""",
         (token,),
@@ -849,6 +887,11 @@ def session_info(conn: Any, token: Optional[str]):
         conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
         conn.commit()
         return None
+    # Last seen, written at most every few minutes so most requests don't write.
+    seen = (datetime.now(timezone.utc) - timedelta(minutes=LAST_SEEN_MINUTES)).replace(microsecond=0).isoformat()
+    if not row["last_seen_at"] or row["last_seen_at"] < seen:
+        conn.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (now(), row["user_id"]))
+        conn.commit()
     return row
 
 

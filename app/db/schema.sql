@@ -249,7 +249,9 @@ CREATE TABLE IF NOT EXISTS users (
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
   email_verified_at TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- Last signed-in request, to the nearest few minutes (auth.session_info).
+  last_seen_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS users_household ON users(household_id);
@@ -259,7 +261,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  -- What signed in, e.g. "Safari on Mac" or "iOS app 1.2 (34)", for the admin Users page.
+  device TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);

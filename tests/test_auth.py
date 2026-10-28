@@ -679,3 +679,45 @@ def test_admin_resets_taste_lab(tmp_path):
         with connect() as db:
             assert not db.execute("SELECT 1 FROM taste_people WHERE account_id = ?", (str(uid),)).fetchone()
             assert json.loads(db.execute("SELECT votes_json FROM anonymous_taste_history").fetchone()["votes_json"]) == {"7": "pass"}
+
+
+def test_admin_emails_reset_and_confirm_links(tmp_path, monkeypatch):
+    for key, value in (("RESEND_API_KEY", "k"), ("MAIL_FROM", "x <x@example.com>"), ("PUBLIC_URL", "https://example.com")):
+        monkeypatch.setenv(key, value)
+    sent = []
+    monkeypatch.setattr("app.admin_routes.send_reset_email", lambda to, link: sent.append(("reset", to, link)))
+    monkeypatch.setattr("app.admin_routes.send_verify_email", lambda to, link: sent.append(("verify", to, link)))
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "mailme@example.com")
+        assert admin.post(f"/admin/users/{uid}/send-reset", json={}).status_code == 200
+        assert admin.post(f"/admin/users/{uid}/resend-confirmation", json={}).status_code == 200
+        assert [(kind, to) for kind, to, _ in sent] == [("reset", "mailme@example.com"), ("verify", "mailme@example.com")]
+        assert sent[0][2].startswith("https://example.com/reset/") and sent[1][2].startswith("https://example.com/verify/")
+        for _ in range(2):
+            admin.post(f"/admin/users/{uid}/send-reset", json={})
+        too_many = admin.post(f"/admin/users/{uid}/send-reset", json={})
+        assert too_many.status_code == 400 and too_many.json()["detail"] == "too_many"
+        monkeypatch.delenv("RESEND_API_KEY")
+        assert admin.post(f"/admin/users/{uid}/resend-confirmation", json={}).status_code == 503
+
+
+def test_users_page_shows_last_seen_and_device(tmp_path):
+    import json
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "seen@example.com")
+        user.post("/api/auth/logout")
+        user.post("/api/auth/login", json={"email": "seen@example.com", "password": "userpassword"},
+                  headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15"})
+        user.get("/api/auth/status")
+        data = json.loads(admin.get("/admin/users").text.split("const DATA = ")[1].split(";\n")[0])
+        row = next(u for u in data["users"] if u["id"] == uid)
+        assert row["last_seen"] and [s["device"] for s in row["sessions"]] == ["Safari on Mac"]
+
+
+def test_describe_device():
+    from app.auth import describe_device
+    assert describe_device("", "ios 1.2 (34)") == "iOS app 1.2 (34)"
+    assert describe_device("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/130.0 Mobile Safari/604.1") == "Chrome on iPhone"
+    assert describe_device("Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36 Edg/130.0") == "Edge on Windows"
