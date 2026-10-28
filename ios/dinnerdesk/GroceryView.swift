@@ -20,8 +20,8 @@ struct GroceryView: View {
     NavigationStack {
       VStack(spacing: 0) {
         TabHeader("Grocery") {
-          TabHeaderButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
-          TabHeaderButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
+          HeaderIconButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
         }
 
         List {

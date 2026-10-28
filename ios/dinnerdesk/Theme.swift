@@ -280,9 +280,9 @@ extension TabHeader {
   }
 
   private var actionButtons: some View {
-    actions
-      .font(.title2)
+    HStack(spacing: 0) { actions }
       .tint(Theme.accent)
+      .headerIconGroup()
   }
 }
 
@@ -292,24 +292,45 @@ extension TabHeader where Actions == EmptyView {
   }
 }
 
-/// An icon button in a TabHeader, at the standard 44-point tap size.
-struct TabHeaderButton: View {
+/// The one icon button for the top of a screen: tab headers and the recipe page's toolbar
+/// all use it, so they share an icon size, color and 44-point tap target. Callers never
+/// set its font or style.
+struct HeaderIconButton: View {
   let systemImage: String
   let label: String
+  var color: Color = Theme.accent
   let action: () -> Void
 
-  init(_ label: String, systemImage: String, action: @escaping () -> Void) {
+  init(_ label: String, systemImage: String, color: Color = Theme.accent, action: @escaping () -> Void) {
     self.label = label
     self.systemImage = systemImage
+    self.color = color
     self.action = action
   }
 
   var body: some View {
     Button(action: action) {
       Image(systemName: systemImage)
+        .font(.title3)
+        .foregroundStyle(color)
         .frame(minWidth: 44, minHeight: 44)
+        .contentShape(Rectangle())
     }
+    .buttonStyle(.plain)
     .accessibilityLabel(label)
+  }
+}
+
+extension View {
+  /// Puts a row of HeaderIconButtons in the same capsule the system toolbar draws on the
+  /// recipe page, so tab headers match it. Before iOS 26 the toolbar has no capsule, so neither does this.
+  @ViewBuilder
+  func headerIconGroup() -> some View {
+    if #available(iOS 26.0, *) {
+      padding(.horizontal, 6).glassEffect(.regular.interactive(), in: .capsule)
+    } else {
+      self
+    }
   }
 }
 

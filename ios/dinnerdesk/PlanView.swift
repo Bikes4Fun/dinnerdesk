@@ -135,12 +135,12 @@ struct PlanView: View {
               .contentShape(Rectangle())
               .accessibilityLabel("Done editing plan")
           } else {
-            TabHeaderButton("Edit plan", systemImage: "pencil") { setEditing(true) }
-            TabHeaderButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
+            HeaderIconButton("Edit plan", systemImage: "pencil") { setEditing(true) }
+            HeaderIconButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
               grid.toggle()
             }
           }
-          TabHeaderButton("Plan menu", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton("Plan menu", systemImage: "ellipsis") { menu = true }
         }
       }
       .background(Theme.bg)
