@@ -1893,3 +1893,10 @@ img { display: block; max-width: 100%; }
 @media (min-width: 880px) { .fab { right: 32px; bottom: 32px; width: 60px; height: 60px; box-shadow: 0 6px 18px rgba(194, 70, 42, 0.3); } }
 .guest-notice .notice-err { color: var(--heart); font-weight: 600; }
 .guest-notice .notice-more { display: inline; width: auto; height: auto; padding: 0; border-radius: 0; font-weight: 600; text-decoration: underline; }
+/* Filters: "Missing a filter?" (same as the iPhone's FilterSuggestionCard). */
+.missing-filter { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; margin: 24px 0 8px; padding: 14px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); }
+.missing-filter h2 { margin: 0; font-size: 15px; }
+.missing-filter .help, .missing-filter .muted { margin: 0; font-size: 13px; }
+.missing-filter textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: 14px; resize: vertical; }
+/* Pull to refresh (pullRefresh.js). */
+.pull-hint { position: fixed; top: calc(8px + var(--safe-top)); left: 50%; z-index: 50; padding: 6px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--brand); font-size: 13px; font-weight: 600; box-shadow: 0 4px 12px rgba(74, 22, 70, 0.12); pointer-events: none; }

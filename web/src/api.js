@@ -1,8 +1,54 @@
 import { recordError, trail } from "./trail.js";
 
+// Copies of recent answers, so screens still show something on a weak or no connection (like
+// the iPhone's ResponseCache). Only a fallback: the network is always tried first. Kept per
+// browser and cleared whenever the account or household changes.
+const CACHE = "dd.cache:";
+const ACCOUNT_CHANGES = /^\/api\/(auth\/|guest\/|household\/(join|leave|delete|accept-invite))/;
+
+function cacheGet(key) {
+  try {
+    const v = localStorage.getItem(CACHE + key);
+    return v == null ? undefined : JSON.parse(v);
+  } catch {
+    return undefined;
+  }
+}
+
+function cachePut(key, data) {
+  try {
+    localStorage.setItem(CACHE + key, JSON.stringify(data));
+  } catch { /* storage full or blocked */ }
+}
+
+function clearCache() {
+  try {
+    Object.keys(localStorage).filter((k) => k.startsWith(CACHE)).forEach((k) => localStorage.removeItem(k));
+  } catch { /* storage blocked */ }
+}
+
 async function req(path, options = {}) {
   // Screens handle recoverable request errors; unhandled failures reach App's boundary.
-  return request(path, options);
+  const { cacheAs, ...rest } = options;
+  const method = (rest.method || "GET").toUpperCase();
+  const key = cacheAs || (method === "GET" ? path : null);
+  if (!key) {
+    const data = await request(path, rest);
+    if (ACCOUNT_CHANGES.test(path)) clearCache();
+    return data;
+  }
+  try {
+    const data = await request(path, rest);
+    cachePut(key, data);
+    return data;
+  } catch (e) {
+    // No connection: fetch fails without an HTTP status. Server errors still show as errors.
+    if (e.status === undefined && e.name !== "AbortError") {
+      const saved = cacheGet(key);
+      if (saved !== undefined) return saved;
+    }
+    throw e;
+  }
 }
 
 const BASE = "";
@@ -79,8 +125,8 @@ export const api = {
   suggestionCapabilities: () => req("/api/suggestions/capabilities"),
   pendingSuggestion: () => req("/api/suggestions/current"),
   decideSuggestion: (id, decision) => req(`/api/plans/${id}/decision/${decision}`, { method: "POST" }),
-  sendFeedback: (kind, note, screenshots = []) =>
-    req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen: "settings", screenshots, ...trail() }) }),
+  sendFeedback: (kind, note, screenshots = [], screen = "settings") =>
+    req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen, screenshots, ...trail() }) }),
   feedbackList: () => req("/api/dev/feedback"),
   setFeedbackStatus: (id, status) => req(`/api/dev/feedback/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   reportRecipe: (id, reason, note) => req(`/api/recipes/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
@@ -96,7 +142,7 @@ export const api = {
     req(`/api/slots/${slotId}`, { method: "PATCH", body: JSON.stringify(body) }),
   deleteSlot: (slotId) => req(`/api/slots/${slotId}`, { method: "DELETE" }),
   grocery: (planId) => req(`/api/plans/${planId}/grocery`),
-  rebuildGrocery: (planId) => req(`/api/plans/${planId}/grocery`, { method: "POST" }),
+  rebuildGrocery: (planId) => req(`/api/plans/${planId}/grocery`, { method: "POST", cacheAs: `/api/plans/${planId}/grocery` }),
   addGroceryLine: (planId, body) =>
     req(`/api/plans/${planId}/grocery/lines`, { method: "POST", body: JSON.stringify(body) }),
   patchGrocery: (lineId, body) =>

@@ -113,6 +113,7 @@ function KitchenHub() {
 function PantryHave() {
   const [items, setItems] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [autoCheck, setAutoCheck] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -120,7 +121,24 @@ function PantryHave() {
       .pantry()
       .then((d) => setItems((d.items || []).filter((i) => i.have)))
       .catch((e) => setErr(e.message));
+    api
+      .household()
+      .then((hh) => setAutoCheck(Boolean(hh.prefs?.pantry_auto_check)))
+      .catch((e) => setErr(e.message));
   }, []);
+
+  // Same switch as the iPhone's Pantry: the server checks or unchecks pantry items on this
+  // week's grocery list when it changes, so send only this one pref.
+  async function saveAutoCheck(on) {
+    setAutoCheck(on);
+    setErr("");
+    try {
+      await api.putHousehold({ prefs: { pantry_auto_check: on } });
+    } catch (e) {
+      setAutoCheck(!on);
+      setErr(e.message);
+    }
+  }
 
   if (selected) return <PantryItem item={selected} onBack={() => { setSelected(null); api.pantry().then((d) => setItems(d.items.filter((i) => i.have))); }} />;
 
@@ -136,6 +154,7 @@ function PantryHave() {
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
         <Tip id="kitchen.pantry">What you already have.</Tip>
+        <label className="toggle-row">Always check off pantry items <input type="checkbox" checked={autoCheck} onChange={(e) => saveAutoCheck(e.target.checked)} /></label>
         {items.length === 0 && <p className="empty-block">Nothing checked yet. Add items from the catalog.</p>}
         {items.map((item) => (
           <div key={item.id} className="have-row">
