@@ -584,6 +584,8 @@ struct RecipeDetailView: View {
               Image(systemName: recipe.favorited ? "heart.fill" : "heart")
                 .foregroundStyle(recipe.favorited ? Theme.accent : Theme.muted)
             }
+            .accessibilityLabel("Favorite")
+            .accessibilityValue(recipe.favorited ? "On" : "Off")
 
             Button {
                 Task { await tryLater(recipe) }
@@ -732,8 +734,11 @@ struct RecipeDetailView: View {
         Task { await bumpServings(-1) }
       } label: {
         Image(systemName: "minus.circle")
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
       }
       .disabled(mealServings <= 1)
+      .accessibilityLabel("Fewer servings")
       Text("\(mealServings) servings")
         .foregroundStyle(Theme.muted)
         .lineLimit(1)
@@ -742,8 +747,11 @@ struct RecipeDetailView: View {
         Task { await bumpServings(1) }
       } label: {
         Image(systemName: "plus.circle")
+          .frame(minWidth: 44, minHeight: 44)
+          .contentShape(Rectangle())
       }
       .disabled(mealServings >= 50)
+      .accessibilityLabel("More servings")
     }
   }
 

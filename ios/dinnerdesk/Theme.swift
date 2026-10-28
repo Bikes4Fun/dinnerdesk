@@ -250,19 +250,39 @@ struct TabHeader<Actions: View>: View {
   }
 
   var body: some View {
-    HStack(spacing: 4) {
-      Text(title)
-        .font(Theme.bigTitle)
-        .foregroundStyle(Theme.pageTitle)
-        .accessibilityAddTraits(.isHeader)
-      Spacer(minLength: 8)
-      actions
-        .font(.title3)
-        .tint(Theme.accent)
+    // When the title would wrap beside the buttons, it moves to its own row above them.
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: 4) {
+        titleText.lineLimit(1).fixedSize()
+        Spacer(minLength: 8)
+        actionButtons
+      }
+      VStack(alignment: .leading, spacing: 0) {
+        titleText.fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 4) {
+          Spacer(minLength: 0)
+          actionButtons
+        }
+      }
     }
     .padding(.horizontal, 16)
     .padding(.vertical, 12)
     .background(Theme.bg)
+  }
+}
+
+extension TabHeader {
+  private var titleText: some View {
+    Text(title)
+      .font(Theme.bigTitle)
+      .foregroundStyle(Theme.pageTitle)
+      .accessibilityAddTraits(.isHeader)
+  }
+
+  private var actionButtons: some View {
+    actions
+      .font(.title2)
+      .tint(Theme.accent)
   }
 }
 

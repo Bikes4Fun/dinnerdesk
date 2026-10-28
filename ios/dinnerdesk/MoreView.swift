@@ -16,6 +16,13 @@ struct MoreView: View {
           } label: {
             ThemeIconRow(title: "My Kitchen", systemImage: "refrigerator")
           }
+          if !ContentView.showsPrepTab(textSize) {
+            NavigationLink {
+              PrepView()
+            } label: {
+              ThemeIconRow(title: "Weekend prep", systemImage: "list.bullet.clipboard")
+            }
+          }
           NavigationLink {
             TasteLabView()
           } label: {
@@ -49,13 +56,6 @@ struct MoreView: View {
               ThemeIconRow(title: "More", systemImage: "gearshape")
             }
           
-          if !ContentView.showsPrepTab(textSize) {
-            NavigationLink {
-              PrepView()
-            } label: {
-              ThemeIconRow(title: "Weekend prep", systemImage: "list.bullet.clipboard")
-            }
-          }
         }
         .themeRows()
       }
