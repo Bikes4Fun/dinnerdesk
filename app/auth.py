@@ -17,7 +17,13 @@ PBKDF2_ITERATIONS = 600_000
 SESSION_TTL_DAYS = 30
 SESSION_COOKIE = "wp_session"
 
+def is_admin(row) -> bool:
+    """Can use the admin tools: the super admin, or an account they made an admin."""
+    return row is not None and (is_admin_email(row["email"]) or bool(row["site_admin"]))
+
+
 def is_admin_email(email: str | None) -> bool:
+    """The super admin: the ADMIN_EMAIL account."""
     admin = (os.environ.get("ADMIN_EMAIL") or "").strip().lower()
     if not email or not admin:
         return False
@@ -468,6 +474,10 @@ def _forget_user(conn: Any, user_id: int) -> None:
     """Remove one person: their login, sessions, reset links and the invites they sent
     (cascades), plus identifying Taste Lab records after preserving unlinked votes. An invite they accepted keeps its row, without them."""
     conn.execute("UPDATE household_invites SET used_by = NULL WHERE used_by = ?", (user_id,))
+    conn.execute("UPDATE admin_actions SET target_label = 'deleted account', detail = CASE WHEN action IN"
+                 " ('login', 'recovery-email') THEN 'changed sign-in details' ELSE detail END WHERE target_user_id = ?",
+                 (user_id,))
+    conn.execute("UPDATE admin_actions SET admin_label = 'deleted account' WHERE admin_user_id = ?", (user_id,))
     _forget_taste(conn, str(user_id), "individual")
     conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
@@ -754,6 +764,27 @@ def admin_resend_confirmation(conn: Any, user_id: int) -> tuple[str, str] | None
     return (to, token) if token else None
 
 
+def admin_set_site_admin(conn: Any, user_id: int, on: bool) -> None:
+    """Make an account an admin, or not. The super admin is always one."""
+    user = _member(conn, user_id)
+    if is_admin_email(user["email"]):
+        raise AuthError("super_admin")
+    conn.execute("UPDATE users SET site_admin = ? WHERE id = ?", (int(on), user_id))
+    conn.commit()
+
+
+def log_admin_action(conn: Any, admin, target_user_id: int, action: str, detail: str = "") -> None:
+    """Record what an admin did to an account (never a password or token)."""
+    target = conn.execute("SELECT email FROM users WHERE id = ?", (target_user_id,)).fetchone()
+    conn.execute(
+        "INSERT INTO admin_actions (admin_user_id, admin_label, target_user_id, target_label, action, detail, created_at)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (admin["user_id"], admin["email"], target_user_id if target else None, target["email"] if target else "",
+         action, detail, now()),
+    )
+    conn.commit()
+
+
 def admin_set_password(conn: Any, user_id: int, password: str) -> None:
     """Set a password for someone, unlock them, close their reset links and sign them out."""
     _member(conn, user_id)
@@ -875,7 +906,7 @@ def session_info(conn: Any, token: Optional[str]):
         return None
     row = conn.execute(
         """SELECT s.user_id, s.household_id, s.expires_at, u.email, u.recovery_email, u.email_verified_at,
-                  u.last_seen_at
+                  u.last_seen_at, u.site_admin
            FROM sessions s JOIN users u ON u.id = s.user_id
            WHERE s.token = ?""",
         (token,),

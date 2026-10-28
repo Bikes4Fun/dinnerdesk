@@ -82,7 +82,7 @@
 .prep-screen .pz-step-item.done .pz-check { border-color: var(--coral); background: var(--coral); }
 .prep-screen .pz-toggle { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0; text-align: left; color: inherit; }
 .prep-screen .pz-title { flex: 1; min-width: 0; font-size: 17px; font-weight: 600; }
-.prep-screen .pz-step-item.done .pz-title { color: #8f8089; text-decoration: line-through; }
+.prep-screen .pz-step-item.done .pz-title { color: var(--muted); text-decoration: line-through; }
 .prep-screen .pz-amount { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 15px; }
 .prep-screen .pz-chev { flex: none; display: flex; color: #9c8c97; transition: transform 0.15s; }
 .prep-screen .pz-step-item.open .pz-chev { transform: rotate(180deg); }

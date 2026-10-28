@@ -81,6 +81,9 @@
   .field { display: flex; flex-direction: column; gap: 4px; }
   .field > label { font-size: 13px; color: var(--muted); }
   .field p { font-size: 13px; color: var(--muted); }
+  .history ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .history li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; overflow-wrap: anywhere; }
+  #log details { border-top: 0; }
   #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--solid); color: var(--on-solid);
     padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: calc(100% - 32px); }
   #toast.err { background: var(--warn); color: #fff; }
@@ -107,6 +110,7 @@
       <tbody id="rows"></tbody></table></div></section>
     <aside class="panel" id="detail" aria-label="Selected user" hidden></aside>
   </div>
+  <section class="panel" id="log" aria-label="Admin log"></section>
 </main>
 <div id="toast" role="status"></div>
 <script>
@@ -182,7 +186,7 @@ function household(u) {
 
 function row(u) {
   const [text, bad] = status(u);
-  const meta = [`#${u.id}`, u.admin ? "admin" : "", `joined ${day(u.created_at)}`].filter(Boolean).join(" · ");
+  const meta = [`#${u.id}`, u.super ? "super admin" : u.admin ? "admin" : "", `joined ${day(u.created_at)}`].filter(Boolean).join(" · ");
   return `<tr data-id="${u.id}" aria-selected="${u.id === selected}">
     <td><a href="#u=${u.id}">${esc(u.login)}</a><span class="faint">${meta}</span></td>
     <td><span class="${bad ? "warn" : "muted"}">${esc(text)}</span></td>
@@ -213,7 +217,7 @@ function detail(u) {
       <p class="faint">Expires ${day(s.expires_at)}${s.device ? ` · ${esc(s.device)}` : ""}</p></div>
       <button class="btn" style="flex:none" data-a="end-sessions" data-session="${esc(s.id)}">Sign out</button></div>`).join("");
   return `<div class="d-head"><div style="min-width:0"><h2>${esc(u.login)}</h2>
-      <p class="muted">#${u.id} · ${u.has_email ? "email" : "username"} sign-in${u.admin ? " · site admin" : ""} · joined ${fullDay(u.created_at)}</p></div>
+      <p class="muted">#${u.id} · ${u.has_email ? "email" : "username"} sign-in${u.super ? " · super admin" : u.admin ? " · admin" : ""} · joined ${fullDay(u.created_at)}</p></div>
       <button class="close" data-close aria-label="Close panel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <dl>${loginRows}
       <dt>Password</dt><dd><div class="between">
@@ -223,7 +227,11 @@ function detail(u) {
       <dt>Household</dt><dd>${household(u)}</dd>
       <dt>Taste Lab</dt><dd><div class="between"><span>${plural(u.taste_sessions, "session")}</span>
         ${u.taste_sessions ? `<button class="link" data-a="reset-taste" data-confirm="Clear their Taste Lab history? Votes are kept, unlinked from them.">Reset</button>` : ""}</div></dd>
+      <dt>Admin</dt><dd><div class="between"><span>${u.super ? "Super admin (set on the server)" : u.admin ? "Admin" : "No"}</span>
+        ${DATA.super && !u.super ? `<button class="link" data-a="site-admin" data-admin="${u.admin ? "" : "1"}"
+          data-confirm="${u.admin ? "Remove their admin access?" : "Make them an admin? They'll see every account and report, but can't change other admins."}">${u.admin ? "Remove admin" : "Make admin"}</button>` : ""}</div></dd>
     </dl>
+    ${u.admin && !DATA.super && u.id !== DATA.me ? `<p class="section faint">Only the super admin can change another admin's account.</p>` : ""}
     <div class="section"><div class="between"><h3>Sessions (${u.sessions.length})</h3>
       ${u.sessions.length ? `<button class="link" data-a="end-sessions" data-confirm="Sign them out everywhere?">Sign out everywhere</button>` : ""}</div>
       ${sessions || `<p class="muted">Not signed in anywhere</p>`}</div>
@@ -239,7 +247,16 @@ function detail(u) {
       <div class="field"><label for="pw">Set password directly</label><div class="inline">
         <input id="pw" data-k="password" type="password" autocomplete="new-password" placeholder="8+ characters">
         <button class="btn" data-a="password" data-confirm="Set this password? They'll be signed out everywhere.">Set…</button></div></div>
-    </div></details>`;
+    </div></details>
+    ${logList(DATA.log.filter(l => l.target_user_id === u.id), false)}`;
+}
+
+// The admin log: who changed which account, newest first.
+function logList(entries, all) {
+  const line = l => `<li><span>${esc(l.admin_label)} ${esc(l.detail)}${all ? ` · <span class="muted">${esc(l.target_label)}</span>` : ""}</span>
+    <span class="faint">${started(l.created_at)}</span></li>`;
+  return `<details class="history"${all ? "" : " open"}><summary>${all ? "Admin log" : "History"} (${entries.length})</summary>
+    ${entries.length ? `<ul>${entries.map(line).join("")}</ul>` : `<p class="faint">No admin changes yet.</p>`}</details>`;
 }
 
 function render() {
@@ -259,6 +276,7 @@ function render() {
   const aside = document.getElementById("detail");
   aside.hidden = !u;
   aside.innerHTML = u ? detail(u) : "";
+  document.getElementById("log").innerHTML = logList(DATA.log, true);
   const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(show !== "all" ? { f: show } : {}),
                                      ...(selected ? { u: selected } : {}) });
   history.replaceState(null, "", hash.toString() ? `#${hash}` : location.pathname);
@@ -284,6 +302,7 @@ document.getElementById("detail").addEventListener("click", async e => {
   const body = {};
   e.currentTarget.querySelectorAll("[data-k]").forEach(i => (body[i.dataset.k] = i.value.trim()));
   if (b.dataset.session) body.session = b.dataset.session;
+  if (b.dataset.a === "site-admin") body.admin = Boolean(b.dataset.admin);
   if (b.dataset.solo) body.household_id = null;
   else if (body.household_id) body.household_id = body.household_id.replace(/^h/i, "");
   if (b.dataset.a === "household" && !b.dataset.solo && !body.household_id) return toast("Enter a household id.", true);
