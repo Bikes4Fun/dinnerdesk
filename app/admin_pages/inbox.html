@@ -61,6 +61,8 @@
   .title { font-weight: 600; display: block; }
   .excerpt { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
   .nowrap { white-space: nowrap; color: var(--muted); }
+  .closed:not(:empty) { padding: 10px 14px; border-top: 1px solid var(--rule); }
+  .closed .link { color: var(--muted); }
   .empty { padding: 24px 14px; text-align: center; color: var(--muted); }
   .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
   .chipline .tag { margin: 1px 4px 1px 0; }
@@ -112,7 +114,8 @@
     <section class="panel list" aria-label="Inbox items"><div class="scrollx"><table>
       <thead><tr><th scope="col">Type</th><th scope="col">What they said</th><th scope="col">From</th>
         <th scope="col">Status</th><th scope="col">Sent</th></tr></thead>
-      <tbody id="rows"></tbody></table></div></section>
+      <tbody id="rows"></tbody></table></div>
+      <p class="faint closed" id="closed"></p></section>
     <aside class="panel" id="detail" aria-label="Selected item" hidden></aside>
   </div>
 </main>
@@ -177,8 +180,7 @@ function overview() {
   document.getElementById("overview").innerHTML =
     stat(o.signups_week, `Signups this week <span class="faint">· ${plural(o.accounts, "account")}</span>`) +
     stat(o.active_week, "Active this week") +
-    stat(o.locked, `<a href="/admin/users#f=locked">Locked accounts</a>`) +
-    stat(o.mail ? `<span class="ok">On</span>` : `<span class="warn">Off</span>`, "Email sending");
+    stat(o.locked, `<a href="/admin/users#f=locked">Locked accounts</a>`);
 }
 
 function row(i) {
@@ -283,8 +285,14 @@ function render() {
   const stateTest = (STATES.find(s => s[0] === which) || STATES[0])[2];
   document.getElementById("kinds").innerHTML = KINDS.map(([k, l]) =>
     `<button type="button" class="chip" data-k="${k}" aria-pressed="${kind === k}">${l} <span>${chipCount(base, stateTest, k)}</span></button>`).join("");
-  document.getElementById("states").innerHTML = STATES.map(([k, l, test]) =>
-    `<button type="button" class="chip" data-s="${k}" aria-pressed="${which === k}">${l} <span>${base.filter(i => test(i) && (kind === "all" || i.kind === kind)).length}</span></button>`).join("");
+  const inKind = test => base.filter(i => test(i) && (kind === "all" || i.kind === kind)).length;
+  document.getElementById("states").innerHTML = STATES.filter(([k]) => k !== "closed").map(([k, l, test]) =>
+    `<button type="button" class="chip" data-s="${k}" aria-pressed="${which === k}">${l} <span>${inKind(test)}</span></button>`).join("");
+  // Done and declined stay out of the way: a line under the list brings them back.
+  const closed = inKind(STATES[3][2]);
+  document.getElementById("closed").innerHTML = which === "closed"
+    ? `Showing ${closed} done &amp; declined · <button type="button" class="link" data-s="open">Back to open</button>`
+    : closed ? `<button type="button" class="link" data-s="closed">Show ${closed} done &amp; declined</button>` : "";
   const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind));
   document.getElementById("rows").innerHTML = shown.map(row).join("")
     || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
@@ -320,7 +328,7 @@ document.getElementById("detail").addEventListener("click", async e => {
     try {
       await save(item, { status: s.dataset.status });
       e.currentTarget.querySelectorAll("[data-status]").forEach(b => b.setAttribute("aria-pressed", b === s));
-      toast(item.status === "done" || item.status === "declined" ? `${STATUS_LABEL[item.status]}. It's under Done & declined now.` : "Saved.");
+      toast(item.status === "done" || item.status === "declined" ? `${STATUS_LABEL[item.status]}. Find it under "Show done & declined".` : "Saved.");
       render();
     } catch (err) { toast(err.message, true); }
   }
@@ -336,6 +344,9 @@ document.getElementById("rows").addEventListener("click", e => {
 });
 document.getElementById("kinds").addEventListener("click", e => {
   const b = e.target.closest("[data-k]"); if (b) { kind = b.dataset.k; render(); }
+});
+document.getElementById("closed").addEventListener("click", e => {
+  const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }
 });
 document.getElementById("states").addEventListener("click", e => {
   const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }

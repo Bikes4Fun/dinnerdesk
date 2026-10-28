@@ -260,7 +260,6 @@ def _inbox(db: PgConnection) -> dict:
         "active_week": db.execute("SELECT COUNT(*) AS n FROM users WHERE last_seen_at > ?", (week,)).fetchone()["n"],
         "accounts": db.execute("SELECT COUNT(*) AS n FROM users").fetchone()["n"],
         "locked": db.execute("SELECT COUNT(*) AS n FROM users WHERE locked_until > ?", (now(),)).fetchone()["n"],
-        "mail": mail_ready(),
         "prep_votes": dict(votes),
     }
     return {"items": items, "overview": overview, "now": now()}
