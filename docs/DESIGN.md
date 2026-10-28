@@ -49,7 +49,8 @@ replace AI ones over time.
 - **Must:** offer Quick start or Skip on first visit; never block the app; replay from
   Settings and More. Offer it once more to everyone after a major update: raise
   `TourView.version` (iPhone) and `TOUR_VERSION` (web/src/Tour.jsx) together. Finishing or
-  skipping saves `tour_version` in household prefs. On iPhone it also opens once on each new
+  skipping saves `tour_version` in household prefs. On web, a major update shows a one-line
+  What's new notice at the top of the page (Dismiss saves `tour_version`), not the tour popup. On iPhone it also opens once on each new
   build (CFBundleVersion changes, e.g. every TestFlight upload), per device, as What's new.
 - **Must (iPhone TestFlight):** before the tour, show once per device, and again after creating
   an account, how to send a screenshot to the developer (Share Beta Feedback). Skipping the
@@ -284,7 +285,11 @@ all week."
   (MON, TUE; blank when unscheduled), the step, then each meal that uses it as a light purple pill
   that opens the recipe. No coral links, no grey left bar, no day labels on closed rows.
 - **Must:** a progress ring (done of total) and one bar per section at the top; tapping a bar
-  jumps to that section.
+  jumps to that section. Web (#220): instead, "N of M done." with one bar under the title, and
+  uppercase section labels with "N of M". One item is open at a time (the first not done): its
+  steps, "Split between" (each meal and its cook day, opening the recipe), Done / Skip (both open
+  the next item not done), and "Worth prepping ahead?" 👍/👎/flag (the same question as the
+  check-off bar); 👎 or the flag opens "What's wrong with this step?", saved as the 👎's note.
 - **Must:** check-off works like the grocery list: a done item leaves its section; "Show
   completed" brings done items back, faded, at the bottom of their section. Checking an item
   shows a bar with Undo and "Worth prepping ahead next time?" 👍/👎.

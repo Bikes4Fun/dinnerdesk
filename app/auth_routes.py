@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.auth import leave_household, join_household, delete_household, manage_member
 from app.auth import record_device
-from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin_email, session_info
+from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
 from app.auth import finish_password_reset, reset_address, reset_address_for, start_password_reset
@@ -254,7 +254,7 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
         "has_email": has_email(email),
         "recovery_email": row["recovery_email"] if row else None,
         "email_verified": bool(row and row["email_verified_at"]),
-        "admin": is_admin_email(email),
+        "admin": is_admin(row),
     }
 
 
@@ -271,7 +271,7 @@ def me(request: Request, conn=DbDep):
         "has_email": has_email(row["email"]),
         "recovery_email": row["recovery_email"],
         "email_verified": bool(row["email_verified_at"]),
-        "admin": is_admin_email(row["email"]),
+        "admin": is_admin(row),
     }
 
 

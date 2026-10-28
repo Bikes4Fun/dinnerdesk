@@ -211,6 +211,9 @@ class FeedbackCreate(BaseModel):
     screen: str = Field(default="", max_length=200)
     # Up to 3 screenshots as data URLs (JPEG, PNG or WebP, 5 MB each before encoding).
     screenshots: list[Annotated[str, Field(max_length=7_000_000)]] = Field(default_factory=list, max_length=3)
+    # The last few screens they visited and errors the app hit, oldest first (web/src/trail.js).
+    pages: list[Annotated[str, Field(max_length=200)]] = Field(default_factory=list, max_length=10)
+    errors: list[Annotated[str, Field(max_length=500)]] = Field(default_factory=list, max_length=10)
 
 
 class FeedbackStatusPut(BaseModel):

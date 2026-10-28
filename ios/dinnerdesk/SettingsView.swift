@@ -205,12 +205,8 @@ struct FiltersView: View {
   /// Always open: it's the filter people change most.
   private var cookTimeCard: some View {
     VStack(alignment: .leading, spacing: 10) {
-      HStack(alignment: .firstTextBaseline) {
-        Text("Cook time").font(Self.sectionFont).foregroundStyle(Theme.ink)
-          .accessibilityAddTraits(.isHeader)
-        Spacer()
-        Text("Prep to plate").font(Self.noteFont).foregroundStyle(Theme.muted)
-      }
+      Text("Cook time").font(Self.sectionFont).foregroundStyle(Theme.ink)
+        .accessibilityAddTraits(.isHeader)
       HStack(spacing: 4) {
         ForEach(Self.times) { option in
           let on = time == option.id
@@ -462,7 +458,7 @@ struct FiltersView: View {
     return VStack(alignment: .leading, spacing: 0) {
       Theme.line.frame(height: 1)
       Button {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withMotion(.easeOut(duration: 0.2)) {
           if open { openSections.remove(key) } else { openSections.insert(key) }
         }
       } label: {
@@ -500,7 +496,7 @@ struct FiltersView: View {
     let open = showAll.contains(key)
     if open || hidden > 0 {
       Button {
-        withAnimation(.easeOut(duration: 0.2)) {
+        withMotion(.easeOut(duration: 0.2)) {
           if open { showAll.remove(key) } else { showAll.insert(key) }
         }
       } label: {
@@ -1103,7 +1099,7 @@ struct AccountView: View {
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
           }
           Button(alone ? "Have an invite code? Join a household" : "Join a different household") {
-            withAnimation { joining.toggle() }
+            withMotion { joining.toggle() }
           }
           .font(AccountFont.label)
           .foregroundStyle(Theme.accent)
@@ -1129,7 +1125,7 @@ struct AccountView: View {
       HStack(spacing: 10) {
         if alone ? canManage : true {
           Button(alone ? "Delete household" : canManage ? "Leave or delete household…" : "Leave household…") {
-            if alone { withAnimation { deletingHome.toggle() } } else { confirmLeaveOrDelete = true }
+            if alone { withMotion { deletingHome.toggle() } } else { confirmLeaveOrDelete = true }
           }
           Text("·").accessibilityHidden(true)
         }
@@ -1163,7 +1159,7 @@ struct AccountView: View {
     .confirmationDialog("Leave or delete this household?", isPresented: $confirmLeaveOrDelete, titleVisibility: .visible) {
       Button("Leave household", role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
       if canManage {
-        Button("Delete household for everyone", role: .destructive) { withAnimation { deletingHome = true } }
+        Button("Delete household for everyone", role: .destructive) { withMotion { deletingHome = true } }
       }
     } message: {
       Text("Leaving starts you an empty solo household; shared plans stay here.")
@@ -1235,7 +1231,7 @@ struct AccountView: View {
           RoleBadge(role: role)
         }
         if hasMenu {
-          Button { withAnimation { openMember = open ? nil : member.id } } label: {
+          Button { withMotion { openMember = open ? nil : member.id } } label: {
             Image(systemName: "ellipsis")
               .scaledIcon(size: 18, weight: .bold, width: 44, height: 44)
               .foregroundStyle(Theme.ink)
