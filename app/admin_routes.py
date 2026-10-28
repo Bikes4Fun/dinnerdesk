@@ -9,8 +9,9 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 
+from app import auth
 from app.assets import catalog_dir
-from app.db.database import PgConnection
+from app.db.database import PgConnection, now
 from app.deps import AdminDep, DbDep
 from app.domain.recipe_photos import usable_photo
 
@@ -125,6 +126,72 @@ def _recipe_tags(db: PgConnection) -> dict:
     return {"recipes": recipes, "suggestions": suggestions, "vocabulary": vocabulary, "source": "live"}
 
 
+def _users(db: PgConnection) -> dict:
+    sessions: dict[int, list] = {}
+    for r in db.execute("SELECT token, user_id, created_at, expires_at FROM sessions ORDER BY created_at DESC"):
+        sessions.setdefault(r["user_id"], []).append(
+            {"id": auth.session_id(r["token"]), "created_at": r["created_at"], "expires_at": r["expires_at"]})
+    taste: dict[str, int] = {}
+    if db.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()["present"]:
+        for r in db.execute("""SELECT p.account_id, COUNT(s.id) AS n FROM taste_people p
+                               JOIN taste_sessions s ON s.person_id = p.id
+                               WHERE p.account_id IS NOT NULL GROUP BY p.account_id"""):
+            taste[r["account_id"]] = r["n"]
+    users = [
+        {"id": r["id"], "login": r["email"], "has_email": auth.has_email(r["email"]),
+         "recovery_email": r["recovery_email"], "verified_at": r["email_verified_at"],
+         "household_id": r["household_id"], "household_name": r["household_name"], "role": r["household_role"],
+         "failed_attempts": r["failed_attempts"], "locked_until": r["locked_until"], "created_at": r["created_at"],
+         "admin": auth.is_admin_email(r["email"]), "sessions": sessions.get(r["id"], []),
+         "taste_sessions": taste.get(str(r["id"]), 0)}
+        for r in db.execute("""SELECT u.*, h.name AS household_name FROM users u
+                               JOIN households h ON h.id = u.household_id ORDER BY u.id""")
+    ]
+    return {"users": users, "now": now()}
+
+
+# Admin wording for errors; app/auth_routes.py ERROR_MESSAGES speaks to the account's owner.
+USER_ERRORS = {
+    "invalid_email": "Enter a valid email address.",
+    "invalid_username": "Usernames are 3 to 30 letters, numbers, dots, dashes or underscores. "
+                        "Only username accounts have a recovery email.",
+    "password_too_short": "Password must be at least 8 characters.",
+    "email_taken": "Another account already uses that email or username.",
+    "not_found": "No such account or household.",
+    "already_member": "They're already in that household.",
+    "successor_required": "They own a household others are in. Make someone else its owner first.",
+    "invalid_role": "Choose owner, admin or member.",
+}
+
+
+@router.post("/admin/users/{user_id}/{action}")
+def user_action(user_id: int, action: str, body: dict, _admin=AdminDep, db: PgConnection = DbDep):
+    """One change to one account, from the Users page."""
+    actions = {
+        "password": lambda: auth.admin_set_password(db, user_id, str(body.get("password") or "")),
+        "unlock": lambda: auth.admin_unlock(db, user_id),
+        "login": lambda: auth.admin_set_login(db, user_id, str(body.get("login") or "")),
+        "recovery-email": lambda: auth.admin_set_recovery_email(db, user_id, str(body.get("email") or "")),
+        "end-sessions": lambda: auth.admin_end_sessions(db, user_id, body.get("session")),
+        "reset-taste": lambda: auth.admin_reset_taste(db, user_id),
+        "household": lambda: auth.admin_move_user(
+            db, user_id, None if body.get("household_id") in (None, "") else int(body["household_id"])),
+        "role": lambda: auth.admin_set_role(db, user_id, str(body.get("role") or "")),
+    }
+    if action not in actions:
+        raise HTTPException(404, {"error": "not_found", "detail": "admin action"})
+    try:
+        actions[action]()
+    except auth.AuthError as e:
+        db.rollback()
+        raise HTTPException(400, {"error": "auth", "detail": e.detail,
+                                  "message": USER_ERRORS.get(e.detail, "Something went wrong.")})
+    except ValueError:
+        db.rollback()
+        raise HTTPException(400, {"error": "auth", "detail": "not_found", "message": USER_ERRORS["not_found"]})
+    return {"ok": True}
+
+
 @router.get("/admin/{name}", response_class=HTMLResponse)
 def admin_page(name: str, _admin=AdminDep, db: PgConnection = DbDep):
     if name == "variant-review":
@@ -137,4 +204,6 @@ def admin_page(name: str, _admin=AdminDep, db: PgConnection = DbDep):
         return _page("recipe_reports", _recipe_reports(db))
     if name == "recipe-tags":
         return _page("recipe_tags", _recipe_tags(db))
+    if name == "users":
+        return _page("users", _users(db))
     raise HTTPException(404, {"error": "not_found", "detail": "admin page"})

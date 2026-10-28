@@ -10,4 +10,5 @@ export const ADMIN_PAGES = [
   ["/admin/recipe-reports", "Recipe reports"],
   ["/admin/plan-reports", "Plan reports"],
   ["/admin/prep-feedback", "Prep feedback"],
+  ["/admin/users", "Users"],
 ];

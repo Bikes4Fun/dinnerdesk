@@ -709,6 +709,130 @@ def remove_member(conn: Any, household_id: int, target_user_id: int, actor_id: i
     _solo(conn, target_user_id)
     conn.commit()
 
+
+# Admin user management (/admin/users). These skip the password an account's owner would need.
+
+def session_id(token: str) -> str:
+    """A session's stand-in on the admin page, so its token never leaves the server."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()[:16]
+
+
+def admin_set_password(conn: Any, user_id: int, password: str) -> None:
+    """Set a password for someone, unlock them, close their reset links and sign them out."""
+    _member(conn, user_id)
+    _check_password_strength(password)
+    conn.execute(
+        "UPDATE users SET password_hash = ?, failed_attempts = 0, locked_until = NULL WHERE id = ?",
+        (hash_password(password), user_id),
+    )
+    conn.execute("UPDATE password_resets SET used_at = ? WHERE user_id = ? AND used_at IS NULL", (now(), user_id))
+    conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    conn.commit()
+
+
+def admin_unlock(conn: Any, user_id: int) -> None:
+    _member(conn, user_id)
+    conn.execute("UPDATE users SET failed_attempts = 0, locked_until = NULL WHERE id = ?", (user_id,))
+    conn.commit()
+
+
+def admin_set_login(conn: Any, user_id: int, name: str) -> None:
+    """Change the email or username someone signs in with. A new email is unconfirmed, and an
+    email login drops the recovery email (resets go to the login itself)."""
+    _lock_membership(conn)
+    user = _member(conn, user_id)
+    name = login_name(name)
+    if _taken_by_other(conn, name, user_id):
+        raise AuthError("email_taken")
+    if has_email(name):
+        conn.execute("UPDATE users SET email = ?, recovery_email = NULL, email_verified_at = NULL WHERE id = ?",
+                     (name, user_id))
+    elif has_email(user["email"]):
+        conn.execute("UPDATE users SET email = ?, email_verified_at = NULL WHERE id = ?", (name, user_id))
+    else:
+        conn.execute("UPDATE users SET email = ? WHERE id = ?", (name, user_id))
+    _close_verifications(conn, user_id)
+    conn.commit()
+
+
+def admin_set_recovery_email(conn: Any, user_id: int, email: str) -> None:
+    """Set (unconfirmed) or, when blank, remove a username account's recovery email."""
+    _lock_membership(conn)
+    user = _member(conn, user_id)
+    if has_email(user["email"]):
+        raise AuthError("invalid_username")
+    email = (email or "").strip().lower()
+    if email:
+        if not has_email(email):
+            raise AuthError("invalid_email")
+        if _taken_by_other(conn, email, user_id):
+            raise AuthError("email_taken")
+    conn.execute("UPDATE users SET recovery_email = ?, email_verified_at = NULL WHERE id = ?", (email or None, user_id))
+    _close_verifications(conn, user_id)
+    conn.commit()
+
+
+def admin_end_sessions(conn: Any, user_id: int, session: str | None = None) -> None:
+    """Sign someone out of one session (by its session_id) or, with none given, everywhere."""
+    _member(conn, user_id)
+    for row in conn.execute("SELECT token FROM sessions WHERE user_id = ?", (user_id,)).fetchall():
+        if session is None or session_id(row["token"]) == session:
+            conn.execute("DELETE FROM sessions WHERE token = ?", (row["token"],))
+    conn.commit()
+
+
+def admin_reset_taste(conn: Any, user_id: int) -> None:
+    """Clear someone's Taste Lab history. Votes are kept unlinked, as when they clear it."""
+    _member(conn, user_id)
+    try:
+        _forget_taste(conn, str(user_id), "individual")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
+
+def admin_move_user(conn: Any, user_id: int, household_id: int | None) -> None:
+    """Move someone into another household (as a member, or owner if it has no accounts), or
+    with None into a new one of their own. An owner with others still at home needs a new owner
+    first. A household left with no accounts is deleted, as when its last member leaves."""
+    _lock_membership(conn)
+    user = _member(conn, user_id)
+    _require_successor(conn, user_id)
+    old = user["household_id"]
+    if household_id is None:
+        _solo(conn, user_id)
+    else:
+        if household_id == old:
+            raise AuthError("already_member")
+        if not conn.execute("SELECT 1 FROM households WHERE id = ?", (household_id,)).fetchone():
+            raise AuthError("not_found")
+        empty = not conn.execute("SELECT 1 FROM users WHERE household_id = ?", (household_id,)).fetchone()
+        conn.execute("DELETE FROM household_invites WHERE invited_by = ? AND used_at IS NULL", (user_id,))
+        conn.execute("UPDATE users SET household_id = ?, household_role = ? WHERE id = ?",
+                     (household_id, "owner" if empty else "member", user_id))
+        conn.execute("UPDATE sessions SET household_id = ? WHERE user_id = ?", (household_id, user_id))
+    if not conn.execute("SELECT id FROM users WHERE household_id = ?", (old,)).fetchone():
+        _delete_household(conn, old)
+    conn.commit()
+
+
+def admin_set_role(conn: Any, user_id: int, role: str) -> None:
+    """Change someone's household role. Making someone owner makes the old owner an admin; the
+    owner can't step down without naming a new one."""
+    _lock_membership(conn)
+    user = _member(conn, user_id)
+    if role not in ("owner", "admin", "member"):
+        raise AuthError("invalid_role")
+    if user["household_role"] == "owner" and role != "owner":
+        raise AuthError("successor_required")
+    if role == "owner":
+        conn.execute("UPDATE users SET household_role = 'admin' WHERE household_id = ? AND household_role = 'owner'",
+                     (user["household_id"],))
+    conn.execute("UPDATE users SET household_role = ? WHERE id = ?", (role, user_id))
+    conn.commit()
+
+
 def session_info(conn: Any, token: Optional[str]):
     if not token:
         return None

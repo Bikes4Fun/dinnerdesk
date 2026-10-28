@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Users</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --card: #fcfcfb; --ink: #0b0b0b; --muted: #52514e; --line: #e3dfd8; --chip: #efece6;
+    --accent: #2a78d6; --flag: #e34948;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --card: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --line: #35322d; --chip: #2c2a26;
+            --accent: #3987e5; --flag: #e66767; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  h2 { font-size: 17px; margin: 0; overflow-wrap: anywhere; }
+  h3 { font-size: 12px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 16px; }
+  .home { display: inline-block; font-size: 13px; color: var(--muted); text-decoration: none; margin-bottom: 8px; }
+  input, select, textarea, button { font: inherit; font-size: 13px; color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; }
+  button { cursor: pointer; border-radius: 999px; padding: 5px 12px; }
+  button.go { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--flag); border-color: var(--flag); }
+  #find { width: 100%; min-height: 38px; resize: vertical; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 16px; }
+  .filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+  .missing { color: var(--flag); font-size: 13px; margin: -8px 0 12px; }
+  .user { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+  .user-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .chip { display: inline-block; background: var(--chip); border-radius: 4px; padding: 0 7px; font-size: 12px; }
+  .chip.warn { color: #fff; background: var(--flag); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 20px; margin-top: 12px; }
+  .grid section { border-top: 1px dashed var(--line); padding-top: 8px; font-size: 13px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+  .row input { flex: 1 1 140px; min-width: 0; }
+  ul { margin: 4px 0 0; padding-left: 18px; }
+  .emptystate { color: var(--muted); padding: 24px 0; text-align: center; }
+  #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--ink); color: var(--bg);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: calc(100% - 32px); }
+  #toast.err { background: var(--flag); color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <a class="home" href="/">← Dinnerdesk</a>
+  <h1>Users</h1>
+  <p class="sub" id="sub"></p>
+  <textarea id="find" aria-label="Find users"
+    placeholder="Search, or paste a list of emails, usernames or user ids (#12 or 12), separated by commas, spaces or lines"></textarea>
+  <div class="filters" role="group" aria-label="Filter">
+    <button data-f="all" aria-pressed="true">All</button>
+    <button data-f="locked" aria-pressed="false">Locked or failed sign-ins</button>
+    <button data-f="unverified" aria-pressed="false">Email not confirmed</button>
+    <button data-f="signed_in" aria-pressed="false">Signed in somewhere</button>
+  </div>
+  <p class="missing" id="missing"></p>
+  <div id="list"></div>
+</main>
+<div id="toast" role="status"></div>
+<script>
+const DATA = /*DATA*/null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const when = s => s ? esc(String(s).replace("T", " ").slice(0, 16)) : "";
+const locked = u => u.locked_until && u.locked_until > DATA.now;
+let show = "all";
+
+// The search and filter survive the reload after each change.
+const saved = new URLSearchParams(location.hash.slice(1));
+const find = document.getElementById("find");
+find.value = saved.get("q") || "";
+show = saved.get("f") || "all";
+
+function terms() {
+  return find.value.split(/[\s,;]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+}
+
+// One word searches; several are a list, matched exactly against id, login and recovery email.
+function shown() {
+  const list = terms();
+  let users = DATA.users, missing = [];
+  if (list.length === 1) {
+    const t = list[0], id = t.replace(/^#/, "");
+    users = users.filter(u => String(u.id) === id || u.login.includes(t) || (u.recovery_email || "").includes(t)
+      || (u.household_name || "").toLowerCase().includes(t) || `h${u.household_id}` === t);
+  } else if (list.length > 1) {
+    const hit = t => u => String(u.id) === t.replace(/^#/, "") || u.login === t || u.recovery_email === t;
+    missing = list.filter(t => !DATA.users.some(hit(t)));
+    users = users.filter(u => list.some(t => hit(t)(u)));
+  }
+  users = users.filter(u => show === "all" || (show === "locked" && (locked(u) || u.failed_attempts))
+    || (show === "unverified" && (u.has_email || u.recovery_email) && !u.verified_at)
+    || (show === "signed_in" && u.sessions.length));
+  return { users, missing };
+}
+
+function card(u) {
+  const homes = DATA.users.filter(x => x.household_id === u.household_id);
+  const sessions = u.sessions.map(s => `<li>since ${when(s.created_at)}, until ${when(s.expires_at)}
+    <button data-a="end-sessions" data-session="${esc(s.id)}">Sign out</button></li>`).join("");
+  return `<article class="user" data-id="${u.id}">
+    <div class="user-head"><h2>${esc(u.login)}</h2>
+      <span class="meta">#${u.id} · ${u.has_email ? "email" : "username"} · joined ${when(u.created_at)}</span>
+      ${u.admin ? `<span class="chip">site admin</span>` : ""}
+      ${locked(u) ? `<span class="chip warn">locked until ${when(u.locked_until)}</span>` : ""}</div>
+    <div class="grid">
+      <section><h3>Sign-in</h3>
+        ${u.recovery_email ? `Recovery email: ${esc(u.recovery_email)}<br>` : ""}
+        ${u.has_email || u.recovery_email ? (u.verified_at ? `Confirmed ${when(u.verified_at)}` : "Email not confirmed") : "No email: can't reset by email"}
+        <div class="row"><input data-k="login" value="${esc(u.login)}" aria-label="Email or username">
+          <button data-a="login">Change</button></div>
+        ${u.has_email ? "" : `<div class="row"><input data-k="email" value="${esc(u.recovery_email || "")}" placeholder="Recovery email (blank removes)" aria-label="Recovery email">
+          <button data-a="recovery-email">Save</button></div>`}</section>
+      <section><h3>Password</h3>
+        ${u.failed_attempts} failed sign-in${u.failed_attempts === 1 ? "" : "s"}
+        ${u.failed_attempts || locked(u) ? `<button data-a="unlock">Clear lockout</button>` : ""}
+        <div class="row"><input data-k="password" type="text" autocomplete="off" placeholder="New password (8+)" aria-label="New password">
+          <button data-a="password" data-confirm="Set this password? They'll be signed out everywhere.">Set</button></div></section>
+      <section><h3>Sessions (${u.sessions.length})</h3>
+        ${sessions ? `<ul>${sessions}</ul><div class="row"><button data-a="end-sessions" data-confirm="Sign them out everywhere?">Sign out everywhere</button></div>` : "Not signed in anywhere"}</section>
+      <section><h3>Household</h3>
+        ${esc(u.household_name)} (h${u.household_id}) · ${esc(u.role)}<br>
+        <span class="meta">${homes.length > 1 ? "With " + homes.filter(x => x.id !== u.id).map(x => `${esc(x.login)} (${esc(x.role)})`).join(", ") : "Only member"}</span>
+        <div class="row"><select data-k="role" aria-label="Role">${["owner", "admin", "member"].map(r => `<option${r === u.role ? " selected" : ""}>${r}</option>`).join("")}</select>
+          <button data-a="role">Set role</button></div>
+        <div class="row"><input data-k="household_id" inputmode="numeric" placeholder="Household id" aria-label="Move to household id">
+          <button data-a="household" data-confirm="${homes.length > 1 ? "Move them?" : "Move them? They're its only member, so their old household and its kitchen will be deleted."}">Move</button>
+          <button data-a="household" data-solo="1" data-confirm="${homes.length > 1 ? "Give them a new household of their own?" : "Give them a new household? Their old one and its kitchen will be deleted."}">Own household</button></div></section>
+      <section><h3>Taste Lab</h3>
+        ${u.taste_sessions} session${u.taste_sessions === 1 ? "" : "s"}
+        ${u.taste_sessions ? `<div class="row"><button class="danger" data-a="reset-taste" data-confirm="Clear their Taste Lab history? Votes are kept, unlinked from them.">Reset Taste Lab</button></div>` : ""}</section>
+    </div></article>`;
+}
+
+function render() {
+  const locks = DATA.users.filter(u => locked(u)).length;
+  document.getElementById("sub").textContent = `${DATA.users.length} accounts in ${new Set(DATA.users.map(u => u.household_id)).size} households`
+    + (locks ? ` · ${locks} locked` : "");
+  document.querySelectorAll(".filters button").forEach(b => b.setAttribute("aria-pressed", b.dataset.f === show));
+  const { users, missing } = shown();
+  document.getElementById("missing").textContent = missing.length ? `Not found: ${missing.join(", ")}` : "";
+  document.getElementById("list").innerHTML = users.map(card).join("")
+    || `<div class="emptystate">${DATA.users.length ? "No accounts match." : "No accounts yet."}</div>`;
+  const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(show !== "all" ? { f: show } : {}) });
+  history.replaceState(null, "", hash.toString() ? `#${hash}` : location.pathname);
+}
+
+function toast(text, err) {
+  const t = document.getElementById("toast");
+  t.textContent = text; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = "none"), 4000);
+}
+
+document.getElementById("list").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-a]"); if (!b) return;
+  const art = b.closest(".user"), body = {};
+  art.querySelectorAll("[data-k]").forEach(i => (body[i.dataset.k] = i.value.trim()));
+  if (b.dataset.session) body.session = b.dataset.session;
+  if (b.dataset.solo) body.household_id = null;
+  else if (b.dataset.a === "household" && !body.household_id) return toast("Enter a household id.", true);
+  if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+  b.disabled = true;
+  try {
+    const res = await fetch(`/admin/users/${art.dataset.id}/${b.dataset.a}`, {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.message || out.detail?.message || `Failed (${res.status})`);
+    sessionStorage.setItem("dd-users-toast", "Saved.");
+    location.reload();
+  } catch (err) {
+    b.disabled = false;
+    toast(err.message, true);
+  }
+});
+document.querySelector(".filters").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  show = b.dataset.f; render();
+});
+find.addEventListener("input", render);
+try { const t = sessionStorage.getItem("dd-users-toast"); if (t) { sessionStorage.removeItem("dd-users-toast"); toast(t); } } catch (e) {}
+render();
+</script>
+</body>
+</html>

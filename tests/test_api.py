@@ -1790,7 +1790,7 @@ def test_admin_review_pages(tmp_path):
         page = client.get("/admin/recipe-reports")
         assert page.status_code == 200 and "text/html" in page.headers["content-type"]
         assert "Step 3 is missing" in page.text and "/*DATA*/null" not in page.text
-        for name in ("variant-review", "plan-reports", "prep-feedback", "recipe-tags"):
+        for name in ("variant-review", "plan-reports", "prep-feedback", "recipe-tags", "users"):
             page = client.get(f"/admin/{name}")
             assert page.status_code == 200 and "/*DATA*/null" not in page.text, name
         assert client.get("/admin/nope").status_code == 404
@@ -1814,7 +1814,7 @@ def test_recipe_tags_page_shows_swept_suggestions(tmp_path, monkeypatch):
 
 def test_admin_review_pages_are_admin_only(tmp_path):
     with _client(tmp_path, admin=False) as client:
-        for name in ("variant-review", "recipe-reports", "plan-reports", "prep-feedback", "recipe-tags"):
+        for name in ("variant-review", "recipe-reports", "plan-reports", "prep-feedback", "recipe-tags", "users"):
             assert client.get(f"/admin/{name}").status_code == 403
 
 def test_import_recipe_returns_a_draft_and_saves_nothing(tmp_path, monkeypatch):
