@@ -23,10 +23,10 @@ enum Theme {
   static let line = Color(red: 236 / 255, green: 226 / 255, blue: 220 / 255)  // #ECE2DC Hairlines, chip borders
 
   static let ink = Color(red: 74 / 255, green: 22 / 255, blue: 70 / 255)  // #4A1646 Aubergine: Titles, main buttons, active tabs
-  static let muted = Color(red: 122 / 255, green: 106 / 255, blue: 118 / 255)  // #7A6A76 Subtitles, counts
+  static let muted = Color(red: 116 / 255, green: 101 / 255, blue: 112 / 255)  // #746570 Subtitles, counts (4.5:1 on chips)
   static let pageTitle = Color.black  // Tab titles (TabHeader)
 
-  static let accent = Color(red: 194 / 255, green: 70 / 255, blue: 42 / 255)  // #C2462A Deep Coral: Text links (+ Add a meal, Edit)
+  static let accent = Color(red: 184 / 255, green: 66 / 255, blue: 40 / 255)  // #B84228 Deep Coral (4.5:1 on chips): Text links (+ Add a meal, Edit)
 
   // MARK: - Tints
   static let aubergineTint = Color(red: 241 / 255, green: 231 / 255, blue: 239 / 255)  // #F1E7EF Tips, badges, quiet chips
@@ -230,7 +230,7 @@ struct ThemeHeader: View {
     Text(text.uppercased())
       .font(Theme.sectionHeader)
       .tracking(0.8)
-      .foregroundStyle(Theme.muted.opacity(0.85))
+      .foregroundStyle(Theme.muted)
       .textCase(nil)
       .padding(.top, 6)
       .accessibilityAddTraits(.isHeader)

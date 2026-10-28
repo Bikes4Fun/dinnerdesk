@@ -253,7 +253,6 @@ struct PlanView: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .opacity(slot.cooked ? 0.45 : 1)
   }
 
   private func selectAllButton(_ plan: Plan) -> some View {
@@ -412,7 +411,9 @@ struct PlanView: View {
         NavigationLink {
           RecipeDetailView(id: slot.recipeId)
         } label: {
+          // Only the photo fades for a cooked meal; faded text would fail contrast.
           RecipePhoto(path: slot.photoPath, fill: true)
+            .opacity(slot.cooked ? 0.45 : 1)
         }.buttonStyle(.plain)
         .accessibilityLabel("Open \(slot.recipeName)")
       }
