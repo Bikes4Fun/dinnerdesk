@@ -10,6 +10,7 @@ struct PrepView: View {
   @Environment(\.selectTab) private var selectTab
   @Environment(\.dismiss) private var dismiss
   @Environment(\.dynamicTypeSize) private var typeSize
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   @AppStorage("prep.showDone") private var showDone = false
   @AppStorage("prep.closed") private var closedRaw = ""
@@ -81,7 +82,7 @@ struct PrepView: View {
               .frame(maxWidth: .infinity, minHeight: 44)
             }
           } else {
-            header { key in withAnimation { proxy.scrollTo(key, anchor: .top) } }
+            header { key in withMotion { proxy.scrollTo(key, anchor: .top) } }
             ForEach(groups) { group in section(group).id(group.key) }
             missingButton
           }
@@ -447,7 +448,7 @@ struct PrepView: View {
       .shadow(color: Theme.ink.opacity(0.25), radius: 14, y: 6)
       .padding(.horizontal, 12)
       .padding(.bottom, 12)
-      .transition(.move(edge: .bottom).combined(with: .opacity))
+      .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
     }
   }
 
