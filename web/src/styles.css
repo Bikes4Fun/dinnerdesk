@@ -1,13 +1,13 @@
 :root {
   color-scheme: light;      /* palette is light-only; stop phones restyling inputs and scrollbars dark */
-  --accent: #c2462a;        /* deep coral: links, text buttons */
+  --accent: #b84228;        /* deep coral: links, text buttons */
   --accent-dark: #4a1646;   /* aubergine: active sidebar link, prep tag */
   --brand-hover: #5e2259;   /* hover on main buttons */
   --ink: #2e1a2c;           /* body text */
   --brand: #4a1646;         /* new: aubergine — titles, main buttons, selected chips */
   --coral: #fa7e5a;         /* new: fills only, never text */
   --coral-tint: #fde6dd;    /* new: highlight rows */
-  --muted: #7a6a76;
+  --muted: #746570;
   --line: #ece2dc;
   --bg: #fffbf6;
   --surface: #fffdf9;
@@ -1440,7 +1440,8 @@ img { display: block; max-width: 100%; }
 .plan-meal .meal-photo-btn { width: 100%; height: 100%; }
 .plan-meal .meal-photo-btn img { width: 100%; height: 100%; object-fit: cover; }
 .plan-meal .meal-copy { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 8px; }
-.plan-completed { opacity: 0.55; }
+/* Only the photo fades for a cooked meal; faded text would fail contrast. */
+.plan-completed .meal-photo-btn { opacity: 0.55; }
 .plan-bulk { display: flex; flex-wrap: wrap; gap: 12px; padding: 12px 0; }
 .plan-menu { position: relative; }
 .plan-menu summary { cursor: pointer; font-size: 24px; }
@@ -1772,6 +1773,16 @@ img { display: block; max-width: 100%; }
 .acct-invite-label { font-size: 16px; font-weight: 600; color: var(--accent); }
 .acct-note { margin: 4px 4px 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
 
+/* Reduce Motion: keep state changes, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* Plan, Grocery and Prep (#220): one centered column (800px Plan, 720px Grocery and Prep),
    34px title, coral ⋯, uppercase section labels, pill buttons. */
 @media (min-width: 880px) {
@@ -1833,7 +1844,7 @@ img { display: block; max-width: 100%; }
   color: var(--brand);
 }
 .plan-meal .meal-check[aria-pressed="true"] { background: var(--coral); border-color: var(--coral); }
-.plan-meal.is-cooked .meal-title strong { color: #8f8089; }
+.plan-meal.is-cooked .meal-title strong { color: var(--muted); }
 .plan-meal.is-cooked .meal-photo-btn { opacity: 0.55; }
 .plan-meal .meal-copy { gap: 8px; padding-top: 2px; }
 .plan-meal .meal-title strong { font-size: 17px; font-weight: 600; }
@@ -1878,7 +1889,7 @@ img { display: block; max-width: 100%; }
 .grocery .g-item .check.on { background: var(--coral); border-color: var(--coral); }
 .grocery .g-name { font-size: 17px; font-weight: 600; }
 .grocery .g-qty { font-size: 15px; }
-.grocery .g-item.is-done .g-name { color: #8f8089; }
+.grocery .g-item.is-done .g-name { color: var(--muted); }
 @media (min-width: 880px) { .fab { right: 32px; bottom: 32px; width: 60px; height: 60px; box-shadow: 0 6px 18px rgba(194, 70, 42, 0.3); } }
 .guest-notice .notice-err { color: var(--heart); font-weight: 600; }
 .guest-notice .notice-more { display: inline; width: auto; height: auto; padding: 0; border-radius: 0; font-weight: 600; text-decoration: underline; }
