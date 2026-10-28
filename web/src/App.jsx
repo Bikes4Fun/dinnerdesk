@@ -1,12 +1,12 @@
 import { api } from "./api.js";
 import { Icon } from "./icons.jsx";
-import { ADMIN_PAGES, go } from "./nav.js";
+import { ADMIN_PAGES, go, inboxCount } from "./nav.js";
 import { AcceptInvite } from "./pages/AcceptInvite.jsx";
 import { Auth } from "./pages/Auth.jsx";
 import { Grocery } from "./pages/Grocery.jsx";
 import { IngredientReview } from "./pages/IngredientReview.jsx";
 import { RecipeFlags } from "./pages/RecipeFlags.jsx";
-import { Feedback, FeedbackInbox } from "./pages/Feedback.jsx";
+import { Feedback } from "./pages/Feedback.jsx";
 import { Kitchen } from "./pages/Kitchen.jsx";
 import { More } from "./pages/More.jsx";
 import { NewRecipe } from "./pages/NewRecipe.jsx";
@@ -18,7 +18,7 @@ import { Recipe } from "./pages/Recipe.jsx";
 import { Recipes } from "./pages/Recipes.jsx";
 import { ResetPassword } from "./pages/ResetPassword.jsx";
 import { VerifyEmail } from "./pages/VerifyEmail.jsx";
-import { AccountSecurity, emailNudge, Filters, Newsletter, Settings, Social } from "./pages/Settings.jsx";
+import { AccountSecurity, AdminHub, emailNudge, Filters, Newsletter, Settings, Social } from "./pages/Settings.jsx";
 import { TasteLab } from "./pages/TasteLab.jsx";
 import { Tour } from "./Tour.jsx";
 import { useEffect, useState } from "react";
@@ -41,13 +41,18 @@ function parsePath(pathname) {
   if (parts[0] === "settings") {
     if (parts[1] === "ingredients") return { page: "ingredient-review" };
     if (parts[1] === "recipe-flags") return { page: "recipe-flags" };
-    if (parts[1] === "feedback-inbox") return { page: "feedback-inbox" };
+    // The bugs inbox moved into the admin Inbox.
+    if (parts[1] === "feedback-inbox") {
+      window.location.replace("/admin/inbox");
+      return { page: "settings" };
+    }
     if (parts[1] === "feedback") return { page: "feedback" };
     if (parts[1] === "tastelab") return { page: "taste-lab" };
     if (parts[1] === "filters") return { page: "filters" };
     if (parts[1] === "social") return { page: "social" };
     if (parts[1] === "newsletter") return { page: "newsletter" };
     if (parts[1] === "account") return { page: "account-security" };
+    if (parts[1] === "admin") return { page: "admin" };
     return { page: "settings" };
   }
   if (parts[0] === "kitchen") {
@@ -75,10 +80,7 @@ function isOn(page, key) {
       page === "social" ||
       page === "newsletter" ||
       page === "account-security" ||
-      page === "ingredient-review" ||
-      page === "recipe-flags" ||
       page === "feedback" ||
-      page === "feedback-inbox" ||
       page === "taste-lab"
     );
   }
@@ -93,7 +95,7 @@ function isOn(page, key) {
       page === "ingredient-review" ||
       page === "recipe-flags" ||
       page === "feedback" ||
-      page === "feedback-inbox" ||
+      page === "admin" ||
       page === "taste-lab" ||
       page === "kitchen" ||
       page === "prep"
@@ -117,6 +119,60 @@ function NavLink({ href, navKey, label, icon, page, className = "" }) {
       {icon ? <Icon name={icon} /> : null}
       <span>{label}</span>
     </a>
+  );
+}
+
+const ADMIN_OPEN_KEY = "dinnerdesk-admin-nav-open";
+
+// One "Admin" item in the sidebar; every admin page sits under it.
+function AdminNav({ page }) {
+  const here = page === "admin" || ADMIN_PAGES.some(([, , key]) => key === page);
+  const [open, setOpen] = useState(() => {
+    try {
+      return localStorage.getItem(ADMIN_OPEN_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const [waiting, setWaiting] = useState(0);
+  useEffect(() => {
+    inboxCount().then(setWaiting);
+  }, [page]);
+  const shown = open || here;
+  const toggle = () => {
+    const next = !shown;
+    setOpen(next);
+    try {
+      localStorage.setItem(ADMIN_OPEN_KEY, next ? "1" : "0");
+    } catch {}
+  };
+  return (
+    <>
+      <button type="button" className="nav-link admin-toggle" aria-expanded={shown} onClick={toggle}>
+        <Icon name="admin" />
+        <span>Admin</span>
+        {waiting && !shown ? <span className="nav-count" aria-label={`${waiting} new in the inbox`}>{waiting}</span> : null}
+      </button>
+      {shown && (
+        <div className="admin-links">
+          {ADMIN_PAGES.map(([href, label, key]) => (
+            <a
+              key={href}
+              href={href}
+              aria-current={key && page === key ? "page" : undefined}
+              className={`nav-link quiet${key && page === key ? " is-on" : ""}`}
+              onClick={key ? (e) => {
+                e.preventDefault();
+                go(href);
+              } : undefined}
+            >
+              {label}
+              {href === "/admin/inbox" && waiting ? <span className="nav-count" aria-label={`${waiting} new`}>{waiting}</span> : null}
+            </a>
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -185,7 +241,7 @@ export function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!admin && (page === "ingredient-review" || page === "recipe-flags" || page === "feedback-inbox")) {
+    if (!admin && (page === "ingredient-review" || page === "recipe-flags")) {
       go("/settings");
     }
   }, [admin, page]);
@@ -258,14 +314,7 @@ export function App() {
           <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} />
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
           <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} className="side-break" />
-          {admin && (
-            <>
-              <div className="side-label">Admin</div>
-              {ADMIN_PAGES.map(([href, label]) => (
-                <a key={href} className="nav-link quiet" href={href}>{label}</a>
-              ))}
-            </>
-          )}
+          {admin && <AdminNav page={page} />}
         </nav>
       </aside>
       <div className="main" key={tabRootVersion}>
@@ -283,7 +332,7 @@ export function App() {
         {page === "account-security" && <AccountSecurity />}
         {page === "ingredient-review" && admin && <IngredientReview />}
         {page === "recipe-flags" && admin && <RecipeFlags />}
-        {page === "feedback-inbox" && admin && <FeedbackInbox />}
+        {page === "admin" && admin && <AdminHub />}
         {page === "feedback" && <Feedback />}
         {page === "taste-lab" && <TasteLab />}
         {page === "filters" && <Filters />}

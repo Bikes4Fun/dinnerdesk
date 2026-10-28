@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.auth import leave_household, join_household, delete_household, manage_member
+from app.auth import record_device
 from app.auth import SESSION_COOKIE, SESSION_TTL_DAYS, AuthError, has_email, is_admin_email, session_info
 from app.auth import accept_invite as do_accept_invite
 from app.auth import change_password as do_change_password
@@ -120,7 +121,8 @@ class AcceptInviteBody(BaseModel):
     existing: bool = False
 
 
-def _set_session_cookie(response: Response, token: str) -> None:
+def _set_session_cookie(response: Response, token: str, request: Request, conn) -> None:
+    record_device(conn, token, request.headers.get("user-agent", ""), request.headers.get("x-dinnerdesk-app", ""))
     response.set_cookie(
         key=SESSION_COOKIE,
         value=token,
@@ -159,18 +161,18 @@ def signup(body: SignupBody, request: Request, response: Response, conn=DbDep):
             response.delete_cookie(GUEST_COOKIE, path="/")
     except AuthError as e:
         raise _auth_error(e, 400)
-    _set_session_cookie(response, token)
+    _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
 
 @router.post("/auth/login")
-def login(body: LoginBody, response: Response, conn=DbDep):
+def login(body: LoginBody, request: Request, response: Response, conn=DbDep):
     try:
         token = do_login(conn, body.email, body.password)
     except AuthError as e:
         status = 423 if e.detail == "account_locked" else 401
         raise _auth_error(e, status)
-    _set_session_cookie(response, token)
+    _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
 
@@ -274,14 +276,14 @@ def me(request: Request, conn=DbDep):
 
 
 @router.post("/auth/change-password")
-def change_password(body: ChangePasswordBody, response: Response, conn=DbDep, user_id=UserDep):
+def change_password(body: ChangePasswordBody, request: Request, response: Response, conn=DbDep, user_id=UserDep):
     try:
         do_change_password(conn, user_id, body.current_password, body.new_password)
     except AuthError as e:
         raise _auth_error(e, 400)
     row = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
     token = do_login(conn, row["email"], body.new_password)
-    _set_session_cookie(response, token)
+    _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
 
@@ -370,12 +372,12 @@ def use_username(body: UseUsernameBody, conn=DbDep, user_id=UserDep):
 
 
 @router.post("/auth/reset-password")
-def reset_password(body: ResetPasswordBody, response: Response, conn=DbDep):
+def reset_password(body: ResetPasswordBody, request: Request, response: Response, conn=DbDep):
     try:
         token = finish_password_reset(conn, body.token, body.password)
     except AuthError as e:
         raise _auth_error(e, 400)
-    _set_session_cookie(response, token)
+    _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
 
@@ -398,12 +400,12 @@ def preview_invite(token: str, conn=DbDep):
 
 
 @router.post("/household/accept-invite")
-def accept_invite(body: AcceptInviteBody, response: Response, conn=DbDep):
+def accept_invite(body: AcceptInviteBody, request: Request, response: Response, conn=DbDep):
     try:
         token = do_accept_invite(conn, body.token, body.email, body.password, body.existing)
     except AuthError as e:
         raise _auth_error(e, 400)
-    _set_session_cookie(response, token)
+    _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
 
