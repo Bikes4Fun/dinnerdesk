@@ -59,6 +59,8 @@ struct KitchenView: View {
         } label: {
           ThemeIconRow(title: "Substitutions", systemImage: "arrow.left.arrow.right")
         }
+      }
+      .themeRows()
 
       // The − / + drops below the label when "Family portions" can't stay on one line.
       ViewThatFits(in: .horizontal) {
@@ -71,7 +73,7 @@ struct KitchenView: View {
             portionsStepper.padding(.leading, 40)
           }
         }
-      }.themeRows()
+      .themeRows()
 
       ThemeSection("Coming Soon"){
           ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
