@@ -288,8 +288,8 @@ all week."
   jumps to that section. Web (#220): instead, "N of M done." with one bar under the title, and
   uppercase section labels with "N of M". One item is open at a time (the first not done): its
   steps, "Split between" (each meal and its cook day, opening the recipe), Done / Skip (both open
-  the next item not done), and "Was this step clear?" 👍/👎/flag; 👎 or the flag opens "What's
-  wrong with this step?". These votes and notes are saved with the item's prep feedback.
+  the next item not done), and "Worth prepping ahead?" 👍/👎/flag (the same question as the
+  check-off bar); 👎 or the flag opens "What's wrong with this step?", saved as the 👎's note.
 - **Must:** check-off works like the grocery list: a done item leaves its section; "Show
   completed" brings done items back, faded, at the bottom of their section. Checking an item
   shows a bar with Undo and "Worth prepping ahead next time?" 👍/👎.

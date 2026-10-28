@@ -7,7 +7,7 @@ import "./prep.css";
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
    one progress bar, and check-off that works like the grocery list (done items leave unless
    "Show completed"). One item is open at a time (prep.html, #220): its steps, the meals it's for,
-   Done / Skip (both move on to the next item) and "Was this step clear?". */
+   Done / Skip (both move on to the next item) and "Worth prepping ahead?". */
 
 const SECTIONS = [
   ["veg", "Vegetables"],
@@ -246,11 +246,11 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
             <button type="button" className="pz-btn-skip" onClick={onSkip}>Skip</button>
           </div>
           <div className="pz-feedback">
-            <span className="pz-feedback-q">Was this step clear?</span>
-            <button type="button" className="pz-fb-btn" aria-label="Helpful" aria-pressed={t.rating > 0} onClick={() => onRate(t.rating > 0 ? 0 : 1)}>
+            <span className="pz-feedback-q">Worth prepping ahead?</span>
+            <button type="button" className="pz-fb-btn" aria-label="Yes, worth it" aria-pressed={t.rating > 0} onClick={() => onRate(t.rating > 0 ? 0 : 1)}>
               <Icon name="thumbs-up" size={18} />
             </button>
-            <button type="button" className="pz-fb-btn" aria-label="Not helpful" aria-pressed={t.rating < 0} onClick={() => onRate(t.rating < 0 ? 0 : -1)}>
+            <button type="button" className="pz-fb-btn" aria-label="No, not worth it" aria-pressed={t.rating < 0} onClick={() => onRate(t.rating < 0 ? 0 : -1)}>
               <Icon name="thumbs-down" size={18} />
             </button>
             <button type="button" className="pz-fb-btn" aria-label="Report a problem or send feedback" aria-expanded={reporting} onClick={onReport}>
