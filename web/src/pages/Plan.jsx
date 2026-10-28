@@ -153,7 +153,7 @@ export function Plan() {
             <button type="button" disabled={busy} onClick={() => act(() => markCooked(new Set(plan.slots.map((s) => s.id))))}>Mark all cooked</button>
             <button type="button" onClick={() => setGrid(!grid)}>{grid ? "List" : "Grid"} View</button>
             <button type="button" disabled={busy} onClick={() => {
-              const title = window.prompt("Draft name", plan.title);
+              const title = window.prompt("Plan name", plan.title);
               if (title?.trim()) act(async () => { await api.createPlan({ title: title.trim(), draft: true, source_plan_id: plan.id }); setMessage("Plan saved as draft."); });
             }}>Save as draft</button>
             <button type="button" disabled={busy} onClick={() => act(async () => setSaved((await api.plans()).plans))}>View drafts</button>
