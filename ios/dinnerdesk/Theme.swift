@@ -233,6 +233,7 @@ struct ThemeHeader: View {
       .foregroundStyle(Theme.muted.opacity(0.85))
       .textCase(nil)
       .padding(.top, 6)
+      .accessibilityAddTraits(.isHeader)
   }
 }
 

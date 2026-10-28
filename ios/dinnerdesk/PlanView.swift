@@ -415,6 +415,7 @@ struct PlanView: View {
         } label: {
           RecipePhoto(path: slot.photoPath, fill: true)
         }.buttonStyle(.plain)
+        .accessibilityLabel("Open \(slot.recipeName)")
       }
       .overlay(alignment: .topTrailing) {
         if !editing {

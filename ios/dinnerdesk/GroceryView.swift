@@ -394,7 +394,6 @@ struct GroceryItemView: View {
               }
 
               RecipePhoto(path: line.ingredientPhotoPath, large: true, hideUnavailable: true)
-                .accessibilityLabel("Photo of \(line.name)")
               ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
                   substituteLabel

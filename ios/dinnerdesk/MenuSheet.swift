@@ -79,6 +79,8 @@ private struct MenuSheetBody: View {
             .foregroundStyle(Theme.muted)
             .frame(width: 32, height: 32)
             .background(Circle().fill(Theme.chip))
+            .frame(width: 44, height: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("Close")
       }
