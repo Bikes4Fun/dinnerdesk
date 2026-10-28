@@ -36,6 +36,7 @@ RESET_TTL_MINUTES = 60
 RESET_MAX_PER_HOUR = 3
 VERIFY_TTL_HOURS = 24
 LAST_SEEN_MINUTES = 5
+LAST_SEEN_MINUTES = 5
 
 
 def hash_password(password: str) -> str:
@@ -916,6 +917,11 @@ def session_info(conn: Any, token: Optional[str]):
         conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
         conn.commit()
         return None
+    # Last seen, written at most every few minutes so most requests don't write.
+    seen = (datetime.now(timezone.utc) - timedelta(minutes=LAST_SEEN_MINUTES)).replace(microsecond=0).isoformat()
+    if not row["last_seen_at"] or row["last_seen_at"] < seen:
+        conn.execute("UPDATE users SET last_seen_at = ? WHERE id = ?", (now(), row["user_id"]))
+        conn.commit()
     # Last seen, written at most every few minutes so most requests don't write.
     seen = (datetime.now(timezone.utc) - timedelta(minutes=LAST_SEEN_MINUTES)).replace(microsecond=0).isoformat()
     if not row["last_seen_at"] or row["last_seen_at"] < seen:
