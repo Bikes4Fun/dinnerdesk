@@ -172,13 +172,12 @@ function searched() {
 
 // Account and system numbers; new items show on the type chips below instead.
 function overview() {
-  const o = DATA.overview, pv = o.prep_votes;
+  const o = DATA.overview;
   const stat = (n, label) => `<div class="stat"><span class="n">${n}</span><span class="l">${label}</span></div>`;
   document.getElementById("overview").innerHTML =
     stat(o.signups_week, `Signups this week <span class="faint">· ${plural(o.accounts, "account")}</span>`) +
     stat(o.active_week, "Active this week") +
     stat(o.locked, `<a href="/admin/users#f=locked">Locked accounts</a>`) +
-    stat(`${pv.up} 👍 ${pv.down} 👎`, "Prep votes") +
     stat(o.mail ? `<span class="ok">On</span>` : `<span class="warn">Off</span>`, "Email sending");
 }
 
@@ -269,11 +268,13 @@ function detail(i) {
     ${body}`;
 }
 
-// "3 · 1 new": what the status filter shows, plus how many of this type are new.
+// "3 · 1 new": what the status filter shows, plus how many of this type are new. Prep adds
+// its overall votes, since most 👍 never become items.
 function chipCount(items, stateTest, k) {
   const mine = items.filter(i => k === "all" || i.kind === k);
   const fresh = mine.filter(i => i.status === "new").length;
-  return `${mine.filter(stateTest).length}${fresh && which !== "new" ? ` · <b class="warn">${fresh} new</b>` : ""}`;
+  const votes = k === "prep" ? ` · ${DATA.overview.prep_votes.up} 👍 ${DATA.overview.prep_votes.down} 👎` : "";
+  return `${mine.filter(stateTest).length}${fresh && which !== "new" ? ` · <b class="warn">${fresh} new</b>` : ""}${votes}`;
 }
 
 function render() {
