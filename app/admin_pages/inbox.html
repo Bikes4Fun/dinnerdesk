@@ -74,6 +74,8 @@
     color: var(--ink); font: inherit; cursor: pointer; }
   .btn[aria-pressed="true"] { border-color: var(--solid); background: var(--solid); color: var(--on-solid); font-weight: 500; }
   textarea { width: 100%; min-height: 64px; padding: 8px; resize: vertical; }
+  .refs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .refs input { flex: 1 1 140px; min-width: 0; padding: 6px 8px; }
   dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; row-gap: 6px; }
   dt { color: var(--muted); }
   dd { margin: 0; overflow-wrap: anywhere; }
@@ -285,9 +287,12 @@ function detail(i) {
     <div class="block"><p class="quote${words ? "" : " none"}">${words ? esc(words) : "No note"}</p></div>
     <div class="block"><h3>Status</h3><div class="seg" role="group" aria-label="Status">
       ${STATUSES.map(([k, l]) => `<button type="button" class="btn" data-status="${k}" aria-pressed="${i.status === k}">${l}</button>`).join("")}</div>
+      ${i.status === "planned" || i.planned_issue || i.planned_branch ? `<div class="refs">
+        <label for="issue" class="sr">Issue #</label><input id="issue" placeholder="Issue # (e.g. 217)" value="${esc(i.planned_issue)}">
+        <label for="branch" class="sr">Branch</label><input id="branch" placeholder="Branch" value="${esc(i.planned_branch)}"></div>` : ""}
       <label for="note" class="sr">My note</label>
       <textarea id="note" placeholder="My note: what to fix, what I decided… (only admins see this)">${esc(i.admin_note)}</textarea>
-      <div><button type="button" class="btn" data-save-note>Save note</button></div></div>
+      <div><button type="button" class="btn" data-save-note>Save</button></div></div>
     ${body}
     ${sender(i)}`;
 }
@@ -354,6 +359,7 @@ async function save(item, change) {
 }
 
 document.getElementById("detail").addEventListener("click", async e => {
+  const panel = e.currentTarget; // currentTarget is null after the await below
   if (e.target.closest("[data-close]")) { selected = null; return render(); }
   const goto = e.target.closest("[data-goto]");
   if (goto) { e.preventDefault(); selected = goto.dataset.goto; return render(); }
@@ -362,13 +368,16 @@ document.getElementById("detail").addEventListener("click", async e => {
   if (s) {
     try {
       await save(item, { status: s.dataset.status });
-      e.currentTarget.querySelectorAll("[data-status]").forEach(b => b.setAttribute("aria-pressed", b === s));
+      panel.querySelectorAll("[data-status]").forEach(b => b.setAttribute("aria-pressed", b === s));
       toast(item.status === "done" || item.status === "declined" ? `${STATUS_LABEL[item.status]}. Find it under "Show done & declined".` : "Saved.");
       render();
     } catch (err) { toast(err.message, true); }
   }
   if (e.target.closest("[data-save-note]")) {
-    try { await save(item, { admin_note: document.getElementById("note").value }); toast("Note saved."); render(); }
+    const change = { admin_note: document.getElementById("note").value };
+    const issue = document.getElementById("issue"), branch = document.getElementById("branch");
+    if (issue) Object.assign(change, { planned_issue: issue.value.trim(), planned_branch: branch.value.trim() });
+    try { await save(item, change); toast("Saved."); render(); }
     catch (err) { toast(err.message, true); }
   }
 });
