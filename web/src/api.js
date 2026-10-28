@@ -1,3 +1,5 @@
+import { recordError, trail } from "./trail.js";
+
 async function req(path, options = {}) {
   // Screens handle recoverable request errors; unhandled failures reach App's boundary.
   return request(path, options);
@@ -44,6 +46,7 @@ async function request(path, options = {}) {
     const message = explained || messages[res.status] || (res.status >= 500
       ? "The server couldn't complete this action. Please try again shortly."
       : usable ? detail : "Couldn't complete this action. Please try again.");
+    recordError(`${options.method || "GET"} ${path.split("?")[0]} ${res.status}: ${message}`);
     const err = new Error(message);
     err.status = res.status;
     err.body = data;
@@ -77,7 +80,7 @@ export const api = {
   pendingSuggestion: () => req("/api/suggestions/current"),
   decideSuggestion: (id, decision) => req(`/api/plans/${id}/decision/${decision}`, { method: "POST" }),
   sendFeedback: (kind, note, screenshots = []) =>
-    req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen: "settings", screenshots }) }),
+    req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen: "settings", screenshots, ...trail() }) }),
   feedbackList: () => req("/api/dev/feedback"),
   setFeedbackStatus: (id, status) => req(`/api/dev/feedback/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   reportRecipe: (id, reason, note) => req(`/api/recipes/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
