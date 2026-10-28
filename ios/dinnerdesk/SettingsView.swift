@@ -1682,7 +1682,7 @@ private struct TasteLabWebView: UIViewRepresentable {
   }
 
   func makeUIView(context: Context) -> WKWebView {
-    let view = WKWebView(frame: .zero, configuration: WKWebViewConfiguration())
+    let view = SwipeWebView(frame: .zero, configuration: WKWebViewConfiguration())
     view.navigationDelegate = context.coordinator
     view.isOpaque = false
     view.backgroundColor = UIColor(Theme.bg)
@@ -1751,6 +1751,26 @@ private struct TasteLabWebView: UIViewRepresentable {
       parent.loading = false
       parent.failed = error.localizedDescription
     }
+  }
+}
+
+/// iOS 26 pops the screen on a right swipe anywhere in the content, which eats the
+/// Taste Lab card's like swipe. Keep only the edge swipe while this view is on screen.
+private final class SwipeWebView: WKWebView {
+  private weak var nav: UINavigationController?
+
+  override func didMoveToWindow() {
+    super.didMoveToWindow()
+    guard #available(iOS 26, *) else { return }
+    if window == nil {
+      nav?.interactiveContentPopGestureRecognizer?.isEnabled = true
+      nav = nil
+      return
+    }
+    var responder: UIResponder? = self
+    while let next = responder?.next, !(next is UINavigationController) { responder = next }
+    nav = responder?.next as? UINavigationController
+    nav?.interactiveContentPopGestureRecognizer?.isEnabled = false
   }
 }
 

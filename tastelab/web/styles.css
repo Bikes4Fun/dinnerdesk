@@ -311,6 +311,8 @@ button:focus-visible, .text-link:focus-visible {
   }
 }
 .card.is-top { z-index: 1; }
+/* A native image drag fires pointercancel and kills the swipe. */
+.card img { pointer-events: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
 .card.is-next {
   transform: scale(0.96);
   opacity: 0.7;
