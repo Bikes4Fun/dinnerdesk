@@ -67,3 +67,7 @@ HTTP 405 trigger remains unresolved; request diagnostics are in place.
 ### October 10 TestFlight follow-up
 
 Reports from 1.0.3 (2) are mapped individually in TESTER_CHECKLIST.md. Active fixes: #109 (suggestion lifecycle, fill-in, empty plans), #110 (multiple custom foods, prep Undo, compact Plan, grocery bulk toggle), and #103 (hide staged tips). #85's plural search fix is already merged as PR #98. #82 still needs the prepared ingredient gallery enabled in production. Branch: `fix/testflight-feedback-oct10`.
+
+## Android / Google Play — issue #112
+
+Branch `issue-112-android-google-play` adds the Android app, Gradle wrapper, native navigation/photo picker/grocery sharing/data export, and a release checklist in `android/README.md`. URL policy unit tests passed. Full Android compilation, lint and device testing await Android SDK license acceptance and installation. Play publication also requires the owner's Console app, upload signing key, listing/Data safety declarations, and internal-track acceptance. This is prepared source, not a published Play release.
