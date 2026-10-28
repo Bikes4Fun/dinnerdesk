@@ -186,7 +186,7 @@ struct FiltersView: View {
           Button {
             Task { await close() }
           } label: {
-            Image(systemName: "chevron.left").font(.system(size: 17, weight: .semibold))
+            Image(systemName: "chevron.left").scaledIcon(size: 17, weight: .semibold)
           }
           .accessibilityLabel("Save and go back")
         }
@@ -352,13 +352,13 @@ struct FiltersView: View {
       Spacer(minLength: 0)
       HStack(spacing: 0) {
         proteinSegment(id, "less", on: value == "less", label: "Less \(name)") {
-          Image(systemName: "minus").font(.system(size: 12, weight: .bold))
+          Image(systemName: "minus").scaledIcon(size: 12, weight: .bold)
         }
         proteinSegment(id, "", on: value.isEmpty, label: "No preference for \(name)") {
           Circle().fill(value.isEmpty ? Theme.ink : Color(hex: 0xC9B9C4)).frame(width: 6, height: 6)
         }
         proteinSegment(id, "more", on: value == "more", label: "More \(name)") {
-          Image(systemName: "plus").font(.system(size: 12, weight: .bold))
+          Image(systemName: "plus").scaledIcon(size: 12, weight: .bold)
         }
       }
       .padding(3)
@@ -478,7 +478,7 @@ struct FiltersView: View {
           }
           Spacer(minLength: 0)
           Image(systemName: "chevron.down")
-            .font(.system(size: 12, weight: .bold))
+            .scaledIcon(size: 12, weight: .bold)
             .foregroundStyle(Theme.muted)
             .rotationEffect(.degrees(open ? 180 : 0))
         }
@@ -507,7 +507,7 @@ struct FiltersView: View {
         HStack(spacing: 6) {
           Text(open ? "Show less" : "Show \(hidden) more" + (noun.isEmpty ? "" : " \(noun)"))
           Image(systemName: "chevron.down")
-            .font(.system(size: 12, weight: .bold))
+            .scaledIcon(size: 12, weight: .bold)
             .rotationEffect(.degrees(open ? 180 : 0))
         }
         .font(.custom("DMSans-Bold", size: 14, relativeTo: .subheadline))
@@ -1049,7 +1049,7 @@ struct AccountView: View {
           .foregroundStyle(Theme.ink)
         Spacer(minLength: 0)
         Image(systemName: "chevron.right")
-          .font(.system(size: 14, weight: .semibold))
+          .scaledIcon(size: 14, weight: .semibold)
           .foregroundStyle(Theme.muted)
           .accessibilityHidden(true)
       }
@@ -1199,7 +1199,7 @@ struct AccountView: View {
             .multilineTextAlignment(.leading)
           Spacer(minLength: 0)
           Image(systemName: "pencil")
-            .font(.system(size: 15, weight: .semibold))
+            .scaledIcon(size: 15, weight: .semibold)
             .foregroundStyle(Theme.muted)
         }
         .padding(EdgeInsets(top: 16, leading: 16, bottom: 8, trailing: 16))
@@ -1237,9 +1237,8 @@ struct AccountView: View {
         if hasMenu {
           Button { withAnimation { openMember = open ? nil : member.id } } label: {
             Image(systemName: "ellipsis")
-              .font(.system(size: 18, weight: .bold))
+              .scaledIcon(size: 18, weight: .bold, width: 44, height: 44)
               .foregroundStyle(Theme.ink)
-              .frame(width: 44, height: 44)
               .background(open ? Theme.aubergineTint : .clear, in: Circle())
           }
           .buttonStyle(.plain)
@@ -1543,7 +1542,7 @@ private struct AccountRow: View {
         Spacer(minLength: 0)
         if chevron {
           Image(systemName: "chevron.right")
-            .font(.system(size: 14, weight: .semibold))
+            .scaledIcon(size: 14, weight: .semibold)
             .foregroundStyle(Theme.muted)
             .rotationEffect(.degrees(open ? 90 : 0))
             .accessibilityHidden(true)
@@ -1855,9 +1854,8 @@ struct FeedbackView: View {
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Theme.line))
                 .overlay(alignment: .topTrailing) {
                   Button { shots.remove(at: index) } label: {
-                    Image(systemName: "xmark.circle.fill").font(.system(size: 22))
+                    Image(systemName: "xmark.circle.fill").scaledIcon(size: 22, width: 44, height: 44)
                       .foregroundStyle(Theme.ink, Theme.surface)
-                      .frame(width: 44, height: 44)
                   }
                   .buttonStyle(.plain)
                   .offset(x: 14, y: -14)
