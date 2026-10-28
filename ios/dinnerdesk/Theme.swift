@@ -281,7 +281,7 @@ extension TabHeader {
 
   private var actionButtons: some View {
     actions
-      .font(.title3)
+      .font(.title2)
       .tint(Theme.accent)
   }
 }
