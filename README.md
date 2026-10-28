@@ -55,6 +55,7 @@ always under More. Guests can use the app without an account.
 
 | Doc | What it's for |
 |---|---|
+| [`docs/ABOUT.md`](docs/ABOUT.md) | What Dinnerdesk does, for readers and users. Also at `/about` on the website. |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | How each feature works, screens, architecture, decisions |
 | [`docs/TODO.md`](docs/TODO.md) | Issues, fixes, ideas, open questions and proposals |
 | [`docs/TESTER_CHECKLIST.md`](docs/TESTER_CHECKLIST.md) | What testers try on each build |
