@@ -32,7 +32,7 @@
   .ok { color: var(--ok); font-weight: 500; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   input, select, textarea { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--field); border-radius: 8px; }
-  .overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 0; overflow: hidden; }
+  .overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; overflow: hidden; }
   .stat { padding: 12px 16px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); background: none; border-top: 0; border-left: 0;
     font: inherit; color: inherit; text-align: left; display: flex; flex-direction: column; gap: 2px; }
   button.stat { cursor: pointer; }
@@ -100,7 +100,6 @@
   <header>
     <a href="/">← Dinnerdesk</a>
     <h1>Inbox</h1>
-    <p class="sub" id="sub"></p>
   </header>
   <section class="panel overview" id="overview" aria-label="Overview"></section>
   <div class="tools">
@@ -171,20 +170,15 @@ function searched() {
     .some(v => String(v || "").toLowerCase().includes(t)));
 }
 
+// Account and system numbers; new items show on the type chips below instead.
 function overview() {
-  const o = DATA.overview, isNew = DATA.items.filter(i => i.status === "new");
-  const count = k => isNew.filter(i => i.kind === k).length;
-  const stat = (n, label, attrs = "") => attrs
-    ? `<button type="button" class="stat" ${attrs}><span class="n">${n}</span><span class="l">${label}</span></button>`
-    : `<div class="stat"><span class="n">${n}</span><span class="l">${label}</span></div>`;
-  const pv = o.prep_votes;
+  const o = DATA.overview, pv = o.prep_votes;
+  const stat = (n, label) => `<div class="stat"><span class="n">${n}</span><span class="l">${label}</span></div>`;
   document.getElementById("overview").innerHTML =
-    stat(count("bug"), "New bugs", `data-k="bug"`) + stat(count("idea"), "New ideas", `data-k="idea"`) +
-    stat(count("recipe"), "New recipe reports", `data-k="recipe"`) + stat(count("plan"), "New plan reports", `data-k="plan"`) +
-    stat(count("prep"), `New prep issues <span class="faint">· ${pv.up} 👍 ${pv.down} 👎 overall</span>`, `data-k="prep"`) +
-    stat(o.signups_week, `Signups this week <span class="faint">· ${o.accounts} accounts</span>`) +
+    stat(o.signups_week, `Signups this week <span class="faint">· ${plural(o.accounts, "account")}</span>`) +
     stat(o.active_week, "Active this week") +
     stat(o.locked, `<a href="/admin/users#f=locked">Locked accounts</a>`) +
+    stat(`${pv.up} 👍 ${pv.down} 👎`, "Prep votes") +
     stat(o.mail ? `<span class="ok">On</span>` : `<span class="warn">Off</span>`, "Email sending");
 }
 
@@ -275,14 +269,19 @@ function detail(i) {
     ${body}`;
 }
 
+// "3 · 1 new": what the status filter shows, plus how many of this type are new.
+function chipCount(items, stateTest, k) {
+  const mine = items.filter(i => k === "all" || i.kind === k);
+  const fresh = mine.filter(i => i.status === "new").length;
+  return `${mine.filter(stateTest).length}${fresh && which !== "new" ? ` · <b class="warn">${fresh} new</b>` : ""}`;
+}
+
 function render() {
-  const open = DATA.items.filter(STATES[0][2]);
-  document.getElementById("sub").textContent = `${plural(open.length, "open item")} · ${DATA.items.filter(i => i.status === "new").length} new`;
   overview();
   const base = searched();
   const stateTest = (STATES.find(s => s[0] === which) || STATES[0])[2];
   document.getElementById("kinds").innerHTML = KINDS.map(([k, l]) =>
-    `<button type="button" class="chip" data-k="${k}" aria-pressed="${kind === k}">${l} <span>${base.filter(i => stateTest(i) && (k === "all" || i.kind === k)).length}</span></button>`).join("");
+    `<button type="button" class="chip" data-k="${k}" aria-pressed="${kind === k}">${l} <span>${chipCount(base, stateTest, k)}</span></button>`).join("");
   document.getElementById("states").innerHTML = STATES.map(([k, l, test]) =>
     `<button type="button" class="chip" data-s="${k}" aria-pressed="${which === k}">${l} <span>${base.filter(i => test(i) && (kind === "all" || i.kind === kind)).length}</span></button>`).join("");
   const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind));
@@ -339,10 +338,6 @@ document.getElementById("kinds").addEventListener("click", e => {
 });
 document.getElementById("states").addEventListener("click", e => {
   const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }
-});
-document.getElementById("overview").addEventListener("click", e => {
-  const b = e.target.closest("button[data-k]"); if (!b) return;
-  kind = b.dataset.k; which = "new"; render();
 });
 find.addEventListener("input", render);
 render();
