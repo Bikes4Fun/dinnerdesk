@@ -75,10 +75,11 @@ private struct MenuSheetBody: View {
         Spacer()
         Button(action: close) {
           Image(systemName: "xmark")
-            .font(.system(size: 14, weight: .bold))
+            .scaledIcon(size: 14, weight: .bold, width: 32, height: 32)
             .foregroundStyle(Theme.muted)
-            .frame(width: 32, height: 32)
             .background(Circle().fill(Theme.chip))
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .accessibilityLabel("Close")
       }
@@ -97,9 +98,8 @@ private struct MenuSheetBody: View {
           } label: {
             HStack(spacing: 16) {
               Image(systemName: item.systemImage)
-                .font(.system(size: 20))
+                .scaledIcon(size: 20, width: 28)
                 .foregroundStyle(item.destructive ? Color.red : Theme.muted)
-                .frame(width: 28)
               Text(item.title)
                 .font(Theme.rowTitle)
                 .foregroundStyle(item.destructive ? Color.red : Theme.ink)

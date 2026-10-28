@@ -8,7 +8,7 @@ struct EmptyState: View {
   var body: some View {
     VStack(spacing: 10) {
       Image(systemName: systemImage)
-        .font(.system(size: 32))
+        .scaledIcon(size: 32)
         .foregroundStyle(Theme.accent)
       Text(title)
         .font(Theme.mealName)

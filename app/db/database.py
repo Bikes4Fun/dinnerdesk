@@ -262,6 +262,12 @@ def init_db(conn) -> None:
     _add_column(conn, "users", "email_verified_at", "TEXT")
     _add_column(conn, "households", "is_test", "INTEGER NOT NULL DEFAULT 0")
     _add_column(conn, "users", "recovery_email", "TEXT")
+    _add_column(conn, "users", "last_seen_at", "TEXT")
+    _add_column(conn, "sessions", "device", "TEXT NOT NULL DEFAULT ''")
+    for table in ("recipe_reports", "plan_reports", "prep_step_feedback"):
+        _add_column(conn, table, "status", "TEXT NOT NULL DEFAULT 'new'")
+    for table in ("feedback", "recipe_reports", "plan_reports", "prep_step_feedback"):
+        _add_column(conn, table, "admin_note", "TEXT NOT NULL DEFAULT ''")
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_recovery_email ON users(recovery_email)")
     # Existing households: earliest member becomes creator unless an owner already exists.
     conn.execute("""UPDATE users SET household_role = 'owner' WHERE id IN (

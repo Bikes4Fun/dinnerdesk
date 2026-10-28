@@ -20,8 +20,8 @@ struct GroceryView: View {
     NavigationStack {
       VStack(spacing: 0) {
         TabHeader("Grocery") {
-          TabHeaderButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
-          TabHeaderButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
+          HeaderIconButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
         }
 
         List {
@@ -123,9 +123,8 @@ struct GroceryView: View {
             adding = true
           } label: {
             Image(systemName: "plus")
-              .font(.system(size: 24, weight: .semibold))
+              .scaledIcon(size: 24, weight: .semibold, width: 60, height: 60)
               .foregroundStyle(.white)
-              .frame(width: 60, height: 60)
               .background(Circle().fill(Theme.accent))
               .shadow(color: Theme.ink.opacity(0.2), radius: 10, y: 4)
           }
@@ -277,9 +276,8 @@ struct GroceryRow: View {
         Task { await store.toggleGrocery(line) }
       } label: {
         Image(systemName: line.checked ? "checkmark.circle.fill" : "circle")
-          .font(.system(size: 24))
+          .scaledIcon(size: 24, width: 60)
           .foregroundStyle(line.checked ? Theme.accent : Theme.muted)
-          .frame(width: 60)
           .frame(minHeight: 56, maxHeight: .infinity)
           .contentShape(Rectangle())
       }
@@ -394,7 +392,6 @@ struct GroceryItemView: View {
               }
 
               RecipePhoto(path: line.ingredientPhotoPath, large: true, hideUnavailable: true)
-                .accessibilityLabel("Photo of \(line.name)")
               ViewThatFits(in: .horizontal) {
                 HStack(spacing: 12) {
                   substituteLabel
