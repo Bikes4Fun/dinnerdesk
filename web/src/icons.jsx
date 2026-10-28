@@ -72,18 +72,14 @@ export function Icon({ name, size = 22 }) {
       </svg>
     );
   }
+  if (name === "admin") {
+    return <svg {...common}><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z" /></svg>;
+  }
   if (name === "settings") {
     return (
       <svg {...common}>
         <circle cx="12" cy="12" r="3" />
         <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" />
-      </svg>
-    );
-  }
-  if (name === "shield") {
-    return (
-      <svg {...common}>
-        <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" />
       </svg>
     );
   }

@@ -167,7 +167,7 @@ struct PrepView: View {
   private var missingButton: some View {
     Button { missingOpen = true } label: {
       HStack(spacing: 12) {
-        Image(systemName: "plus.circle").font(.system(size: 22)).accessibilityHidden(true)
+        Image(systemName: "plus.circle").scaledIcon(size: 22).accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
           Text("Missing a prep step?").font(Theme.action)
           Text("Pick a step from this week’s recipes.").font(Theme.subtitle).foregroundStyle(Theme.muted)
@@ -200,10 +200,9 @@ struct PrepView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
           Text("\(g.done) of \(g.all.count)").font(Theme.count).foregroundStyle(Theme.muted)
           Image(systemName: "chevron.up")
-            .font(.system(size: 15, weight: .bold))
+            .scaledIcon(size: 15, weight: .bold, width: 32, height: 32)
             .foregroundStyle(Theme.ink)
             .rotationEffect(.degrees(open ? 0 : 180))
-            .frame(width: 32, height: 32)
             .background(Theme.aubergineTint, in: Circle())
         }
         .frame(minHeight: 44)
@@ -247,9 +246,8 @@ struct PrepView: View {
           toast = next ? task.id : nil
         } label: {
           Image(systemName: task.done ? "checkmark.circle.fill" : "circle")
-            .font(.system(size: 26))
+            .scaledIcon(size: 26, width: 44, height: 44)
             .foregroundStyle(task.done ? Self.coral : Theme.muted)
-            .frame(width: 44, height: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -279,12 +277,11 @@ struct PrepView: View {
         }
         Button { toggleDetails(task) } label: {
           Image(systemName: "chevron.down")
-            .font(.system(size: 15, weight: .bold))
+            .scaledIcon(size: 15, weight: .bold, width: 32, height: 32)
             .foregroundStyle(open ? Theme.ink : Theme.muted)
             .rotationEffect(.degrees(open ? 180 : 0))
-            .frame(width: 32, height: 32)
             .background(open ? Theme.aubergineTint : Color.clear, in: Circle())
-            .frame(width: 44, height: 44)
+            .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -354,7 +351,7 @@ struct PrepView: View {
                     NavigationLink { RecipeDetailView(id: meal.id) } label: {
                       HStack(spacing: 4) {
                         Text(meal.name).lineLimit(1).truncationMode(.tail)
-                        Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).opacity(0.6)
+                        Image(systemName: "chevron.right").scaledIcon(size: 10, weight: .bold).opacity(0.6)
                       }
                       .font(Theme.count.weight(.semibold))
                       .foregroundStyle(Theme.ink)
@@ -594,7 +591,7 @@ struct MissingPrepSheet: View {
         if s.added {
           // Already added: no radio, just a way to take it back.
           HStack(alignment: .top, spacing: 12) {
-            Image(systemName: "checkmark.circle.fill").font(.system(size: 20)).foregroundStyle(Theme.ink)
+            Image(systemName: "checkmark.circle.fill").scaledIcon(size: 20).foregroundStyle(Theme.ink)
               .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 3) {
               Text("Step \(s.step) · in your prep").font(Theme.subtitle).foregroundStyle(Theme.muted)
@@ -615,7 +612,7 @@ struct MissingPrepSheet: View {
           Button { stepKey = s.key } label: {
             HStack(alignment: .top, spacing: 12) {
               Image(systemName: on ? "largecircle.fill.circle" : "circle")
-                .font(.system(size: 20))
+                .scaledIcon(size: 20)
                 .foregroundStyle(on ? Theme.ink : Theme.muted)
                 .accessibilityHidden(true)
               VStack(alignment: .leading, spacing: 3) {
@@ -662,8 +659,7 @@ struct MissingPrepSheet: View {
   private func confirmation(_ done: (meal: String, text: String)) -> some View {
     VStack(spacing: 10) {
       Image(systemName: "checkmark")
-        .font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.ink)
-        .frame(width: 48, height: 48)
+        .scaledIcon(size: 22, weight: .bold, width: 48, height: 48).foregroundStyle(Theme.ink)
         .background(Color(hex: 0xFA7E5A), in: Circle())
         .accessibilityHidden(true)
       Text("Added to your prep").font(Theme.tourTitle).foregroundStyle(Theme.ink)

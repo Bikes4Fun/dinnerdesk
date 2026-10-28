@@ -1318,7 +1318,6 @@ img { display: block; max-width: 100%; }
   .sidebar .nav-link.is-on { background: var(--surface); color: var(--brand); font-weight: 700; }
   .sidebar .nav-link:hover:not(.is-on) { background: rgba(255, 253, 249, 0.6); color: var(--ink); }
   .sidebar .nav-divider { height: 1px; margin: 12px; background: #e2d6d1; }
-  .sidebar .nav-link.side-sub { min-height: 40px; padding-left: 46px; font-size: 0.9rem; }
   .sidebar .nav-count {
     flex: none;
     min-width: 22px;
@@ -1332,14 +1331,14 @@ img { display: block; max-width: 100%; }
   }
   .guest-notice { width: min(800px, calc(100% - 48px)); margin: 24px auto 0; }
   .mob-back { display: none !important; }
-  .side-label {
-    margin: 1.1rem 0.7rem 0.35rem;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--muted);
-  }
+  .sidebar .admin-toggle { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+  .sidebar .admin-toggle::after { content: "▸"; margin-left: 0.4rem; font-size: 0.8em; color: var(--muted); }
+  .sidebar .admin-toggle[aria-expanded="true"]::after { content: "▾"; }
+  .sidebar .nav-count { margin-left: auto; min-width: 1.4rem; padding: 0 0.4rem; border-radius: 999px; background: var(--accent-dark);
+    color: #fff; font-size: 0.72rem; font-weight: 700; line-height: 1.4rem; text-align: center; }
+  .sidebar .admin-toggle > span:not(.nav-count) { flex: 1; }
+  .admin-links { display: flex; flex-direction: column; gap: 0.12rem; padding-left: 1.6rem; }
+  .admin-links .nav-link { padding-top: 0.42rem; padding-bottom: 0.42rem; font-size: 0.92em; }
   .tabbar { display: none; }
   .dock { bottom: 0; }
   .fab { bottom: 1.5rem; }
@@ -1718,6 +1717,7 @@ img { display: block; max-width: 100%; }
 .feedback-filters select { width: auto; }
 .feedback-item { display: flex; flex-direction: column; gap: 8px; }
 .feedback-meta { display: flex; flex-direction: column; gap: 2px; }
+.feedback-meta .feedback-behind { color: var(--heart); font-weight: 600; }
 .feedback-note { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .feedback-item select { align-self: flex-start; width: auto; }
 

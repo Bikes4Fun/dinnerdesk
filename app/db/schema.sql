@@ -188,6 +188,9 @@ CREATE TABLE IF NOT EXISTS prep_step_feedback (
   reason TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL,
+  -- The admin Inbox's triage: new, planned, done or declined, plus the admin's own note.
+  status TEXT NOT NULL DEFAULT 'new',
+  admin_note TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (household_id, recipe_id, step_key)
 );
 
@@ -199,7 +202,9 @@ CREATE TABLE IF NOT EXISTS plan_reports (
   plan_id INTEGER REFERENCES plans(id) ON DELETE SET NULL,
   note TEXT NOT NULL DEFAULT '',
   snapshot_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  admin_note TEXT NOT NULL DEFAULT ''
 );
 
 -- "Report a problem with this recipe": why, the user's note, and the recipe as this household
@@ -211,7 +216,9 @@ CREATE TABLE IF NOT EXISTS recipe_reports (
   reason TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',
   snapshot_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  admin_note TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS prep_tasks (
@@ -249,7 +256,9 @@ CREATE TABLE IF NOT EXISTS users (
   failed_attempts INTEGER NOT NULL DEFAULT 0,
   locked_until TEXT,
   email_verified_at TEXT,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  -- Last signed-in request, to the nearest few minutes (auth.session_info).
+  last_seen_at TEXT
 );
 
 CREATE INDEX IF NOT EXISTS users_household ON users(household_id);
@@ -259,7 +268,9 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL
+  expires_at TEXT NOT NULL,
+  -- What signed in, e.g. "Safari on Mac" or "iOS app 1.2 (34)", for the admin Users page.
+  device TEXT NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS sessions_user ON sessions(user_id);
@@ -325,5 +336,6 @@ CREATE TABLE IF NOT EXISTS feedback (
   status TEXT NOT NULL DEFAULT 'new',
   snapshot_json TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  admin_note TEXT NOT NULL DEFAULT ''
 );

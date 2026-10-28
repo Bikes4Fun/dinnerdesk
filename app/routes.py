@@ -8,6 +8,8 @@ import hashlib
 import inspect
 import json
 import logging
+import os
+import re
 import threading
 from collections import OrderedDict
 import time
@@ -2283,7 +2285,8 @@ _EXPORT_TABLES = [
     ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
     ("feedback", "feedback"),
 ]
-_EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id"}
+# admin_note is the admin's own triage note in the Inbox, not the household's data.
+_EXPORT_SECRET_COLUMNS = {"password_hash", "token", "token_hash", "household_id", "admin_note"}
 
 
 def _rows(cursor) -> list[dict]:
@@ -2513,6 +2516,32 @@ def get_plan_reports(_admin=AdminDep, db: PgConnection = DbDep):
     ]}
 
 
+def server_build() -> str:
+    """The deployed commit, short (Railway sets RAILWAY_GIT_COMMIT_SHA), or "" when unknown."""
+    return (os.environ.get("RAILWAY_GIT_COMMIT_SHA") or "")[:7]
+
+
+IOS_BUILD = re.compile(r"ios (\S+) \((\d+)\)")
+
+
+def _app_versions(rows) -> dict[int, dict]:
+    """Which version sent each report, and whether it was behind. A web page is behind when
+    its build isn't the server's at the time (an old tab); an iOS build is behind when a newer
+    one has sent a report since."""
+    builds = [(int(m[2]), m[0]) for r in rows if (m := IOS_BUILD.fullmatch(r["snapshot"].get("app") or ""))]
+    newest = max(builds, default=(0, ""))
+    out = {}
+    for r in rows:
+        app, server = r["snapshot"].get("app") or "", r["snapshot"].get("server") or ""
+        behind = ""
+        if app.startswith("web ") and server and app[4:] != server:
+            behind = f"server was on {server}"
+        elif (m := IOS_BUILD.fullmatch(app)) and int(m[2]) < newest[0]:
+            behind = f"newest is {newest[1]}"
+        out[r["id"]] = {"version": app or "unknown", "behind": behind}
+    return out
+
+
 @router.post("/feedback")
 def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
     """Report a bug or suggest a feature (#145). Keeps which app and build sent it, so a bug
@@ -2525,6 +2554,7 @@ def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbD
     screenshots = [save_screenshot(data) for data in body.screenshots]
     snapshot = {
         "app": request.headers.get("x-dinnerdesk-app", ""),
+        "server": server_build(),
         "user_agent": request.headers.get("user-agent", "")[:300],
         "screen": body.screen.strip(),
         "screenshots": screenshots,
@@ -2542,7 +2572,7 @@ def send_feedback(body: FeedbackCreate, request: Request, db: PgConnection = DbD
 @router.get("/dev/feedback")
 def get_feedback(_admin=AdminDep, db: PgConnection = DbDep):
     """Every bug report and feature request across households, newest first."""
-    return {"feedback": [
+    rows = [
         {"id": r["id"], "household_id": r["household_id"], "household_name": r["household_name"],
          "email": r["email"], "kind": r["kind"], "note": r["note"], "status": r["status"],
          "created_at": r["created_at"], "updated_at": r["updated_at"],
@@ -2554,7 +2584,9 @@ def get_feedback(_admin=AdminDep, db: PgConnection = DbDep):
                LEFT JOIN households h ON h.id = f.household_id
                LEFT JOIN users u ON u.id = f.user_id ORDER BY f.created_at DESC, f.id DESC"""
         )
-    ]}
+    ]
+    versions = _app_versions(rows)
+    return {"feedback": [{**r, **versions[r["id"]]} for r in rows]}
 
 
 @router.get("/dev/feedback/{feedback_id}/screenshots/{index}")

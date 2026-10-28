@@ -3,11 +3,20 @@ export function go(path) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
-// Admin review pages: plain HTML served by the server (app/admin_routes.py), not app routes.
+// Admin pages as [path, label, app page]. Without an app page it's plain HTML served by the
+// server (app/admin_routes.py), opened as a full page load.
 export const ADMIN_PAGES = [
+  ["/admin/inbox", "Inbox"],
+  ["/admin/users", "Users"],
+  ["/settings/recipe-flags", "Recipes to edit", "recipe-flags"],
   ["/admin/recipe-tags", "Recipe tags"],
-  ["/admin/variant-review", "Similar recipes"],
-  ["/admin/recipe-reports", "Recipe reports"],
-  ["/admin/plan-reports", "Plan reports"],
-  ["/admin/prep-feedback", "Prep feedback"],
+  ["/settings/ingredients", "Ingredient review", "ingredient-review"],
 ];
+
+/** New items waiting in the admin Inbox, or 0 when it can't tell. */
+export function inboxCount() {
+  return fetch("/admin/inbox/count", { credentials: "same-origin" })
+    .then((r) => (r.ok ? r.json() : { new: 0 }))
+    .then((r) => r.new || 0)
+    .catch(() => 0);
+}
