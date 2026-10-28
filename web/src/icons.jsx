@@ -136,6 +136,14 @@ export function Icon({ name, size = 22 }) {
       </svg>
     );
   }
+  if (name === "about") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 11v5M12 8h.01" />
+      </svg>
+    );
+  }
   if (name === "plus") {
     return (
       <svg {...common}>
