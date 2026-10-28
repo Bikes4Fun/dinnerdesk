@@ -285,7 +285,11 @@ all week."
   (MON, TUE; blank when unscheduled), the step, then each meal that uses it as a light purple pill
   that opens the recipe. No coral links, no grey left bar, no day labels on closed rows.
 - **Must:** a progress ring (done of total) and one bar per section at the top; tapping a bar
-  jumps to that section.
+  jumps to that section. Web (#220): instead, "N of M done." with one bar under the title, and
+  uppercase section labels with "N of M". One item is open at a time (the first not done): its
+  steps, "Split between" (each meal and its cook day, opening the recipe), Done / Skip (both open
+  the next item not done), and "Was this step clear?" 👍/👎/flag; 👎 or the flag opens "What's
+  wrong with this step?". These votes and notes are saved with the item's prep feedback.
 - **Must:** check-off works like the grocery list: a done item leaves its section; "Show
   completed" brings done items back, faded, at the bottom of their section. Checking an item
   shows a bar with Undo and "Worth prepping ahead next time?" 👍/👎.

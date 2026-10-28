@@ -4,6 +4,7 @@ import { go } from "./nav.js";
 import { AVOIDS, DIETS, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
 import { TourPicture } from "./TourPicture.jsx";
 import { Sparkle, Tip } from "./Tip.jsx";
+import { Notice } from "./Notice.jsx";
 // Real iPhone screenshots for how-to cards, by card index; the others use TourPicture.
 import suggestionsShot from "./images/tour-suggestions.jpg";
 import scheduleShot from "./images/tour-schedule.jpg";
@@ -65,6 +66,8 @@ const AI = [
   ["Real photos are coming", "We’ll replace AI photos as we cook, and you’ll be able to share yours."],
 ];
 
+// One line for the notice; Details shows the rest.
+const UPDATE_SHORT = "More varied meal plans, cuisine and protein filters, and 58 new recipes.";
 // Same words as tour.update in ios/dinnerdesk/copy.json.
 const UPDATE =
   "Suggested plans are now less likely to be all one protein or all one kind of dish. Grocery optimizing had been weighted too heavily, causing suggestions to contain all one type of dish (all salmon dishes, all potato dishes etc.) Filters can now choose which cuisines to suggest, and which proteins to offer more or less of. 58 new recipes are in the app.";
@@ -93,17 +96,29 @@ export function WhatsNew() {
       .catch((error) => { throw error; });
   }, []);
 
+  const [err, setErr] = useState("");
+  const [details, setDetails] = useState(false);
+
+  // Stays up until the save works; a failed save says so here and Dismiss can be tried again.
   async function dismiss() {
-    setShow(false);
-    const hh = await api.household();
-    await api.putHousehold({ prefs: { ...(hh.prefs || {}), tour_done: true, tour_version: TOUR_VERSION } });
+    setErr("");
+    try {
+      // Only these two: the server merges prefs, and resending pantry_auto_check would reset
+      // pantry check-offs on the grocery list.
+      await api.putHousehold({ prefs: { tour_done: true, tour_version: TOUR_VERSION } });
+      setShow(false);
+    } catch (e) {
+      setErr(e.message || "Couldn't save. Try again.");
+    }
   }
 
   if (!show) return null;
   return (
-    <div className="guest-notice" data-tip="tour.update">
-      What’s new: {UPDATE} <button type="button" onClick={dismiss}>Dismiss</button>
-    </div>
+    <Notice onDismiss={dismiss}>
+      <strong>What’s new:</strong> <span data-tip="tour.update">{details ? UPDATE : UPDATE_SHORT}</span>{" "}
+      <button type="button" className="notice-more" aria-expanded={details} onClick={() => setDetails(!details)}>{details ? "Less" : "Details"}</button>
+      {err && <span role="alert" className="notice-err"> {err}</span>}
+    </Notice>
   );
 }
 
