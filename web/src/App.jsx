@@ -24,6 +24,7 @@ import { TasteLab } from "./pages/TasteLab.jsx";
 import { Notice } from "./Notice.jsx";
 import { Tour, WhatsNew } from "./Tour.jsx";
 import { useWeek } from "./week.jsx";
+import { PULL_DISTANCE, usePullToRefresh } from "./pullRefresh.js";
 import { useEffect, useState } from "react";
 
 function parsePath(pathname) {
@@ -199,6 +200,7 @@ export function App() {
   const mealCount = week?.plan?.slots?.length || 0;
   // Items left to buy, for the sidebar. Grocery sends its own count as you check things off.
   const [groceryCount, setGroceryCount] = useState(0);
+  const pull = usePullToRefresh();
 
   useEffect(() => {
     const fail = (event) => {
@@ -376,6 +378,11 @@ export function App() {
         <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} className="optional-prep" />
         <NavLink href="/more" navKey="more-tab" label="More" icon="settings" page={page} />
       </nav>
+      {pull > 0 && (
+        <div className="pull-hint" style={{ transform: `translate(-50%, ${pull / 2}px)` }} aria-hidden="true">
+          {pull >= PULL_DISTANCE ? "Release to refresh" : "Pull to refresh"}
+        </div>
+      )}
       <Tour />
     </div>
   );
