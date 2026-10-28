@@ -51,7 +51,7 @@
   .list tbody tr { cursor: pointer; }
   .list tbody tr:hover, .list tbody tr[aria-selected="true"] { background: var(--sel); }
   .list tbody tr:last-child td { border-bottom: 0; }
-  .title { font-weight: 600; display: block; }
+  .title { font-weight: 600; display: block; text-decoration: none; }
   .excerpt { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
   .nowrap { white-space: nowrap; color: var(--muted); }
   .closed .link { color: var(--muted); }
@@ -176,7 +176,7 @@ function row(i) {
   const s = said(i);
   return `<tr data-key="${esc(key(i))}" aria-selected="${key(i) === selected}">
     <td><span class="tag">${KIND_LABEL[i.kind]}</span></td>
-    <td><span class="title">${esc(title(i))}</span>${s ? `<span class="excerpt">${esc(s)}</span>` : ""}
+    <td><a class="title" href="#i=${esc(encodeURIComponent(key(i)))}">${esc(title(i))}</a>${s ? `<span class="excerpt">${esc(s)}</span>` : ""}
       ${i.behind ? `<span class="faint warn">Older version</span>` : ""}</td>
     <td><span style="overflow-wrap:anywhere">${esc(from(i))}</span></td>
     <td><span class="${i.status === "new" ? "warn" : "muted"}">${STATUS_LABEL[i.status] || esc(i.status)}</span>${i.admin_note ? ` <span class="faint" title="Has a note">✎</span>` : ""}</td>
@@ -328,6 +328,7 @@ document.getElementById("detail").addEventListener("click", async e => {
 });
 document.getElementById("rows").addEventListener("click", e => {
   const tr = e.target.closest("tr[data-key]"); if (!tr) return;
+  e.preventDefault();
   selected = tr.dataset.key; render();
   if (window.innerWidth < 900) document.getElementById("detail").scrollIntoView({ behavior: "smooth" });
 });

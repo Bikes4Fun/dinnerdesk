@@ -241,7 +241,7 @@ export function App() {
   }, [page]);
 
   useEffect(() => {
-    if (!admin && (page === "ingredient-review" || page === "recipe-flags")) {
+    if (!admin && (page === "ingredient-review" || page === "recipe-flags" || page === "admin")) {
       go("/settings");
     }
   }, [admin, page]);

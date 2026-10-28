@@ -721,3 +721,15 @@ def test_describe_device():
     assert describe_device("", "ios 1.2 (34)") == "iOS app 1.2 (34)"
     assert describe_device("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/130.0 Mobile Safari/604.1") == "Chrome on iPhone"
     assert describe_device("Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36 Edg/130.0") == "Edge on Windows"
+
+
+def test_users_page_leaves_out_expired_sessions(tmp_path):
+    import json
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "stale@example.com")
+        with connect() as db:
+            db.execute("UPDATE sessions SET expires_at = '2000-01-01T00:00:00+00:00' WHERE user_id = ?", (uid,))
+            db.commit()
+        data = json.loads(admin.get("/admin/users").text.split("const DATA = ")[1].split(";\n")[0])
+        assert next(u for u in data["users"] if u["id"] == uid)["sessions"] == []

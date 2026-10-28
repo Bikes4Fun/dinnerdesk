@@ -132,7 +132,9 @@ def _recipe_tags(db: PgConnection) -> dict:
 
 def _users(db: PgConnection) -> dict:
     sessions: dict[int, list] = {}
-    for r in db.execute("SELECT token, user_id, created_at, expires_at, device FROM sessions ORDER BY created_at DESC"):
+    # Expired sessions linger until their token is next used; they aren't signed in.
+    for r in db.execute("SELECT token, user_id, created_at, expires_at, device FROM sessions WHERE expires_at > ?"
+                        " ORDER BY created_at DESC", (now(),)):
         sessions.setdefault(r["user_id"], []).append({"id": auth.session_id(r["token"]), "created_at": r["created_at"],
                                                       "expires_at": r["expires_at"], "device": r["device"]})
     taste: dict[str, int] = {}
