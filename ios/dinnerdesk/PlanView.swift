@@ -135,12 +135,12 @@ struct PlanView: View {
               .contentShape(Rectangle())
               .accessibilityLabel("Done editing plan")
           } else {
-            TabHeaderButton("Edit plan", systemImage: "pencil") { setEditing(true) }
-            TabHeaderButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
+            HeaderIconButton("Edit plan", systemImage: "pencil") { setEditing(true) }
+            HeaderIconButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
               grid.toggle()
             }
           }
-          TabHeaderButton("Plan menu", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton("Plan menu", systemImage: "ellipsis") { menu = true }
         }
       }
       .background(Theme.bg)
@@ -292,9 +292,8 @@ struct PlanView: View {
       if !selected.insert(slot.id).inserted { selected.remove(slot.id) }
     } label: {
       Image(systemName: selected.contains(slot.id) ? "checkmark.square.fill" : "square")
-        .font(.system(size: 22))
+        .scaledIcon(size: 22, width: 32, height: 44)
         .foregroundStyle(selected.contains(slot.id) ? Theme.accent : Theme.muted)
-        .frame(width: 32, height: 44)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -415,6 +414,7 @@ struct PlanView: View {
         } label: {
           RecipePhoto(path: slot.photoPath, fill: true)
         }.buttonStyle(.plain)
+        .accessibilityLabel("Open \(slot.recipeName)")
       }
       .overlay(alignment: .topTrailing) {
         if !editing {

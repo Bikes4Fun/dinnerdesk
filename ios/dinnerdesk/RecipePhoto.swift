@@ -31,6 +31,8 @@ struct RecipePhoto: View {
           .clipShape(RoundedRectangle(cornerRadius: large ? 16 : 8, style: .continuous))
       }
     }
+    // The recipe name is always beside the photo, so VoiceOver skips it.
+    .accessibilityHidden(true)
     .task(id: path) { await load() }
   }
 

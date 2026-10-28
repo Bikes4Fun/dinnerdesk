@@ -45,7 +45,7 @@
 - Recovery after exhausting Taste Lab results needs to be noticeable.
 - Far-future search ideas: themes such as chicken/rice, curry, beginner-friendly, date night, or unusual meals.
 
-**Pending:** original #2 HTTP 405 trigger; smaller-phone visual verification. #24, #38, and #40 are proposals. Inline timers are deferred to the far future. Unbuilt features are tracked in [TODO](TODO.md), not daily tests.
+**Pending:** original #2 HTTP 405 trigger; smaller-phone visual verification. #24, #38, and #40 are proposals. Inline timers are deferred to the far future. Unbuilt features are tracked on GitHub issues ([TODO](TODO.md) maps them), not daily tests.
 
 ## Report a problem
 

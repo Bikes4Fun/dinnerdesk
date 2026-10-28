@@ -62,7 +62,7 @@ struct RecipesView: View {
     NavigationStack {
       VStack(spacing: 0) {
         TabHeader("Recipes") {
-          TabHeaderButton("Search Recipes", systemImage: "magnifyingglass") {
+          HeaderIconButton("Search Recipes", systemImage: "magnifyingglass") {
             searchOpen.toggle()
             if !searchOpen {
               query = ""
@@ -389,12 +389,11 @@ struct RecipeTile: View {
               Image(
                 systemName: store.onWeek(recipe.id) ? "checkmark.circle.fill" : "plus.circle.fill"
               )
-              .font(.system(size: 32))
+              .scaledIcon(size: 32, width: 44, height: 44)
               .symbolRenderingMode(.palette)
               .foregroundStyle(
                 Color.white, store.onWeek(recipe.id) ? Theme.accent : Color.black.opacity(0.35)
               )
-              .frame(width: 44, height: 44)
               .contentShape(Rectangle())
             }
             .buttonStyle(.borderless)
@@ -568,39 +567,26 @@ struct RecipeDetailView: View {
     .toolbar {
       if let recipe {
         ToolbarItem(placement: .topBarTrailing) {
-          HStack {
-            Button {
+          HStack(spacing: 0) {
+            HeaderIconButton(added ? "Remove from this plan" : "Add to this plan",
+                             systemImage: added ? "minus.circle.fill" : "plus.circle.fill") {
               Task { await addToWeek() }
-            } label: {
-              Image(systemName: added ? "minus.circle.fill" : "plus.circle.fill")
             }
             .disabled(adding)
-            .accessibilityLabel(added ? "Remove from this plan" : "Add to this plan")
             .accessibilityValue(adding ? "Adding" : added ? "Added" : "Not added")
-            
-            Button {
+
+            HeaderIconButton("Favorite", systemImage: recipe.favorited ? "heart.fill" : "heart",
+                             color: recipe.favorited ? Theme.accent : Theme.muted) {
               Task { await favorite(recipe) }
-            } label: {
-              Image(systemName: recipe.favorited ? "heart.fill" : "heart")
-                .foregroundStyle(recipe.favorited ? Theme.accent : Theme.muted)
             }
-            .accessibilityLabel("Favorite")
             .accessibilityValue(recipe.favorited ? "On" : "Off")
 
-            Button {
-                Task { await tryLater(recipe) }
-              }
-              label: { 
-                Image(systemName: recipe.toTry ? "bookmark.fill" : "bookmark")
+            HeaderIconButton(recipe.toTry ? "Remove from To try" : "To try",
+                             systemImage: recipe.toTry ? "bookmark.fill" : "bookmark") {
+              Task { await tryLater(recipe) }
             }
-            .accessibilityLabel(recipe.toTry ? "Remove from To try" : "To try")
 
-            Button { showingMenu = true } label: {
-              Image(systemName: "ellipsis.circle")
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Recipe options")
+            HeaderIconButton("Recipe options", systemImage: "ellipsis.circle") { showingMenu = true }
           }
         }
       }
