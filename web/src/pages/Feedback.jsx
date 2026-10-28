@@ -165,6 +165,7 @@ export function FeedbackInbox() {
     });
   }
 
+  const closed = (items || []).filter((i) => i.status === "done" || i.status === "declined").length;
   const shown = (items || []).filter(
     (i) => (kind === "all" || i.kind === kind) && (showClosed || i.status === "new" || i.status === "planned"),
   );
@@ -182,7 +183,7 @@ export function FeedbackInbox() {
           </select>
           <label>
             <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} /> Show done
-            and declined
+            and declined ({closed})
           </label>
         </div>
         {items === null ? <p className="help">Loading…</p> : null}
@@ -193,9 +194,9 @@ export function FeedbackInbox() {
               <strong>{item.kind === "bug" ? "Bug" : "Idea"}</strong>
               <small>
                 {item.email || item.household_name || `Household ${item.household_id}`} ·{" "}
-                {new Date(item.created_at).toLocaleString()}
-                {item.snapshot?.app ? ` · ${item.snapshot.app}` : ""}
+                {new Date(item.created_at).toLocaleString()} · {item.version}
               </small>
+              {item.behind ? <small className="feedback-behind">Older version ({item.behind})</small> : null}
             </div>
             <p className="feedback-note">{item.note}</p>
             {item.screenshots?.length > 0 && (

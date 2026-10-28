@@ -1932,6 +1932,18 @@ def test_cooks_own_photo_wins_over_the_sites(tmp_path, monkeypatch):
         assert client.post("/api/recipes", json={"name": "Bad", "photo_data": "data:text/plain;base64,aGk="}).status_code == 400
 
 
+def test_bug_reports_show_the_version_and_whether_it_was_behind(tmp_path, monkeypatch):
+    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "abc1234def")
+    with _client(tmp_path) as client:
+        for app, note in [("web abc1234", "current tab"), ("web 0000000", "old tab"), ("ios 1.2 (34)", "old phone"),
+                          ("ios 1.3 (40)", "new phone"), ("web", "no build")]:
+            client.post("/api/feedback", json={"kind": "bug", "note": note}, headers={"X-Dinnerdesk-App": app})
+        got = {i["note"]: (i["version"], i["behind"]) for i in client.get("/api/dev/feedback").json()["feedback"]}
+        assert got == {"current tab": ("web abc1234", ""), "old tab": ("web 0000000", "server was on abc1234"),
+                       "old phone": ("ios 1.2 (34)", "newest is ios 1.3 (40)"), "new phone": ("ios 1.3 (40)", ""),
+                       "no build": ("web", "")}
+
+
 def test_bug_reports_and_feature_requests(tmp_path):
     with _client(tmp_path) as client:
         sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
