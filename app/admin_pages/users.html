@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Users</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #fff; --ink: #222; --muted: #666; --faint: #777; --line: #e3e0da; --rule: #eeece8;
+    --field: #d9d6d0; --sel: #f1efeb; --warn: #b3401f; --solid: #222; --on-solid: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121211; --card: #1a1a19; --ink: #f0efec; --muted: #c3c2b7; --faint: #a9a89f; --line: #35322d;
+            --rule: #2c2a26; --field: #45413b; --sel: #24231f; --warn: #e8805f; --solid: #f0efec; --on-solid: #121211; }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.45 system-ui, -apple-system, sans-serif; }
+  a, .link { color: var(--ink); }
+  a:hover, .link:hover { color: var(--ink); opacity: .8; }
+  .link { background: none; border: 0; padding: 0; font: inherit; text-decoration: underline; cursor: pointer; }
+  main { max-width: 1320px; margin: 0 auto; padding: 28px 24px 48px; display: flex; flex-direction: column; gap: 16px; }
+  header { display: flex; flex-direction: column; gap: 2px; }
+  header a { font-size: 13px; color: var(--muted); }
+  h1 { margin: 4px 0 0; font-size: 26px; font-weight: 700; }
+  .sub, .muted { color: var(--muted); }
+  .faint { color: var(--faint); font-size: 13px; }
+  .warn { color: var(--warn); font-weight: 500; }
+  p { margin: 0; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .tools label { flex: 1 1 360px; min-width: 0; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  input, select { font: inherit; color: var(--ink); background: var(--card); border: 1px solid var(--field); border-radius: 8px; }
+  #find { width: 100%; height: 40px; padding: 0 12px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  button.chip { min-height: 36px; padding: 0 12px; border-radius: 8px; font: inherit; cursor: pointer;
+    border: 1px solid var(--field); background: var(--card); color: var(--ink); }
+  button.chip[aria-pressed="true"] { border-color: var(--solid); font-weight: 600; }
+  button.chip span { color: var(--faint); font-weight: 400; }
+  .missing { color: var(--warn); font-size: 13px; }
+  .split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+  .list { flex: 999 1 560px; min-width: 0; overflow: hidden; }
+  .scrollx { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 680px; }
+  th { text-align: left; color: var(--muted); font-size: 13px; font-weight: 500; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  td { padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover, tbody tr[aria-selected="true"] { background: var(--sel); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td a { display: block; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .nowrap { white-space: nowrap; color: var(--muted); }
+  .empty { padding: 24px 14px; text-align: center; color: var(--muted); }
+  aside { flex: 1 1 360px; max-width: 440px; min-width: 0; }
+  .d-head { padding: 16px 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--rule); }
+  .d-head h2 { margin: 0; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
+  .d-head p { margin-top: 2px; font-size: 13px; }
+  .close { flex: none; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--field); background: var(--card);
+    color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  dl { margin: 0; padding: 4px 18px; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; }
+  dt { padding: 12px 0; border-bottom: 1px solid var(--rule); color: var(--muted); }
+  dd { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+  dl > :nth-last-child(-n+2) { border-bottom: 0; }
+  dd .between { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; width: 100%; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--field); background: var(--card);
+    color: var(--ink); font: inherit; cursor: pointer; }
+  .btn.solid { border-color: var(--solid); background: var(--solid); color: var(--on-solid); font-weight: 500; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .inline { display: flex; gap: 6px; width: 100%; }
+  .inline input, .inline select { flex: 1; min-width: 0; min-height: 36px; padding: 0 8px; }
+  .inline .btn { min-height: 36px; }
+  .section { padding: 14px 18px; border-top: 1px solid var(--rule); display: flex; flex-direction: column; gap: 8px; }
+  .section .between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .section h3 { margin: 0; font-size: 14px; font-weight: 600; }
+  details { border-top: 1px solid var(--rule); padding: 14px 18px 18px; }
+  summary { cursor: pointer; font-weight: 600; }
+  .actions { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field > label { font-size: 13px; color: var(--muted); }
+  .field p { font-size: 13px; color: var(--muted); }
+  #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--solid); color: var(--on-solid);
+    padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: calc(100% - 32px); }
+  #toast.err { background: var(--warn); color: #fff; }
+  @media (max-width: 600px) { main { padding: 20px 16px 40px; } aside { max-width: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <a href="/">← Dinnerdesk</a>
+    <h1>Users</h1>
+    <p class="sub" id="sub"></p>
+  </header>
+  <div class="tools">
+    <label><span class="sr">Search users</span>
+      <input id="find" type="search" autocomplete="off" placeholder="Search email, username or #id (paste a list to match many)"></label>
+    <div class="chips" role="group" aria-label="Filters" id="chips"></div>
+  </div>
+  <p class="missing" id="missing" hidden></p>
+  <div class="split">
+    <section class="panel list" aria-label="User list"><div class="scrollx"><table>
+      <thead><tr><th scope="col">Account</th><th scope="col">Status</th><th scope="col">Household</th>
+        <th scope="col" class="num">Sessions</th><th scope="col">Last seen</th></tr></thead>
+      <tbody id="rows"></tbody></table></div></section>
+    <aside class="panel" id="detail" aria-label="Selected user" hidden></aside>
+  </div>
+</main>
+<div id="toast" role="status"></div>
+<script>
+const DATA = /*DATA*/null;
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const NOW = new Date(DATA.now);
+const day = s => new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+const fullDay = s => new Date(s).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+const time = s => new Date(s).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+const started = s => (new Date(s).toDateString() === new Date().toDateString() ? "today" : day(s)) + " " + time(s);
+function ago(s) {
+  if (!s) return "Never";
+  const min = (NOW - new Date(s)) / 60000;
+  if (min < 2) return "Just now";
+  if (min < 60) return `${Math.floor(min)} min ago`;
+  if (min < 48 * 60) return `${Math.floor(min / 60)} hours ago`;
+  if (min < 14 * 1440) return `${Math.floor(min / 1440)} days ago`;
+  if (min < 60 * 1440) return `${Math.floor(min / 10080)} weeks ago`;
+  return day(s);
+}
+const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+const locked = u => Boolean(u.locked_until && new Date(u.locked_until) > NOW);
+const address = u => u.has_email ? u.login : u.recovery_email;
+const unconfirmed = u => Boolean(address(u) && !u.verified_at);
+const housemates = u => DATA.users.filter(x => x.household_id === u.household_id && x.id !== u.id);
+const FILTERS = [
+  ["all", "All", () => true],
+  ["attention", "Needs attention", u => locked(u) || u.failed_attempts > 0 || unconfirmed(u)],
+  ["unconfirmed", "Unconfirmed", unconfirmed],
+  ["locked", "Locked", locked],
+  ["signed_in", "Signed in", u => u.sessions.length > 0],
+];
+
+function status(u) {
+  if (locked(u)) return [`Locked · ${plural(u.failed_attempts, "failed sign-in")}`, true];
+  if (u.failed_attempts) return [plural(u.failed_attempts, "failed sign-in"), true];
+  if (unconfirmed(u)) return ["Email not confirmed", true];
+  if (!address(u)) return ["No email", false];
+  return ["OK", false];
+}
+
+// The search, filter and open account survive the reload after each change.
+const state = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+const find = document.getElementById("find");
+find.value = state.q || "";
+let show = state.f || "all", selected = Number(state.u) || null;
+
+function terms() {
+  return find.value.split(/[\s,;]+/).map(t => t.trim().toLowerCase()).filter(Boolean);
+}
+
+// One word searches; several are a list, matched exactly against id, login and recovery email.
+function searched() {
+  const list = terms();
+  if (list.length === 1) {
+    const t = list[0], id = t.replace(/^#/, "");
+    return { users: DATA.users.filter(u => String(u.id) === id || u.login.includes(t) || (u.recovery_email || "").includes(t)
+      || (u.household_name || "").toLowerCase().includes(t) || `h${u.household_id}` === t), missing: [] };
+  }
+  if (list.length > 1) {
+    const hit = t => u => String(u.id) === t.replace(/^#/, "") || u.login === t || u.recovery_email === t;
+    return { users: DATA.users.filter(u => list.some(t => hit(t)(u))), missing: list.filter(t => !DATA.users.some(hit(t))) };
+  }
+  return { users: DATA.users, missing: [] };
+}
+
+function household(u) {
+  const others = housemates(u);
+  return `${esc(u.household_name)} (h${u.household_id}) · ${esc(u.role)} · ` +
+    (others.length ? `with ${others.map(x => esc(x.login)).join(", ")}` : "only member");
+}
+
+function row(u) {
+  const [text, bad] = status(u);
+  const meta = [`#${u.id}`, u.admin ? "admin" : "", `joined ${day(u.created_at)}`].filter(Boolean).join(" · ");
+  return `<tr data-id="${u.id}" aria-selected="${u.id === selected}">
+    <td><a href="#u=${u.id}">${esc(u.login)}</a><span class="faint">${meta}</span></td>
+    <td><span class="${bad ? "warn" : "muted"}">${esc(text)}</span></td>
+    <td><span style="display:block">${esc(u.household_name)} (h${u.household_id})</span>
+      <span class="faint">${esc(u.role)}${housemates(u).length ? "" : " · only member"}</span></td>
+    <td class="num">${u.sessions.length}</td>
+    <td class="nowrap">${ago(u.last_seen)}</td></tr>`;
+}
+
+function detail(u) {
+  const confirmBtn = unconfirmed(u) ? `<button class="btn solid" data-a="resend-confirmation">Resend confirmation</button>` : "";
+  const confirmText = !address(u) ? `<span class="muted">None, so a forgotten password can't be reset</span>`
+    : u.verified_at ? `<span>Confirmed ${fullDay(u.verified_at)}</span>` : `<span class="warn">Not confirmed</span>`;
+  const loginRows = u.has_email
+    ? `<dt>Email</dt><dd>${confirmText}<span class="btns">${confirmBtn}<button class="btn" data-open="login">Change email</button></span>
+         <div class="inline" data-form="login" hidden><input data-k="login" value="${esc(u.login)}" aria-label="New email or username">
+           <button class="btn" data-a="login" data-confirm="Change what they sign in with? They'll need to use the new one.">Save</button></div></dd>`
+    : `<dt>Username</dt><dd><span>${esc(u.login)}</span><span class="btns"><button class="btn" data-open="login">Change username</button></span>
+         <div class="inline" data-form="login" hidden><input data-k="login" value="${esc(u.login)}" aria-label="New username or email">
+           <button class="btn" data-a="login" data-confirm="Change what they sign in with? They'll need to use the new one.">Save</button></div></dd>
+       <dt>Recovery email</dt><dd>${u.recovery_email ? `<span>${esc(u.recovery_email)}</span>` : ""}${confirmText}
+         <span class="btns">${confirmBtn}<button class="btn" data-open="email">${u.recovery_email ? "Change" : "Add"}</button></span>
+         <div class="inline" data-form="email" hidden><input data-k="email" value="${esc(u.recovery_email || "")}" placeholder="Blank removes it" aria-label="Recovery email">
+           <button class="btn" data-a="recovery-email">Save</button></div></dd>`;
+  const others = housemates(u);
+  const sessions = u.sessions.map(s => `<div class="between"><div style="min-width:0">
+      <p>Started ${started(s.created_at)}</p>
+      <p class="faint">Expires ${day(s.expires_at)}${s.device ? ` · ${esc(s.device)}` : ""}</p></div>
+      <button class="btn" style="flex:none" data-a="end-sessions" data-session="${esc(s.id)}">Sign out</button></div>`).join("");
+  return `<div class="d-head"><div style="min-width:0"><h2>${esc(u.login)}</h2>
+      <p class="muted">#${u.id} · ${u.has_email ? "email" : "username"} sign-in${u.admin ? " · site admin" : ""} · joined ${fullDay(u.created_at)}</p></div>
+      <button class="close" data-close aria-label="Close panel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <dl>${loginRows}
+      <dt>Password</dt><dd><div class="between">
+        <span>${locked(u) ? `<span class="warn">Locked until ${time(u.locked_until)}</span> · ` : ""}${plural(u.failed_attempts, "failed sign-in")}</span>
+        <span class="btns">${u.failed_attempts || locked(u) ? `<button class="link" data-a="unlock">Clear lockout</button>` : ""}
+          ${address(u) ? `<button class="link" data-a="send-reset">Send reset link</button>` : ""}</span></div></dd>
+      <dt>Household</dt><dd>${household(u)}</dd>
+      <dt>Taste Lab</dt><dd><div class="between"><span>${plural(u.taste_sessions, "session")}</span>
+        ${u.taste_sessions ? `<button class="link" data-a="reset-taste" data-confirm="Clear their Taste Lab history? Votes are kept, unlinked from them.">Reset</button>` : ""}</div></dd>
+    </dl>
+    <div class="section"><div class="between"><h3>Sessions (${u.sessions.length})</h3>
+      ${u.sessions.length ? `<button class="link" data-a="end-sessions" data-confirm="Sign them out everywhere?">Sign out everywhere</button>` : ""}</div>
+      ${sessions || `<p class="muted">Not signed in anywhere</p>`}</div>
+    <details><summary>More actions</summary><div class="actions">
+      <div class="field"><label for="role">Household role</label><div class="inline">
+        <select id="role" data-k="role">${["owner", "admin", "member"].map(r => `<option${r === u.role ? " selected" : ""}>${r}</option>`).join("")}</select>
+        <button class="btn" data-a="role">Save</button></div></div>
+      <div class="field"><label for="move">Move to household</label><div class="inline">
+        <input id="move" data-k="household_id" placeholder="Household id, e.g. h12">
+        <button class="btn" data-a="household" data-confirm="${others.length ? "Move them?" : `Move them? They're the only member of h${u.household_id}, so it and its kitchen will be deleted.`}">Move…</button></div>
+        <p>${others.length ? `Others stay in h${u.household_id}.` : `Only member of h${u.household_id}. Moving deletes it and its kitchen.`}
+          <button class="link" data-a="household" data-solo="1" data-confirm="${others.length ? "Give them a new household of their own?" : "Give them a new household? Their old one and its kitchen will be deleted."}">Give them their own</button></p></div>
+      <div class="field"><label for="pw">Set password directly</label><div class="inline">
+        <input id="pw" data-k="password" type="password" autocomplete="new-password" placeholder="8+ characters">
+        <button class="btn" data-a="password" data-confirm="Set this password? They'll be signed out everywhere.">Set…</button></div></div>
+    </div></details>`;
+}
+
+function render() {
+  const homes = new Set(DATA.users.map(u => u.household_id)).size;
+  document.getElementById("sub").textContent = `${plural(DATA.users.length, "account")} · ${plural(homes, "household")}`;
+  const { users, missing } = searched();
+  document.getElementById("chips").innerHTML = FILTERS.map(([key, label, test]) =>
+    `<button type="button" class="chip" data-f="${key}" aria-pressed="${show === key}">${label} <span>${users.filter(test).length}</span></button>`).join("");
+  const m = document.getElementById("missing");
+  m.hidden = !missing.length;
+  m.textContent = missing.length ? `Not found: ${missing.join(", ")}` : "";
+  const test = (FILTERS.find(f => f[0] === show) || FILTERS[0])[2];
+  const shown = users.filter(test);
+  document.getElementById("rows").innerHTML = shown.map(row).join("")
+    || `<tr><td colspan="5" class="empty">${DATA.users.length ? "No accounts match." : "No accounts yet."}</td></tr>`;
+  const u = DATA.users.find(x => x.id === selected);
+  const aside = document.getElementById("detail");
+  aside.hidden = !u;
+  aside.innerHTML = u ? detail(u) : "";
+  const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(show !== "all" ? { f: show } : {}),
+                                     ...(selected ? { u: selected } : {}) });
+  history.replaceState(null, "", hash.toString() ? `#${hash}` : location.pathname);
+}
+
+function toast(text, err) {
+  const t = document.getElementById("toast");
+  t.textContent = text; t.className = err ? "err" : ""; t.style.display = "block";
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = "none"), 4000);
+}
+
+const SENT = { "send-reset": "Reset link sent.", "resend-confirmation": "Confirmation email sent." };
+document.getElementById("detail").addEventListener("click", async e => {
+  if (e.target.closest("[data-close]")) { selected = null; return render(); }
+  const opener = e.target.closest("[data-open]");
+  if (opener) {
+    const form = e.currentTarget.querySelector(`[data-form="${opener.dataset.open}"]`);
+    form.hidden = !form.hidden;
+    if (!form.hidden) form.querySelector("input").focus();
+    return;
+  }
+  const b = e.target.closest("[data-a]"); if (!b) return;
+  const body = {};
+  e.currentTarget.querySelectorAll("[data-k]").forEach(i => (body[i.dataset.k] = i.value.trim()));
+  if (b.dataset.session) body.session = b.dataset.session;
+  if (b.dataset.solo) body.household_id = null;
+  else if (body.household_id) body.household_id = body.household_id.replace(/^h/i, "");
+  if (b.dataset.a === "household" && !b.dataset.solo && !body.household_id) return toast("Enter a household id.", true);
+  if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
+  b.disabled = true;
+  try {
+    const res = await fetch(`/admin/users/${selected}/${b.dataset.a}`, {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const out = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(out.message || `Failed (${res.status})`);
+    try { sessionStorage.setItem("dd-users-toast", SENT[b.dataset.a] || "Saved."); } catch (err) {}
+    location.reload();
+  } catch (err) {
+    b.disabled = false;
+    toast(err.message, true);
+  }
+});
+document.getElementById("rows").addEventListener("click", e => {
+  const tr = e.target.closest("tr[data-id]"); if (!tr) return;
+  e.preventDefault();
+  selected = Number(tr.dataset.id);
+  render();
+  if (window.innerWidth < 900) document.getElementById("detail").scrollIntoView({ behavior: "smooth" });
+});
+document.getElementById("chips").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  show = b.dataset.f; render();
+});
+// A one-line box drops line breaks from a pasted list, so they become commas instead.
+find.addEventListener("paste", e => {
+  const text = e.clipboardData?.getData("text");
+  if (!text || !/[\r\n]/.test(text)) return;
+  e.preventDefault();
+  find.setRangeText(text.trim().split(/[\r\n]+/).join(", "), find.selectionStart, find.selectionEnd, "end");
+  render();
+});
+find.addEventListener("input", render);
+try { const t = sessionStorage.getItem("dd-users-toast"); if (t) { sessionStorage.removeItem("dd-users-toast"); toast(t); } } catch (e) {}
+render();
+</script>
+</body>
+</html>
