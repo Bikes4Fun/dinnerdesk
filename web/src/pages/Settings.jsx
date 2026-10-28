@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
-import { ADMIN_PAGES, go } from "../nav.js";
+import { ADMIN_APP_PAGES, ADMIN_PAGES, go } from "../nav.js";
 import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
 
@@ -76,25 +76,7 @@ export function Settings() {
           Twitter
           <em>@DinnerDesk</em>
         </a>
-        {admin ? (
-          <>
-            <Link href="/settings/ingredients" extra="Answers only">
-              Ingredient review
-            </Link>
-            <Link href="/settings/recipe-flags" extra="Manual edits">
-              Recipes to edit
-            </Link>
-            <Link href="/settings/feedback-inbox" extra="Admin">
-              Bugs &amp; ideas inbox
-            </Link>
-            {ADMIN_PAGES.map(([href, label]) => (
-              <a key={href} className="list-link" href={href}>
-                {label}
-                <em>Admin</em>
-              </a>
-            ))}
-          </>
-        ) : null}
+        {admin ? <Link href="/settings/admin">Admin</Link> : null}
         <Link href="/settings/tastelab">Taste Lab</Link>
         <Link extra="Coming soon" onClick={() => setSyncSoon(true)}>
           Nutrition tracker sync
@@ -106,6 +88,29 @@ export function Settings() {
           </p>
         ) : null}
         <label className="block-label">About recipes &amp; photos</label>
+      </div>
+    </section>
+  );
+}
+
+/** Every admin page in one list, for screens without the sidebar. */
+export function AdminHub() {
+  return (
+    <section className="screen">
+      <header className="top sub">
+        <button type="button" className="icon-btn" onClick={() => go("/settings")} aria-label="Back">
+          ←
+        </button>
+        <h1>Admin</h1>
+        <span />
+      </header>
+      <div className="scroll pad">
+        {ADMIN_APP_PAGES.map(([href, label]) => (
+          <Link key={href} href={href}>{label}</Link>
+        ))}
+        {ADMIN_PAGES.map(([href, label]) => (
+          <a key={href} className="list-link" href={href}>{label}</a>
+        ))}
       </div>
     </section>
   );
