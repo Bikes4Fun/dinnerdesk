@@ -293,6 +293,11 @@ extension TabHeader where Actions == EmptyView {
   }
 }
 
+/// withAnimation that skips the motion when the person has Reduce Motion on.
+func withMotion<Result>(_ animation: Animation? = .default, _ body: () throws -> Result) rethrows -> Result {
+  try withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : animation, body)
+}
+
 /// An SF Symbol at a design size that grows with the phone's text size. A fixed frame
 /// passed here grows with it, so the icon never spills out of its circle or tap area.
 private struct ScaledIcon: ViewModifier {

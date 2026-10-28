@@ -1737,3 +1737,13 @@ img { display: block; max-width: 100%; }
 .acct-invite-plus { width: 36px; height: 36px; border-radius: 18px; border: 1.5px dashed var(--accent); display: grid; place-items: center; flex-shrink: 0; }
 .acct-invite-label { font-size: 16px; font-weight: 600; color: var(--accent); }
 .acct-note { margin: 4px 4px 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+
+/* Reduce Motion: keep state changes, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

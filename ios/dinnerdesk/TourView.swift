@@ -58,6 +58,7 @@ struct TourView: View {
 
   @EnvironmentObject private var session: Session
   @Environment(\.dynamicTypeSize) private var typeSize
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var step: Step = .welcome
   @State private var howIndex = 0
   @State private var showTasteLab = false
@@ -292,11 +293,11 @@ struct TourView: View {
             .frame(width: item.id == howIndex ? 18 : 6, height: 6)
         }
       }
-      .animation(.easeOut(duration: 0.2), value: howIndex)
+      .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: howIndex)
       .padding(.bottom, 4)
 
       if howIndex < Self.how.count - 1 {
-        primaryButton("Next") { withAnimation { howIndex += 1 } }
+        primaryButton("Next") { withMotion { howIndex += 1 } }
       } else {
         primaryButton("Next") { step = .prefs }
       }
@@ -351,7 +352,7 @@ struct TourView: View {
     case .welcome: break
     case .ai: step = .welcome
     case .how:
-      if howIndex > 0 { withAnimation { howIndex -= 1 } } else { step = .ai }
+      if howIndex > 0 { withMotion { howIndex -= 1 } } else { step = .ai }
     case .prefs: step = .how
     case .filters: step = .prefs
     }
