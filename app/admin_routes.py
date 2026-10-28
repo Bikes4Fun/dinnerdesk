@@ -9,21 +9,14 @@ from pathlib import Path
 
 from datetime import datetime, timedelta, timezone
 
-from datetime import datetime, timedelta, timezone
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.responses import HTMLResponse, JSONResponse
 
-from app import auth
 from app import auth
 from app.assets import catalog_dir
 from app.db.database import PgConnection, now
-from app.db.database import PgConnection, now
 from app.deps import AdminDep, DbDep
 from app.domain.recipe_photos import usable_photo
-from app.routes import _app_versions
-from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 from app.routes import _app_versions
 from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 

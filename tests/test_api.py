@@ -1947,18 +1947,6 @@ def test_bug_reports_show_the_version_and_whether_it_was_behind(tmp_path, monkey
                        "no build": ("web", "")}
 
 
-def test_bug_reports_show_the_version_and_whether_it_was_behind(tmp_path, monkeypatch):
-    monkeypatch.setenv("RAILWAY_GIT_COMMIT_SHA", "abc1234def")
-    with _client(tmp_path) as client:
-        for app, note in [("web abc1234", "current tab"), ("web 0000000", "old tab"), ("ios 1.2 (34)", "old phone"),
-                          ("ios 1.3 (40)", "new phone"), ("web", "no build")]:
-            client.post("/api/feedback", json={"kind": "bug", "note": note}, headers={"X-Dinnerdesk-App": app})
-        got = {i["note"]: (i["version"], i["behind"]) for i in client.get("/api/dev/feedback").json()["feedback"]}
-        assert got == {"current tab": ("web abc1234", ""), "old tab": ("web 0000000", "server was on abc1234"),
-                       "old phone": ("ios 1.2 (34)", "newest is ios 1.3 (40)"), "new phone": ("ios 1.3 (40)", ""),
-                       "no build": ("web", "")}
-
-
 def test_bug_reports_and_feature_requests(tmp_path):
     with _client(tmp_path) as client:
         sent = client.post("/api/feedback", json={"kind": "bug", "note": "  Grocery list froze  ", "screen": "grocery"},
@@ -2169,45 +2157,6 @@ def test_signed_in_user_cant_use_guest_delete(tmp_path):
         client.post("/api/auth/signup", json={"email": "acct@example.com", "password": "accountpassword"})
         assert client.post("/api/guest/delete-kitchen").status_code == 400
         assert client.get("/api/auth/me").status_code == 200
-
-
-def test_inbox_gathers_reports_and_saves_triage(tmp_path):
-    with _client(tmp_path) as client:
-        client.post("/api/feedback", json={"kind": "bug", "note": "Grocery froze"}, headers={"X-Dinnerdesk-App": "web abc1234"})
-        client.post("/api/recipes/1/report", json={"reason": "steps", "note": "Step 3 is missing"})
-        with connect() as db:
-            home = db.execute("SELECT household_id FROM recipe_reports").fetchone()["household_id"]
-            db.execute("INSERT INTO plan_reports (household_id, note, created_at) VALUES (?, 'Too much chicken', 'now')", (home,))
-            db.execute("""INSERT INTO prep_step_feedback (household_id, recipe_id, step_key, step_text, rating, reason, updated_at)
-                          VALUES (?, 1, 'down', 'Chop onions', -1, 'day_of', 'now'), (?, 1, 'up', 'Make sauce', 1, '', 'now')""",
-                       (home, home))
-            db.commit()
-        data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
-        items = {(i["source"], i["kind"]): i for i in data["items"]}
-        # 👍 prep votes only count in the overview; the 👎 is an item.
-        assert set(items) == {("feedback", "bug"), ("recipe", "recipe"), ("plan", "plan"), ("prep", "prep")}
-        assert data["overview"]["prep_votes"] == {"up": 1, "down": 1, "missing": 0}
-        assert items[("prep", "prep")]["reason"] == "Better done day-of"
-        assert client.get("/admin/inbox/count").json() == {"new": 4}
-
-        for item in items.values():
-            res = client.post(f"/admin/inbox/{item['source']}/{item['id']}", json={"status": "done", "admin_note": "fixed it"})
-            assert res.status_code == 200, (item["source"], res.text)
-        assert client.get("/admin/inbox/count").json() == {"new": 0}
-        data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
-        assert {(i["status"], i["admin_note"]) for i in data["items"]} == {("done", "fixed it")}
-
-        assert client.post("/admin/inbox/recipe/999999", json={"status": "done"}).status_code == 404
-        assert client.post("/admin/inbox/nope/1", json={"status": "done"}).status_code == 404
-        assert client.post(f"/admin/inbox/feedback/{items[('feedback', 'bug')]['id']}", json={"status": "maybe"}).status_code == 400
-        # The admin's notes are theirs, not the household's: not in the data export.
-        assert "fixed it" not in client.get("/api/household/export").text
-
-
-def test_inbox_is_admin_only(tmp_path):
-    with _client(tmp_path, admin=False) as client:
-        assert client.get("/admin/inbox/count").status_code == 403
-        assert client.post("/admin/inbox/feedback/1", json={"status": "done"}).status_code == 403
 
 
 def test_inbox_gathers_reports_and_saves_triage(tmp_path):

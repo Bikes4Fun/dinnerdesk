@@ -191,9 +191,6 @@ CREATE TABLE IF NOT EXISTS prep_step_feedback (
   -- The admin Inbox's triage: new, planned, done or declined, plus the admin's own note.
   status TEXT NOT NULL DEFAULT 'new',
   admin_note TEXT NOT NULL DEFAULT '',
-  -- The admin Inbox's triage: new, planned, done or declined, plus the admin's own note.
-  status TEXT NOT NULL DEFAULT 'new',
-  admin_note TEXT NOT NULL DEFAULT '',
   PRIMARY KEY (household_id, recipe_id, step_key)
 );
 
@@ -208,9 +205,6 @@ CREATE TABLE IF NOT EXISTS plan_reports (
   created_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'new',
   admin_note TEXT NOT NULL DEFAULT ''
-  created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'new',
-  admin_note TEXT NOT NULL DEFAULT ''
 );
 
 -- "Report a problem with this recipe": why, the user's note, and the recipe as this household
@@ -222,9 +216,6 @@ CREATE TABLE IF NOT EXISTS recipe_reports (
   reason TEXT NOT NULL DEFAULT '',
   note TEXT NOT NULL DEFAULT '',
   snapshot_json TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'new',
-  admin_note TEXT NOT NULL DEFAULT ''
   created_at TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'new',
   admin_note TEXT NOT NULL DEFAULT ''
@@ -280,9 +271,6 @@ CREATE TABLE IF NOT EXISTS sessions (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   household_id INTEGER NOT NULL REFERENCES households(id) ON DELETE CASCADE,
   created_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  -- What signed in, e.g. "Safari on Mac" or "iOS app 1.2 (34)", for the admin Users page.
-  device TEXT NOT NULL DEFAULT ''
   expires_at TEXT NOT NULL,
   -- What signed in, e.g. "Safari on Mac" or "iOS app 1.2 (34)", for the admin Users page.
   device TEXT NOT NULL DEFAULT ''
