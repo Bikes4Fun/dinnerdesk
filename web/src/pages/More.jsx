@@ -21,6 +21,7 @@ export function More() {
         <Link href="/settings/tastelab">Taste Lab</Link>
         <Link href="/recipes?list=hidden">Hidden recipes</Link>
         <Link href="/settings">Settings</Link>
+        <Link href="/about">About</Link>
         <a className="list-link" href="https://x.com/DinnerDesk" target="_blank" rel="noopener noreferrer">
           Twitter
           <em>@DinnerDesk</em>

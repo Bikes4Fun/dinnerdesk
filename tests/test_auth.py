@@ -580,3 +580,144 @@ def test_tastelab_saves_only_to_own_history(tmp_path):
         assert attacker.post("/api/sessions", json=vote("2")).status_code == 200
         assert victim.get("/api/taste").json()["votes"] == [{"recipe_id": "1", "liked": True}]
         assert attacker.get("/api/taste").json()["votes"] == [{"recipe_id": "2", "liked": True}]
+
+
+def _signup(client, email, password="userpassword"):
+    client.post("/api/auth/signup", json={"email": email, "password": password})
+    return client.get("/api/auth/me").json()["user_id"]
+
+
+def test_admin_users_page_and_actions_are_admin_only(tmp_path):
+    with _client(tmp_path) as user:
+        uid = _signup(user, "plain@example.com")
+        assert user.get("/admin/users").status_code == 403
+        assert user.post(f"/admin/users/{uid}/unlock", json={}).status_code == 403
+
+
+def test_admin_manages_sign_in(tmp_path):
+    import json
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "cook@example.com")
+        page = admin.get("/admin/users").text
+        assert "cook@example.com" in page and "/*DATA*/null" not in page
+        token = user.cookies.get(SESSION_COOKIE)
+        assert token not in page
+
+        # Lockout, then clear it.
+        user.post("/api/auth/logout")
+        for _ in range(5):
+            user.post("/api/auth/login", json={"email": "cook@example.com", "password": "wrongwrong"})
+        assert user.post("/api/auth/login", json={"email": "cook@example.com", "password": "userpassword"}).status_code == 423
+        assert admin.post(f"/admin/users/{uid}/unlock", json={}).status_code == 200
+        assert user.post("/api/auth/login", json={"email": "cook@example.com", "password": "userpassword"}).status_code == 200
+
+        # Sessions: one, then everywhere.
+        data = json.loads(admin.get("/admin/users").text.split("const DATA = ")[1].split(";\n")[0])
+        sessions = next(u for u in data["users"] if u["id"] == uid)["sessions"]
+        assert len(sessions) == 1
+        assert admin.post(f"/admin/users/{uid}/end-sessions", json={"session": sessions[0]["id"]}).status_code == 200
+        assert user.get("/api/auth/me").status_code == 401
+
+        # Password set by the admin works; too short is refused with a message.
+        bad = admin.post(f"/admin/users/{uid}/password", json={"password": "short"})
+        assert bad.status_code == 400 and bad.json()["message"]
+        assert admin.post(f"/admin/users/{uid}/password", json={"password": "brandnewpass"}).status_code == 200
+        assert user.post("/api/auth/login", json={"email": "cook@example.com", "password": "brandnewpass"}).status_code == 200
+
+        # Login name: to a username, recovery email, then back to an email.
+        assert admin.post(f"/admin/users/{uid}/login", json={"login": "admin@example.test"}).json()["detail"] == "email_taken"
+        assert admin.post(f"/admin/users/{uid}/login", json={"login": "cookname"}).status_code == 200
+        assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "back@example.com"}).status_code == 200
+        with connect() as db:
+            row = db.execute("SELECT email, recovery_email FROM users WHERE id = ?", (uid,)).fetchone()
+            assert (row["email"], row["recovery_email"]) == ("cookname", "back@example.com")
+        assert admin.post(f"/admin/users/{uid}/login", json={"login": "new@example.com"}).status_code == 200
+        assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "x@example.com"}).status_code == 400
+        assert user.post("/api/auth/login", json={"email": "new@example.com", "password": "brandnewpass"}).status_code == 200
+        assert admin.post(f"/admin/users/{uid}/nope", json={}).status_code == 404
+
+
+def test_admin_moves_users_between_households_and_sets_roles(tmp_path):
+    with _client(tmp_path) as admin, TestClient(create_app()) as a, TestClient(create_app()) as b:
+        _signup(admin, "admin@example.test")
+        ua, ub = _signup(a, "a@example.com"), _signup(b, "b@example.com")
+        with connect() as db:
+            ha, hb = (db.execute("SELECT household_id FROM users WHERE id = ?", (u,)).fetchone()["household_id"] for u in (ua, ub))
+        assert admin.post(f"/admin/users/{ub}/household", json={"household_id": ha}).status_code == 200
+        with connect() as db:
+            assert db.execute("SELECT household_role FROM users WHERE id = ?", (ub,)).fetchone()["household_role"] == "member"
+            assert not db.execute("SELECT 1 FROM households WHERE id = ?", (hb,)).fetchone()
+        assert b.get("/api/auth/me").json()["household_id"] == ha
+        # The owner can't step down or leave while others are home; making b owner frees them.
+        assert admin.post(f"/admin/users/{ua}/role", json={"role": "member"}).json()["detail"] == "successor_required"
+        assert admin.post(f"/admin/users/{ua}/household", json={"household_id": None}).json()["detail"] == "successor_required"
+        assert admin.post(f"/admin/users/{ub}/role", json={"role": "owner"}).status_code == 200
+        assert admin.post(f"/admin/users/{ua}/household", json={"household_id": None}).status_code == 200
+        with connect() as db:
+            roles = {r["id"]: (r["household_id"], r["household_role"]) for r in db.execute("SELECT * FROM users WHERE id IN (?, ?)", (ua, ub))}
+        assert roles[ub] == (ha, "owner") and roles[ua][0] != ha and roles[ua][1] == "owner"
+        assert admin.post(f"/admin/users/{ua}/household", json={"household_id": 999999}).json()["detail"] == "not_found"
+
+
+def test_admin_resets_taste_lab(tmp_path):
+    import json
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "taster@example.com")
+        from app.taste_lab import taste
+        taste().init_db()
+        with connect() as db:
+            pid = db.execute("INSERT INTO taste_people (anon_id, account_id, created_at) VALUES (?, ?, ?) RETURNING id",
+                             ("browser", str(uid), "t")).fetchone()["id"]
+            db.execute("INSERT INTO taste_sessions (id, person_id, created_at, updated_at) VALUES (?, ?, ?, ?)", ("s1", pid, "t", "t"))
+            db.execute("INSERT INTO taste_events (session_id, t, kind, body) VALUES (?, ?, 'snapshot', ?)",
+                       ("s1", "t", json.dumps({"swipes": [{"recipe_id": "7", "liked": False}]})))
+            db.commit()
+        assert '"taste_sessions": 1' in admin.get("/admin/users").text
+        assert admin.post(f"/admin/users/{uid}/reset-taste", json={}).status_code == 200
+        with connect() as db:
+            assert not db.execute("SELECT 1 FROM taste_people WHERE account_id = ?", (str(uid),)).fetchone()
+            assert json.loads(db.execute("SELECT votes_json FROM anonymous_taste_history").fetchone()["votes_json"]) == {"7": "pass"}
+
+
+def test_admin_emails_reset_and_confirm_links(tmp_path, monkeypatch):
+    for key, value in (("RESEND_API_KEY", "k"), ("MAIL_FROM", "x <x@example.com>"), ("PUBLIC_URL", "https://example.com")):
+        monkeypatch.setenv(key, value)
+    sent = []
+    monkeypatch.setattr("app.admin_routes.send_reset_email", lambda to, link: sent.append(("reset", to, link)))
+    monkeypatch.setattr("app.admin_routes.send_verify_email", lambda to, link: sent.append(("verify", to, link)))
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "mailme@example.com")
+        assert admin.post(f"/admin/users/{uid}/send-reset", json={}).status_code == 200
+        assert admin.post(f"/admin/users/{uid}/resend-confirmation", json={}).status_code == 200
+        assert [(kind, to) for kind, to, _ in sent] == [("reset", "mailme@example.com"), ("verify", "mailme@example.com")]
+        assert sent[0][2].startswith("https://example.com/reset/") and sent[1][2].startswith("https://example.com/verify/")
+        for _ in range(2):
+            admin.post(f"/admin/users/{uid}/send-reset", json={})
+        too_many = admin.post(f"/admin/users/{uid}/send-reset", json={})
+        assert too_many.status_code == 400 and too_many.json()["detail"] == "too_many"
+        monkeypatch.delenv("RESEND_API_KEY")
+        assert admin.post(f"/admin/users/{uid}/resend-confirmation", json={}).status_code == 503
+
+
+def test_users_page_shows_last_seen_and_device(tmp_path):
+    import json
+    with _client(tmp_path) as admin, TestClient(create_app()) as user:
+        _signup(admin, "admin@example.test")
+        uid = _signup(user, "seen@example.com")
+        user.post("/api/auth/logout")
+        user.post("/api/auth/login", json={"email": "seen@example.com", "password": "userpassword"},
+                  headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15"})
+        user.get("/api/auth/status")
+        data = json.loads(admin.get("/admin/users").text.split("const DATA = ")[1].split(";\n")[0])
+        row = next(u for u in data["users"] if u["id"] == uid)
+        assert row["last_seen"] and [s["device"] for s in row["sessions"]] == ["Safari on Mac"]
+
+
+def test_describe_device():
+    from app.auth import describe_device
+    assert describe_device("", "ios 1.2 (34)") == "iOS app 1.2 (34)"
+    assert describe_device("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/130.0 Mobile Safari/604.1") == "Chrome on iPhone"
+    assert describe_device("Mozilla/5.0 (Windows NT 10.0) Chrome/130.0 Safari/537.36 Edg/130.0") == "Edge on Windows"

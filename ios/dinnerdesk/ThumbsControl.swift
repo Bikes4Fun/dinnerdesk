@@ -22,9 +22,8 @@ struct ThumbsControl: View {
       onRate(on ? 0 : value)
     } label: {
       Image(systemName: on ? "\(name).fill" : name)
-        .font(.system(size: size, weight: .semibold))
+        .scaledIcon(size: size, weight: .semibold, width: 44, height: 36)
         .foregroundStyle(on ? (up ? Theme.ink : Theme.accent) : Theme.muted)
-        .frame(width: 44, height: 36)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)

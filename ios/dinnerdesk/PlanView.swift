@@ -107,17 +107,10 @@ struct PlanView: View {
               }
             }
             if !plan.slots.isEmpty { 
-              HStack {
-                Button {
-                    Task { await store.openSuggestions() }
-                  } label: {
-                    Label("New meal plan", systemImage: "sparkles")
-                  }
-                  .buttonStyle(.borderedProminent)
-                  .tint(Theme.accent)
-                  Button { selectTab(.recipes) } label: {
-                    Label("Add meals", systemImage: "plus")
-                  }.font(Theme.action).frame(minHeight: 44)
+              // Side by side only while both labels fit on one line; otherwise stacked so no word breaks.
+              ViewThatFits(in: .horizontal) {
+                HStack { planButtons.fixedSize() }
+                VStack(alignment: .leading) { planButtons }
               }
             }
           } else {
@@ -142,12 +135,12 @@ struct PlanView: View {
               .contentShape(Rectangle())
               .accessibilityLabel("Done editing plan")
           } else {
-            TabHeaderButton("Edit plan", systemImage: "pencil") { setEditing(true) }
-            TabHeaderButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
+            HeaderIconButton("Edit plan", systemImage: "pencil") { setEditing(true) }
+            HeaderIconButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
               grid.toggle()
             }
           }
-          TabHeaderButton("Plan menu", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton("Plan menu", systemImage: "ellipsis") { menu = true }
         }
       }
       .background(Theme.bg)
@@ -185,6 +178,20 @@ struct PlanView: View {
       .sheet(isPresented: $drafts) { SavedPlansView() }
       .refreshable { await store.loadAll() }
     }
+  }
+
+  @ViewBuilder
+  private var planButtons: some View {
+    Button {
+      Task { await store.openSuggestions() }
+    } label: {
+      Label("New meal plan", systemImage: "sparkles")
+    }
+    .buttonStyle(.borderedProminent)
+    .tint(Theme.accent)
+    Button { selectTab(.recipes) } label: {
+      Label("Add meals", systemImage: "plus")
+    }.font(Theme.action).frame(minHeight: 44)
   }
 
   /// Turns Edit mode on or off. Leaving it clears any meal selection.
@@ -285,9 +292,8 @@ struct PlanView: View {
       if !selected.insert(slot.id).inserted { selected.remove(slot.id) }
     } label: {
       Image(systemName: selected.contains(slot.id) ? "checkmark.square.fill" : "square")
-        .font(.system(size: 22))
+        .scaledIcon(size: 22, width: 32, height: 44)
         .foregroundStyle(selected.contains(slot.id) ? Theme.accent : Theme.muted)
-        .frame(width: 32, height: 44)
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
@@ -316,7 +322,7 @@ struct PlanView: View {
   }
 
   private func ratingButtons(_ slot: PlanSlot) -> some View {
-    ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName) { next in
+    ThumbsControl(rating: slot.rating ?? 0, subject: slot.recipeName, size: 21) { next in
       Task { await store.rateMeal(slot, next) }
     }
     .fixedSize(horizontal: true, vertical: false)
@@ -408,6 +414,7 @@ struct PlanView: View {
         } label: {
           RecipePhoto(path: slot.photoPath, fill: true)
         }.buttonStyle(.plain)
+        .accessibilityLabel("Open \(slot.recipeName)")
       }
       .overlay(alignment: .topTrailing) {
         if !editing {
@@ -703,6 +710,7 @@ struct SuggestedPlanReview: View {
                   Color.clear.aspectRatio(1, contentMode: .fit)
                     .overlay {
                       NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
+                        .accessibilityLabel("Open \(slot.recipeName)")
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
                     .overlay(alignment: .topTrailing) {

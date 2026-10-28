@@ -74,6 +74,9 @@ export function Icon({ name, size = 22 }) {
       </svg>
     );
   }
+  if (name === "admin") {
+    return <svg {...common}><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3z" /></svg>;
+  }
   if (name === "settings") {
     return (
       <svg {...common}>
@@ -95,6 +98,14 @@ export function Icon({ name, size = 22 }) {
     return (
       <svg {...common} style={name === "thumbs-down" ? { transform: "rotate(180deg)" } : undefined}>
         <path d={d} />
+      </svg>
+    );
+  }
+  if (name === "about") {
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 11v5M12 8h.01" />
       </svg>
     );
   }

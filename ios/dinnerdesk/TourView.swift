@@ -233,7 +233,7 @@ struct TourView: View {
           VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
               Image(systemName: item.systemImage)
-                .font(.system(size: 24, weight: .semibold))
+                .scaledIcon(size: 24, weight: .semibold)
                 .foregroundStyle(Theme.accent)
                 .accessibilityHidden(true)
               Text(item.title)
@@ -263,6 +263,7 @@ struct TourView: View {
               } else if let drawing = Self.drawings[item.id] {
                 TourScreenPicture(index: drawing)
                   .frame(minHeight: 160, maxHeight: 280)
+                  .accessibilityHidden(true)
                   .padding(.top, 4)
               } else if item.id == Self.tipsCard {
                 // A real tip, so the card shows exactly what one looks like.
