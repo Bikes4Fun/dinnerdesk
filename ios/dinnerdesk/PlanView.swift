@@ -253,7 +253,6 @@ struct PlanView: View {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    .opacity(slot.cooked ? 0.45 : 1)
   }
 
   private func selectAllButton(_ plan: Plan) -> some View {
@@ -342,6 +341,7 @@ struct PlanView: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel("Schedule \(slot.recipeName)")
+    .accessibilityValue(slot.dayIndex == nil ? "Not scheduled" : scheduleLabel(slot, plan: plan))
   }
 
   private func scheduleLabel(_ slot: PlanSlot, plan: Plan) -> String {
@@ -396,6 +396,7 @@ struct PlanView: View {
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     }.buttonStyle(.plain)
+    .accessibilityValue(slot.cooked ? "Cooked" : "")
   }
 
   /// `side` locks a square of that size. Nil fills the column and stays square.
@@ -412,9 +413,12 @@ struct PlanView: View {
         NavigationLink {
           RecipeDetailView(id: slot.recipeId)
         } label: {
+          // Only the photo fades for a cooked meal; faded text would fail contrast.
           RecipePhoto(path: slot.photoPath, fill: true)
+            .opacity(slot.cooked ? 0.45 : 1)
         }.buttonStyle(.plain)
-        .accessibilityLabel("Open \(slot.recipeName)")
+        // The name beside it opens the same recipe, so VoiceOver stops there once, not twice.
+        .accessibilityHidden(true)
       }
       .overlay(alignment: .topTrailing) {
         if !editing {
@@ -426,7 +430,7 @@ struct PlanView: View {
               .shadow(color: .black.opacity(0.35), radius: 2).padding(8)
           }
           .buttonStyle(.plain)
-          .accessibilityLabel(slot.cooked ? "Mark not cooked" : "Mark cooked")
+          .accessibilityLabel(slot.cooked ? "Mark \(slot.recipeName) not cooked" : "Mark \(slot.recipeName) cooked")
         }
       }
       .clipShape(RoundedRectangle(cornerRadius: 12))
