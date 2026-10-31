@@ -174,11 +174,6 @@ def _inbox_new(db: PgConnection) -> int:
         (SELECT COUNT(*) FROM prep_step_feedback WHERE status = 'new' AND {PREP_ISSUE}) AS n""").fetchone()["n"]
 
 
-def _refs(r) -> dict:
-    """Where a planned item is tracked: an issue # and/or a branch."""
-    return {"planned_issue": r["planned_issue"], "planned_branch": r["planned_branch"]}
-
-
 def _inbox(db: PgConnection) -> dict:
     """Everything people sent in, one list: bugs and ideas, recipe and plan reports, prep votes."""
     who = lambda r: {"household_id": r["household_id"], "household_name": r["household_name"],
@@ -188,7 +183,7 @@ def _inbox(db: PgConnection) -> dict:
             LEFT JOIN households h ON h.id = f.household_id LEFT JOIN users u ON u.id = f.user_id""")]
     versions = _app_versions(feedback)
     items = [{"source": "feedback", "id": r["id"], "kind": "bug" if r["kind"] == "bug" else "idea",
-              "status": r["status"], "admin_note": r["admin_note"], **_refs(r), "created_at": r["created_at"], "note": r["note"],
+              "status": r["status"], "admin_note": r["admin_note"], "planned_issue": r["planned_issue"], "created_at": r["created_at"], "note": r["note"],
               **who(r), **versions[r["id"]], "screen": r["snapshot"].get("screen", ""),
               "user_agent": r["snapshot"].get("user_agent", ""), "user_id": r["user_id"],
               # Reports from before the device was saved get it from their browser text.
@@ -199,7 +194,7 @@ def _inbox(db: PgConnection) -> dict:
               "screenshots": [f"/api/dev/feedback/{r['id']}/screenshots/{i}"
                               for i in range(len(r["snapshot"].get("screenshots") or []))]}
              for r in feedback]
-    items += [{"source": "recipe", "id": r["id"], "kind": "recipe", "status": r["status"], "admin_note": r["admin_note"], **_refs(r),
+    items += [{"source": "recipe", "id": r["id"], "kind": "recipe", "status": r["status"], "admin_note": r["admin_note"], "planned_issue": r["planned_issue"],
                "created_at": r["created_at"], "note": r["note"], **who(r), "reason": r["reason"],
                "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"],
                "snapshot": json.loads(r["snapshot_json"] or "{}")}
@@ -208,14 +203,14 @@ def _inbox(db: PgConnection) -> dict:
                              {_has_account_sql("p")} AS has_account
                       FROM recipe_reports p LEFT JOIN households h ON h.id = p.household_id
                       LEFT JOIN recipes rc ON rc.id = p.recipe_id""")]
-    items += [{"source": "plan", "id": r["id"], "kind": "plan", "status": r["status"], "admin_note": r["admin_note"], **_refs(r),
+    items += [{"source": "plan", "id": r["id"], "kind": "plan", "status": r["status"], "admin_note": r["admin_note"], "planned_issue": r["planned_issue"],
                "created_at": r["created_at"], "note": r["note"], **who(r), "plan_id": r["plan_id"],
                "snapshot": json.loads(r["snapshot_json"] or "{}")}
               for r in db.execute(
                   f"""SELECT p.*, h.name AS household_name, NULL AS email, {_has_account_sql("p")} AS has_account
                       FROM plan_reports p LEFT JOIN households h ON h.id = p.household_id""")]
     items += [{"source": "prep", "id": f"{r['household_id']}:{r['recipe_id']}:{r['step_key']}", "kind": "prep",
-               "status": r["status"], "admin_note": r["admin_note"], **_refs(r), "created_at": r["updated_at"], "note": r["note"],
+               "status": r["status"], "admin_note": r["admin_note"], "planned_issue": r["planned_issue"], "created_at": r["updated_at"], "note": r["note"],
                **who(r), "missing": r["reason"] == "missing",
                "reason": "" if r["reason"] == "missing" else PREP_REASONS.get(r["reason"], r["reason"]),
                "step": r["step_text"], "task": r["category"], "suggested_by_app": bool(r["auto"]),
@@ -266,7 +261,7 @@ def inbox_count(_admin=AdminDep, db: PgConnection = DbDep):
 
 @router.post("/admin/inbox/{source}/{item_id}")
 def inbox_update(source: str, item_id: str, body: dict, _admin=AdminDep, db: PgConnection = DbDep):
-    """Set an Inbox item's status, the admin's note, and/or the issue # and branch it's planned in."""
+    """Set an Inbox item's status, the admin's note, and/or the issue # it's tracked in."""
     if source not in INBOX_SOURCES:
         raise HTTPException(404, {"error": "not_found", "detail": "inbox source"})
     table, where = INBOX_SOURCES[source]
@@ -280,9 +275,8 @@ def inbox_update(source: str, item_id: str, body: dict, _admin=AdminDep, db: PgC
         changes["status"] = body["status"]
     if "admin_note" in body:
         changes["admin_note"] = str(body["admin_note"] or "")[:5000]
-    for k in ("planned_issue", "planned_branch"):
-        if k in body:
-            changes[k] = str(body[k] or "").strip()[:200]
+    if "planned_issue" in body:
+        changes["planned_issue"] = str(body["planned_issue"] or "").strip()[:200]
     if source == "feedback" and changes:
         changes["updated_at"] = now()
     if not changes:

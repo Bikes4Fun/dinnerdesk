@@ -2187,10 +2187,10 @@ def test_inbox_gathers_reports_and_saves_triage(tmp_path):
 
         bug = items[("feedback", "bug")]
         assert client.post(f"/admin/inbox/feedback/{bug['id']}",
-                           json={"status": "planned", "planned_issue": " 217 ", "planned_branch": "217-admin-clicks-done"}).status_code == 200
+                           json={"status": "planned", "planned_issue": " 217 "}).status_code == 200
         data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
         bug = next(i for i in data["items"] if i["source"] == "feedback")
-        assert (bug["status"], bug["planned_issue"], bug["planned_branch"]) == ("planned", "217", "217-admin-clicks-done")
+        assert (bug["status"], bug["planned_issue"]) == ("planned", "217")
 
         assert client.post("/admin/inbox/recipe/999999", json={"status": "done"}).status_code == 404
         assert client.post("/admin/inbox/nope/1", json={"status": "done"}).status_code == 404

@@ -74,8 +74,7 @@
     color: var(--ink); font: inherit; cursor: pointer; }
   .btn[aria-pressed="true"] { border-color: var(--solid); background: var(--solid); color: var(--on-solid); font-weight: 500; }
   textarea { width: 100%; min-height: 64px; padding: 8px; resize: vertical; }
-  .refs { display: flex; flex-wrap: wrap; gap: 6px; }
-  .refs input { flex: 1 1 140px; min-width: 0; padding: 6px 8px; }
+  #issue { width: 100%; padding: 6px 8px; }
   dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; row-gap: 6px; }
   dt { color: var(--muted); }
   dd { margin: 0; overflow-wrap: anywhere; }
@@ -287,9 +286,8 @@ function detail(i) {
     <div class="block"><p class="quote${words ? "" : " none"}">${words ? esc(words) : "No note"}</p></div>
     <div class="block"><h3>Status</h3><div class="seg" role="group" aria-label="Status">
       ${STATUSES.map(([k, l]) => `<button type="button" class="btn" data-status="${k}" aria-pressed="${i.status === k}">${l}</button>`).join("")}</div>
-      ${i.status === "planned" || i.planned_issue || i.planned_branch ? `<div class="refs">
-        <label for="issue" class="sr">Issue #</label><input id="issue" placeholder="Issue # (e.g. 217)" value="${esc(i.planned_issue)}">
-        <label for="branch" class="sr">Branch</label><input id="branch" placeholder="Branch" value="${esc(i.planned_branch)}"></div>` : ""}
+      ${i.status === "planned" || i.status === "done" ? `<label for="issue" class="sr">Issue #</label>
+      <input id="issue" placeholder="Issue # (e.g. 217)" value="${esc(i.planned_issue)}">` : ""}
       <label for="note" class="sr">My note</label>
       <textarea id="note" placeholder="My note: what to fix, what I decided… (only admins see this)">${esc(i.admin_note)}</textarea>
       <div><button type="button" class="btn" data-save-note>Save</button></div></div>
@@ -375,8 +373,8 @@ document.getElementById("detail").addEventListener("click", async e => {
   }
   if (e.target.closest("[data-save-note]")) {
     const change = { admin_note: document.getElementById("note").value };
-    const issue = document.getElementById("issue"), branch = document.getElementById("branch");
-    if (issue) Object.assign(change, { planned_issue: issue.value.trim(), planned_branch: branch.value.trim() });
+    const issue = document.getElementById("issue");
+    if (issue) change.planned_issue = issue.value.trim();
     try { await save(item, change); toast("Saved."); render(); }
     catch (err) { toast(err.message, true); }
   }
