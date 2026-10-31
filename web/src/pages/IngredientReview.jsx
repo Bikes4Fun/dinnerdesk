@@ -110,12 +110,13 @@ export function IngredientReview() {
         : tab === "second"
           ? group.answer?.status === "answered" &&
             group.audit?.verdict &&
-            group.audit?.review_status !== "removed"
+            group.audit?.review_status !== "removed" &&
+            group.audit?.review_status !== "resolved"
         : group.queue === tab && group.answer?.status !== "answered",
     );
     if (tab === "answered") return groups;
     if (tab === "second") {
-      const statusRank = { pending: 0, re_review: 1, resolved: 2 };
+      const statusRank = { pending: 0, re_review: 1 };
       const verdictRank = { suggested_change: 0, question: 1, looks_good: 2 };
       return [...groups].sort((a, b) => {
         const statusDifference =
@@ -157,7 +158,6 @@ export function IngredientReview() {
     setNotes(answer.notes || "");
     setShowRecipes(false);
     setRecipeName("");
-    setMessage("");
   }, [group?.id, tab]);
 
   useEffect(() => {
@@ -165,6 +165,7 @@ export function IngredientReview() {
     const timer = window.setTimeout(() => {
       api
         .putIngredientReviewNotes(group.id, notes)
+        .then(() => setMessage("Notes saved."))
         .catch(() => setErr("Couldn’t save notes"));
     }, 650);
     return () => window.clearTimeout(timer);
@@ -233,7 +234,6 @@ export function IngredientReview() {
       }
       await api.putIngredientReviewAuditResolution(group.id, resolution);
       await load();
-      setIndex(0);
       setMessage(
         resolution === "re_review"
           ? "Saved for re-review and moved behind the pending items."
@@ -452,11 +452,13 @@ export function IngredientReview() {
               className="field dev-notes"
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              onBlur={() =>
+              onBlur={() => {
+                if (notes === (group.answer?.notes || "")) return;
                 api
                   .putIngredientReviewNotes(group.id, notes)
-                  .catch(() => setErr("Couldn’t save notes"))
-              }
+                  .then(() => setMessage("Notes saved."))
+                  .catch(() => setErr("Couldn’t save notes"));
+              }}
               placeholder="Add context or something to check before applying changes…"
             />
 
@@ -474,32 +476,33 @@ export function IngredientReview() {
             {showRecipes ? (
               <div className="review-recipes">
                 {recipeName ? <strong className="review-recipes-title">Examples for “{recipeName}”</strong> : null}
-                {recipeExamples.map((recipe, recipeIndex) =>
-                  recipe.source_url ? (
-                    <a
-                      className="review-recipe"
-                      href={recipe.source_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      key={`${recipe.source}-${recipe.name}-${recipeIndex}`}
-                    >
-                      <strong>{recipe.name}</strong>
-                      <small>
-                        {recipe.source} · “{recipe.raw}”
-                      </small>
-                    </a>
-                  ) : (
-                    <div
-                      className="review-recipe"
-                      key={`${recipe.source}-${recipe.name}-${recipeIndex}`}
-                    >
-                      <strong>{recipe.name}</strong>
-                      <small>
-                        {recipe.source} · “{recipe.raw}”
-                      </small>
-                    </div>
-                  ),
-                )}
+                {recipeExamples.map((recipe, recipeIndex) => (
+                  <div
+                    className="review-recipe"
+                    key={`${recipe.source}-${recipe.name}-${recipeIndex}`}
+                  >
+                    <strong>{recipe.name}</strong>
+                    <small>
+                      {recipe.source} · “{recipe.raw}”
+                    </small>
+                    {recipe.recipe_id ? (
+                      <a
+                        href={`/recipes/${recipe.recipe_id}`}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          go(`/recipes/${recipe.recipe_id}`);
+                        }}
+                      >
+                        Our recipe
+                      </a>
+                    ) : null}
+                    {recipe.source_url ? (
+                      <a href={recipe.source_url} target="_blank" rel="noreferrer">
+                        Original
+                      </a>
+                    ) : null}
+                  </div>
+                ))}
               </div>
             ) : null}
 
