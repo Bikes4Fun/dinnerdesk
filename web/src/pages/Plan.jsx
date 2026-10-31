@@ -137,7 +137,10 @@ export function Plan() {
   }
 
   if (!plan) return <section className="screen pad">{err || "Loading…"}</section>;
-  const groups = [...new Set(plan.slots.map((s) => s.day_index ?? -1))].sort((a, b) => a - b);
+  // Uncooked meals grouped by day; cooked meals go in one last group (COOKED) whatever their day.
+  const COOKED = Infinity;
+  const groupOf = (s) => (s.cooked ? COOKED : s.day_index ?? -1);
+  const groups = [...new Set(plan.slots.map(groupOf))].sort((a, b) => a - b);
   const today = new Date();
   const earliest = [plan.start_date, `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`].sort().at(-1);
 
@@ -196,9 +199,9 @@ export function Plan() {
       </div>}
       {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
       {groups.map((day) => <section key={day}>
-        {(() => { const n = plan.slots.filter((s) => (s.day_index ?? -1) === day).length; return <h2 className="section-label">{day >= 0 ? dayLabel(plan, day) : "Not scheduled"} · {n} {n === 1 ? "meal" : "meals"}</h2>; })()}
+        {(() => { const n = plan.slots.filter((s) => groupOf(s) === day).length; return <h2 className="section-label">{day === COOKED ? "Cooked" : day >= 0 ? dayLabel(plan, day) : "Not scheduled"} · {n} {n === 1 ? "meal" : "meals"}</h2>; })()}
         <div className={grid ? "plan-meal-grid" : "plan-meal-list"}>
-          {plan.slots.filter((s) => (s.day_index ?? -1) === day).sort((a, b) => Number(a.cooked) - Number(b.cooked) || a.id - b.id).map((slot) => <article key={slot.id} className={`plan-meal${grid ? " grid" : ""}${editing ? " editing" : ""}${slot.cooked ? " is-cooked" : ""}`}>
+          {plan.slots.filter((s) => groupOf(s) === day).sort((a, b) => a.id - b.id).map((slot) => <article key={slot.id} className={`plan-meal${grid ? " grid" : ""}${editing ? " editing" : ""}${slot.cooked ? " is-cooked" : ""}`}>
             {editing && <label className="meal-select"><input aria-label={`Select ${slot.recipe_name}`} type="checkbox" checked={selected.has(slot.id)} onChange={() => toggleSelection(slot.id)} /></label>}
             <div className={`meal-photo-wrap${slot.cooked ? " plan-completed" : ""}`}>
               <button type="button" className="meal-photo-btn" aria-label={`Open ${slot.recipe_name}`} onClick={() => go(`/recipes/${slot.recipe_id}`)}>
