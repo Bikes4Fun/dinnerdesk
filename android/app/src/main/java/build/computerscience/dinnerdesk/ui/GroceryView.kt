@@ -27,8 +27,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ManageSearch
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Numbers
 import androidx.compose.material.icons.outlined.Restaurant
@@ -50,6 +52,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +67,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.Copy
+import build.computerscience.dinnerdesk.data.Api
 import build.computerscience.dinnerdesk.data.GroceryLine
+import build.computerscience.dinnerdesk.data.IngredientReportReason
 import build.computerscience.dinnerdesk.data.UsedMeal
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -248,6 +253,10 @@ fun GroceryItemView(lineId: Int) {
     /** After a substitution the list is rebuilt and the item comes back as a new line. This follows it. */
     var followId by remember { mutableStateOf<Int?>(null) }
     val line = store.grocery.firstOrNull { it.id == (followId ?: lineId) }
+    var reporting by remember { mutableStateOf(false) }
+    var reportDraft by remember { mutableStateOf(false) }
+    /** Line ids reported this visit, so the row says "Reported" instead of inviting a second one. */
+    var reportedIds by remember { mutableStateOf<Set<Int>>(emptySet()) }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar(actions = { if (line != null) LinkButton("Edit") { editing = true } })
@@ -312,10 +321,73 @@ fun GroceryItemView(lineId: Int) {
                 ToggleLine("In my pantry", line.fromPantry) { next -> store.launch { setPantryFlags(line.name, next, line.neverShop) } }
                 Hairline()
                 ToggleLine("Always check off", line.neverShop) { next -> store.launch { setPantryFlags(line.name, line.fromPantry, next) } }
+                Hairline()
+                if (line.id in reportedIds) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Filled.Check, null, tint = Theme.muted, modifier = Modifier.size(20.dp))
+                        Text("Reported. Thanks", style = Theme.rowTitle, color = Theme.muted)
+                    }
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { reportDraft = false; reporting = true },
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(Icons.Outlined.Flag, null, tint = Theme.ink, modifier = Modifier.size(20.dp))
+                        Text("Report a problem with this item", style = Theme.rowTitle, color = Theme.ink)
+                    }
+                }
             }
         }
     }
     if (editing && line != null) Sheet(onDismiss = { editing = false }, full = false) { EditGrocerySheet(line) }
+    // A stray swipe shouldn't throw away a half-written report.
+    if (reporting && line != null) Sheet(onDismiss = { reporting = false }, blockDismiss = reportDraft) {
+        ReportGrocerySheet(line.id, onDraft = { reportDraft = it }) { reportedIds = reportedIds + line.id }
+    }
+}
+
+/** Why the item is wrong, in the user's words. The server keeps it with the line as they saw it. */
+@Composable
+private fun ReportGrocerySheet(lineId: Int, onDraft: (Boolean) -> Unit, onSent: () -> Unit) {
+    val store = LocalStore.current
+    val dismiss = LocalDismiss.current
+    val scope = rememberCoroutineScope()
+    var reason by remember { mutableStateOf<IngredientReportReason?>(null) }
+    var note by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(reason, note) { onDraft(reason != null || note.isNotEmpty()) }
+    Column(Modifier.fillMaxSize().background(Theme.bg)) {
+        SheetBar("Report a problem")
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("What's wrong?", style = Theme.action, color = Theme.ink)
+            for (option in IngredientReportReason.entries) {
+                RadioRow(reason == option, { reason = option }) { Text(option.label, style = Theme.body, color = Theme.ink) }
+            }
+            Text("Anything to add? (optional)", style = Theme.action, color = Theme.ink)
+            // The server caps the note at 1000 characters (code points).
+            TextBox(note, { next ->
+                note = if (next.codePointCount(0, next.length) > 1000) next.substring(0, next.offsetByCodePoints(0, 1000)) else next
+            }, "e.g. Feta should be in Dairy, not Deli", style = Theme.subtitle, minLines = 3)
+            error?.let { ErrorBanner(it) }
+            FilledButton(if (sending) "Sending…" else "Send report", enabled = reason != null && !sending) {
+                val picked = reason ?: return@FilledButton
+                sending = true
+                error = null
+                scope.launch {
+                    try {
+                        store.reportGroceryLine(lineId, picked.id, note.trim())
+                        onSent()
+                        onDraft(false)
+                        dismiss()
+                    } catch (e: Throwable) {
+                        if (!Api.isCancellation(e)) error = Api.message(e)
+                    }
+                    sending = false
+                }
+            }
+        }
+    }
 }
 
 @Composable

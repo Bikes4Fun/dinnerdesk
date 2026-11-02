@@ -163,8 +163,13 @@ fun PlanView() {
                         LinkButton("Remove", enabled = selected.isNotEmpty(), color = Theme.destructive, style = Theme.body) { removing = true }
                     }
                 }
-                for ((day, slots) in groups(plan)) {
-                    if (day >= 0) ThemeHeader(dayTitle(plan.startDate, day))
+                val planGroups = groups(plan)
+                for ((day, slots) in planGroups) {
+                    // "Cooked" only labels a section when other meals sit above it; when the whole
+                    // week is cooked the checkmarks already say so.
+                    if (day == Int.MAX_VALUE) {
+                        if (planGroups.size > 1) ThemeHeader("Cooked")
+                    } else if (day >= 0) ThemeHeader(dayTitle(plan.startDate, day))
                     if (grid && !editing && !large) {
                         for (pair in slots.chunked(2)) {
                             Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -237,10 +242,15 @@ private fun AddMealsButton(onClick: () -> Unit) {
     }
 }
 
-private fun groups(plan: Plan): List<Pair<Int, List<PlanSlot>>> =
-    plan.slots.map { it.dayIndex ?: -1 }.toSortedSet().map { day ->
-        day to plan.slots.filter { (it.dayIndex ?: -1) == day }.sortedWith(compareBy<PlanSlot> { it.cooked }.thenBy { it.id })
+/** Uncooked meals grouped by day; cooked meals go in one last group (Int.MAX_VALUE) whatever their day. */
+private fun groups(plan: Plan): List<Pair<Int, List<PlanSlot>>> {
+    val pending = plan.slots.filter { !it.cooked }
+    val cooked = plan.slots.filter { it.cooked }.sortedBy { it.id }
+    val days = pending.map { it.dayIndex ?: -1 }.toSortedSet().map { day ->
+        day to pending.filter { (it.dayIndex ?: -1) == day }.sortedBy { it.id }
     }
+    return if (cooked.isEmpty()) days else days + (Int.MAX_VALUE to cooked)
+}
 
 private fun scheduleLabel(slot: PlanSlot, plan: Plan): String {
     val day = slot.dayIndex ?: return "Schedule"

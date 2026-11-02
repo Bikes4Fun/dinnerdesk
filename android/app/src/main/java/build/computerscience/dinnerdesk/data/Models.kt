@@ -206,6 +206,16 @@ enum class RecipeReportReason(val id: String, val label: String) {
     Other("other", "Something else"),
 }
 
+/** Why a grocery item is wrong. Ids match app/models.py INGREDIENT_REPORT_REASONS. */
+enum class IngredientReportReason(val id: String, val label: String) {
+    Name("name", "Wrong name or spelling"),
+    Aisle("aisle", "In the wrong aisle"),
+    Amount("amount", "Amount or unit is wrong"),
+    Photo("photo", "Photo doesn't match"),
+    Duplicate("duplicate", "Listed twice / should be combined"),
+    Other("other", "Something else"),
+}
+
 /** Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS. */
 enum class PrepReason(val id: String, val label: String) {
     DayOf("day_of", "Better done day-of"),
