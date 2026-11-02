@@ -207,7 +207,9 @@ Hearts, To try, and hides belong to this kitchen.
 Food search in Other allergies/avoids and grocery substitutions tolerates one misspelled
 letter, missing/extra letter, or adjacent letter swap in words of at least four letters
 (#85). Literal matches rank ahead of typo matches. Other-food searches still require every
-query word to match a known food. Selecting a result remains explicit; dietary exclusion
+query word to match a known food. Catalog and recipe ingredient choices share the grocery catalog’s plural/alias normalization,
+so “red bell pepper” and “red bell peppers” appear once while different colors stay separate.
+Selecting a result remains explicit; dietary exclusion
 rules do not use fuzzy matching.
 
 **Recipe page and Cook mode.** Overview is the photo and full ingredient list; Cook is numbered

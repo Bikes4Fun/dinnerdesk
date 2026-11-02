@@ -1263,7 +1263,7 @@ def test_filter_food_search_selects_specific_ingredients(tmp_path):
         created = client.post("/api/recipes", json={
             "name": "Pepper skillet", "servings": 4,
             "ingredients": [{"name": name, "quantity": "1"} for name in
-                            ["red bell pepper", "green bell pepper", "yellow bell pepper", "ground turkey", "ground beef"]],
+                            ["red bell pepper", "red bell peppers", "green bell pepper", "yellow bell pepper", "ground turkey", "ground beef"]],
             "instructions": [{"text": "Cook the skillet."}],
         })
         assert created.status_code == 200
@@ -1271,6 +1271,11 @@ def test_filter_food_search_selects_specific_ingredients(tmp_path):
         assert any("red" in item["name"] for item in peppers)
         assert any("green" in item["name"] for item in peppers)
         assert any("yellow" in item["name"] for item in peppers)
+        # Catalog and recipe ingredients share one choice for singular/plural names.
+        from app.domain.pantry_catalog import item_key
+        keys = [item_key(item["name"]) for item in peppers]
+        assert len(keys) == len(set(keys))
+        assert keys.count("red bell pepper") == 1
         ground = client.get("/api/filter-items", params={"q": "ground"}).json()["items"]
         assert any("turkey" in item["name"] for item in ground)
         assert any("beef" in item["name"] for item in ground)
