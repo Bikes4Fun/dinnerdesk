@@ -37,6 +37,8 @@ import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.VisibilityOff
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -268,6 +270,7 @@ fun PantryView() {
     var aisles by remember { mutableStateOf(ShopAisle.defaults) }
     var autoCheck by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
+    var picks by remember { mutableStateOf<List<String>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
@@ -340,10 +343,11 @@ fun PantryView() {
         }
     }
     if (adding) {
-        Sheet(onDismiss = { adding = false }) {
-            KitchenItemPicker("Add to pantry") { name ->
+        // A stray swipe shouldn't throw away the picks.
+        Sheet(onDismiss = { adding = false; picks = emptyList() }, blockDismiss = picks.isNotEmpty()) {
+            KitchenItemPicker("Add to pantry", picks, { picks = it }) { names ->
                 try {
-                    KitchenApi.upsertPantry(name, have = true, neverShop = false)
+                    for (name in names) KitchenApi.upsertPantry(name, have = true, neverShop = false)
                     load()
                     store.loadGrocery()
                 } catch (e: Throwable) {
@@ -361,6 +365,7 @@ fun AlwaysCheckedView() {
     val scope = rememberCoroutineScope()
     var items by remember { mutableStateOf<List<KitchenPantryItem>>(emptyList()) }
     var adding by remember { mutableStateOf(false) }
+    var picks by remember { mutableStateOf<List<String>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
@@ -398,10 +403,11 @@ fun AlwaysCheckedView() {
         }
     }
     if (adding) {
-        Sheet(onDismiss = { adding = false }) {
-            KitchenItemPicker("Always check off") { name ->
+        // A stray swipe shouldn't throw away the picks.
+        Sheet(onDismiss = { adding = false; picks = emptyList() }, blockDismiss = picks.isNotEmpty()) {
+            KitchenItemPicker("Always check off", picks, { picks = it }) { names ->
                 try {
-                    KitchenApi.upsertPantry(name, have = true, neverShop = true)
+                    for (name in names) KitchenApi.upsertPantry(name, have = true, neverShop = true)
                     load()
                     store.loadGrocery()
                 } catch (e: Throwable) {
@@ -412,52 +418,76 @@ fun AlwaysCheckedView() {
     }
 }
 
-/** Search the grocery catalog and pick one item (or keep what you typed). Return picks the first result. */
+/**
+ * Search the grocery catalog and pick several items, then Add saves them all at once; Cancel asks
+ * before dropping any picks. Return adds the first match. Pass `picked`/`onPicked` from the caller so
+ * the sheet can refuse a stray swipe while picks are waiting.
+ */
 @Composable
-fun KitchenItemPicker(title: String, onPick: suspend (String) -> Unit) {
+fun KitchenItemPicker(
+    title: String, picked: List<String>, onPicked: (List<String>) -> Unit, onPick: suspend (List<String>) -> Unit,
+) {
     val dismiss = LocalDismiss.current
     val scope = rememberCoroutineScope()
     var query by remember { mutableStateOf("") }
-    var hits by remember { mutableStateOf<List<String>>(emptyList()) }
+    var matches by remember { mutableStateOf<List<String>>(emptyList()) }
     var searchError by remember { mutableStateOf<String?>(null) }
-    var picking by remember { mutableStateOf(false) }
+    var saving by remember { mutableStateOf(false) }
+    var confirmingCancel by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
+    val hits = matches.filter { it !in picked }
 
     LaunchedEffect(Unit) { focus.requestFocus() }
     LaunchedEffect(query) {
         val q = query.trim()
-        if (q.isEmpty()) { hits = emptyList(); return@LaunchedEffect }
+        if (q.isEmpty()) { matches = emptyList(); return@LaunchedEffect }
         delay(250)
         try {
-            hits = KitchenApi.searchItems(q)
+            matches = KitchenApi.searchItems(q)
             searchError = null
         } catch (e: Throwable) {
             if (Api.isCancellation(e)) throw e
-            hits = emptyList()
+            matches = emptyList()
             searchError = Api.message(e)
         }
     }
 
-    fun pick(name: String) {
-        if (picking) return
-        picking = true
-        scope.launch { onPick(name); dismiss() }
+    fun save() {
+        if (saving || picked.isEmpty()) return
+        saving = true
+        val names = picked
+        scope.launch { onPick(names); onPicked(emptyList()); dismiss() }
     }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar(title)
+        // With picks waiting, Cancel asks first: it sits where a thumb lands and the picks
+        // aren't saved until Add.
+        SheetBar(
+            title, onCancel = { if (picked.isEmpty()) dismiss() else confirmingCancel = true },
+            confirm = if (picked.isEmpty()) "Add" else "Add ${picked.size}", confirmEnabled = picked.isNotEmpty() && !saving, onConfirm = ::save,
+        )
         TextBox(
-            query, { query = it }, "Search items",
+            query, { query = it }, "Type an item, like garlic or rice",
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus),
             keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            actions = KeyboardActions(onDone = { hits.firstOrNull()?.let(::pick) }),
+            actions = KeyboardActions(onDone = { hits.firstOrNull()?.let { onPicked(picked + it); query = "" } }),
             leading = { Icon(Icons.Filled.Search, null, tint = Theme.muted, modifier = Modifier.size(20.dp)) },
             trailing = if (query.isNotEmpty()) ({ IconAction(Icons.Filled.Cancel, "Clear search", tint = Theme.muted, size = 20.dp) { query = ""; focus.requestFocus() } }) else null,
         )
+        if (picked.isNotEmpty()) {
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Selected · ${picked.size}", style = Theme.subtitle, color = Theme.muted)
+                Flow(spacing = 6.dp) {
+                    for (name in picked) Box(Modifier.semantics { contentDescription = "Remove $name" }) {
+                        FilterChip("$name ✕", on = true) { onPicked(picked - name) }
+                    }
+                }
+            }
+        }
         Box(Modifier.fillMaxSize()) {
             LazyColumn(Modifier.fillMaxSize()) {
                 itemsIndexed(hits, key = { _, name -> name }) { _, name ->
-                    Column(Modifier.fillMaxWidth().clickable(enabled = !picking) { pick(name) }) {
+                    Column(Modifier.fillMaxWidth().clickable(enabled = !saving) { onPicked(picked + name) }.semantics { contentDescription = "Add $name" }) {
                         Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 20.dp), contentAlignment = Alignment.CenterStart) {
                             Text(name, style = Theme.mealName, color = Theme.ink)
                         }
@@ -468,10 +498,26 @@ fun KitchenItemPicker(title: String, onPick: suspend (String) -> Unit) {
             val err = searchError
             if (err != null) Box(Modifier.padding(16.dp)) { ErrorBanner(err) }
             else if (hits.isEmpty()) Text(
-                if (query.isEmpty()) "Type an item, like garlic or rice." else "No matches", style = Theme.body, color = Theme.muted,
+                if (query.isEmpty()) "Type an item, like garlic or rice." else if (matches.isEmpty()) "No matches" else "", style = Theme.body, color = Theme.muted,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
+    }
+    if (confirmingCancel) {
+        val n = picked.size
+        AlertDialog(
+            onDismissRequest = { confirmingCancel = false }, containerColor = Theme.surface,
+            title = { Text("Add the $n ${if (n == 1) "item" else "items"} you picked?", style = Theme.title, color = Theme.ink) },
+            confirmButton = {
+                TextButton(onClick = { confirmingCancel = false; save() }) { Text("Add $n", style = Theme.action, color = Theme.accent) }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = { confirmingCancel = false; onPicked(emptyList()); dismiss() }) { Text("Discard", style = Theme.body, color = Theme.destructive) }
+                    TextButton(onClick = { confirmingCancel = false }) { Text("Keep editing", style = Theme.body, color = Theme.accent) }
+                }
+            },
+        )
     }
 }
 
