@@ -40,6 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.Explore
@@ -50,6 +51,8 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -173,6 +176,8 @@ fun FiltersView() {
     var loaded by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var otherAllergenOpen by remember { mutableStateOf(false) }
+    var resetMenu by remember { mutableStateOf(false) }
+    var confirmingReset by remember { mutableStateOf(false) }
     var saveCount by remember { mutableIntStateOf(0) }
     var saveJob by remember { mutableStateOf<Job?>(null) }
     val o = FilterOptions
@@ -243,7 +248,22 @@ fun FiltersView() {
     }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        NavBar("Filters", actions = { LinkButton("Reset") { reset() } })
+        // Reset used to sit right in the corner and cleared everything on one tap. It now lives
+        // behind ⋯ and asks first.
+        NavBar("Filters", actions = {
+            Box {
+                IconAction(Icons.Filled.MoreHoriz, "More filter options") { resetMenu = true }
+                DropdownMenu(resetMenu, { resetMenu = false }, containerColor = Theme.surface) {
+                    DropdownMenuItem({ Text("Reset all filters", style = Theme.body, color = Theme.destructive) }, { resetMenu = false; confirmingReset = true })
+                }
+            }
+        })
+        if (confirmingReset) {
+            ConfirmDialog(
+                "Reset all filters?", "Reset all filters", onConfirm = { reset() }, onDismiss = { confirmingReset = false },
+                message = "Diet, allergies, and preferences go back to the defaults.",
+            )
+        }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
             error?.let { ErrorBanner(it) }
             // Hides meals

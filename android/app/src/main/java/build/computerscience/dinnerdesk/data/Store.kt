@@ -684,6 +684,14 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         fail(e); false
     }
 
+    /**
+     * "Report a problem with this item" on a grocery line: why, and the user's note. Throws so the
+     * report sheet can show the error itself; `error` only shows on the list behind it.
+     */
+    suspend fun reportGroceryLine(lineId: Int, reason: String, note: String) {
+        Api.send<Ok>("grocery/lines/$lineId/report", "POST", mapOf("reason" to reason, "note" to note))
+    }
+
     /** "Report this suggestion": the user's note, saved with why the plan was suggested. */
     suspend fun reportProposal(note: String): Boolean {
         val current = proposal ?: return false

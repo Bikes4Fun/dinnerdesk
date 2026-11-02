@@ -54,6 +54,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Switch
@@ -69,6 +70,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -628,25 +630,37 @@ fun SwipeToDelete(key: Any, enabled: Boolean = true, onDelete: () -> Unit, conte
 
 @OptIn(ExperimentalMaterial3Api::class)
 class SheetController(val state: SheetState, private val launch: (suspend () -> Unit) -> Unit, private val onDismiss: () -> Unit) {
-    fun dismiss() = launch { state.hide(); onDismiss() }
+    /** Set while the sheet closes itself (Cancel, Save), so `blockDismiss` only stops swipes and taps outside. */
+    var closing = false
+    fun dismiss() = launch { closing = true; state.hide(); onDismiss() }
 }
 
 /**
  * A sheet that slides up over the screen (SwiftUI `.sheet`). `LocalDismiss` inside closes it.
  * Pass `nav` content with NavStack for sheets that push their own screens.
+ * `blockDismiss` refuses a swipe down, back, or a tap outside (SwiftUI `.interactiveDismissDisabled`).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Sheet(onDismiss: () -> Unit, full: Boolean = true, background: Color = Theme.bg, content: @Composable ColumnScope.() -> Unit) {
-    val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+fun Sheet(
+    onDismiss: () -> Unit, full: Boolean = true, background: Color = Theme.bg, blockDismiss: Boolean = false,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val block by rememberUpdatedState(blockDismiss)
+    var controller: SheetController? = null
+    val state = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || !block || controller?.closing == true },
+    )
     val scope = rememberCoroutineScope()
-    val controller = remember(state) { SheetController(state, { block -> scope.launch { block() } }, onDismiss) }
+    controller = remember(state) { SheetController(state, { block -> scope.launch { block() } }, onDismiss) }
+    val sheet = controller
     ModalBottomSheet(
-        onDismissRequest = onDismiss, sheetState = state, containerColor = background,
+        onDismissRequest = { if (!block || sheet.closing) onDismiss() }, sheetState = state, containerColor = background,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         dragHandle = { Box(Modifier.padding(top = 6.dp, bottom = 2.dp).size(width = 36.dp, height = 5.dp).clip(CircleShape).background(Theme.muted.copy(alpha = 0.35f))) },
     ) {
-        CompositionLocalProvider(LocalDismiss provides { controller.dismiss() }) {
+        CompositionLocalProvider(LocalDismiss provides { sheet.dismiss() }) {
             Column(
                 (if (full) Modifier.fillMaxHeight() else Modifier).fillMaxWidth().imePadding().navigationBarsPadding(),
                 content = content,
