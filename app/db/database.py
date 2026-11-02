@@ -23,6 +23,7 @@ _ID_TABLES = {
     "households",
     "plan_reports",
     "recipe_reports",
+    "ingredient_reports",
     "feedback",
     "ingredients",
     "recipes",

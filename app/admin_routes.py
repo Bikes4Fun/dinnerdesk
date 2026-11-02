@@ -156,6 +156,7 @@ INBOX_STATUSES = ("new", "planned", "done", "declined")
 INBOX_SOURCES = {
     "feedback": ("feedback", "id = ?"),
     "recipe": ("recipe_reports", "id = ?"),
+    "ingredient": ("ingredient_reports", "id = ?"),
     "plan": ("plan_reports", "id = ?"),
     "prep": ("prep_step_feedback", "household_id = ? AND recipe_id = ? AND step_key = ?"),
 }
@@ -171,6 +172,7 @@ def _inbox_new(db: PgConnection) -> int:
     return db.execute(f"""SELECT
         (SELECT COUNT(*) FROM feedback WHERE status = 'new') + (SELECT COUNT(*) FROM recipe_reports WHERE status = 'new') +
         (SELECT COUNT(*) FROM plan_reports WHERE status = 'new') +
+        (SELECT COUNT(*) FROM ingredient_reports WHERE status = 'new') +
         (SELECT COUNT(*) FROM prep_step_feedback WHERE status = 'new' AND {PREP_ISSUE}) AS n""").fetchone()["n"]
 
 
@@ -203,6 +205,13 @@ def _inbox(db: PgConnection) -> dict:
                              {_has_account_sql("p")} AS has_account
                       FROM recipe_reports p LEFT JOIN households h ON h.id = p.household_id
                       LEFT JOIN recipes rc ON rc.id = p.recipe_id""")]
+    items += [{"source": "ingredient", "id": r["id"], "kind": "ingredient", "status": r["status"], "admin_note": r["admin_note"],
+               "planned_issue": r["planned_issue"], "created_at": r["created_at"], "note": r["note"], **who(r),
+               "reason": r["reason"], "item_name": r["item_name"], "ingredient_id": r["ingredient_id"],
+               "snapshot": json.loads(r["snapshot_json"] or "{}")}
+              for r in db.execute(
+                  f"""SELECT p.*, h.name AS household_name, NULL AS email, {_has_account_sql("p")} AS has_account
+                      FROM ingredient_reports p LEFT JOIN households h ON h.id = p.household_id""")]
     items += [{"source": "plan", "id": r["id"], "kind": "plan", "status": r["status"], "admin_note": r["admin_note"], "planned_issue": r["planned_issue"],
                "created_at": r["created_at"], "note": r["note"], **who(r), "plan_id": r["plan_id"],
                "snapshot": json.loads(r["snapshot_json"] or "{}")}
@@ -228,7 +237,7 @@ def _inbox(db: PgConnection) -> dict:
         logins[r["id"]] = r["email"]
     for item in items:
         snap = item.get("snapshot") or {}
-        if item["source"] in ("recipe", "plan"):
+        if item["source"] in ("recipe", "plan", "ingredient"):
             item.update(user_id=snap.get("user_id"), device=snap.get("device", ""), settings=snap.get("settings"))
         item["email"] = logins.get(item.get("user_id")) or item["email"]
         item["household_accounts"] = accounts.get(item["household_id"], [])

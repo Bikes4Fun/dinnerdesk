@@ -347,6 +347,12 @@ struct GroceryItemView: View {
   /// After a substitution the list is rebuilt and the item comes back as a new line.
   /// This follows it so the screen stays open for more changes.
   @State private var followId: Int?
+  @State private var reporting = false
+  @State private var reportReason: IngredientReportReason?
+  @State private var reportNote = ""
+  @State private var reportSending = false
+  /// Line ids reported this visit, so the row says "Reported" instead of inviting a second one.
+  @State private var reportedIds: Set<Int> = []
 
   private var line: GroceryLine? {
     let id = followId ?? lineId
@@ -486,6 +492,8 @@ struct GroceryItemView: View {
                 }
                 .tint(Theme.accent)
                 .frame(minHeight: 44)
+                hairline
+                reportRow(line)
               }
             }
             .padding(16)
@@ -501,6 +509,7 @@ struct GroceryItemView: View {
         .sheet(isPresented: $editing) {
           EditGrocerySheet(line: line)
         }
+        .sheet(isPresented: $reporting) { reportSheet(line) }
       } else {
         ContentUnavailableView("Item gone", systemImage: "cart")
       }
@@ -509,6 +518,82 @@ struct GroceryItemView: View {
 
   private var hairline: some View {
     Rectangle().fill(Theme.line).frame(height: 1)
+  }
+
+  @ViewBuilder
+  private func reportRow(_ line: GroceryLine) -> some View {
+    if reportedIds.contains(line.id) {
+      Label("Reported. Thanks", systemImage: "checkmark")
+        .font(Theme.rowTitle).foregroundStyle(Theme.muted)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+    } else {
+      Button {
+        reportReason = nil
+        reportNote = ""
+        reporting = true
+      } label: {
+        Label("Report a problem with this item", systemImage: "flag")
+          .font(Theme.rowTitle).foregroundStyle(Theme.ink)
+          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+    }
+  }
+
+  /// Why the item is wrong, in the user's words. The server keeps it with the line as they saw it.
+  private func reportSheet(_ line: GroceryLine) -> some View {
+    NavigationStack {
+      ScrollView {
+        VStack(alignment: .leading, spacing: 12) {
+          Text("What's wrong?").font(Theme.action).foregroundStyle(Theme.ink)
+          ForEach(IngredientReportReason.allCases) { reason in
+            Button { reportReason = reason } label: {
+              HStack(spacing: 10) {
+                Image(systemName: reportReason == reason ? "largecircle.fill.circle" : "circle")
+                  .foregroundStyle(reportReason == reason ? Theme.accent : Theme.muted)
+                Text(reason.label).font(Theme.body).foregroundStyle(Theme.ink)
+                Spacer()
+              }
+              .frame(minHeight: 44)
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityAddTraits(reportReason == reason ? .isSelected : [])
+          }
+          Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
+          TextField("e.g. Feta should be in Dairy, not Deli", text: $reportNote, axis: .vertical)
+            .font(Theme.subtitle)
+            .lineLimit(3...8)
+            .padding(12)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+          Button {
+            guard let reason = reportReason else { return }
+            reportSending = true
+            let id = line.id
+            Task {
+              let sent = await store.reportGroceryLine(id, reason: reason.rawValue,
+                                                       note: reportNote.trimmingCharacters(in: .whitespacesAndNewlines))
+              reportSending = false
+              if sent { reportedIds.insert(id); reporting = false }
+            }
+          } label: {
+            Text(reportSending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+              .frame(maxWidth: .infinity, minHeight: 50)
+              .background(reportReason == nil ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+          }
+          .buttonStyle(.plain)
+          .disabled(reportReason == nil || reportSending)
+        }
+        .padding()
+      }
+      .background(Theme.bg)
+      .navigationTitle("Report a problem").navigationBarTitleDisplayMode(.inline)
+      .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { reporting = false } } }
+      // A stray swipe shouldn't throw away a half-written report.
+      .interactiveDismissDisabled(reportReason != nil || !reportNote.isEmpty)
+    }
   }
 
   private func mealLabel(_ meal: UsedMeal) -> some View {

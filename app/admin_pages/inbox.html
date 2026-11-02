@@ -134,8 +134,8 @@ function ago(s) {
 }
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-const KINDS = [["all", "All"], ["bug", "Bugs"], ["idea", "Ideas"], ["recipe", "Recipe reports"], ["plan", "Plan reports"], ["prep", "Prep"]];
-const KIND_LABEL = { bug: "Bug", idea: "Idea", recipe: "Recipe report", plan: "Plan report", prep: "Prep step" };
+const KINDS = [["all", "All"], ["bug", "Bugs"], ["idea", "Ideas"], ["recipe", "Recipe reports"], ["ingredient", "Ingredient reports"], ["plan", "Plan reports"], ["prep", "Prep"]];
+const KIND_LABEL = { bug: "Bug", idea: "Idea", recipe: "Recipe report", ingredient: "Ingredient report", plan: "Plan report", prep: "Prep step" };
 const STATUSES = [["new", "New"], ["planned", "Planned"], ["done", "Done"], ["declined", "Declined"]];
 const STATUS_LABEL = Object.fromEntries(STATUSES);
 const STATES = [["open", "Open", i => i.status === "new" || i.status === "planned"], ["new", "New", i => i.status === "new"],
@@ -144,6 +144,9 @@ const STATES = [["open", "Open", i => i.status === "new" || i.status === "planne
 const REASONS = { ingredients: "Ingredients are wrong or missing", steps: "Steps are wrong or confusing",
   diet: "Shows up despite my diet or allergies", photo: "Photo doesn't match", duplicate: "Duplicate of another recipe",
   turned_out: "Didn't turn out well", other: "Something else" };
+// Same wording the app shows (web/src/pages/Grocery.jsx INGREDIENT_REPORT_REASONS).
+const ITEM_REASONS = { name: "Wrong name or spelling", aisle: "In the wrong aisle", amount: "Amount or unit is wrong",
+  photo: "Photo doesn't match", duplicate: "Listed twice / should be combined", other: "Something else" };
 
 const key = i => `${i.source}/${i.id}`;
 const state = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
@@ -154,6 +157,7 @@ let kind = state.k || "all", which = state.s || "open", selected = state.i || nu
 const from = i => i.email || `${i.household_name || "household"} (h${i.household_id})${i.guest ? " · guest" : ""}`;
 function title(i) {
   if (i.kind === "recipe") return `${i.recipe_name || `Recipe ${i.recipe_id}`}: ${REASONS[i.reason] || i.reason}`;
+  if (i.kind === "ingredient") return `${i.item_name || "Grocery item"}: ${ITEM_REASONS[i.reason] || i.reason}`;
   if (i.kind === "plan") return `Plan #${i.plan_id ?? "deleted"}`;
   if (i.kind === "prep") return `${i.recipe_name}: ${i.missing ? "missing prep step" : i.reason || "👎 not helpful"}`;
   return i.note.split("\n")[0].slice(0, 80);
@@ -218,6 +222,17 @@ function recipeBody(i) {
     <div class="block"><h3>Their filters when they reported it</h3>${check}${seen}</div>`;
 }
 
+function ingredientBody(i) {
+  const l = i.snapshot?.line || {};
+  const row = (k, v) => v === undefined || v === null || v === "" ? "" : `<dt>${k}</dt><dd>${esc(v)}</dd>`;
+  return `<div class="block"><dl><dt>Item</dt><dd>${esc(i.item_name || "unnamed")}</dd>
+      <dt>Reason</dt><dd>${esc(ITEM_REASONS[i.reason] || i.reason)}</dd>
+      ${row("Catalog ingredient", l.ingredient_name ? `${l.ingredient_name} (#${l.ingredient_id})` : "none (typed by them)")}</dl></div>
+    <div class="block"><h3>The grocery line as they saw it</h3><dl>
+      ${row("Amount", [l.quantity, l.unit].filter(Boolean).join(" "))}${row("Aisle", l.aisle)}${row("Store", l.store)}
+      ${row("Their name for it", l.custom_text)}${row("In pantry", l.from_pantry ? "yes" : "")}${row("Always check off", l.never_shop ? "yes" : "")}</dl></div>`;
+}
+
 function planBody(i) {
   const plan = i.snapshot?.plan || {}, ctx = plan.context, now = i.snapshot?.filters_when_reported || {};
   const decision = plan.decision ? (plan.decision === "approve" ? "approved" : "declined") : plan.status;
@@ -278,7 +293,7 @@ function sender(i) {
 }
 
 function detail(i) {
-  const body = { bug: feedbackBody, idea: feedbackBody, recipe: recipeBody, plan: planBody, prep: prepBody }[i.kind](i);
+  const body = { bug: feedbackBody, idea: feedbackBody, recipe: recipeBody, ingredient: ingredientBody, plan: planBody, prep: prepBody }[i.kind](i);
   const words = i.note;
   return `<div class="d-head"><div style="min-width:0"><h2>${esc(title(i))}</h2>
       <p class="muted">${KIND_LABEL[i.kind]} · ${esc(from(i))} · ${stamp(i.created_at)}</p></div>

@@ -220,6 +220,16 @@ class FeedbackStatusPut(BaseModel):
     status: str = Field(pattern="^(new|planned|done|declined)$")
 
 
+# Why a grocery item is wrong. Same ids in web/src/pages/Grocery.jsx and ios IngredientReportReason.
+INGREDIENT_REPORT_REASONS = ("name", "aisle", "amount", "photo", "duplicate", "other")
+
+
+class IngredientReportCreate(BaseModel):
+    """A cook reporting a problem with a grocery item, with a reason and their own words."""
+    reason: str = Field(pattern="^(" + "|".join(INGREDIENT_REPORT_REASONS) + ")$")
+    note: str = Field(default="", max_length=1000)
+
+
 class PlanReportCreate(BaseModel):
     """A cook reporting a bad meal plan suggestion, in their own words."""
     note: str = Field(default="", max_length=1000)
