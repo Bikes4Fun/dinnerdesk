@@ -255,7 +255,7 @@ export function App() {
   useEffect(() => {
     if (householdId === undefined) return;
     if (loadedHousehold.current !== undefined && loadedHousehold.current !== householdId) {
-      week?.load().catch(() => {});
+      week?.load().catch((e) => week.toast(e.message));
     }
     loadedHousehold.current = householdId;
   }, [householdId]);
@@ -265,7 +265,8 @@ export function App() {
     api.grocery(week.plan.id)
       .then((data) => setGroceryCount(data.lines.filter((l) => !l.checked && !l.never_shop).length))
       // Only the sidebar badge depends on this; a miss shouldn't stop the whole app.
-      .catch(() => setGroceryCount(0));
+      // Keep the last known count rather than claiming nothing is left.
+      .catch(() => {});
   }, [authStatus, page, week?.plan]);
 
   function refreshAuth() {

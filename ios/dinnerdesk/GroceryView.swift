@@ -351,6 +351,7 @@ struct GroceryItemView: View {
   @State private var reportReason: IngredientReportReason?
   @State private var reportNote = ""
   @State private var reportSending = false
+  @State private var reportError: String?
   /// Line ids reported this visit, so the row says "Reported" instead of inviting a second one.
   @State private var reportedIds: Set<Int> = []
 
@@ -530,6 +531,7 @@ struct GroceryItemView: View {
       Button {
         reportReason = nil
         reportNote = ""
+        reportError = nil
         reporting = true
       } label: {
         Label("Report a problem with this item", systemImage: "flag")
@@ -568,15 +570,28 @@ struct GroceryItemView: View {
             .padding(12)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
+            // The server caps the note at 1000 characters (code points, hence unicodeScalars).
+            .onChange(of: reportNote) { _, note in
+              if note.unicodeScalars.count > 1000 {
+                reportNote = String(String.UnicodeScalarView(note.unicodeScalars.prefix(1000)))
+              }
+            }
+          if let reportError { ErrorBanner(message: reportError) }
           Button {
             guard let reason = reportReason else { return }
             reportSending = true
+            reportError = nil
             let id = line.id
             Task {
-              let sent = await store.reportGroceryLine(id, reason: reason.rawValue,
-                                                       note: reportNote.trimmingCharacters(in: .whitespacesAndNewlines))
+              do {
+                try await store.reportGroceryLine(id, reason: reason.rawValue,
+                                                  note: reportNote.trimmingCharacters(in: .whitespacesAndNewlines))
+                reportedIds.insert(id)
+                reporting = false
+              } catch {
+                if !API.isCancellation(error) { reportError = error.localizedDescription }
+              }
               reportSending = false
-              if sent { reportedIds.insert(id); reporting = false }
             }
           } label: {
             Text(reportSending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)

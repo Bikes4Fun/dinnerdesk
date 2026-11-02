@@ -947,14 +947,9 @@ extension Store {
   }
 
   /// "Report a problem with this item" on a grocery line: why, and the user's note. True when sent.
-  func reportGroceryLine(_ lineId: Int, reason: String, note: String) async -> Bool {
-    do {
-      let _: Ok = try await API.send("grocery/lines/\(lineId)/report", method: "POST", body: ["reason": reason, "note": note])
-      return true
-    } catch {
-      fail(error)
-      return false
-    }
+  /// Throws so the report sheet can show the error itself; `store.error` only shows on the list behind it.
+  func reportGroceryLine(_ lineId: Int, reason: String, note: String) async throws {
+    let _: Ok = try await API.send("grocery/lines/\(lineId)/report", method: "POST", body: ["reason": reason, "note": note])
   }
 
   /// "Report this suggestion": the user's note, saved with why the plan was suggested. True when sent.
