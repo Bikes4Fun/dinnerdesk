@@ -579,14 +579,6 @@ struct TasteLabView: View {
       .navigationBarTitleDisplayMode(.inline)
       .navigationBarBackButtonHidden(inLab)
       .toolbar {
-        if case .plan = lab.screen {
-          ToolbarItem(placement: .topBarTrailing) {
-            Text("Plan \(min(lab.round + 1, TasteLab.planRounds)) of \(TasteLab.planRounds)")
-              .font(Theme.count)
-              .foregroundStyle(Theme.muted)
-              .fixedSize()
-          }
-        }
         if inLab {
           ToolbarItem(placement: .topBarLeading) {
             Button {
@@ -734,15 +726,18 @@ struct TasteLabView: View {
 
   private var planView: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 12) {
+      VStack(alignment: .leading, spacing: 14) {
+        Text("Plan \(min(lab.round + 1, TasteLab.planRounds)) of \(TasteLab.planRounds)")
+          .font(Theme.count).foregroundStyle(Theme.muted)
+          .frame(maxWidth: .infinity, alignment: .trailing)
         if lab.swapFrom == nil { banner }
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
           ForEach(lab.plan) { r in
             Button { lab.openSwap(r.id) } label: { PlanMealCard(recipe: r) }
               .buttonStyle(.plain)
               .accessibilityLabel("Swap \(r.name)")
               .overlay(alignment: .topLeading) {
-                SaveForLater(recipeID: r.recipeId, name: r.name, small: true).padding(8)
+                SaveForLater(recipeID: r.recipeId, name: r.name, small: true).padding(14)
               }
           }
         }
@@ -757,8 +752,7 @@ struct TasteLabView: View {
           .foregroundStyle(Theme.muted)
           .frame(maxWidth: .infinity)
       }
-      .padding(.horizontal, 20)
-      .padding(.vertical, 12)
+      .padding(20)
     }
   }
 
@@ -1097,17 +1091,15 @@ private struct PlanMealCard: View {
   let recipe: LabRecipe
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 6) {
-      FillPhoto(path: recipe.photo, name: recipe.name)
-        .aspectRatio(4 / 3, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    VStack(alignment: .leading, spacing: 8) {
+      RecipePhoto(path: recipe.photo, fill: true)
         .overlay(alignment: .topTrailing) {
           Image(systemName: "arrow.left.arrow.right")
             .font(.system(size: 13, weight: .bold))
             .foregroundStyle(Theme.ink)
             .padding(7)
             .background(Theme.surface.opacity(0.92), in: Circle())
-            .padding(6)
+            .padding(8)
             .accessibilityHidden(true)
         }
       Text(recipe.name)
@@ -1119,7 +1111,7 @@ private struct PlanMealCard: View {
         Text("\(mins) min").font(Theme.recipeCardServing).foregroundStyle(Theme.muted)
       }
     }
-    .padding(8)
+    .padding(10)
     .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.line))
   }
