@@ -251,7 +251,8 @@ line. The Grocery tab badge counts items still to buy.
 - **Must:** each item can be given a store and an aisle, and the choice is remembered. Aisles can
   be renamed, numbered, and reordered. The list can be filtered by store.
 - **Must:** completed items can be shown or hidden from the bottom of the list. "You'll use
-  this in…" lists only meals on the current plan. Using a substitute keeps the item page open.
+  this in…" lists only meals on the current plan. **Save substitution** applies the chosen
+  replacement and keeps the item page open. My kitchen uses the same save action.
 - **Must:** share, email, or print what's left to buy, grouped by aisle, for the selected store.
 - **Bug if:** a rebuild duplicates lines or drops amounts; black pepper is filed as produce.
 
