@@ -461,6 +461,32 @@ def test_username_account_signs_up_and_logs_in_without_email(tmp_path, monkeypat
             assert client.post("/api/auth/forgot-password", json={"email": name}).json() == {"ok": True}
 
 
+def test_signup_rejects_an_address_that_is_not_an_email(tmp_path, monkeypatch):
+    monkeypatch.setenv("RESEND_API_KEY", "re_test")
+    monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
+    monkeypatch.setenv("PUBLIC_URL", "https://example.com")
+    monkeypatch.setattr("app.auth_routes.send_verify_email", lambda *_: None)
+    password = "correct horse battery staple"
+    with _client(tmp_path) as client:
+        for bad in (
+            "not-an-email@", "@example.com", "a@b", "user@", "user @example.com",
+            "user@@example.com", ".user@example.com", "user.@example.com",
+            "user..name@example.com", "user@-example.com", "user@.com",
+        ):
+            res = client.post("/api/auth/signup", json={"email": bad, "password": password, "household_name": "x"})
+            assert res.status_code == 400, bad
+            assert res.json()["detail"] == "invalid_email", bad
+            assert res.json()["message"] == "Enter a valid email address."
+
+        ok = client.post("/api/auth/signup", json={
+            "email": " First.Last+Tag@Example.co.uk ", "password": password, "household_name": "Ours"})
+        assert ok.status_code == 200
+        assert client.get("/api/auth/me").json()["email"] == "first.last+tag@example.co.uk"
+        res = client.post("/api/auth/verify-email", json={"email": "a@b", "password": password})
+        assert res.json()["detail"] == "invalid_email"
+        assert res.json()["message"] == "Enter a valid email address."
+
+
 def test_unverified_signup_can_confirm_change_and_remove_email(tmp_path, monkeypatch):
     monkeypatch.setenv("RESEND_API_KEY", "re_test")
     monkeypatch.setenv("MAIL_FROM", "Dinnerdesk <hello@example.com>")
@@ -627,7 +653,9 @@ def test_admin_manages_sign_in(tmp_path):
 
         # Login name: to a username, recovery email, then back to an email.
         assert admin.post(f"/admin/users/{uid}/login", json={"login": "admin@example.test"}).json()["detail"] == "email_taken"
+        assert admin.post(f"/admin/users/{uid}/login", json={"login": "not-an-email@"}).json()["detail"] == "invalid_email"
         assert admin.post(f"/admin/users/{uid}/login", json={"login": "cookname"}).status_code == 200
+        assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "a@b"}).json()["detail"] == "invalid_email"
         assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "back@example.com"}).status_code == 200
         with connect() as db:
             row = db.execute("SELECT email, recovery_email FROM users WHERE id = ?", (uid,)).fetchone()
