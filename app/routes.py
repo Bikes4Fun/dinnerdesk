@@ -54,6 +54,7 @@ from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
     PrepMissingPut,
+    IngredientReportCreate,
     PlanReportCreate,
     RecipeReportCreate,
     FeedbackCreate,
@@ -2283,6 +2284,7 @@ _EXPORT_TABLES = [
     ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
     ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
     ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
+    ("ingredient_reports", "ingredient_reports"),
     ("feedback", "feedback"),
 ]
 # admin_note is the admin's own triage note in the Inbox, not the household's data.
@@ -2502,6 +2504,31 @@ def report_recipe(recipe_id: int, body: RecipeReportCreate, request: Request, db
         cur = db.execute(
             "INSERT INTO recipe_reports (household_id, recipe_id, reason, note, snapshot_json, created_at) VALUES (?, ?, ?, ?, ?, ?)",
             (household_id, recipe_id, body.reason, body.note.strip(), json.dumps(snapshot), now()),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
+@router.post("/grocery/lines/{line_id}/report")
+def report_grocery_line(line_id: int, body: IngredientReportCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a problem with a grocery item (wrong name, aisle, amount, photo...). Saves the line
+    as this household sees it now, with the catalog ingredient behind it, so it can be fixed there."""
+    row = db.execute(
+        """SELECT g.*, i.canonical_name AS ingredient_name FROM grocery_lines g
+           JOIN plans p ON p.id = g.plan_id LEFT JOIN ingredients i ON i.id = g.ingredient_id
+           WHERE g.id = ? AND p.household_id = ?""",
+        (line_id, household_id),
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, {"error": "not_found", "detail": "line"})
+    line = dict(row)
+    name = (line.get("custom_text") or line.get("ingredient_name") or "").strip()
+    snapshot = {"line": line, **_sender(request, db, household_id)}
+    with transaction(db):
+        cur = db.execute(
+            """INSERT INTO ingredient_reports (household_id, ingredient_id, item_name, reason, note, snapshot_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (household_id, line.get("ingredient_id"), name, body.reason, body.note.strip(),
+             json.dumps(snapshot, default=str), now()),
         )
     return {"ok": True, "id": int(cur.lastrowid)}
 

@@ -477,6 +477,62 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
   );
 }
 
+// Why a grocery item is wrong. Same ids as app/models.py INGREDIENT_REPORT_REASONS and the iOS app.
+const INGREDIENT_REPORT_REASONS = [
+  ["name", "Wrong name or spelling"],
+  ["aisle", "In the wrong aisle"],
+  ["amount", "Amount or unit is wrong"],
+  ["photo", "Photo doesn't match"],
+  ["duplicate", "Listed twice / should be combined"],
+  ["other", "Something else"],
+];
+
+/** "Report a problem with this item": a reason and a note, saved with the line as they saw it. */
+function ItemReport({ item }) {
+  const [report, setReport] = useState(null); // null closed, { reason, note } while writing
+  const [sentId, setSentId] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => { setReport(null); setErr(""); }, [item.id]);
+
+  if (sentId === item.id) return <p className="muted recipe-report-done" role="status">Reported. Thanks, we'll take a look.</p>;
+  if (report === null) {
+    return <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>Report a problem with this item</button>;
+  }
+  return (
+    <form className="recipe-report-form" onSubmit={(e) => {
+      e.preventDefault();
+      if (!report.reason) return;
+      setBusy(true);
+      setErr("");
+      api.reportGroceryLine(item.id, report.reason, report.note.trim())
+        .then(() => { setSentId(item.id); setReport(null); })
+        .catch((error) => setErr(error.message))
+        .finally(() => setBusy(false));
+    }}>
+      {err && <p className="banner err">{err}</p>}
+      <fieldset>
+        <legend>What's wrong?</legend>
+        {INGREDIENT_REPORT_REASONS.map(([key, label]) => (
+          <label key={key} className="recipe-report-reason">
+            <input type="radio" name="item-report-reason" value={key} checked={report.reason === key}
+              onChange={() => setReport({ ...report, reason: key })} />
+            {label}
+          </label>
+        ))}
+      </fieldset>
+      <label htmlFor="item-report-note">Anything to add? (optional)</label>
+      <textarea id="item-report-note" className="field" rows={3} maxLength={1000} value={report.note}
+        placeholder="e.g. Feta should be in Dairy, not Deli"
+        onChange={(e) => setReport({ ...report, note: e.target.value })} />
+      <div className="recipe-report-actions">
+        <button type="submit" className="btn-primary" disabled={busy || !report.reason}>{busy ? "Sending…" : "Send report"}</button>
+        <button type="button" className="btn-secondary" disabled={busy} onClick={() => setReport(null)}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
 function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubstitute }) {
   const [name, setName] = useState(item.name);
   const [substitute, setSubstitute] = useState("");
@@ -537,6 +593,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         <label className="toggle-row">Aisle <select className="field" value={item.aisle} onChange={(e) => onPatch({ aisle: e.target.value })}>{aisles.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
         <label className="toggle-row">In my pantry <input type="checkbox" checked={item.from_pantry} onChange={(e) => onFlags({ have: e.target.checked })} /></label>
         <label className="toggle-row">Always check off <input type="checkbox" checked={item.never_shop} onChange={(e) => onFlags({ never_shop: e.target.checked })} /></label>
+        <ItemReport item={item} />
         </div>
       </div>
     </section>
