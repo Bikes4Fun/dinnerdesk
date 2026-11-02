@@ -2513,7 +2513,7 @@ def report_grocery_line(line_id: int, body: IngredientReportCreate, request: Req
     """Report a problem with a grocery item (wrong name, aisle, amount, photo...). Saves the line
     as this household sees it now, with the catalog ingredient behind it, so it can be fixed there."""
     row = db.execute(
-        """SELECT g.*, i.name AS ingredient_name FROM grocery_lines g
+        """SELECT g.*, i.canonical_name AS ingredient_name FROM grocery_lines g
            JOIN plans p ON p.id = g.plan_id LEFT JOIN ingredients i ON i.id = g.ingredient_id
            WHERE g.id = ? AND p.household_id = ?""",
         (line_id, household_id),
