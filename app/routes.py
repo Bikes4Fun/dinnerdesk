@@ -2661,9 +2661,33 @@ def set_feedback_status(feedback_id: int, body: FeedbackStatusPut, _admin=AdminD
     return {"ok": True}
 
 
+def _attach_catalog_recipe_ids(db: PgConnection, groups: list) -> None:
+    rows = db.execute(
+        "SELECT id, name FROM recipes WHERE household_id IS NULL"
+    ).fetchall()
+    by_name = {}
+    for row in rows:
+        key = (row["name"] or "").strip().lower()
+        if key and key not in by_name:
+            by_name[key] = int(row["id"])
+
+    def stamp(recipe: dict) -> None:
+        recipe_id = by_name.get((recipe.get("name") or "").strip().lower())
+        if recipe_id:
+            recipe["recipe_id"] = recipe_id
+
+    for group in groups:
+        for recipe in group.get("recipes") or []:
+            stamp(recipe)
+        for name in group.get("names") or []:
+            for recipe in name.get("recipes") or []:
+                stamp(recipe)
+
+
 @router.get("/dev/ingredient-review")
-def get_ingredient_review(_admin=AdminDep):
+def get_ingredient_review(db: PgConnection = DbDep, _admin=AdminDep):
     groups = review_groups(ROOT)
+    _attach_catalog_recipe_ids(db, groups)
     return {
         "groups": groups,
         "counts": {
