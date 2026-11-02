@@ -234,7 +234,7 @@ struct AlwaysCheckedView: View {
 }
 
 /// Search the grocery catalog and pick several items (or keep what you typed), then Add saves
-/// them all at once; Cancel drops the picks. Same search-and-chips field as Filters' allergies
+/// them all at once; Cancel asks before dropping any picks. Same search-and-chips field as Filters' allergies
 /// and dislikes. The field is focused on open, Return adds the first match, Escape cancels.
 struct KitchenItemPicker: View {
   let title: String
@@ -243,6 +243,7 @@ struct KitchenItemPicker: View {
   @Environment(\.dismiss) private var dismiss
   @State private var picked: [String] = []
   @State private var saving = false
+  @State private var confirmingCancel = false
 
   init(title: String, onPick: @escaping @MainActor ([String]) async -> Void) {
     self.title = title
@@ -276,7 +277,20 @@ struct KitchenItemPicker: View {
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
-          Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+          // With picks waiting, Cancel asks first: it sits where a thumb lands and the picks
+          // aren't saved until Add.
+          Button("Cancel") {
+            if picked.isEmpty { dismiss() } else { confirmingCancel = true }
+          }
+          .keyboardShortcut(.cancelAction)
+          .confirmationDialog(
+            "Add the \(picked.count) \(picked.count == 1 ? "item" : "items") you picked?",
+            isPresented: $confirmingCancel, titleVisibility: .visible
+          ) {
+            Button("Add \(picked.count)") { save() }
+            Button("Discard", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+          }
         }
         ToolbarItem(placement: .confirmationAction) {
           Button(picked.isEmpty ? "Add" : "Add \(picked.count)") { save() }

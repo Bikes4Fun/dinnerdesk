@@ -199,7 +199,7 @@ export function Plan() {
       </div>}
       {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
       {groups.map((day) => <section key={day}>
-        {(() => { const n = plan.slots.filter((s) => groupOf(s) === day).length; return <h2 className="section-label">{day === COOKED ? "Cooked" : day >= 0 ? dayLabel(plan, day) : "Not scheduled"} · {n} {n === 1 ? "meal" : "meals"}</h2>; })()}
+        {!(day === COOKED && groups.length === 1) && (() => { const n = plan.slots.filter((s) => groupOf(s) === day).length; return <h2 className="section-label">{day === COOKED ? "Cooked" : day >= 0 ? dayLabel(plan, day) : "Not scheduled"} · {n} {n === 1 ? "meal" : "meals"}</h2>; })()}
         <div className={grid ? "plan-meal-grid" : "plan-meal-list"}>
           {plan.slots.filter((s) => groupOf(s) === day).sort((a, b) => a.id - b.id).map((slot) => <article key={slot.id} className={`plan-meal${grid ? " grid" : ""}${editing ? " editing" : ""}${slot.cooked ? " is-cooked" : ""}`}>
             {editing && <label className="meal-select"><input aria-label={`Select ${slot.recipe_name}`} type="checkbox" checked={selected.has(slot.id)} onChange={() => toggleSelection(slot.id)} /></label>}
