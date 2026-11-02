@@ -313,6 +313,22 @@ enum RecipeReportReason: String, CaseIterable, Identifiable, Sendable {
   }
 }
 
+/// Why a grocery item is wrong. Ids match app/models.py INGREDIENT_REPORT_REASONS.
+enum IngredientReportReason: String, CaseIterable, Identifiable, Sendable {
+  case name, aisle, amount, photo, duplicate, other
+  var id: String { rawValue }
+  var label: String {
+    switch self {
+    case .name: return "Wrong name or spelling"
+    case .aisle: return "In the wrong aisle"
+    case .amount: return "Amount or unit is wrong"
+    case .photo: return "Photo doesn't match"
+    case .duplicate: return "Listed twice / should be combined"
+    case .other: return "Something else"
+    }
+  }
+}
+
 /// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.
 enum PrepReason: String, CaseIterable, Identifiable, Sendable {
   case dayOf = "day_of", keptBadly = "kept_badly", tooSmall = "too_small"

@@ -130,6 +130,7 @@ export const api = {
   feedbackList: () => req("/api/dev/feedback"),
   setFeedbackStatus: (id, status) => req(`/api/dev/feedback/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
   reportRecipe: (id, reason, note) => req(`/api/recipes/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
+  reportGroceryLine: (id, reason, note) => req(`/api/grocery/lines/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
   reportPlan: (id, note) => req(`/api/plans/${id}/report`, { method: "POST", body: JSON.stringify({ note }) }),
   resizeSuggestion: (id, count) => req(`/api/plans/${id}/resize`, { method: "POST", body: JSON.stringify({ meal_count: count }) }),
   swapOptions: (id, slot, q = "") => req(`/api/plans/${id}/swap-options/${slot}?${new URLSearchParams({ q })}`),

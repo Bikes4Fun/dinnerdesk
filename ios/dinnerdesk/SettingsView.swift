@@ -96,6 +96,7 @@ struct FiltersView: View {
     TimeOption(id: "45", label: "45 min or less"),
   ]
 
+  @State private var confirmingReset = false
   @State private var diets: Set<String> = ["omnivore"]
   @State private var allergens: Set<String> = []
   @State private var avoids: Set<String> = []
@@ -190,12 +191,24 @@ struct FiltersView: View {
           }
           .accessibilityLabel("Save and go back")
         }
+        // Reset used to sit right in the corner and cleared everything on one tap. It now lives
+        // behind ⋯ and asks first.
         ToolbarItem(placement: .topBarTrailing) {
-          Button("Reset") { resetFilters() }
-            .font(Theme.action)
-            .foregroundStyle(Theme.accent)
+          Menu {
+            Button("Reset all filters", role: .destructive) { confirmingReset = true }
+          } label: {
+            Image(systemName: "ellipsis").scaledIcon(size: 17, weight: .semibold)
+              .frame(minWidth: 44, minHeight: 44)
+          }
+          .accessibilityLabel("More filter options")
         }
       }
+    }
+    .confirmationDialog("Reset all filters?", isPresented: $confirmingReset, titleVisibility: .visible) {
+      Button("Reset all filters", role: .destructive) { resetFilters() }
+      Button("Cancel", role: .cancel) {}
+    } message: {
+      Text("Diet, allergies, and preferences go back to the defaults.")
     }
     .task { await load() }
   }

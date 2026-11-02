@@ -54,6 +54,7 @@ from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
     PrepMissingPut,
+    IngredientReportCreate,
     PlanReportCreate,
     RecipeReportCreate,
     FeedbackCreate,
@@ -2283,6 +2284,7 @@ _EXPORT_TABLES = [
     ("substitutions", "household_overrides"), ("recipe_edits", "household_recipe_edits"),
     ("stores_and_aisles", "grocery_places"), ("submissions", "recipe_submissions"),
     ("plan_reports", "plan_reports"), ("recipe_reports", "recipe_reports"),
+    ("ingredient_reports", "ingredient_reports"),
     ("feedback", "feedback"),
 ]
 # admin_note is the admin's own triage note in the Inbox, not the household's data.
@@ -2506,6 +2508,31 @@ def report_recipe(recipe_id: int, body: RecipeReportCreate, request: Request, db
     return {"ok": True, "id": int(cur.lastrowid)}
 
 
+@router.post("/grocery/lines/{line_id}/report")
+def report_grocery_line(line_id: int, body: IngredientReportCreate, request: Request, db: PgConnection = DbDep, household_id: int = HhDep):
+    """Report a problem with a grocery item (wrong name, aisle, amount, photo...). Saves the line
+    as this household sees it now, with the catalog ingredient behind it, so it can be fixed there."""
+    row = db.execute(
+        """SELECT g.*, i.canonical_name AS ingredient_name FROM grocery_lines g
+           JOIN plans p ON p.id = g.plan_id LEFT JOIN ingredients i ON i.id = g.ingredient_id
+           WHERE g.id = ? AND p.household_id = ?""",
+        (line_id, household_id),
+    ).fetchone()
+    if not row:
+        raise HTTPException(404, {"error": "not_found", "detail": "line"})
+    line = dict(row)
+    name = (line.get("custom_text") or line.get("ingredient_name") or "").strip()
+    snapshot = {"line": line, **_sender(request, db, household_id)}
+    with transaction(db):
+        cur = db.execute(
+            """INSERT INTO ingredient_reports (household_id, ingredient_id, item_name, reason, note, snapshot_json, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (household_id, line.get("ingredient_id"), name, body.reason, body.note.strip(),
+             json.dumps(snapshot, default=str), now()),
+        )
+    return {"ok": True, "id": int(cur.lastrowid)}
+
+
 @router.get("/dev/recipe-reports")
 def get_recipe_reports(_admin=AdminDep, db: PgConnection = DbDep):
     """Every recipe report across households, newest first, for deciding what to fix."""
@@ -2634,9 +2661,33 @@ def set_feedback_status(feedback_id: int, body: FeedbackStatusPut, _admin=AdminD
     return {"ok": True}
 
 
+def _attach_catalog_recipe_ids(db: PgConnection, groups: list) -> None:
+    rows = db.execute(
+        "SELECT id, name FROM recipes WHERE household_id IS NULL"
+    ).fetchall()
+    by_name = {}
+    for row in rows:
+        key = (row["name"] or "").strip().lower()
+        if key and key not in by_name:
+            by_name[key] = int(row["id"])
+
+    def stamp(recipe: dict) -> None:
+        recipe_id = by_name.get((recipe.get("name") or "").strip().lower())
+        if recipe_id:
+            recipe["recipe_id"] = recipe_id
+
+    for group in groups:
+        for recipe in group.get("recipes") or []:
+            stamp(recipe)
+        for name in group.get("names") or []:
+            for recipe in name.get("recipes") or []:
+                stamp(recipe)
+
+
 @router.get("/dev/ingredient-review")
-def get_ingredient_review(_admin=AdminDep):
+def get_ingredient_review(db: PgConnection = DbDep, _admin=AdminDep):
     groups = review_groups(ROOT)
+    _attach_catalog_recipe_ids(db, groups)
     return {
         "groups": groups,
         "counts": {

@@ -84,9 +84,13 @@ struct PlanView: View {
               }
               .disabled(selected.isEmpty)
             }
-            ForEach(groups(plan), id: \.key) { group in
+            let planGroups = groups(plan)
+            ForEach(planGroups, id: \.key) { group in
+              // "Cooked" only labels a section when other meals sit above it; when the whole
+              // week is cooked the checkmarks already say so and the header just pushes the
+              // plan buttons down.
               if group.key == Int.max {
-                ThemeHeader("Cooked")
+                if planGroups.count > 1 { ThemeHeader("Cooked") }
               } else if group.key >= 0 {
                 ThemeHeader(dayTitle(plan.startDate, group.key))
               }

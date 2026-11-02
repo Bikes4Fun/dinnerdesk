@@ -1784,6 +1784,28 @@ def test_report_a_recipe_keeps_how_it_stood_against_the_filters(tmp_path):
         assert client.get("/api/household/export").json()["recipe_reports"][0]["reason"] == "diet"
 
 
+def test_report_a_grocery_item_keeps_the_line_as_they_saw_it(tmp_path):
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(f"/api/plans/{pid}/slots",
+                   json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]})
+        onion = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        sent = client.post(f"/api/grocery/lines/{onion['id']}/report", json={"reason": "aisle", "note": "  It's produce  "})
+        assert sent.status_code == 200
+        assert client.post(f"/api/grocery/lines/{onion['id']}/report", json={"reason": "nope"}).status_code == 422
+        assert client.post("/api/grocery/lines/999999/report", json={"reason": "other"}).status_code == 404
+
+        data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
+        item = next(i for i in data["items"] if i["source"] == "ingredient")
+        assert (item["kind"], item["reason"], item["note"]) == ("ingredient", "aisle", "It's produce")
+        assert "onion" in item["item_name"] and item["snapshot"]["line"]["id"] == onion["id"]
+        assert client.get("/admin/inbox/count").json() == {"new": 1}
+        assert client.post(f"/admin/inbox/ingredient/{item['id']}", json={"status": "done"}).status_code == 200
+        assert client.get("/admin/inbox/count").json() == {"new": 0}
+        assert client.get("/api/household/export").json()["ingredient_reports"][0]["reason"] == "aisle"
+
+
 def test_admin_review_pages(tmp_path):
     with _client(tmp_path) as client:
         client.post("/api/recipes/1/report", json={"reason": "steps", "note": "Step 3 is missing"})
@@ -2184,6 +2206,13 @@ def test_inbox_gathers_reports_and_saves_triage(tmp_path):
         assert client.get("/admin/inbox/count").json() == {"new": 0}
         data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
         assert {(i["status"], i["admin_note"]) for i in data["items"]} == {("done", "fixed it")}
+
+        bug = items[("feedback", "bug")]
+        assert client.post(f"/admin/inbox/feedback/{bug['id']}",
+                           json={"status": "planned", "planned_issue": " 217 "}).status_code == 200
+        data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
+        bug = next(i for i in data["items"] if i["source"] == "feedback")
+        assert (bug["status"], bug["planned_issue"]) == ("planned", "217")
 
         assert client.post("/admin/inbox/recipe/999999", json={"status": "done"}).status_code == 404
         assert client.post("/admin/inbox/nope/1", json={"status": "done"}).status_code == 404

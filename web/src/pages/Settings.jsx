@@ -329,7 +329,9 @@ export function Filters() {
   const filterCount = (diets.length === 1 && diets[0] === "omnivore" ? 0 : 1)
     + allergens.length + avoids.length + who.length + cuisines.length
     + proteinMore.length + proteinLess.length + (time === "any" ? 0 : 1);
+  // Clearing every filter can't be undone, so it asks first (it was too easy to bump).
   function reset() {
+    if (!filterCount || !window.confirm("Clear all filters? Your diet, allergies, and preferences will go back to the defaults.")) return;
     setFilter({
       diets: ["omnivore"], allergens: [], avoids: [], time: "any",
       who: [], cuisines: [], protein_more: [], protein_less: [],
@@ -346,7 +348,6 @@ export function Filters() {
           ←
         </button>
         <h1>Filters</h1>
-        <button type="button" className="text-link" onClick={reset}>Reset</button>
         <span className="save-state" role="status" aria-live="polite">{saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : ""}</span>
       </header>
       <div className="scroll pad filters-body">
@@ -412,7 +413,7 @@ export function Filters() {
         </div>
       </div>
       <footer className="filters-footer">
-        <button type="button" className="text-link" onClick={reset}>Clear all</button>
+        <button type="button" className="text-link" disabled={!filterCount} onClick={reset}>Clear all</button>
         <button type="button" className="filters-show" onClick={() => go("/recipes")}>
           Show meals
           <span>{filterCount === 0 ? "All" : filterCount === 1 ? "1 filter" : `${filterCount} filters`}</span>

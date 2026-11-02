@@ -25,7 +25,7 @@ import { Notice } from "./Notice.jsx";
 import { Tour, WhatsNew } from "./Tour.jsx";
 import { useWeek } from "./week.jsx";
 import { PULL_DISTANCE, usePullToRefresh } from "./pullRefresh.js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function parsePath(pathname) {
   const parts = pathname.replace(/\/+$/, "").split("/").filter(Boolean);
@@ -247,11 +247,26 @@ export function App() {
     return () => window.removeEventListener("dinnerdesk-grocery-count", onCount);
   }, []);
 
+  // Signing in (a password reset, an invite, the login page) can switch household. The week
+  // was loaded for the old one, so reload it; otherwise later calls use a plan id that isn't
+  // this household's, the server answers 404, and the app stopped after a password reset.
+  const householdId = authStatus?.household_id;
+  const loadedHousehold = useRef(undefined);
+  useEffect(() => {
+    if (householdId === undefined) return;
+    if (loadedHousehold.current !== undefined && loadedHousehold.current !== householdId) {
+      week?.load().catch((e) => week.toast(e.message));
+    }
+    loadedHousehold.current = householdId;
+  }, [householdId]);
+
   useEffect(() => {
     if (!authStatus || page === "grocery" || !week?.plan?.id) return;
     api.grocery(week.plan.id)
       .then((data) => setGroceryCount(data.lines.filter((l) => !l.checked && !l.never_shop).length))
-      .catch((e) => setFatalError(e.message));
+      // Only the sidebar badge depends on this; a miss shouldn't stop the whole app.
+      // Keep the last known count rather than claiming nothing is left.
+      .catch(() => {});
   }, [authStatus, page, week?.plan]);
 
   function refreshAuth() {
