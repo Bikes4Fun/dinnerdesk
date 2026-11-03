@@ -95,7 +95,7 @@ object Api {
     /** The raw bytes of a GET, for files the person saves (Download my data, #64). */
     suspend fun getData(path: String): ByteArray {
         val request = Request.Builder().url(apiUrl(path)).header("X-Dinnerdesk-App", appBuild).build()
-        val response = await(client.newCall(request))
+        val response = await(exportClient(client).newCall(request))
         response.use {
             val bytes = it.body?.bytes() ?: ByteArray(0)
             throwIfBad(it.code, String(bytes))
@@ -236,3 +236,10 @@ class ApiError(val code: Int, val body: String) : Exception() {
             return "Couldn't complete this action. Please try again."
         }
 }
+
+
+/** Exports must be returned by the requested endpoint, never a redirect target. */
+internal fun exportClient(base: OkHttpClient): OkHttpClient = base.newBuilder()
+    .followRedirects(false)
+    .followSslRedirects(false)
+    .build()

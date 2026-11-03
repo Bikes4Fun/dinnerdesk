@@ -555,3 +555,9 @@ group New meal plan and Add meals together in the center.
 Odd-issue integration (October 9): pantry search supports keyboard selection and a clear control; the tab highlight stays within the system bar while selected labels retain bold type. Quick-start tour steps include screen illustrations. Guest Taste Lab answers persist by browser identity. Prep task names derive from recipe content. AI photo metadata controls a purple-star tip independently of instruction provenance.
 
 Household lifecycle: every account has a kitchen, including solo households. Owners can transfer ownership and designate admins. Owner/admin removal separates members without deleting accounts. Creators must choose a successor before leaving, joining another household, or deleting their account while members remain. Household deletion moves each member to an empty solo household. Retained meal votes are stored separately without account, household, browser or session identifiers. Existing households assign ownership to their earliest member. App Review notes: Settings → Account & security → Delete account; confirm with the account password.
+
+
+Android review fixes: internal links use the configured HTTPS API origin (including its
+port). Household export never follows redirects. Family portions can be saved after an
+initial preferences-load failure; only an unchanged, known saved value skips the write.
+Grocery and My kitchen use **Save substitution** for saving replacements.
