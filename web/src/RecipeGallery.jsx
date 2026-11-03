@@ -67,6 +67,21 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
     finally { setBusy(false); }
   }
 
+  async function remove() {
+    if (!photo) return;
+    const shared = recipe.catalog ? " This removes it for everyone." : "";
+    if (!confirm(`Delete this photo?${shared}`)) return;
+    setBusy(true);
+    setError("");
+    try {
+      onChange(await api.deleteRecipePhoto(recipe.id, photo.path));
+      setActive(0);
+      track.current?.scrollTo({ left: 0 });
+      setNotice("Photo deleted.");
+    } catch (e) { setError(e.message); }
+    finally { setBusy(false); }
+  }
+
   return (
     <section className="recipe-gallery" aria-label="Recipe photos">
       {photos.length > 0 && <>
@@ -84,6 +99,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
           <span aria-live="polite">{active + 1} / {photos.length}{photo?.primary ? " · Primary" : ""}</span>
           {photos.length > 1 && <button type="button" disabled={active === photos.length - 1} onClick={() => show(active + 1)} aria-label="Next photo">→</button>}
           {canEdit && photo && !photo.primary && <button type="button" className="text-link" disabled={busy} onClick={primary}>Make primary</button>}
+          {canEdit && photo && <button type="button" className="text-link" disabled={busy} onClick={remove}>Delete photo</button>}
         </div>
         {photo?.ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
         {!photo?.ai && photo?.shared && <Tip id="recipes.shared-photo" className="ai-photo-tip">This photo is from a similar recipe, so it may not match this one exactly.</Tip>}
@@ -91,7 +107,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
       {canEdit && <div>
         <label className="text-link" htmlFor={`add-recipe-photos-${recipe.id}`}>Add photos</label>
         <input id={`add-recipe-photos-${recipe.id}`} type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={addPhotos} />
-        <p className="help">Add your own photos, up to 5 MB each. The primary photo appears on recipe cards.{recipe.catalog ? " Changes to this catalog gallery are shared with everyone." : " Photos are saved with this recipe."}</p>
+        <p className="help">Add your own photos, up to 5 MB each. The primary photo appears on recipe cards. Delete photo removes the one showing now.{recipe.catalog ? " Catalog photo changes, including deletes, are shared with everyone." : " Photos are saved with this recipe."}</p>
       </div>}
       {notice && <p role="status">{notice}</p>}
       {error && <p className="banner err" role="alert">{error}</p>}
@@ -107,7 +123,7 @@ function PhotoCredit({ photo }) {
   return <span className="photo-credit" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
     onFocus={() => setOpen(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
     onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
-    <button type="button" className="photo-credit-icon" aria-label="Photo source" aria-expanded={open} aria-controls={id} aria-describedby={open ? id : undefined}
+    <button type="button" className="photo-credit-icon" aria-label="Photo source" aria-expanded={open} aria-controls={id} aria-describedby={open ? id : undefined}>i</button>
     {open && <span id={id} className="photo-credit-tooltip" role="note">
       {label}
       {photo.source_url && <a href={photo.source_url} target="_blank" rel="noopener noreferrer">View source ↗</a>}

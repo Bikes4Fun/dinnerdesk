@@ -171,22 +171,36 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
     provenance = _provenance_json(data)
     cookware = json.dumps(data.get("cookware") or [])
     existing = conn.execute(
-        "SELECT id, photo_path, provenance_json FROM recipes WHERE household_id IS NULL AND slug = ?",
+        """SELECT id, name, servings, cooking_minutes, instructions_json, cookware_json,
+                  photo_path, provenance_json
+           FROM recipes WHERE household_id IS NULL AND slug = ?""",
         (slug,),
     ).fetchone()
     if existing:
         rid = existing["id"]
-        keep_admin_tags = json.loads(existing["provenance_json"] or "{}").get("admin_tags_edited") is True
+        flags = json.loads(existing["provenance_json"] or "{}")
+        keep_admin_tags = flags.get("admin_tags_edited") is True
+        keep_primary = flags.get("admin_photo_edited") is True
+        keep_content = flags.get("admin_content_edited") is True
+        incoming_provenance = json.loads(provenance)
         if keep_admin_tags:
-            incoming_provenance = json.loads(provenance)
             incoming_provenance["admin_tags_edited"] = True
-            provenance = json.dumps(incoming_provenance)
-        keep_primary = json.loads(existing["provenance_json"] or "{}").get("admin_photo_edited") is True
         if keep_primary:
-            incoming_provenance = json.loads(provenance)
             incoming_provenance["admin_photo_edited"] = True
-            provenance = json.dumps(incoming_provenance)
+        if keep_content:
+            incoming_provenance["admin_content_edited"] = True
+        provenance = json.dumps(incoming_provenance)
         photo = existing["photo_path"] if keep_primary or is_uploaded_photo(existing["photo_path"]) else incoming_photo
+        if keep_content:
+            name = existing["name"]
+            servings = existing["servings"]
+            minutes = existing["cooking_minutes"]
+            steps_json = existing["instructions_json"]
+            cookware = existing["cookware_json"] or "[]"
+        else:
+            servings = parse_servings(data.get("servings"))
+            minutes = data.get("cooking_minutes")
+            steps_json = json.dumps(steps)
         conn.execute(
             """UPDATE recipes SET name = ?, servings = ?, cooking_minutes = ?,
                instructions_json = ?, cookware_json = ?, source_url = ?,
@@ -194,9 +208,9 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
                WHERE id = ? AND household_id IS NULL""",
             (
                 name,
-                parse_servings(data.get("servings")),
-                data.get("cooking_minutes"),
-                json.dumps(steps),
+                servings,
+                minutes,
+                steps_json,
                 cookware,
                 data.get("source_url") or "",
                 provenance,
@@ -205,7 +219,8 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
                 rid,
             ),
         )
-        _set_catalog_ingredients(conn, rid, ings, aliases)
+        if not keep_content:
+            _set_catalog_ingredients(conn, rid, ings, aliases)
         if not keep_admin_tags:
             _set_catalog_tags(conn, rid, tags)
         return "update"

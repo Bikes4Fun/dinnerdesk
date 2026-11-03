@@ -419,7 +419,7 @@ export function Recipe({ id }) {
                 setSteps={setSteps}
                 help={
                   recipe.catalog
-                    ? "Save keeps this recipe id for this kitchen. Save as copy makes a new kitchen recipe and leaves the catalog dish alone."
+                    ? "Save updates this catalog recipe for everyone. Save as copy makes a new kitchen recipe and leaves the catalog dish alone."
                     : "Save updates this kitchen recipe."
                 }
               />
