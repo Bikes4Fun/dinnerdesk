@@ -11,6 +11,7 @@ import os
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
+from app.domain.pantry_catalog import ingredient_name
 
 
 def parse_servings(raw) -> int:
@@ -89,7 +90,7 @@ def load_aliases() -> dict[str, str]:
 
 
 def get_or_create_ingredient(conn, name: str, aliases: dict[str, str]) -> int:
-    key = apply_alias(name, aliases)
+    key = ingredient_name(apply_alias(name, aliases))
     row = conn.execute(
         "SELECT id FROM ingredients WHERE canonical_name = ?", (key,)
     ).fetchone()

@@ -639,3 +639,29 @@ headers and cooked-meal text contrast remain in place.
 
 These changes require hands-on VoiceOver/TalkBack and largest-text acceptance; compilation
 and source checks do not establish accessibility conformance.
+
+
+### Ingredient identities (#178)
+
+Ingredient names in catalog import, recipe ingredients, groceries, pantry, substitutions
+and store/aisle assignments use `ingredient_name` from `app/domain/pantry_catalog.py`.
+It normalizes case, Unicode and whitespace and resolves known catalog aliases/plurals.
+Unknown custom names stay normalized without being published to the shared catalog.
+An ingredient identity is shared; pantry contents, substitutions, grocery renames and
+store/aisle choices belong to the household. Editing one of these never renames the
+shared ingredient or changes another household's preferences. Grocery search continues to use the shared catalog; custom additions do not
+modify that catalog or appear in another household.
+Legacy aisle spellings resolve through the same normalizer during rebuild and refresh.
+
+
+Existing ingredient records can be reconciled with `python -m app.db.ingredient_cleanup`.
+The default is a read-only preview. Maintenance application requires `--apply --backup PATH`,
+uses one transaction, saves the original affected tables to a new JSON backup first,
+rewires all four ingredient foreign-key references, and refuses conflicting package
+metadata or different store/aisle choices for aliases in the same household. It retains
+pantry rows and their quantities/check-offs, report snapshots, and household boundaries.
+It is not a startup migration and has not been applied to production. Review the preview,
+resolve conflicts and approve application before running it on a live database. Backups
+contain private household data and should be stored outside the repository.
+This issue's ingredient-name work does not change recipe titles, login names, quantities
+or the set of available aisles.
