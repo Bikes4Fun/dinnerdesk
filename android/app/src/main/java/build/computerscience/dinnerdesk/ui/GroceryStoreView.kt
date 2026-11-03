@@ -255,6 +255,7 @@ fun AisleOrderView() {
     val store = LocalStore.current
     val scope = rememberCoroutineScope()
     var aisles by remember { mutableStateOf(ShopAisle.defaults) }
+    var savedAisles by remember { mutableStateOf<List<ShopAisle>?>(null) }
     var counts by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var newAisle by remember { mutableStateOf("") }
     var addingAisle by remember { mutableStateOf(false) }
@@ -264,18 +265,23 @@ fun AisleOrderView() {
     var rowHeight by remember { mutableIntStateOf(1) }
 
     suspend fun save(next: List<ShopAisle>) {
+        if (savedAisles == null || savedAisles == next) return
         aisles = next
+        error = null
         try {
             KitchenApi.saveGroceryPrefs(mapOf("aisles" to KitchenDefaults.aislesJson(next)))
+            savedAisles = next
             store.loadGrocery()
         } catch (e: Throwable) {
             error = Api.message(e)
         }
     }
 
-    LaunchedEffect(Unit) {
+    suspend fun load() {
         try {
-            aisles = KitchenDefaults.aisles(KitchenApi.prefs())
+            val loaded = KitchenDefaults.aisles(KitchenApi.prefs())
+            savedAisles = loaded
+            aisles = loaded
             error = null
         } catch (e: Throwable) {
             if (!Api.isCancellation(e)) error = Api.message(e)
@@ -286,13 +292,26 @@ fun AisleOrderView() {
             if (!Api.isCancellation(e)) error = Api.message(e)
         }
     }
+    LaunchedEffect(Unit) { load() }
     val latest by rememberUpdatedState(aisles)
-    DisposableCleanup { store.launch { KitchenApi.saveGroceryPrefs(mapOf("aisles" to KitchenDefaults.aislesJson(latest))); loadGrocery() } }
+    val latestSaved by rememberUpdatedState(savedAisles)
+    DisposableCleanup {
+        if (latestSaved != null && latest != latestSaved) store.launch {
+            try {
+                KitchenApi.saveGroceryPrefs(mapOf("aisles" to KitchenDefaults.aislesJson(latest)))
+                loadGrocery()
+            } catch (e: Throwable) {
+                if (Api.isCancellation(e)) throw e
+                this.error = Api.message(e)
+            }
+        }
+    }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar("Aisle order")
-        ThemeList {
+        ThemeList({ load() }) {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
+            if (savedAisles == null) LinkButton("Try loading aisles again") { scope.launch { load() } }
             ListHeader("Walk-the-store order")
             for (aisle in aisles) key(aisle.id) {
                 val isDragged = dragging == aisle.id
@@ -306,10 +325,11 @@ fun AisleOrderView() {
                         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             BasicTextField(
                                 aisle.number, { value -> aisles = aisles.map { if (it.id == aisle.id) it.copy(number = value.filter(Char::isDigit)) else it } },
+                                enabled = savedAisles != null,
                                 textStyle = Theme.count.copy(color = Theme.ink, textAlign = TextAlign.Center), singleLine = true,
                                 cursorBrush = SolidColor(Theme.accent),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                                keyboardActions = KeyboardActions(onDone = { scope.launch { save(aisles) } }),
+                                keyboardActions = KeyboardActions(onDone = { store.launch { save(aisles) } }),
                                 modifier = Modifier.width(44.dp).clip(RoundedCornerShape(8.dp)).background(Theme.chip).padding(vertical = 7.dp)
                                     .semantics { contentDescription = "Aisle number for ${aisle.name}" },
                                 decorationBox = { inner -> Box(contentAlignment = Alignment.Center) { if (aisle.number.isEmpty()) Text("#", style = Theme.count, color = Theme.muted); inner() } },
@@ -319,10 +339,11 @@ fun AisleOrderView() {
                             Text(if (n == 1) "1 item" else "$n items", style = Theme.subtitle, color = Theme.muted)
                         }
                         Box(
-                            Modifier.size(44.dp).semantics { contentDescription = "Reorder ${aisle.name}" }.pointerInput(aisle.id) {
+                            Modifier.size(44.dp).semantics { contentDescription = "Reorder ${aisle.name}" }.pointerInput(aisle.id, savedAisles != null) {
+                                if (savedAisles == null) return@pointerInput
                                 detectDragGestures(
                                     onDragStart = { dragging = aisle.id; dragOffset = 0f },
-                                    onDragEnd = { dragging = null; dragOffset = 0f; scope.launch { save(aisles) } },
+                                    onDragEnd = { dragging = null; dragOffset = 0f; store.launch { save(aisles) } },
                                     onDragCancel = { dragging = null; dragOffset = 0f },
                                 ) { change, amount ->
                                     change.consume()
@@ -341,7 +362,7 @@ fun AisleOrderView() {
                     }
                 }
             }
-            ThemeAddRow("Add aisle") { addingAisle = true }
+            ThemeAddRow("Add aisle", enabled = savedAisles != null) { addingAisle = true }
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { StarTip("kitchen.aisle-order") }
         }
     }
@@ -354,7 +375,7 @@ fun AisleOrderView() {
                     val id = KitchenDefaults.slug(name)
                     if (aisles.none { it.id == id }) {
                         val next = aisles.filter { it.id != "other" } + ShopAisle(id, name) + aisles.filter { it.id == "other" }
-                        scope.launch { save(next) }
+                        store.launch { save(next) }
                     }
                 } catch (e: Throwable) {
                     error = Api.message(e)

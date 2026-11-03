@@ -99,7 +99,14 @@ fun RecipesView() {
     var hiddenRecipes by remember { mutableStateOf<List<RecipeSummary>>(emptyList()) }
     val searching = query.isNotBlank() || filters.isNotEmpty()
 
-    LaunchedEffect(Unit) { hiddenRecipes = store.loadHiddenRecipes(onlyIfStale = true) }
+    LaunchedEffect(Unit) {
+        hiddenRecipes = store.loadHiddenRecipes(onlyIfStale = true)
+        try {
+            suggestedIds = Api.get<RecipeSuggestions>("suggestions/recipes", reportErrors = false).recipeIds
+        } catch (e: Throwable) {
+            if (Api.isCancellation(e)) throw e
+        }
+    }
 
     val recipes = store.recipes
     val favorites = recipes.filter { it.favorited }
@@ -413,6 +420,7 @@ fun RecipeDetailView(id: Int) {
             val r = recipe
             when {
                 r != null -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    error?.let { ErrorBanner(it) }
                     Segmented(listOf(RecipePageTab.Overview to "Overview", RecipePageTab.Cook to "Cook"), tab) { tab = it }
                     if (tab == RecipePageTab.Overview) {
                         RecipePhoto(r.photoPath, large = true)

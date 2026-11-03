@@ -145,7 +145,6 @@ fun ContentView() {
     LaunchedEffect(Unit) { store.loadAll(onlyIfStale = true) }
     LaunchedEffect(Unit) { ResponseCache.accountChanged.collect { store.switchAccount() } }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { scope.launch { store.loadAll(onlyIfStale = true) } }
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { showTab(AppTab.Plan) }
 
     val mealsLeft = store.plan?.slots?.count { !it.cooked } ?: 0
     val itemsLeft = store.grocery.count { !it.checked && !it.neverShop }
