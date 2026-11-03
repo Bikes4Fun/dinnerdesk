@@ -1,11 +1,11 @@
 import SwiftUI
 
-/// First-run tour (mirrors web/src/Tour.jsx). Welcome → Quick start (how we use AI, how-to, then Filters)
-/// or Taste Lab, or Skip.
+/// First-run tour (mirrors web/src/Tour.jsx and TourView.kt). Welcome → Quick start (how we use AI,
+/// Filters, then the how-to cards in the order chosen on #24) or Taste Lab, or Skip.
 /// Shown by AuthGate for new households and after a major update (`version`), or whenever
 /// `session.showTour` is set.
 struct TourView: View {
-  enum Step { case welcome, ai, how, prefs, filters }
+  enum Step { case welcome, ai, filters, how }
 
   /// Raise this (and TOUR_VERSION in web/src/Tour.jsx) with a major update: everyone who saw an
   /// older tour gets it once more. Households that finished the tour before versions existed
@@ -41,7 +41,7 @@ struct TourView: View {
   }
 
   // Text lives in shared/copy.json (tour.how.N.title / tour.how.N), shared with the website tour.
-  private static let how = ["book", "calendar", "tray.and.arrow.down", "cart", "shippingbox", "list.bullet.clipboard", "sparkles", "hand.draw"].enumerated().map {
+  private static let how = ["sparkles", "arrow.triangle.2.circlepath", "cart", "list.bullet.clipboard", "book", "hand.draw"].enumerated().map {
     i, icon in
     HowStep(
       id: i, title: Copy.text("tour.how.\(i + 1).title"), systemImage: icon,
@@ -78,9 +78,8 @@ struct TourView: View {
         switch step {
         case .welcome: welcome
         case .ai: aiUse
-        case .how: howTo
-        case .prefs: prefsIntro
         case .filters: filters
+        case .how: howTo
         }
       }
       .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -128,7 +127,7 @@ struct TourView: View {
 
         ChoiceCard(
           title: "Quick start",
-          detail: "A 1-minute how-to, then tell us what you eat.",
+          detail: "Tell us what you eat, then a 1-minute how-to.",
           systemImage: "bolt"
         ) { step = .ai }
 
@@ -154,31 +153,10 @@ struct TourView: View {
 
   // MARK: Filters
 
-  /// The same Filters screen as Settings; it saves each change itself.
+  /// The same Filters screen as Settings; it saves each change itself, so skipping later keeps them.
   private var filters: some View {
-    FiltersView(doneTitle: "Start planning") {
-      await finish()
-    }
-  }
-
-  // MARK: Before filters
-
-  private var prefsIntro: some View {
-    VStack(spacing: 0) {
-      ScrollView {
-        VStack(alignment: .leading, spacing: 6) {
-          Text(Copy.text("tour.prefs.title"))
-            .font(Theme.tourTitle)
-            .foregroundStyle(Theme.ink)
-          Text(Copy.text("tour.prefs"))
-            .font(Theme.body)
-            .foregroundStyle(Theme.ink)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-      }
-      primaryButton("Next") { step = .filters }
+    FiltersView(doneTitle: "Next") {
+      step = .how
     }
   }
 
@@ -221,7 +199,7 @@ struct TourView: View {
         }
         .padding(20)
       }
-      primaryButton("Next") { step = .how }
+      primaryButton("Next") { step = .filters }
     }
   }
 
@@ -299,17 +277,28 @@ struct TourView: View {
       if howIndex < Self.how.count - 1 {
         primaryButton("Next") { withMotion { howIndex += 1 } }
       } else {
-        primaryButton("Next") { step = .prefs }
+        // Last card (Taste Lab): start planning, or try Taste Lab now.
+        primaryButton(saving ? "Saving…" : "Start planning") { Task { await finish() } }
+          .disabled(saving)
+        Button("Try Taste Lab") {
+          Task {
+            await markDone(filters: nil)
+            showTasteLab = true
+          }
+        }
+        .font(Theme.action)
+        .frame(minHeight: 44)
+        .padding(.bottom, 8)
       }
     }
   }
 
   /// Real screenshots for how-to cards, by card index; the others use TourScreenPicture.
-  private static let shots = [0: "TourSuggestions", 1: "TourSchedule", 2: "TourDraft", 3: "TourStores"]
-  /// The drawn picture for each remaining card (TourScreenPicture: 2 checked-off list, 3 prep).
-  private static let drawings = [4: 2, 5: 3]
-  /// The tips & Apple Watch card shows a real tip instead of a picture.
-  private static let tipsCard = 6
+  private static let shots = [0: "TourSuggestions", 2: "TourStores"]
+  /// Drawn pictures (TourScreenPicture: 0 suggestions, 3 weekend prep).
+  private static let drawings = [1: 0, 3: 3]
+  /// The recipes and tips card shows a real tip instead of a picture.
+  private static let tipsCard = 4
 
   private static let howText = Font.custom("DMSans-Regular", size: 14, relativeTo: .subheadline)
 
@@ -351,10 +340,9 @@ struct TourView: View {
     switch step {
     case .welcome: break
     case .ai: step = .welcome
+    case .filters: step = .ai
     case .how:
-      if howIndex > 0 { withMotion { howIndex -= 1 } } else { step = .ai }
-    case .prefs: step = .how
-    case .filters: step = .prefs
+      if howIndex > 0 { withMotion { howIndex -= 1 } } else { step = .filters }
     }
   }
 
