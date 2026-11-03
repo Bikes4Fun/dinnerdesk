@@ -204,6 +204,14 @@ Hearts, To try, and hides belong to this kitchen.
 - **Bug if:** a vegan kitchen sees meat, fish, eggs, or dairy in Recipes, or a filter set in Taste
   Lab doesn't show in Settings (or the other way round).
 
+Food search in Other allergies/avoids and grocery substitutions tolerates one misspelled
+letter, missing/extra letter, or adjacent letter swap in words of at least four letters
+(#85). Literal matches rank ahead of typo matches. Other-food searches still require every
+query word to match a known food. Catalog and recipe ingredient choices share the grocery catalog’s plural/alias normalization,
+so “red bell pepper” and “red bell peppers” appear once while different colors stay separate.
+Selecting a result remains explicit; dietary exclusion
+rules do not use fuzzy matching.
+
 **Recipe page and Cook mode.** Overview is the photo and full ingredient list; Cook is numbered
 steps. Both show this kitchen's overlay when there is one.
 
@@ -243,7 +251,8 @@ line. The Grocery tab badge counts items still to buy.
 - **Must:** each item can be given a store and an aisle, and the choice is remembered. Aisles can
   be renamed, numbered, and reordered. The list can be filtered by store.
 - **Must:** completed items can be shown or hidden from the bottom of the list. "You'll use
-  this in…" lists only meals on the current plan. Using a substitute keeps the item page open.
+  this in…" lists only meals on the current plan. **Save substitution** applies the chosen
+  replacement and keeps the item page open. My kitchen uses the same save action.
 - **Must:** share, email, or print what's left to buy, grouped by aisle, for the selected store.
 - **Bug if:** a rebuild duplicates lines or drops amounts; black pepper is filed as produce.
 
