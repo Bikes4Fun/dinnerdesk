@@ -1973,6 +1973,8 @@ img { display: block; max-width: 100%; }
 .recipe-gallery input[type=file] { display: block; max-width: 100%; margin-top: 8px; }
 
 .photo-credit { position: absolute; bottom: 8px; right: 8px; z-index: 2; }
+.photo-tested-badge { position: absolute; bottom: 8px; left: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 999px; background: rgba(255,255,255,.92); color: var(--ink); font-size: 12px; font-weight: 600; box-shadow: 0 1px 5px #0003; }
+.photo-tested-badge > span { color: #8A6100; }
 .photo-credit-icon { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.9); color: var(--ink); font-size: 14px; box-shadow: 0 1px 5px #0003; }
 .photo-credit-tooltip { position: absolute; bottom: 100%; right: 0; width: max-content; max-width: min(260px, 70vw); padding: 10px 12px; border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: 0 2px 12px #0003; font-size: 12px; line-height: 1.4; }
 .photo-credit-tooltip a { display: block; margin-top: 4px; text-decoration: underline; }

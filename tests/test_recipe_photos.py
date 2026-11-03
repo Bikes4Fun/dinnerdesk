@@ -38,3 +38,16 @@ def test_archive_id_comes_from_the_source_url_or_slug():
     assert recipe_photos.archive_id_of("https://example.com/recipes/760/", None) == "760"
     assert recipe_photos.archive_id_of("https://example.com/r/lemon-chicken?x=1", "905") == "905"
     assert recipe_photos.archive_id_of(None, "lemon-chicken") is None
+
+
+def test_developer_tested_photos_are_marked(monkeypatch):
+    monkeypatch.setattr(recipe_photos, "TESTED", {"2478_photo-by-deanna.jpg"})
+    assert recipe_photos.photo_is_tested("food/2478_photo-by-deanna.jpg")
+    assert not recipe_photos.photo_is_tested("food/2478_ai-generated.png")
+
+
+def test_catalog_gallery_lists_every_photo_for_the_recipe(monkeypatch):
+    monkeypatch.setattr(recipe_photos, "GALLERY", {"2478": ["2478_ai-generated.png", "2478_photo-by-deanna.jpg"]})
+    assert recipe_photos.catalog_gallery("2478") == ["food/2478_ai-generated.png", "food/2478_photo-by-deanna.jpg"]
+    assert recipe_photos.catalog_gallery("905") == []
+    assert recipe_photos.catalog_gallery(None) == []
