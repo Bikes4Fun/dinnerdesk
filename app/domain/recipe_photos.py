@@ -15,6 +15,35 @@ import re
 from pathlib import Path
 
 
+# Photos from recipe sites are never ours to show, even if one is listed by mistake.
+THIRD_PARTY_MARKS = ("mealime", "allrecipes", "myplate")
+
+
+def is_third_party_entry(item) -> bool:
+    """True for an allowlist entry whose file or credit names a recipe site."""
+    if isinstance(item, str):
+        text = item
+    else:
+        text = " ".join(str(item.get(k) or "") for k in ("file", "credit", "owner", "source_url"))
+    return any(mark in text.lower() for mark in THIRD_PARTY_MARKS)
+
+
+def our_photo_entries(data: dict) -> list[tuple[str, int | None]]:
+    """(file name, archive recipe id) for each allowlisted photo that is ours: Dinnerdesk's AI
+    photos, the developer's own, and credited free-to-use photos. Recipe-site photos are left out."""
+    out = []
+    for item in data.get("use") or []:
+        if is_third_party_entry(item):
+            continue
+        if isinstance(item, str):
+            name, raw = Path(item).name, None
+        else:
+            name, raw = Path(str(item.get("file") or "")).name, item.get("recipe_id")
+        if name:
+            out.append((name, int(raw) if raw is not None else None))
+    return out
+
+
 _DATA = json.loads((catalog_dir() / "recipe_photos.json").read_text())
 USE: dict[str, int | None] = {}
 # Photos made with AI: entries marked `"ai_generated": true`, or files named
@@ -33,6 +62,8 @@ TESTED: set[str] = set()
 # recipe's gallery shows them all, so one recipe can have several different photos.
 GALLERY: dict[str, list[str]] = {}
 for item in _DATA.get("use") or []:
+    if is_third_party_entry(item):
+        continue
     if isinstance(item, str):
         name = Path(item).name
         recipe_id = None
