@@ -9,7 +9,9 @@ import { useWeek } from "../week.jsx";
 
 const shortDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-const inHistory = (p) => (p.status !== "draft" && p.status !== "active") || Boolean(p.decision);
+// Only plans that were really used: past weeks, and the current plan once approved. Declined and
+// pending suggestions stay out of history (#104).
+const inHistory = (p) => p.status === "history" || (p.status === "active" && p.decision === "approve");
 
 /** The plan's own name, or the week it starts when it's still called "This week". */
 function planHeading(p) {

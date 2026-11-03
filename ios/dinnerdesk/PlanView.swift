@@ -580,7 +580,9 @@ struct SavedPlansView: View {
 
   private var drafts: [SavedPlan] { plans.filter { $0.status == "draft" } }
   private var history: [SavedPlan] {
-    plans.filter { $0.status != "draft" && $0.status != "active" || $0.decision != nil }
+    // Only plans that were really used: past weeks, and the current plan once approved.
+    // Declined and pending suggestions stay out of history (#104).
+    plans.filter { $0.status == "history" || ($0.status == "active" && $0.decision == "approve") }
   }
 
   /// One plan: its name (or the week it starts), dates, meal count and status, the first

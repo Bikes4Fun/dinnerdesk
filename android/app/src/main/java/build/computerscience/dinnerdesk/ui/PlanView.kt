@@ -451,7 +451,9 @@ fun SavedPlansView() {
         loading = false
     }
     val drafts = plans.filter { it.status == "draft" }
-    val history = plans.filter { (it.status != "draft" && it.status != "active") || it.decision != null }
+    // Only plans that were really used: past weeks, and the current plan once approved.
+    // Declined and pending suggestions stay out of history (#104).
+    val history = plans.filter { it.status == "history" || (it.status == "active" && it.decision == "approve") }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         SheetBar("Saved plans", cancel = "Close", onCancel = dismiss)

@@ -172,6 +172,8 @@ by this preference. Without a valid saved preference, use the recipe's own yield
   website). Done leaves Edit mode and clears the selection; ⋯ → Finish editing does the same.
 - **Must:** save the plan as a draft without replacing it. Starting a new plan moves the live
   week to history; nothing is deleted. Saved plans can be deleted, except the active plan.
+  Plan history lists only plans that were used: past weeks and the approved current plan.
+  Declined and pending suggestions are left out.
   Each saved row shows its name (or "Week of …"), dates, meal count, status, first meals and
   when it was saved; delete is a visible button, not swipe-only.
 - **Must not:** clone a catalog recipe because it was added to a day; blow away the rest of the
