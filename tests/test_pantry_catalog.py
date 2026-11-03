@@ -57,3 +57,19 @@ def test_catalog_entries_add_missing_staples():
     assert "bread flour" in names
     assert names.count("sweet potatoes") == 1
     assert "sweet potato" not in names
+
+
+def test_filter_search_collapses_plural_duplicates_and_keeps_food_varieties():
+    from app.domain.search import filter_item_matches
+
+    names = collapse_catalog_names([
+        "red bell pepper", "red bell peppers", "green bell pepper", "yellow bell pepper",
+        "black pepper", "red pepper flakes",
+    ])
+    hits = filter_item_matches(names, "bell pepper")
+    assert len(hits) == 3
+    assert sum("red bell" in name for name in hits) == 1
+    assert any("green bell" in name for name in hits)
+    assert any("yellow bell" in name for name in hits)
+    assert "black pepper" in names
+    assert "red pepper flakes" in names

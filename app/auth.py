@@ -79,12 +79,22 @@ def _lock_membership(conn):
 # column; it can't contain "@", so it never collides with an email. Without an email there's no
 # password reset, so a forgotten password can't be recovered.
 USERNAME = re.compile(r"[a-z0-9._-]{3,30}")
+# An address we can mail. Anything with "@" is an email attempt, so "a@b" and "user@" are
+# refused instead of stored. A typo like "you@exmaple.com" still passes; the confirm link catches it.
+EMAIL = re.compile(
+    r"[a-z0-9!#$%&'*+/=?^_`{|}~-](?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]{0,62}[a-z0-9!#$%&'*+/=?^_`{|}~-])?"
+    r"@"
+    r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+    r"[a-z]{2,63}"
+)
 
 
 def login_name(raw: str) -> str:
     """An email or username, normalized. Raises invalid_email / invalid_username."""
     name = (raw or "").strip().lower()
     if "@" in name:
+        if ".." in name or not EMAIL.fullmatch(name):
+            raise AuthError("invalid_email")
         return name
     if not USERNAME.fullmatch(name):
         raise AuthError("invalid_username" if name else "invalid_email")
@@ -829,10 +839,11 @@ def admin_set_recovery_email(conn: Any, user_id: int, email: str) -> None:
     user = _member(conn, user_id)
     if has_email(user["email"]):
         raise AuthError("invalid_username")
-    email = (email or "").strip().lower()
+    email = (email or "").strip()
     if email:
         if not has_email(email):
             raise AuthError("invalid_email")
+        email = login_name(email)
         if _taken_by_other(conn, email, user_id):
             raise AuthError("email_taken")
     conn.execute("UPDATE users SET recovery_email = ?, email_verified_at = NULL WHERE id = ?", (email or None, user_id))

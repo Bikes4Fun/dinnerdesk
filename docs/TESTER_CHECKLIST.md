@@ -18,11 +18,12 @@
 |---|---|
 | **Suggestion layout** | **Restart with saved suggestions: Plan opens, not the review sheet.** Tap **Review saved suggestions** to resume. **Photos are square everywhere:** check suggestion review, plan list/grid, recipes/detail, groceries/detail, and Taste Lab (intro/swipe/plans/swap) at narrow and wide widths. Missing photos use square placeholders; unavailable ingredient photos disappear. Swap picker uses cream styling and searchable, full names; empty results link to Filters. Empty-plan actions sit together. Check four meals at normal text and reachable actions at large text. |
 | **Decline / retry** | Decline replaces only the proposal. A failed replacement offers **Try another suggestion**; a declined plan cannot be approved or edited. |
+| **Recipe photos** | On web and iOS, add several photos to a recipe you can edit. Swipe or use Previous/Next; count and AI/shared attribution follow the displayed image. Make another photo primary; reopen and check recipe cards and planned meals use it. Adding photos preserves the old primary; a recipe with no photo uses its first upload. Hover/focus the small ⓘ on web or tap it on iOS; verify the credit follows each photo and a recorded source link opens. Test an upload, a known catalog/AI credit, and an unknown source. Test a bad image, retry, a copy, large text, and a non-admin catalog recipe (view only). |
 | **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. AI-tagged photos show the purple-star attribution tip. |
 | **Taste Lab** | **Try both entry buttons:** Swipe meals skips the quiz and ends without forcing plans; Suggest plans works without swiping. Intro photos/heading/buttons have breathing room; scroll if needed at large text. Edit filters in either mode. Like/pass, swap/More options and reject work; answers do not repeat. Three plan approvals finish; **Done for now** ends early. Empty results offer recovery. |
 | **Plan / drafts** | **iPhone 16, normal text:** four meals, full names, Schedule controls, and Add meals should fit without scrolling in the main list. Photos stay square; larger text can scroll. **Edit:** checkbox sits on the right; Schedule/votes and servings use two rows when they fit, stacking at large text. Select/remove, change portions, vote and Done work. Full names, cooked/undo and removal confirmation remain readable. Save/load/delete a draft; active plan is protected. |
-| **Filters** | Pantry search supports clear, keyboard arrows, and Return. Filter search: “bell peppers”, “ground”, “tomatoes”, “strawberries”, “jalapeno”; matches appear as **+ chips**; tap one, see **Saving… → ✓ Saved**, reopen, then remove it. Unknown searches show no unrelated results. **None** clears selections. |
-| **Grocery / kitchen** | **Set Family portions to 8:** an unplanned recipe shows 8, adding it scales groceries, and new suggestions use 8. Existing meals keep their portions; an explicit recipe choice wins. Missing photos leave no empty box. Substitution, pantry, stores/aisles and completed-item controls persist. |
+| **Filters** | Pantry search supports clear, keyboard arrows, and Return. Filter search: “bell peppers”, “ground”, “tomatoes”, “strawberries”, “jalapeno”; matches appear as **+ chips**; tap one, see **Saving… → ✓ Saved**, reopen, then remove it. Try “crimini” → cremini, “sandwhich” → sandwich, and “chedar” → cheddar in Other-food and grocery substitution search (when those foods exist). Correct spellings rank first. “Red bell pepper”/“red bell peppers” appear as one choice; green and yellow peppers remain separate. Other-food queries must still match every word; “crimini onion” must not return cremini mushrooms alone. Unknown searches show no unrelated results. **None** clears selections. |
+| **Grocery / kitchen** | **Set Family portions to 8:** an unplanned recipe shows 8, adding it scales groceries, and new suggestions use 8. Existing meals keep their portions; an explicit recipe choice wins. Missing photos leave no empty box. On iOS and web, enter a replacement and tap **Save substitution**; the grocery line updates and the item page stays open. Web My kitchen → Substitutions labels the second field **Replacement item** and uses **Save substitution**. Substitution, pantry, stores/aisles and completed-item controls persist. |
 | **Weekend prep** | Items sit in food sections (Vegetables, Aromatics…, Protein, Sauces), one row per item even when several meals share it. Collapse and reopen a section with its arrow. Check an item: it leaves the list, the ring and its section bar move, and a bar offers Undo and 👍/👎 (👎 shows reasons). **Show completed** brings done items back faded. Closed rows show no thumbs or days; open one (name or chevron) for 👍/👎 (👎 asks why), each step with its cook day on the left, and a purple recipe pill that opens the recipe. At the bottom, **Missing a prep step?**: pick a meal, a step, add a note, Add to prep; it appears as "Added by you", and Remove from prep in the same sheet takes it out. Refresh: check-offs, votes and added steps stay. |
 | **Saved on iPhone** | Open every tab once, then switch between them: no spinners or reloading. Turn on Airplane Mode and relaunch: Plan, Recipes, Grocery, Prep and planned/favorite recipes (with photos) still show, with an offline banner instead of "App stopped". Check a grocery item with signal, then relaunch in Airplane Mode: it shows checked. (Checks made while offline aren't sent later yet.) Make a change on the web, then reopen the app after 10+ minutes or pull to refresh: the change appears. Sign out and in as another account: none of the first account's data shows. |
 | **Navigation / account** | **Grocery → garlic → Plan → Grocery returns to the grocery list.** Repeat with Recipe detail and More → Settings; reselecting the active tab also returns home. Saved data stays intact. Tour pictures appear below their text; selected-tab styling stays within the bar. Household name saves and reset email sends only when tapped. |
@@ -96,3 +97,30 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Pantry items have a small muted Pantry label, without a star, pill or claim about automatic check-off.
 - With pantry auto-check disabled, an unchecked pantry item stays unchecked and appears in the shared grocery list. Manually checking it removes it from the shared list.
+
+
+### Recipes meal strip review checks
+
+- Open Recipes before the plan finishes loading: the strip starts at its first meal. Add another meal to that week: the strip scrolls to the newest meal. Refreshing, removing meals, or switching weeks must not jump to the end.
+- On iPhone at the largest accessibility text size, check that both lines of meal names fit inside the strip and that hide/show controls remain reachable.
+
+- Scroll the strip to the end, switch to another plan with the same meal count, and repeat with a larger plan: both start at the first meal on web and iOS. Adding a meal to the current plan still scrolls to the new meal.
+- Mark a strip meal cooked: its photo fades, but its name stays as readable as uncooked meal names.
+
+### Android review checks
+
+- On a debug HTTPS origin with a custom port, follow internal and external links; only the configured origin stays inside Taste Lab.
+- Export normally, then test a redirect response: it must fail without saving a redirected file.
+- Fail the initial My kitchen preferences load, restore networking, change Family portions and reopen; the change persists.
+- Grocery and My kitchen substitution actions both say **Save substitution** and save the replacement.
+
+
+### Android persistence and retry checks
+
+- Open a system photo/document picker or external browser and return: the original tab, form, and export operation remain available.
+- On a slow connection, change portions 4 → 5 → 4 quickly; reopen and confirm 4. Fail a save, restore connectivity, and retry.
+- Change aisle order and stores close together, then toggle grocery display settings; all three changes persist. Fail the initial aisle load and leave without editing: custom aisle names/numbers must remain unchanged.
+- Pick three pantry items and fail the second save. Only the two unsaved picks stay selected; retry adds them without losing the first. Repeat for Always checked off.
+- Fail placement loading, then change Have this item, Always check off, and quantity: pantry changes still persist.
+- Fail a grocery Add/Edit, then retry successfully: the old error clears and the sheet closes. Auth failures show explanations rather than codes.
+- Open Recipes without pulling to refresh: suggestions appear. Fail an Add/Remove or Prep action while a recipe is displayed: its error banner is visible.

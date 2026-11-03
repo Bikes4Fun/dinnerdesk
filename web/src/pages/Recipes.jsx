@@ -4,6 +4,7 @@ import { api } from "../api.js";
 import { RecipeCard, RecipeRow, hasTag } from "../cards.jsx";
 import { Icon } from "../icons.jsx";
 import { go } from "../nav.js";
+import { PlanStrip } from "../PlanStrip.jsx";
 
 const FILTERS = [
   ["all", "All"],
@@ -621,6 +622,7 @@ export function Recipes() {
           </div>
         )}
       </div>
+      <PlanStrip />
     </section>
   );
 }

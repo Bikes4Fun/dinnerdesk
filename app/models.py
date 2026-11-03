@@ -42,6 +42,14 @@ class RecipePatch(BaseModel):
     as_copy: bool = False
 
 
+class RecipePhotoAdd(BaseModel):
+    photo_data: str = Field(min_length=1, max_length=7_000_000)
+
+
+class RecipePhotoPrimary(BaseModel):
+    path: str = Field(min_length=1, max_length=2000)
+
+
 class FavoritePut(BaseModel):
     on: bool
 

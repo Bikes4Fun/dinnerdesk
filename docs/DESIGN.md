@@ -204,8 +204,30 @@ Hearts, To try, and hides belong to this kitchen.
 - **Bug if:** a vegan kitchen sees meat, fish, eggs, or dairy in Recipes, or a filter set in Taste
   Lab doesn't show in Settings (or the other way round).
 
+Food search in Other allergies/avoids and grocery substitutions tolerates one misspelled
+letter, missing/extra letter, or adjacent letter swap in words of at least four letters
+(#85). Literal matches rank ahead of typo matches. Other-food searches still require every
+query word to match a known food. Catalog and recipe ingredient choices share the grocery catalog’s plural/alias normalization,
+so “red bell pepper” and “red bell peppers” appear once while different colors stay separate.
+Selecting a result remains explicit; dietary exclusion
+rules do not use fuzzy matching.
+
 **Recipe page and Cook mode.** Overview is the photo and full ingredient list; Cook is numbered
 steps. Both show this kitchen's overlay when there is one.
+
+**Recipe photos:** iOS and web Overview open on the primary photo. Swipe horizontally or
+use Previous/Next to browse the gallery. **Add photos** accepts multiple images and saves
+each immediately; **Make primary** selects the photo used on cards and plans. Adding photos
+keeps the current primary (the first upload becomes primary when none exists). Existing
+single-photo recipes and older clients keep working. Replacing a photo in the older editor
+preserves the previous one in the gallery. Copies retain the gallery and can choose their own
+primary. Gallery editing follows recipe permissions: a kitchen's own recipes or catalog
+recipes for admins. Catalog edits apply to everyone. AI/shared-photo attribution follows
+the photo being viewed. A small ⓘ shows recorded photo credits on hover/focus (web) or
+tap (iOS), with a source link when recorded. Unknown credits say “Photo source not recorded”;
+the recipe source is never assumed to be the photo source. Gallery paths and credits are
+included in household data exports.
+
 
 Recipe detail add controls reflect membership in the current plan: already included recipes
 show "Remove from this plan". Successful adds/removals show a brief confirmation popup.
@@ -243,7 +265,8 @@ line. The Grocery tab badge counts items still to buy.
 - **Must:** each item can be given a store and an aisle, and the choice is remembered. Aisles can
   be renamed, numbered, and reordered. The list can be filtered by store.
 - **Must:** completed items can be shown or hidden from the bottom of the list. "You'll use
-  this in…" lists only meals on the current plan. Using a substitute keeps the item page open.
+  this in…" lists only meals on the current plan. **Save substitution** applies the chosen
+  replacement and keeps the item page open. My kitchen uses the same save action.
 - **Must:** share, email, or print what's left to buy, grouped by aisle, for the selected store.
 - **Bug if:** a rebuild duplicates lines or drops amounts; black pepper is filed as produce.
 
@@ -555,3 +578,25 @@ group New meal plan and Add meals together in the center.
 Odd-issue integration (October 9): pantry search supports keyboard selection and a clear control; the tab highlight stays within the system bar while selected labels retain bold type. Quick-start tour steps include screen illustrations. Guest Taste Lab answers persist by browser identity. Prep task names derive from recipe content. AI photo metadata controls a purple-star tip independently of instruction provenance.
 
 Household lifecycle: every account has a kitchen, including solo households. Owners can transfer ownership and designate admins. Owner/admin removal separates members without deleting accounts. Creators must choose a successor before leaving, joining another household, or deleting their account while members remain. Household deletion moves each member to an empty solo household. Retained meal votes are stored separately without account, household, browser or session identifiers. Existing households assign ownership to their earliest member. App Review notes: Settings → Account & security → Delete account; confirm with the account password.
+
+
+The Recipes meal strip reserves text space that scales with Dynamic Type. Its initial
+load and switching weeks start at the first meal; only adding meals to an already shown
+week scrolls toward the newest meal. Changing weeks resets an already-scrolled strip to
+the beginning, even when meal counts match. Cooked meals fade only their photos; names
+retain their normal text contrast.
+
+Android review fixes: internal links use the configured HTTPS API origin (including its
+port). Household export never follows redirects. Family portions can be saved after an
+initial preferences-load failure; only an unchanged, known saved value skips the write.
+Grocery and My kitchen use **Save substitution** for saving replacements.
+
+
+Android persistence: streaming responses are consumed on the IO dispatcher. API errors
+prefer the server's user-facing explanation. Activity stop preserves navigation and pending
+pickers. All grocery preference updates share one serialized read/merge/write; Store display
+settings do not resend stale store/aisle lists. Aisles are saved only after a successful load
+and an edit. Portion writes run in order, including a change back to the old value while a
+save is pending. Pantry batch failures keep unsaved picks visible for retry; item flags and
+quantities save independently of placement loading. Recipe suggestions load on entry and
+recipe action errors remain visible beside the loaded recipe.
