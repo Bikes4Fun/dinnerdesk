@@ -482,6 +482,12 @@ def test_signup_rejects_an_address_that_is_not_an_email(tmp_path, monkeypatch):
             "email": " First.Last+Tag@Example.co.uk ", "password": password, "household_name": "Ours"})
         assert ok.status_code == 200
         assert client.get("/api/auth/me").json()["email"] == "first.last+tag@example.co.uk"
+        client.post("/api/auth/logout")
+        for address in ("_cook@example.com", "cook_@example.com"):
+            client.post("/api/auth/logout")
+            made = client.post("/api/auth/signup", json={"email": address, "password": password, "household_name": "Ours"})
+            assert made.status_code == 200, address
+            assert client.get("/api/auth/me").json()["email"] == address
         res = client.post("/api/auth/verify-email", json={"email": "a@b", "password": password})
         assert res.json()["detail"] == "invalid_email"
         assert res.json()["message"] == "Enter a valid email address."
@@ -656,6 +662,7 @@ def test_admin_manages_sign_in(tmp_path):
         assert admin.post(f"/admin/users/{uid}/login", json={"login": "not-an-email@"}).json()["detail"] == "invalid_email"
         assert admin.post(f"/admin/users/{uid}/login", json={"login": "cookname"}).status_code == 200
         assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "a@b"}).json()["detail"] == "invalid_email"
+        assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "not an email"}).json()["detail"] == "invalid_email"
         assert admin.post(f"/admin/users/{uid}/recovery-email", json={"email": "back@example.com"}).status_code == 200
         with connect() as db:
             row = db.execute("SELECT email, recovery_email FROM users WHERE id = ?", (uid,)).fetchone()

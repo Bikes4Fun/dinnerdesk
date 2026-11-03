@@ -376,7 +376,7 @@ export function Filters() {
             {avoids.filter((id) => !commonAvoids.includes(id)).map((id) => choice(`${avoidLabel(id)} ×`, true, () => setFilter({ avoids: avoids.filter((a) => a !== id) })))}
             {choice("Other", open === "avoids", () => setOpen(open === "avoids" ? "" : "avoids"))}
           </div>
-          {open === "avoids" && <FoodFilterPicker label="Foods to avoid" selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6)} skip={commonAvoids} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
+          {open === "avoids" && <FoodFilterPicker label="Foods to avoid" selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6).filter((id) => !avoids.includes(id))} skip={[...commonAvoids, ...avoids]} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
         </div>
         <div className="filters-soft">
           <div className="filters-kicker">

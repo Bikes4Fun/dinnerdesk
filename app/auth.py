@@ -82,7 +82,7 @@ USERNAME = re.compile(r"[a-z0-9._-]{3,30}")
 # An address we can mail. Anything with "@" is an email attempt, so "a@b" and "user@" are
 # refused instead of stored. A typo like "you@exmaple.com" still passes; the confirm link catches it.
 EMAIL = re.compile(
-    r"[a-z0-9](?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]{0,62}[a-z0-9])?"
+    r"[a-z0-9!#$%&'*+/=?^_`{|}~-](?:[a-z0-9.!#$%&'*+/=?^_`{|}~-]{0,62}[a-z0-9!#$%&'*+/=?^_`{|}~-])?"
     r"@"
     r"(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
     r"[a-z]{2,63}"
@@ -841,9 +841,9 @@ def admin_set_recovery_email(conn: Any, user_id: int, email: str) -> None:
         raise AuthError("invalid_username")
     email = (email or "").strip()
     if email:
-        email = login_name(email)
         if not has_email(email):
             raise AuthError("invalid_email")
+        email = login_name(email)
         if _taken_by_other(conn, email, user_id):
             raise AuthError("email_taken")
     conn.execute("UPDATE users SET recovery_email = ?, email_verified_at = NULL WHERE id = ?", (email or None, user_id))
