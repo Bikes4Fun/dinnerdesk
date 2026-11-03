@@ -534,13 +534,6 @@ struct CreateMealPlanButton: View {
   }
 }
 
-extension MenuSheetItem {
-  static func newMealPlan(action: @escaping () -> Void) -> MenuSheetItem {
-    MenuSheetItem(title: CreateMealPlanButton.title, systemImage: CreateMealPlanButton.symbol,
-                  createsMealPlan: true, action: action)
-  }
-}
-
 /// Shared card typography; photo sizes and actions belong to each card layout.
 struct RecipeCardName: View {
   let name: String
