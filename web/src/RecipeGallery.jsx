@@ -107,8 +107,7 @@ function PhotoCredit({ photo }) {
   return <span className="photo-credit" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
     onFocus={() => setOpen(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
     onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
-    <button type="button" className="photo-credit-icon" aria-label="Photo source" aria-expanded={open} aria-controls={id}
-      onClick={() => setOpen(true)}>ⓘ</button>
+    <button type="button" className="photo-credit-icon" aria-label="Photo source" aria-expanded={open} aria-controls={id} aria-describedby={open ? id : undefined}
     {open && <span id={id} className="photo-credit-tooltip" role="note">
       {label}
       {photo.source_url && <a href={photo.source_url} target="_blank" rel="noopener noreferrer">View source ↗</a>}
