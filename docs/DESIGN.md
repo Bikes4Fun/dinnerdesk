@@ -215,6 +215,20 @@ rules do not use fuzzy matching.
 **Recipe page and Cook mode.** Overview is the photo and full ingredient list; Cook is numbered
 steps. Both show this kitchen's overlay when there is one.
 
+**Recipe photos:** iOS and web Overview open on the primary photo. Swipe horizontally or
+use Previous/Next to browse the gallery. **Add photos** accepts multiple images and saves
+each immediately; **Make primary** selects the photo used on cards and plans. Adding photos
+keeps the current primary (the first upload becomes primary when none exists). Existing
+single-photo recipes and older clients keep working. Replacing a photo in the older editor
+preserves the previous one in the gallery. Copies retain the gallery and can choose their own
+primary. Gallery editing follows recipe permissions: a kitchen's own recipes or catalog
+recipes for admins. Catalog edits apply to everyone. AI/shared-photo attribution follows
+the photo being viewed. A small ⓘ shows recorded photo credits on hover/focus (web) or
+tap (iOS), with a source link when recorded. Unknown credits say “Photo source not recorded”;
+the recipe source is never assumed to be the photo source. Gallery paths and credits are
+included in household data exports.
+
+
 Recipe detail add controls reflect membership in the current plan: already included recipes
 show "Remove from this plan". Successful adds/removals show a brief confirmation popup.
 On iPhone the toolbar plus becomes a minus,
