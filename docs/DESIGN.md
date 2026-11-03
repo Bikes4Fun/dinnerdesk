@@ -578,3 +578,8 @@ group New meal plan and Add meals together in the center.
 Odd-issue integration (October 9): pantry search supports keyboard selection and a clear control; the tab highlight stays within the system bar while selected labels retain bold type. Quick-start tour steps include screen illustrations. Guest Taste Lab answers persist by browser identity. Prep task names derive from recipe content. AI photo metadata controls a purple-star tip independently of instruction provenance.
 
 Household lifecycle: every account has a kitchen, including solo households. Owners can transfer ownership and designate admins. Owner/admin removal separates members without deleting accounts. Creators must choose a successor before leaving, joining another household, or deleting their account while members remain. Household deletion moves each member to an empty solo household. Retained meal votes are stored separately without account, household, browser or session identifiers. Existing households assign ownership to their earliest member. App Review notes: Settings → Account & security → Delete account; confirm with the account password.
+
+
+The Recipes meal strip reserves text space that scales with Dynamic Type. Its initial
+load and switching weeks start at the first meal; only adding meals to an already shown
+week scrolls toward the newest meal.
