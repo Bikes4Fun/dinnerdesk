@@ -449,8 +449,8 @@ export function Social() {
     const next = { ...prefs, [key]: !prefs[key] };
     setPrefs(next);
     try {
-      const hh = await api.household();
-      await api.putHousehold({ prefs: { ...(hh.prefs || {}), social: next } });
+      // Only this key: the server merges top-level prefs (#172).
+      await api.putHousehold({ prefs: { social: next } });
     } catch (e) {
       setErr(e.message);
     }
@@ -503,8 +503,8 @@ export function Newsletter() {
     setOn(next);
     setErr("");
     try {
-      const hh = await api.household();
-      await api.putHousehold({ prefs: { ...(hh.prefs || {}), newsletter: next } });
+      // Only this key: the server merges top-level prefs (#172).
+      await api.putHousehold({ prefs: { newsletter: next } });
     } catch (e) {
       setOn(!next);
       setErr(e.message);
