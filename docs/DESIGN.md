@@ -39,9 +39,12 @@ Email-and-password accounts with a session cookie. All normal features work sign
 private kitchen identified by a random guest cookie. Expired sign-in sessions fall back to guest
 access. Creating an account keeps the guest kitchen and revokes its anonymous access. Forgot password works on the website and in the iOS app.
 
-The Quick start tour is optional: a short what-to-eat survey (diet, avoids, cook time, the same
-filters as Settings), a **How we use AI** screen, and one screen each for Recipes, This week,
-Grocery, and Weekend prep. How we use AI says plainly: recipe photos are AI-generated; recipes
+The Quick start tour is optional. Its order (chosen on #24, the same on iPhone, Android and web):
+Welcome, **How we use AI**, a short what-to-eat survey (diet, avoids, cook time, the same filters
+as Settings; saved when you leave it, so a later Skip keeps them), then one card each for
+Suggestions, Review and approve, Grocery, Weekend prep, Recipes and ★ tips, and Taste Lab. The
+last card offers **Start planning** or **Try Taste Lab**. The tour must not promise that tips fade
+until that is built. How we use AI says plainly: recipe photos are AI-generated; recipes
 are not (they come from reliable sources); photos can be copyrighted and recipes can't, so we
 never copy photos; the AI runs on our own computer, not in a data center; and real photos will
 replace AI ones over time.
