@@ -18,6 +18,7 @@
 |---|---|
 | **Suggestion layout** | **Restart with saved suggestions: Plan opens, not the review sheet.** Tap **Review saved suggestions** to resume. **Photos are square everywhere:** check suggestion review, plan list/grid, recipes/detail, groceries/detail, and Taste Lab (intro/swipe/plans/swap) at narrow and wide widths. Missing photos use square placeholders; unavailable ingredient photos disappear. Swap picker uses cream styling and searchable, full names; empty results link to Filters. Empty-plan actions sit together. Check four meals at normal text and reachable actions at large text. |
 | **Decline / retry** | Decline replaces only the proposal. A failed replacement offers **Try another suggestion**; a declined plan cannot be approved or edited. |
+| **Recipe photos** | On web and iOS, add several photos to a recipe you can edit. Swipe or use Previous/Next; count and AI/shared attribution follow the displayed image. Make another photo primary; reopen and check recipe cards and planned meals use it. Adding photos preserves the old primary; a recipe with no photo uses its first upload. Hover/focus the small ⓘ on web or tap it on iOS; verify the credit follows each photo and a recorded source link opens. Test an upload, a known catalog/AI credit, and an unknown source. Test a bad image, retry, a copy, large text, and a non-admin catalog recipe (view only). |
 | **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. AI-tagged photos show the purple-star attribution tip. |
 | **Taste Lab** | **Try both entry buttons:** Swipe meals skips the quiz and ends without forcing plans; Suggest plans works without swiping. Intro photos/heading/buttons have breathing room; scroll if needed at large text. Edit filters in either mode. Like/pass, swap/More options and reject work; answers do not repeat. Three plan approvals finish; **Done for now** ends early. Empty results offer recovery. |
 | **Plan / drafts** | **iPhone 16, normal text:** four meals, full names, Schedule controls, and Add meals should fit without scrolling in the main list. Photos stay square; larger text can scroll. **Edit:** checkbox sits on the right; Schedule/votes and servings use two rows when they fit, stacking at large text. Select/remove, change portions, vote and Done work. Full names, cooked/undo and removal confirmation remain readable. Save/load/delete a draft; active plan is protected. |
@@ -96,3 +97,30 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Pantry items have a small muted Pantry label, without a star, pill or claim about automatic check-off.
 - With pantry auto-check disabled, an unchecked pantry item stays unchecked and appears in the shared grocery list. Manually checking it removes it from the shared list.
+
+
+### Recipes meal strip review checks
+
+- Open Recipes before the plan finishes loading: the strip starts at its first meal. Add another meal to that week: the strip scrolls to the newest meal. Refreshing, removing meals, or switching weeks must not jump to the end.
+- On iPhone at the largest accessibility text size, check that both lines of meal names fit inside the strip and that hide/show controls remain reachable.
+
+- Scroll the strip to the end, switch to another plan with the same meal count, and repeat with a larger plan: both start at the first meal on web and iOS. Adding a meal to the current plan still scrolls to the new meal.
+- Mark a strip meal cooked: its photo fades, but its name stays as readable as uncooked meal names.
+
+### Android review checks
+
+- On a debug HTTPS origin with a custom port, follow internal and external links; only the configured origin stays inside Taste Lab.
+- Export normally, then test a redirect response: it must fail without saving a redirected file.
+- Fail the initial My kitchen preferences load, restore networking, change Family portions and reopen; the change persists.
+- Grocery and My kitchen substitution actions both say **Save substitution** and save the replacement.
+
+
+### Android persistence and retry checks
+
+- Open a system photo/document picker or external browser and return: the original tab, form, and export operation remain available.
+- On a slow connection, change portions 4 → 5 → 4 quickly; reopen and confirm 4. Fail a save, restore connectivity, and retry.
+- Change aisle order and stores close together, then toggle grocery display settings; all three changes persist. Fail the initial aisle load and leave without editing: custom aisle names/numbers must remain unchanged.
+- Pick three pantry items and fail the second save. Only the two unsaved picks stay selected; retry adds them without losing the first. Repeat for Always checked off.
+- Fail placement loading, then change Have this item, Always check off, and quantity: pantry changes still persist.
+- Fail a grocery Add/Edit, then retry successfully: the old error clears and the sheet closes. Auth failures show explanations rather than codes.
+- Open Recipes without pulling to refresh: suggestions appear. Fail an Add/Remove or Prep action while a recipe is displayed: its error banner is visible.

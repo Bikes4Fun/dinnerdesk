@@ -1900,3 +1900,79 @@ img { display: block; max-width: 100%; }
 .missing-filter textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: 14px; resize: vertical; }
 /* Pull to refresh (pullRefresh.js). */
 .pull-hint { position: fixed; top: calc(8px + var(--safe-top)); left: 50%; z-index: 50; padding: 6px 14px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); color: var(--brand); font-size: 13px; font-weight: 600; box-shadow: 0 4px 12px rgba(74, 22, 70, 0.12); pointer-events: none; }
+
+/* This week's meals, pinned under the recipe list while browsing (#88). */
+.plan-strip {
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+  padding: 0.4rem 0 0.5rem;
+}
+.plan-strip-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0.6rem 0.3rem 1rem;
+  font-size: 0.9rem;
+}
+.plan-strip-close { width: 28px; height: 28px; color: var(--muted); }
+.plan-strip-track {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0 1rem;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.plan-strip-track::-webkit-scrollbar { display: none; }
+.plan-strip-track li { flex: 0 0 64px; scroll-snap-align: start; }
+.plan-strip-track li.is-cooked .food-photo { opacity: 0.5; }
+.plan-strip-open { display: block; width: 100%; padding: 0; text-align: left; }
+.plan-strip-open .food-photo { display: block; width: 64px; border-radius: 10px; overflow: hidden; }
+.plan-strip-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.plan-strip.is-collapsed {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.75rem;
+  border: 0;
+  padding: 0;
+  background: none;
+  z-index: 5;
+}
+.plan-strip-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 8px rgba(46, 26, 44, 0.2);
+}
+/* Recipe gallery: touch scrolling, keyboard-accessible paging, one square photo per page. */
+.recipe-gallery { min-width: 0; }
+.recipe-gallery-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 16px; }
+.recipe-gallery-track::-webkit-scrollbar { display: none; }
+.recipe-gallery-slide { position: relative; flex: 0 0 100%; min-width: 0; scroll-snap-align: start; }
+.recipe-gallery-slide .food-photo.hero { width: 100%; margin: 0; }
+.recipe-gallery-controls { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; margin: 8px 0; }
+.recipe-gallery-controls button { min-width: 44px; min-height: 44px; }
+.recipe-gallery input[type=file] { display: block; max-width: 100%; margin-top: 8px; }
+
+.photo-credit { position: absolute; bottom: 8px; right: 8px; z-index: 2; }
+.photo-credit-icon { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.9); color: var(--ink); font-size: 14px; box-shadow: 0 1px 5px #0003; }
+.photo-credit-tooltip { position: absolute; bottom: 100%; right: 0; width: max-content; max-width: min(260px, 70vw); padding: 10px 12px; border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: 0 2px 12px #0003; font-size: 12px; line-height: 1.4; }
+.photo-credit-tooltip a { display: block; margin-top: 4px; text-decoration: underline; }

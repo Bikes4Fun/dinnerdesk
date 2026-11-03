@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 private enum RecipeListKind: String, CaseIterable, Identifiable {
   case suggestions, fav, tryLater, popular, mine, simple, sauces, hidden, all
@@ -141,6 +142,7 @@ struct RecipesView: View {
       .task {
         hiddenRecipes = await store.loadHiddenRecipes(onlyIfStale: true)
       }
+      PlanStrip()
       }
     }
   }
@@ -363,6 +365,106 @@ private struct RecipeGridPage: View {
   }
 }
 
+private struct PlanStripSnapshot: Equatable {
+  let planID: Int?
+  let count: Int
+}
+
+/// Small carousel of this week's meals, pinned under the recipe list while browsing (#88).
+private struct PlanStrip: View {
+  @EnvironmentObject private var store: Store
+  @AppStorage("planStripHidden") private var hidden = false
+  @ScaledMetric(relativeTo: .caption) private var nameHeight: CGFloat = 32
+
+  private var slots: [PlanSlot] { store.plan?.slots ?? [] }
+
+  var body: some View {
+    if !slots.isEmpty {
+      if hidden {
+        HStack {
+          Spacer()
+          Button {
+            hidden = false
+          } label: {
+            Label("This week · \(slots.count)", systemImage: "fork.knife")
+              .font(Theme.count)
+              .foregroundStyle(.white)
+              .padding(.horizontal, 14)
+              .padding(.vertical, 8)
+              .background(Theme.ink, in: Capsule())
+          }
+          .accessibilityLabel("Show this week's meals, \(slots.count)")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+      } else {
+        VStack(alignment: .leading, spacing: 6) {
+          HStack {
+            Text("This week · \(slots.count)")
+              .font(Theme.sectionHeader)
+              .foregroundStyle(Theme.ink)
+            Spacer()
+            Button {
+              hidden = true
+            } label: {
+              Image(systemName: "xmark")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .frame(width: 44, height: 32)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Hide this week's meals")
+          }
+          .padding(.leading, 16)
+          .padding(.trailing, 4)
+          ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+              LazyHStack(alignment: .top, spacing: 8) {
+                ForEach(slots) { slot in
+                  NavigationLink {
+                    RecipeDetailView(id: slot.recipeId)
+                  } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                      RecipePhoto(path: slot.photoPath, fill: true)
+                        .opacity(slot.cooked ? 0.5 : 1)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                      Text(slot.recipeName)
+                        .font(Theme.recipeCardServing)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: 60, alignment: .leading)
+                    }
+                  }
+                  .buttonStyle(.plain)
+                  .id(slot.id)
+                  .accessibilityLabel("Open \(slot.recipeName)")
+                }
+              }
+              .padding(.horizontal, 16)
+            }
+            .frame(height: 66 + nameHeight)
+            // A different week starts at its first meal; additions reveal the newest meal.
+            .onChange(of: PlanStripSnapshot(planID: store.plan?.id, count: slots.count)) { old, new in
+              if old.planID != new.planID {
+                if let first = slots.first { proxy.scrollTo(first.id, anchor: .leading) }
+                return
+              }
+              guard old.count > 0, new.count > old.count,
+                    let last = slots.last else { return }
+              withAnimation { proxy.scrollTo(last.id, anchor: .trailing) }
+            }
+          }
+        }
+        .padding(.top, 6)
+        .background(Theme.surface)
+        .overlay(alignment: .top) { Theme.line.frame(height: 1) }
+      }
+    }
+  }
+}
+
 struct RecipeTile: View {
   @EnvironmentObject private var store: Store
   let recipe: RecipeSummary
@@ -470,11 +572,8 @@ struct RecipeDetailView: View {
             .pickerStyle(.segmented)
 
             if tab == .overview {
-              RecipePhoto(path: recipe.photoPath, large: true)
-              if recipe.photoAI && recipe.photoPath != nil {
-                StarTip(id: "recipes.ai-photo")
-              } else if recipe.photoShared && recipe.photoPath != nil {
-                StarTip(id: "recipes.shared-photo")
+              RecipeGalleryView(recipe: recipe, canEdit: admin || !recipe.catalog) { updated in
+                self.recipe = updated
               }
             }
 
@@ -877,5 +976,180 @@ private struct CookStepRow: View {
         if line.hasPrefix("- ") || line.hasPrefix("• ") { return line }
         return "· \(line)"
       }
+  }
+}
+
+/// The primary photo opens first; the rest can be swiped without leaving the recipe.
+private struct RecipeGalleryView: View {
+  let recipe: RecipeDetail
+  let canEdit: Bool
+  let onChange: (RecipeDetail) -> Void
+  @EnvironmentObject private var store: Store
+  @State private var selected = ""
+  @State private var picked: [PhotosPickerItem] = []
+  @State private var busy = false
+  @State private var notice: String?
+  @State private var error: String?
+
+  private var current: RecipeGalleryPhoto? {
+    recipe.photos.first(where: { $0.path == selected }) ?? recipe.photos.first
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      if !recipe.photos.isEmpty {
+        Color.clear.aspectRatio(1, contentMode: .fit)
+          .overlay {
+            TabView(selection: $selected) {
+              ForEach(recipe.photos) { photo in
+                RecipePhoto(path: photo.path, large: true)
+                  .overlay(alignment: .bottomTrailing) { RecipePhotoCredit(photo: photo) }
+                  .tag(photo.path)
+              }
+            }
+            .tabViewStyle(.page(indexDisplayMode: recipe.photos.count > 1 ? .always : .never))
+            .indexViewStyle(.page(backgroundDisplayMode: .always))
+          }
+          .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .accessibilityLabel("Recipe photos")
+        HStack {
+          if recipe.photos.count > 1 {
+            Button { move(-1) } label: { Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44) }
+              .disabled(current?.path == recipe.photos.first?.path)
+              .accessibilityLabel("Previous photo")
+          }
+          if let current, let index = recipe.photos.firstIndex(where: { $0.path == current.path }) {
+            Text("\(index + 1) / \(recipe.photos.count)\(current.primary ? " · Primary" : "")")
+              .font(Theme.subtitle)
+              .accessibilityAddTraits(.updatesFrequently)
+          }
+          if recipe.photos.count > 1 {
+            Button { move(1) } label: { Image(systemName: "chevron.right").frame(minWidth: 44, minHeight: 44) }
+              .disabled(current?.path == recipe.photos.last?.path)
+              .accessibilityLabel("Next photo")
+          }
+        }
+        .frame(maxWidth: .infinity)
+        if current?.ai == true {
+          StarTip(id: "recipes.ai-photo")
+        } else if current?.shared == true {
+          StarTip(id: "recipes.shared-photo")
+        }
+      }
+      if canEdit {
+        ViewThatFits(in: .horizontal) {
+          HStack { photoActions }
+          VStack(alignment: .leading) { photoActions }
+        }
+        .disabled(busy)
+        Text(recipe.catalog
+          ? "Add your own photos. The primary photo appears on recipe cards. Catalog photo changes are shared with everyone."
+          : "Add your own photos. The primary photo appears on recipe cards.")
+          .font(Theme.subtitle).foregroundStyle(Theme.muted)
+      }
+      if busy { ProgressView(notice ?? "Saving photos…") }
+      else if let notice { Text(notice).font(Theme.subtitle) }
+      if let error { Text(error).foregroundStyle(.red).accessibilityLabel(error) }
+    }
+    .onAppear { selected = recipe.photos.first?.path ?? "" }
+    .onChange(of: recipe.photoPath) { _, _ in selected = recipe.photos.first?.path ?? "" }
+    .onChange(of: picked) { _, items in
+      guard !items.isEmpty else { return }
+      Task { await upload(items) }
+    }
+  }
+
+  @ViewBuilder private var photoActions: some View {
+    PhotosPicker(selection: $picked, matching: .images) {
+      Label("Add photos", systemImage: "photo.badge.plus")
+        .frame(minHeight: 44)
+    }
+    if let current, !current.primary {
+      Button("Make primary") { Task { await makePrimary(current.path) } }
+        .frame(minHeight: 44)
+    }
+  }
+
+  private func move(_ delta: Int) {
+    guard let current, let index = recipe.photos.firstIndex(where: { $0.path == current.path }) else { return }
+    let next = index + delta
+    guard recipe.photos.indices.contains(next) else { return }
+    withAnimation { selected = recipe.photos[next].path }
+  }
+
+  private func upload(_ items: [PhotosPickerItem]) async {
+    busy = true
+    error = nil
+    var saved = 0
+    defer { busy = false; picked = [] }
+    do {
+      for item in items {
+        notice = "Adding photo \(saved + 1) of \(items.count)…"
+        guard let raw = try await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: raw), let data = RecipeFormView.photoData(image) else {
+          throw GalleryError.unreadable
+        }
+        let next: RecipeDetail = try await API.send("recipes/\(recipe.id)/photos", method: "POST",
+          body: ["photo_data": data], cacheAs: "recipes/\(recipe.id)")
+        onChange(next)
+        saved += 1
+      }
+      notice = "\(saved) \(saved == 1 ? "photo added" : "photos added")."
+    } catch {
+      notice = saved > 0 ? "\(saved) \(saved == 1 ? "photo was" : "photos were") added." : nil
+      self.error = "\(error.localizedDescription) Select the remaining photos to try again."
+    }
+    if saved > 0 { await store.loadAll() }
+  }
+
+  private func makePrimary(_ path: String) async {
+    busy = true
+    error = nil
+    defer { busy = false }
+    do {
+      let next: RecipeDetail = try await API.send("recipes/\(recipe.id)/photos/primary", method: "PUT",
+        body: ["path": path], cacheAs: "recipes/\(recipe.id)")
+      onChange(next)
+      notice = "Primary photo saved."
+      await store.loadAll()
+    } catch { self.error = error.localizedDescription }
+  }
+
+  private enum GalleryError: LocalizedError {
+    case unreadable
+    var errorDescription: String? { "Couldn't read this photo. Choose another image." }
+  }
+}
+
+
+private struct RecipePhotoCredit: View {
+  let photo: RecipeGalleryPhoto
+  @State private var showing = false
+
+  var body: some View {
+    Button { showing.toggle() } label: {
+      Image(systemName: "info.circle")
+        .font(.system(size: 13))
+        .foregroundStyle(Theme.ink)
+        .padding(5)
+        .background(.regularMaterial, in: Circle())
+        .frame(width: 44, height: 44)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("Photo source")
+    .help(photo.credit ?? "Photo source not recorded")
+    .popover(isPresented: $showing) {
+      VStack(alignment: .leading, spacing: 8) {
+        Text(photo.credit ?? "Photo source not recorded")
+        if let raw = photo.sourceUrl, let url = URL(string: raw),
+           ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
+          Link("View source", destination: url)
+        }
+      }
+      .font(.footnote)
+      .padding()
+      .presentationCompactAdaptation(.popover)
+    }
   }
 }
