@@ -142,6 +142,7 @@ struct RecipesView: View {
       .task {
         hiddenRecipes = await store.loadHiddenRecipes(onlyIfStale: true)
       }
+      PlanStrip()
       }
     }
   }
@@ -361,6 +362,106 @@ private struct RecipeGridPage: View {
     .background(Theme.bg)
     .navigationTitle(title)
     .largeNavigationTitle()
+  }
+}
+
+private struct PlanStripSnapshot: Equatable {
+  let planID: Int?
+  let count: Int
+}
+
+/// Small carousel of this week's meals, pinned under the recipe list while browsing (#88).
+private struct PlanStrip: View {
+  @EnvironmentObject private var store: Store
+  @AppStorage("planStripHidden") private var hidden = false
+  @ScaledMetric(relativeTo: .caption) private var nameHeight: CGFloat = 32
+
+  private var slots: [PlanSlot] { store.plan?.slots ?? [] }
+
+  var body: some View {
+    if !slots.isEmpty {
+      if hidden {
+        HStack {
+          Spacer()
+          Button {
+            hidden = false
+          } label: {
+            Label("This week · \(slots.count)", systemImage: "fork.knife")
+              .font(Theme.count)
+              .foregroundStyle(.white)
+              .padding(.horizontal, 14)
+              .padding(.vertical, 8)
+              .background(Theme.ink, in: Capsule())
+          }
+          .accessibilityLabel("Show this week's meals, \(slots.count)")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+      } else {
+        VStack(alignment: .leading, spacing: 6) {
+          HStack {
+            Text("This week · \(slots.count)")
+              .font(Theme.sectionHeader)
+              .foregroundStyle(Theme.ink)
+            Spacer()
+            Button {
+              hidden = true
+            } label: {
+              Image(systemName: "xmark")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.muted)
+                .frame(width: 44, height: 32)
+                .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Hide this week's meals")
+          }
+          .padding(.leading, 16)
+          .padding(.trailing, 4)
+          ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+              LazyHStack(alignment: .top, spacing: 8) {
+                ForEach(slots) { slot in
+                  NavigationLink {
+                    RecipeDetailView(id: slot.recipeId)
+                  } label: {
+                    VStack(alignment: .leading, spacing: 3) {
+                      RecipePhoto(path: slot.photoPath, fill: true)
+                        .opacity(slot.cooked ? 0.5 : 1)
+                        .frame(width: 60, height: 60)
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                      Text(slot.recipeName)
+                        .font(Theme.recipeCardServing)
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: 60, alignment: .leading)
+                    }
+                  }
+                  .buttonStyle(.plain)
+                  .id(slot.id)
+                  .accessibilityLabel("Open \(slot.recipeName)")
+                }
+              }
+              .padding(.horizontal, 16)
+            }
+            .frame(height: 66 + nameHeight)
+            // A different week starts at its first meal; additions reveal the newest meal.
+            .onChange(of: PlanStripSnapshot(planID: store.plan?.id, count: slots.count)) { old, new in
+              if old.planID != new.planID {
+                if let first = slots.first { proxy.scrollTo(first.id, anchor: .leading) }
+                return
+              }
+              guard old.count > 0, new.count > old.count,
+                    let last = slots.last else { return }
+              withAnimation { proxy.scrollTo(last.id, anchor: .trailing) }
+            }
+          }
+        }
+        .padding(.top, 6)
+        .background(Theme.surface)
+        .overlay(alignment: .top) { Theme.line.frame(height: 1) }
+      }
+    }
   }
 }
 

@@ -97,3 +97,12 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Pantry items have a small muted Pantry label, without a star, pill or claim about automatic check-off.
 - With pantry auto-check disabled, an unchecked pantry item stays unchecked and appears in the shared grocery list. Manually checking it removes it from the shared list.
+
+
+### Recipes meal strip review checks
+
+- Open Recipes before the plan finishes loading: the strip starts at its first meal. Add another meal to that week: the strip scrolls to the newest meal. Refreshing, removing meals, or switching weeks must not jump to the end.
+- On iPhone at the largest accessibility text size, check that both lines of meal names fit inside the strip and that hide/show controls remain reachable.
+
+- Scroll the strip to the end, switch to another plan with the same meal count, and repeat with a larger plan: both start at the first meal on web and iOS. Adding a meal to the current plan still scrolls to the new meal.
+- Mark a strip meal cooked: its photo fades, but its name stays as readable as uncooked meal names.
