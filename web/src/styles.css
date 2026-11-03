@@ -1928,7 +1928,7 @@ img { display: block; max-width: 100%; }
 }
 .plan-strip-track::-webkit-scrollbar { display: none; }
 .plan-strip-track li { flex: 0 0 64px; scroll-snap-align: start; }
-.plan-strip-track li.is-cooked { opacity: 0.5; }
+.plan-strip-track li.is-cooked .food-photo { opacity: 0.5; }
 .plan-strip-open { display: block; width: 100%; padding: 0; text-align: left; }
 .plan-strip-open .food-photo { display: block; width: 64px; border-radius: 10px; overflow: hidden; }
 .plan-strip-name {

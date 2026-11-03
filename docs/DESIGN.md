@@ -559,4 +559,6 @@ Household lifecycle: every account has a kitchen, including solo households. Own
 
 The Recipes meal strip reserves text space that scales with Dynamic Type. Its initial
 load and switching weeks start at the first meal; only adding meals to an already shown
-week scrolls toward the newest meal.
+week scrolls toward the newest meal. Changing weeks resets an already-scrolled strip to
+the beginning, even when meal counts match. Cooked meals fade only their photos; names
+retain their normal text contrast.

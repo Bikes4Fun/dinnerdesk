@@ -3,7 +3,7 @@ import FoodPhoto from "./FoodPhoto.jsx";
 import { Icon } from "./icons.jsx";
 import { go } from "./nav.js";
 import { useWeek } from "./week.jsx";
-import { shouldScrollToNewMeal } from "./planStripScroll.js";
+import { planStripScrollPosition } from "./planStripScroll.js";
 
 const HIDE_KEY = "dd.planStrip.hidden";
 
@@ -34,10 +34,14 @@ export function PlanStrip() {
   const count = slots.length;
   const previousPlan = useRef(null);
 
-  // Scroll to the newest meal after an add so it's in view.
+  // Reset a reused track on a different week; reveal the newest meal after an add.
   useEffect(() => {
-    if (shouldScrollToNewMeal(previousPlan.current, plan) && trackRef.current) {
-      trackRef.current.scrollTo({ left: trackRef.current.scrollWidth, behavior: "smooth" });
+    const position = planStripScrollPosition(previousPlan.current, plan);
+    if (position && trackRef.current) {
+      trackRef.current.scrollTo({
+        left: position === "start" ? 0 : trackRef.current.scrollWidth,
+        behavior: position === "start" ? "auto" : "smooth",
+      });
     }
     previousPlan.current = plan;
   }, [plan]);
