@@ -1005,6 +1005,7 @@ private struct RecipeGalleryView: View {
               ForEach(recipe.photos) { photo in
                 RecipePhoto(path: photo.path, large: true)
                   .overlay(alignment: .bottomTrailing) { RecipePhotoCredit(photo: photo) }
+                  .overlay(alignment: .bottomLeading) { if photo.tested == true { DeveloperTestedBadge() } }
                   .tag(photo.path)
               }
             }
@@ -1146,6 +1147,25 @@ private struct RecipeGalleryView: View {
   private enum GalleryError: LocalizedError {
     case unreadable
     var errorDescription: String? { "Couldn't read this photo. Choose another image." }
+  }
+}
+
+
+/// Gold ★ on a photo the developer took of the recipe as cooked.
+private struct DeveloperTestedBadge: View {
+  var body: some View {
+    HStack(spacing: 4) {
+      Image(systemName: "star.fill").foregroundStyle(Color(red: 0.54, green: 0.38, blue: 0))
+      Text("Developer tested")
+    }
+    .font(.caption.weight(.semibold))
+    .foregroundStyle(Theme.ink)
+    .padding(.horizontal, 9)
+    .padding(.vertical, 4)
+    .background(.regularMaterial, in: Capsule())
+    .padding(10)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Developer tested: photo of this recipe as we cooked it")
   }
 }
 

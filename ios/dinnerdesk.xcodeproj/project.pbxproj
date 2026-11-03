@@ -97,6 +97,7 @@
 				SettingsView.swift,
 				StarTip.swift,
 				StepTimer.swift,
+				TasteLabView.swift,
 				Theme.swift,
 				ThumbsControl.swift,
 				TourScreenPicture.swift,

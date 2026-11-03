@@ -3,7 +3,7 @@
   "app.name": "Dinnerdesk",
   "app.tagline": "Pick your favorite meals, shop once, cook without thinking.",
   "settings.gold-star": "A gold ★ means we ({app}) have professionally reviewed and tested the recipe. Only we can add that mark. It’s there so you can see which recipes we definitively trust. Other recipes still come from trusted sources; their photos are public-use or AI-generated.",
-  "settings.invite-link": "Share this link — whoever opens it and creates an account joins your household and sees the same recipes, plan, and grocery list. Expires in 7 days, one-time use.",
+  "settings.invite-link": "Someone new opens this link and creates an account in your household, with the same recipes, plan, and grocery list. Someone who already has an account pastes this same link into Join a household. Expires in 7 days, one-time use.",
   "settings.sign-out-everywhere": "Signs out every device using this account — use this if a phone or laptop was lost or you just changed your password and want to be sure.",
   "feedback-tip.title": "Found something off? Send us a screenshot",
   "feedback-tip.intro": "You’re testing an early version of {app}. A screenshot with a short note is the fastest way to tell us what to fix.",

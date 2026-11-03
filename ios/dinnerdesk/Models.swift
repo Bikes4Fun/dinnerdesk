@@ -90,6 +90,22 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     return copy
   }
 
+  /// The list row for a recipe just saved from somewhere else (a Taste Lab meal that isn't in
+  /// the loaded recipe list yet).
+  init(_ detail: RecipeDetail) {
+    id = detail.id
+    name = detail.name
+    servings = detail.servings
+    cookingMinutes = detail.cookingMinutes
+    photoPath = detail.photoPath
+    favorited = detail.favorited
+    toTry = detail.toTry
+    catalog = detail.catalog
+    hidden = detail.hidden
+    tags = detail.tags
+    ingredients = detail.ingredients.map(\.name)
+  }
+
   func withToTry(_ on: Bool) -> RecipeSummary {
     var copy = self
     copy.toTry = on
@@ -114,6 +130,8 @@ nonisolated struct RecipeGalleryPhoto: Decodable, Identifiable, Sendable {
   let primary: Bool
   let ai: Bool
   let shared: Bool
+  /// The developer took this photo of the recipe as cooked.
+  var tested: Bool? = nil
   var credit: String? = nil
   var sourceUrl: String? = nil
 }

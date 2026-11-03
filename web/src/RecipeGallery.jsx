@@ -91,6 +91,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
         }}>
           {photos.map((item, index) => <div className="recipe-gallery-slide" key={item.path} role="group" aria-label={`Photo ${index + 1} of ${photos.length}`}>
             <FoodPhoto className="hero" path={item.path} alt={`${recipe.name}, photo ${index + 1}`} />
+            {item.tested && <span className="photo-tested-badge" aria-label="Developer tested: photo of this recipe as we cooked it"><span aria-hidden="true">★</span> Developer tested</span>}
             <PhotoCredit photo={item} />
           </div>)}
         </div>

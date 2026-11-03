@@ -224,7 +224,11 @@ preserves the previous one in the gallery. Copies retain the gallery and can cho
 primary. Gallery editing follows recipe permissions: a kitchen's own recipes or catalog
 recipes for admins. Catalog edits apply to everyone. AI/shared-photo attribution follows
 the photo being viewed. A small ⓘ shows recorded photo credits on hover/focus (web) or
-tap (iOS), with a source link when recorded. Unknown credits say “Photo source not recorded”;
+tap (iOS), with a source link when recorded. Credits come from each entry's `credit` and
+`source_url` in the catalog's `recipe_photos.json`. A catalog recipe's gallery shows every
+entry listed for its archive id, so it can have several different photos. Entries marked
+`"developer_tested": true` (photos the developer took of the recipe as cooked) show a gold ★
+“Developer tested” badge on the photo. Unknown credits say “Photo source not recorded”;
 the recipe source is never assumed to be the photo source. Gallery paths and credits are
 included in household data exports.
 
@@ -585,3 +589,18 @@ load and switching weeks start at the first meal; only adding meals to an alread
 week scrolls toward the newest meal. Changing weeks resets an already-scrolled strip to
 the beginning, even when meal counts match. Cooked meals fade only their photos; names
 retain their normal text contrast.
+
+Android review fixes: internal links use the configured HTTPS API origin (including its
+port). Household export never follows redirects. Family portions can be saved after an
+initial preferences-load failure; only an unchanged, known saved value skips the write.
+Grocery and My kitchen use **Save substitution** for saving replacements.
+
+
+Android persistence: streaming responses are consumed on the IO dispatcher. API errors
+prefer the server's user-facing explanation. Activity stop preserves navigation and pending
+pickers. All grocery preference updates share one serialized read/merge/write; Store display
+settings do not resend stale store/aisle lists. Aisles are saved only after a successful load
+and an edit. Portion writes run in order, including a change back to the old value while a
+save is pending. Pantry batch failures keep unsaved picks visible for retry; item flags and
+quantities save independently of placement loading. Recipe suggestions load on entry and
+recipe action errors remain visible beside the loaded recipe.

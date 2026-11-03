@@ -392,11 +392,15 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
     provenance = json.loads(row["provenance_json"] or "{}")
     imported_link = _web_link(provenance.get("photo_url")) if row["household_id"] is not None else ""
     paths = [primary] if primary else []
-    for photo in db.execute(
+    archive_id = archive_id_of(row["source_url"], row["slug"])
+    gallery = [photo["path"] for photo in db.execute(
         "SELECT path FROM recipe_photo_gallery WHERE recipe_id = ? ORDER BY created_at, path",
         (row["id"],),
-    ):
-        path = photo["path"]
+    )]
+    if row["household_id"] is None:
+        # Catalog recipes also show every photo recipe_photos.json lists for them.
+        gallery += catalog_gallery(archive_id)
+    for path in gallery:
         # An imported kitchen recipe may retain its original page's photo as a fallback.
         if path not in paths and (usable_photo(path) or path == imported_link):
             paths.append(path)
@@ -407,7 +411,7 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
             source = _web_link(row["source_url"]) or _web_link(provenance.get("photo_url"))
             credit = {"credit": "Imported recipe photo", "source_url": source}
         photos.append({"path": path, "primary": path == primary, "ai": photo_is_ai(path),
-                       "shared": photo_is_borrowed(path, archive_id_of(row["source_url"], row["slug"])), **credit})
+                       "shared": photo_is_borrowed(path, archive_id), "tested": photo_is_tested(path), **credit})
     return photos
 
 

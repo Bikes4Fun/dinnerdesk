@@ -1,4 +1,7 @@
+.worktrees/*
 .claude
+
+.worktrees/
 # Python and test artifacts
 .venv/
 venv/
@@ -70,3 +73,15 @@ build/
 /data/
 /food/
 /tastelab/data/
+
+# Android local SDKs, signing material, and artifacts
+android/.gradle/
+android/.kotlin/
+android/local.properties
+*.jks
+*.keystore
+*.apk
+*.aab
+# The application namespace starts with "build"; these are source directories.
+!android/app/src/main/java/build/
+!android/app/src/test/java/build/
