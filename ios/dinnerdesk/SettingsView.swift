@@ -110,6 +110,7 @@ struct FiltersView: View {
   @State private var error: String?
 
   @State private var otherAllergenOpen = false
+  @State private var otherAvoidOpen = false
   /// "Saving…" then "Saved" after each change (#85), so a tap never looks like it did nothing.
   enum SaveState { case idle, saving, saved }
   @State private var saveState = SaveState.idle
@@ -281,23 +282,32 @@ struct FiltersView: View {
     }
   }
 
+  /// The dislikes shown as buttons. The rest are found through Other.
+  private var commonAvoids: [String] { Array(Self.avoids.prefix(6)) }
+
   private var avoidChips: some View {
-    let shown = Self.firstOrPicked(Self.avoids, count: 6, open: showAll.contains("avoid")) { avoids.contains($0) }
+    let common = commonAvoids
+    let extra = Self.avoids.filter { avoids.contains($0) && !common.contains($0) }
     return VStack(alignment: .leading, spacing: 10) {
       KitchenFlow(spacing: 6) {
-        ForEach(shown, id: \.self) { item in
+        ForEach(common, id: \.self) { item in
           choiceChip(item.capitalized, on: avoids.contains(item)) { toggle(&avoids, item) }
+        }
+        ForEach(extra, id: \.self) { item in
+          choiceChip(item.capitalized, on: true) { toggle(&avoids, item) }
         }
         ForEach(otherAvoids, id: \.self) { name in
           choiceChip("\(name) ✕", on: true) { otherAvoids.removeAll { $0 == name }; save() }
             .accessibilityLabel("Remove \(name)")
         }
+        choiceChip("Other", on: otherAvoidOpen) { otherAvoidOpen.toggle() }
       }
-      showMoreButton("avoid", hidden: Self.avoids.count - shown.count, noun: "")
-      ItemSearchField(label: "Foods to avoid", placeholder: "Add an ingredient…", dashed: true, presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
-        avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
-        otherAvoids.removeAll { Self.avoids.contains($0) }
-        save()
+      if otherAvoidOpen {
+        ItemSearchField(label: "Foods to avoid", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+          avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
+          otherAvoids.removeAll { Self.avoids.contains($0) }
+          save()
+        }
       }
     }
   }
@@ -584,6 +594,7 @@ struct FiltersView: View {
     proteinLess = []
     time = "any"
     otherAllergenOpen = false
+    otherAvoidOpen = false
     save()
   }
 
