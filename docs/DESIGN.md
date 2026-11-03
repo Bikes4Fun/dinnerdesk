@@ -138,8 +138,8 @@ The Plan tab badge counts meals that are not cooked yet.
 An empty plan centers “Nothing on this plan,” **New meal plan**, and **Add meals** (Recipes).
 List rows show a square photo, the name, servings, and Schedule. **Grid View** in ⋯ is two
 columns; the same item switches back to List View. Accessibility text sizes stay on the list.
-⋯ also offers Fill in this plan, Edit plan (Finish editing while editing), Mark all cooked,
-Save as draft, and Saved plans & history. While editing, **Done** sits in the header beside ⋯.
+⋯ also offers Fill in this plan, Edit plan (Finish editing while editing), Save as draft, and
+Saved plans & history. There is no Mark all cooked: Edit → Select all → Mark cooked covers it. While editing, **Done** sits in the header beside ⋯.
 
 ![Empty week](images/plan-empty.png)
 
@@ -159,7 +159,9 @@ by this preference. Without a valid saved preference, use the recipe's own yield
 - **Must:** unscheduled meals count toward groceries. Marking a meal cooked keeps it on the plan,
   faded, and moving it to another day keeps it cooked.
 - **Must:** Edit mode handles servings, scheduling, selecting several meals (mark cooked or
-  remove), and 👍/👎 per meal. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
+  remove), and 👍/👎 per meal. When every selected meal is already cooked, Mark cooked reads
+  **Mark uncooked** and undoes it. The selection stays after either, so the label flips as
+  confirmation. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
   iPhone selection sits on the right rather than occupying a column beside every photo.
   Schedule and voting share one row when they fit; servings use the next row. Narrow layouts
   and larger text stack controls, while vote explanations remain below the controls.

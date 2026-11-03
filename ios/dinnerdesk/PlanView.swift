@@ -156,9 +156,6 @@ struct PlanView: View {
           MenuSheetItem.newMealPlan {
             Task { await store.openSuggestions() }
           },
-          MenuSheetItem(title: "Mark all cooked", systemImage: "checkmark.circle") {
-            Task { await store.markAllCooked() }
-          },
           MenuSheetItem(title: "Save as draft", systemImage: "square.and.arrow.down") {
             draftTitle = store.plan?.title ?? "Saved plan"
             savingDraft = true

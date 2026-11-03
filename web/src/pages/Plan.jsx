@@ -153,7 +153,6 @@ export function Plan() {
           <summary aria-label="Plan menu"><Icon name="dots" size={24} /></summary>
           <div>
             <button type="button" onClick={() => { setEditing(!editing); setSelected(new Set()); }}> {editing ? "Finish editing" : "Edit this plan"}</button>
-            <button type="button" disabled={busy} onClick={() => act(() => markCooked(new Set(plan.slots.map((s) => s.id))))}>Mark all cooked</button>
             <button type="button" onClick={() => setGrid(!grid)}>{grid ? "List" : "Grid"} View</button>
             <button type="button" disabled={busy} onClick={() => {
               const title = window.prompt("Plan name", plan.title);

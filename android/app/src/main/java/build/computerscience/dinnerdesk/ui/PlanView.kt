@@ -204,7 +204,6 @@ fun PlanView() {
             MenuItem(CREATE_MEAL_PLAN, Icons.Outlined.AddCircleOutline, createsMealPlan = true) { store.launch { openSuggestions() } },
             MenuItem("Fill in this plan", Icons.Outlined.AddCircleOutline) { store.launch { openSuggestions(keepCurrent = true) } },
             MenuItem(if (editing) "Finish editing" else "Edit plan", if (editing) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Edit) { setEditing(!editing) },
-            MenuItem("Mark all cooked", Icons.Outlined.CheckCircleOutline) { store.launch { markAllCooked() } },
             MenuItem(if (grid) "List View" else "Grid View", Icons.Outlined.GridView) { grid = !grid },
             MenuItem("Save as draft", Icons.Outlined.SaveAlt) { draftTitle = store.plan?.title ?: "Saved plan"; savingDraft = true },
             MenuItem("Saved plans & history", Icons.Outlined.Inbox) { drafts = true },

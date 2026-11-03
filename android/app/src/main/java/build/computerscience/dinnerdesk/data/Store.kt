@@ -352,13 +352,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         }
     }
 
-    suspend fun markAllCooked() {
-        for (slot in (plan?.slots ?: emptyList()).filter { !it.cooked }) {
-            applyLocalSlot(slot.id) { it.copy(cooked = true) }
-            patchSlot(slot.id, mapOf("cooked" to true), reloadOnError = true)
-        }
-    }
-
     /** `onlyIfStale` (opening Grocery) uses the saved list while fresh; `rebuild` (pull-to-refresh) rebuilds it first. */
     suspend fun loadGrocery(onlyIfStale: Boolean = false, rebuild: Boolean = false) {
         if (onlyIfStale && Freshness.isFresh(Freshness.GROCERY)) {
