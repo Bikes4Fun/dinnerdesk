@@ -1005,34 +1005,34 @@ private struct SwipeCard: View {
   var drag: CGFloat = 0
 
   var body: some View {
-    ZStack(alignment: .bottomLeading) {
-      FillPhoto(path: recipe.photo, name: recipe.name)
-      LinearGradient(colors: [.clear, .black.opacity(0.7)], startPoint: .center, endPoint: .bottom)
-      VStack(alignment: .leading, spacing: 4) {
-        if let mins = recipe.mins {
-          Text("\(mins) min").font(Theme.count).foregroundStyle(.white.opacity(0.9))
+    // Same pieces as the plan cards: the shared square photo, then the name and time.
+    VStack(alignment: .leading, spacing: 8) {
+      RecipePhoto(path: recipe.photo, fill: true)
+        .overlay(alignment: .topLeading) {
+          SaveForLater(recipeID: recipe.recipeId, name: recipe.name, small: true).padding(8)
         }
-        Text(recipe.name)
-          .font(Theme.recipeTitle)
-          .foregroundStyle(.white)
-          .lineLimit(3)
+        .overlay {
+          ZStack {
+            stamp("LIKE", color: Theme.ok).opacity(Double(min(1, max(0, drag / 90))))
+              .rotationEffect(.degrees(-12))
+            stamp("PASS", color: Theme.danger).opacity(Double(min(1, max(0, -drag / 90))))
+              .rotationEffect(.degrees(12))
+          }
+          .allowsHitTesting(false)
+        }
+      Text(recipe.name)
+        .font(Theme.mealName)
+        .foregroundStyle(Theme.ink)
+        .lineLimit(2, reservesSpace: true)
+        .multilineTextAlignment(.leading)
+      if let mins = recipe.mins {
+        Text("\(mins) min").font(Theme.recipeCardServing).foregroundStyle(Theme.muted)
       }
-      .padding(20)
-      .padding(.trailing, 56)
     }
-    .overlay(alignment: .bottomTrailing) {
-      SaveForLater(recipeID: recipe.recipeId, name: recipe.name).padding(14)
-    }
-    .overlay(alignment: .topLeading) {
-      stamp("LIKE", color: Theme.ok).opacity(Double(min(1, max(0, drag / 90))))
-        .rotationEffect(.degrees(-12)).padding(24)
-    }
-    .overlay(alignment: .topTrailing) {
-      stamp("PASS", color: Theme.danger).opacity(Double(min(1, max(0, -drag / 90))))
-        .rotationEffect(.degrees(12)).padding(24)
-    }
-    .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-    .shadow(color: Theme.ink.opacity(0.12), radius: 14, y: 6)
+    .padding(10)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.line))
+    .shadow(color: Theme.ink.opacity(0.08), radius: 10, y: 4)
   }
 
   private func stamp(_ text: String, color: Color) -> some View {
@@ -1049,8 +1049,20 @@ private struct SwipeCard: View {
 private struct SwipeStack: View {
   let lab: TasteLab
   @State private var drag: CGFloat = 0
+  @ScaledMetric(relativeTo: .body) private var textRoom: CGFloat = 96
 
   var body: some View {
+    // Keep the photo square: the card is as wide as the space allows, but no wider than the
+    // height left after the name and time below the photo.
+    GeometryReader { geo in
+      let width = min(geo.size.width, max(180, geo.size.height - textRoom))
+      cards
+        .frame(width: width)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+  }
+
+  private var cards: some View {
     ZStack {
       if lab.index + 1 < lab.deck.count {
         SwipeCard(recipe: lab.deck[lab.index + 1])
