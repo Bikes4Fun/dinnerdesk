@@ -392,10 +392,7 @@ private fun ReportGrocerySheet(lineId: Int, onDraft: (Boolean) -> Unit, onSent: 
 
 @Composable
 private fun ToggleLine(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = Theme.rowTitle, color = Theme.ink, modifier = Modifier.weight(1f))
-        ThemeSwitch(checked, onChange)
-    }
+    SwitchRow(label, checked, divider = false, onChange = onChange)
 }
 
 @Composable

@@ -54,9 +54,9 @@ export function Auth({ onAuthed }) {
 
           {mode === "forgot" ? (
             <div>
-              {err ? <p className="banner err">{err}</p> : null}
+              {err ? <p className="banner err" role="alert">{err}</p> : null}
               {sent ? (
-                <p className="banner ok">
+                <p className="banner ok" role="status">
                   If {email} has an account with an email on file, a reset link is on its way to that email. It works once, for 1 hour.
                 </p>
               ) : (
@@ -97,6 +97,7 @@ export function Auth({ onAuthed }) {
             <button
               type="button"
               className={`tab-btn${mode === "login" ? " is-on" : ""}`}
+              aria-pressed={mode === "login"}
               onClick={() => setMode("login")}
             >
               Sign in
@@ -104,13 +105,14 @@ export function Auth({ onAuthed }) {
             <button
               type="button"
               className={`tab-btn${mode === "signup" ? " is-on" : ""}`}
+              aria-pressed={mode === "signup"}
               onClick={() => setMode("signup")}
             >
               Sign up
             </button>
           </div>
 
-          {err ? <p className="banner err">{err}</p> : null}
+          {err ? <p className="banner err" role="alert">{err}</p> : null}
 
           <form onSubmit={submit}>
             {mode === "signup" && (

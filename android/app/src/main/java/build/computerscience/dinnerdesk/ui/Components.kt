@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -87,6 +88,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -117,7 +120,7 @@ fun ErrorBanner(message: String, modifier: Modifier = Modifier) {
     Text(
         message, style = Theme.subtitle, color = Theme.errorText,
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Theme.errorBg)
-            .padding(horizontal = 14.dp, vertical = 11.dp),
+            .padding(horizontal = 14.dp, vertical = 11.dp).semantics { liveRegion = LiveRegionMode.Polite },
     )
 }
 
@@ -150,7 +153,7 @@ fun StarTip(id: String, modifier: Modifier = Modifier) {
 @Composable
 fun ThemeHeader(text: String, modifier: Modifier = Modifier) {
     Text(
-        text.uppercase(), style = Theme.sectionHeader.copy(letterSpacing = 0.8.sp), color = Theme.muted.copy(alpha = 0.85f),
+        text.uppercase(), style = Theme.sectionHeader.copy(letterSpacing = 0.8.sp), color = Theme.muted,
         modifier = modifier.padding(top = 6.dp).semantics { heading() },
     )
 }
@@ -285,7 +288,7 @@ fun LinkButton(
     style: TextStyle = Theme.action, onClick: () -> Unit,
 ) {
     Box(
-        modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 10.dp),
+        modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(8.dp)).clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, style = style, color = if (enabled) color else color.copy(alpha = 0.4f))
@@ -295,7 +298,7 @@ fun LinkButton(
 @Composable
 fun IconAction(icon: ImageVector, label: String, tint: Color = Theme.accent, size: Dp = 24.dp, enabled: Boolean = true, onClick: () -> Unit) {
     Box(
-        Modifier.size(44.dp).clip(CircleShape).clickable(enabled = enabled, role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        Modifier.size(48.dp).clip(CircleShape).clickable(enabled = enabled, role = Role.Button, onClick = onClick).semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, null, tint = if (enabled) tint else tint.copy(alpha = 0.4f), modifier = Modifier.size(size))
@@ -377,7 +380,7 @@ fun ThumbsControl(rating: Int, subject: String, size: Dp = 19.dp, onRate: (Int) 
                 else -> Icons.Outlined.ThumbDown
             }
             Box(
-                Modifier.size(width = 44.dp, height = 36.dp).clickable(role = Role.Button) { onRate(if (on) 0 else value) }
+                Modifier.size(48.dp).clickable(role = Role.Button) { onRate(if (on) 0 else value) }
                     .semantics { contentDescription = if (up) "Like $subject" else "Dislike $subject"; selected = on },
                 contentAlignment = Alignment.Center,
             ) {
@@ -445,9 +448,9 @@ fun <T> Segmented(options: List<Pair<T, String>>, current: T, modifier: Modifier
         for ((value, label) in options) {
             val on = value == current
             Box(
-                Modifier.weight(1f).heightIn(min = 32.dp)
+                Modifier.weight(1f).heightIn(min = 48.dp)
                     .then(if (on) Modifier.shadow(1.dp, RoundedCornerShape(7.dp)).background(Color.White, RoundedCornerShape(7.dp)) else Modifier)
-                    .clip(RoundedCornerShape(7.dp)).clickable { onSelect(value) }.semantics { selected = on }.padding(horizontal = 6.dp, vertical = 6.dp),
+                    .clip(RoundedCornerShape(7.dp)).clickable(role = Role.Tab) { onSelect(value) }.semantics { selected = on }.padding(horizontal = 6.dp, vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(label, style = Theme.subtitle.copy(fontWeight = if (on) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Medium), color = Theme.ink, textAlign = TextAlign.Center)
@@ -470,7 +473,7 @@ fun Stepper(value: Int, range: IntRange, label: String, onChange: (Int) -> Unit)
 }
 
 @Composable
-fun ThemeSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
+fun ThemeSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?) {
     Switch(
         checked, onChange,
         colors = SwitchDefaults.colors(
@@ -483,9 +486,17 @@ fun ThemeSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
 /** Label on the left, switch on the right. */
 @Composable
 fun SwitchRow(label: String, checked: Boolean, style: TextStyle = Theme.rowTitle, divider: Boolean = true, onChange: (Boolean) -> Unit) {
-    ListRow(onClick = { onChange(!checked) }, chevron = false, divider = divider) {
-        Text(label, style = style, color = Theme.ink, modifier = Modifier.weight(1f))
-        ThemeSwitch(checked, onChange)
+    Column {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 56.dp)
+                .toggleable(value = checked, role = Role.Switch, onValueChange = onChange)
+                .padding(horizontal = 20.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, style = style, color = Theme.ink, modifier = Modifier.weight(1f))
+            ThemeSwitch(checked, null)
+        }
+        if (divider) Hairline(start = 20.dp)
     }
 }
 
@@ -497,7 +508,7 @@ fun FilledButton(
 ) {
     Box(
         modifier.fillMaxWidth().heightIn(min = minHeight).clip(shape).background(if (enabled) color else Theme.muted)
-            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) { Text(text, style = Theme.action, color = textColor, textAlign = TextAlign.Center) }
 }
@@ -507,7 +518,7 @@ fun FilledButton(
 fun OutlinedButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, shape: Shape = RoundedCornerShape(14.dp), minHeight: Dp = 50.dp, onClick: () -> Unit) {
     Box(
         modifier.fillMaxWidth().heightIn(min = minHeight).clip(shape).background(Theme.surface).border(1.5.dp, Theme.line, shape)
-            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 12.dp),
         contentAlignment = Alignment.Center,
     ) { Text(text, style = Theme.action, color = Theme.ink, textAlign = TextAlign.Center) }
 }
@@ -517,7 +528,7 @@ fun OutlinedButton(text: String, modifier: Modifier = Modifier, enabled: Boolean
 fun AccentButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, onClick: () -> Unit) {
     Box(
         modifier.fillMaxWidth().heightIn(min = 50.dp).clip(CircleShape).background(if (enabled) Theme.accent else Theme.accent.copy(alpha = 0.4f))
-            .clickable(enabled = enabled && !busy, onClick = onClick),
+            .clickable(enabled = enabled && !busy, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (busy) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
@@ -540,7 +551,7 @@ fun TextBox(
         keyboardOptions = keyboard, keyboardActions = actions,
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
         cursorBrush = SolidColor(Theme.accent),
-        modifier = modifier.fillMaxWidth().then(if (contentDescription != null) Modifier.semantics { this.contentDescription = contentDescription } else Modifier),
+        modifier = modifier.fillMaxWidth().semantics { this.contentDescription = contentDescription ?: placeholder },
         decorationBox = { inner ->
             Row(
                 Modifier.clip(RoundedCornerShape(corner)).background(background).border(1.dp, border, RoundedCornerShape(corner))
@@ -549,7 +560,7 @@ fun TextBox(
             ) {
                 if (leading != null) { leading(); Spacer(Modifier.width(8.dp)) }
                 Box(Modifier.weight(1f).padding(vertical = 12.dp)) {
-                    if (value.isEmpty()) Text(placeholder, style = style, color = Theme.muted.copy(alpha = 0.7f))
+                    if (value.isEmpty()) Text(placeholder, style = style, color = Theme.muted)
                     inner()
                 }
                 if (trailing != null) trailing()
@@ -563,16 +574,17 @@ fun TextBox(
 fun FormField(
     value: String, onChange: (String) -> Unit, placeholder: String, keyboard: KeyboardOptions = KeyboardOptions.Default,
     password: Boolean = false, minLines: Int = 1, actions: KeyboardActions = KeyboardActions.Default, modifier: Modifier = Modifier,
+    label: String = placeholder,
 ) {
     BasicTextField(
         value = value, onValueChange = onChange, textStyle = Theme.body.copy(color = Theme.ink),
         minLines = minLines, maxLines = if (minLines > 1) 30 else 1, singleLine = minLines == 1,
         keyboardOptions = keyboard, keyboardActions = actions, cursorBrush = SolidColor(Theme.accent),
         visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().semantics { contentDescription = label },
         decorationBox = { inner ->
             Box(Modifier.heightIn(min = 44.dp).padding(vertical = 11.dp), contentAlignment = Alignment.CenterStart) {
-                if (value.isEmpty()) Text(placeholder, style = Theme.body, color = Theme.muted.copy(alpha = 0.6f))
+                if (value.isEmpty()) Text(placeholder, style = Theme.body, color = Theme.muted)
                 inner()
             }
         },

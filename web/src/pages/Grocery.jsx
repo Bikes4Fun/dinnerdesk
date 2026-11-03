@@ -355,7 +355,7 @@ export function Grocery() {
         <div className="top-actions">
           <label className="store-pick">
             <span className="sr-only">Store</span>
-            <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
+            <select aria-label="Filter by store" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
               <option value="all">All stores</option>
               {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
@@ -557,7 +557,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         </label>
         <FoodPhoto className="ingredient-banner" path={item.ingredient_photo_path} alt={item.name} hideUnavailable />
         <label className="grocery-substitute-row">Substitute
-          <input className="field" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
+          <input className="field" aria-label="Replacement item" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
         </label>
         {substitute.trim() && <button className="text-link" onClick={() => onSubstitute(substitute.trim())}>Save substitution</button>}
         <h3 className="block-label">You'll use this in</h3>
@@ -632,7 +632,7 @@ function StoresView({ stores, lines, newStore, setNewStore, err, onBack, onAssig
             onAdd();
           }}
         >
-          <input className="field" placeholder="Add a store" value={newStore} onChange={(e) => setNewStore(e.target.value)} />
+          <input className="field" aria-label="New store name" placeholder="Add a store" value={newStore} onChange={(e) => setNewStore(e.target.value)} />
           <button type="submit" className="btn-secondary">
             Add
           </button>
@@ -684,14 +684,15 @@ function AislesView({ aisles, lines = [], err, onBack, onChange, onAssign }) {
             <strong>{a.name}</strong>
             <input
               className="field tight aisle-num"
+              aria-label={`Aisle number for ${a.name}`}
               placeholder="#"
               value={a.number}
               onChange={(e) => onChange(aisles.map((x) => (x.id === a.id ? { ...x, number: e.target.value } : x)))}
             />
-            <button type="button" className="icon-btn" onClick={() => move(i, -1)} aria-label="Move up">
+            <button type="button" className="icon-btn" onClick={() => move(i, -1)} aria-label={`Move ${a.name} up`}>
               ↑
             </button>
-            <button type="button" className="icon-btn" onClick={() => move(i, 1)} aria-label="Move down">
+            <button type="button" className="icon-btn" onClick={() => move(i, 1)} aria-label={`Move ${a.name} down`}>
               ↓
             </button>
           </div>

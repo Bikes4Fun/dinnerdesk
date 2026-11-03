@@ -32,7 +32,8 @@ from app.domain.photo_uploads import save_photo, save_screenshot, save_photo_byt
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import (
-    archive_id_of, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_name, usable_photo,
+    archive_id_of, catalog_gallery, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested,
+    photo_name, usable_photo,
 )
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (

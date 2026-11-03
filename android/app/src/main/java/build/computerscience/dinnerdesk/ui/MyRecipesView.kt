@@ -242,6 +242,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                         url, { url = it }, "https://",
                         KeyboardOptions(keyboardType = KeyboardType.Uri, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Go),
                         actions = KeyboardActions(onGo = { runImport() }),
+                        label = "Recipe page URL",
                     )
                     Hairline()
                     val enabled = !importing && url.isNotBlank()
@@ -262,7 +263,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                     FormField(minutes, { minutes = it.filter(Char::isDigit) }, "Minutes (optional)", KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
                 FormSection("Ingredients", footer = { Text("One per line, amount first.") }) {
-                    FormField(ingredients, { ingredients = it }, "1 onion\n2 cloves garlic", minLines = 5)
+                    FormField(ingredients, { ingredients = it }, "1 onion\n2 cloves garlic", minLines = 5, label = "Ingredients, one per line")
                 }
                 FormSection("Photo", footer = {
                     if (ownPhoto == null && imported && siteImage.isNotEmpty()) Text("This is the photo from that page, saved for your kitchen only. Don't like it? Choose your own.")
@@ -287,7 +288,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                 }
                 if (mode == RecipeFormMode.Write) {
                     FormSection("Source (optional)", footer = { Text("Where this recipe came from.") }) {
-                        FormField(source, { source = it }, "https://", KeyboardOptions(keyboardType = KeyboardType.Uri, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
+                        FormField(source, { source = it }, "https://", KeyboardOptions(keyboardType = KeyboardType.Uri, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false), label = "Recipe source URL (optional)")
                     }
                 }
                 FormSection("Steps") {
@@ -295,7 +296,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                         if (index > 0) Hairline()
                         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("${index + 1}.", style = Theme.count, color = Theme.muted, modifier = Modifier.padding(top = 14.dp))
-                            Box(Modifier.weight(1f)) { FormField(step.text, { step.text = it }, "What to do", minLines = 2) }
+                            Box(Modifier.weight(1f)) { FormField(step.text, { step.text = it }, "What to do", minLines = 2, label = "Step ${index + 1} instructions") }
                             if (steps.size > 1) IconAction(Icons.Outlined.Delete, "Delete step ${index + 1}", tint = Theme.muted, size = 20.dp) { steps.removeAt(index) }
                         }
                     }

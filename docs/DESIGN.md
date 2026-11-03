@@ -611,3 +611,28 @@ and an edit. Portion writes run in order, including a change back to the old val
 save is pending. Pantry batch failures keep unsaved picks visible for retry; item flags and
 quantities save independently of placement loading. Recipe suggestions load on entry and
 recipe action errors remain visible beside the loaded recipe.
+
+
+## Accessibility across clients — November 3, 2026
+
+Web recipe editor fields have connected labels and unique IDs per editor. Step instructions,
+prep toggles, amounts and move buttons identify their step. Kitchen amount/store/aisle controls,
+store creation, grocery substitutions and invite links have accessible names. Keyboard focus
+uses an explicit outline; feedback screenshot selection remains keyboard reachable. Sign-in,
+password reset and recipe creation errors are alerts; successful account actions are status messages.
+
+Android shared text fields retain their accessible name after entry, including passwords.
+Switch rows expose one labeled switch with its checked state and a single toggle action;
+tapping either the label or switch changes it once. Shared buttons expose button roles,
+segmented controls expose selected tabs, and errors use polite live announcements. Shared
+icon, rating and segmented controls use 48dp targets. Muted/coral text uses the same darker
+palette as web and iOS; section headers and placeholders stay opaque. Cooked meal photos fade,
+while their names and controls retain contrast.
+
+iOS recipe import/source/ingredient fields and numbered instructions have explicit labels,
+as do recipe-report and general-feedback details. Rating buttons have a 44-point minimum
+design height that grows with Dynamic Type. Existing Reduce Motion handling, opaque section
+headers and cooked-meal text contrast remain in place.
+
+These changes require hands-on VoiceOver/TalkBack and largest-text acceptance; compilation
+and source checks do not establish accessibility conformance.
