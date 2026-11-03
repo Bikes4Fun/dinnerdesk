@@ -41,12 +41,13 @@ object KitchenApi {
         Api.jsonObject("household", "PUT", mapOf("prefs" to patch))
     }
 
-    /** Change part of prefs.grocery without wiping the rest of it. */
-    suspend fun saveGroceryPrefs(patch: Map<String, Any?>) {
-        val grocery = (prefs()["grocery"] as? JsonObject)?.toMutableMap<String, Any?>() ?: mutableMapOf()
-        grocery.putAll(patch)
-        savePrefs(mapOf("grocery" to grocery))
-    }
+    private val groceryUpdates = GroceryPreferenceUpdates(
+        read = { (prefs()["grocery"] as? JsonObject)?.toMap() ?: emptyMap() },
+        write = { grocery -> Api.send<Household>("household", "PUT", mapOf("prefs" to mapOf("grocery" to grocery)), cacheAs = "household") },
+    )
+
+    /** Every grocery preference writer uses the same serialized read/merge/write. */
+    suspend fun saveGroceryPrefs(patch: Map<String, Any?>) { groceryUpdates.update(patch) }
 
     suspend fun members(): List<HouseholdMember> = Api.get<HouseholdMembers>("household/members").members
 
