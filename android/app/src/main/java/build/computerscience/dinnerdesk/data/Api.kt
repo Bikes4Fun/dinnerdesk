@@ -3,6 +3,8 @@ package build.computerscience.dinnerdesk.data
 import android.content.Context
 import android.util.Log
 import build.computerscience.dinnerdesk.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.KSerializer
@@ -96,10 +98,10 @@ object Api {
     suspend fun getData(path: String): ByteArray {
         val request = Request.Builder().url(apiUrl(path)).header("X-Dinnerdesk-App", appBuild).build()
         val response = await(exportClient(client).newCall(request))
-        response.use {
+        return consumeResponse(response) {
             val bytes = it.body?.bytes() ?: ByteArray(0)
             throwIfBad(it.code, String(bytes))
-            return bytes
+            bytes
         }
     }
 
@@ -172,12 +174,12 @@ object Api {
 
     private suspend fun execute(request: Request, method: String, path: String): Pair<Int, String> {
         val response = await(client.newCall(request))
-        response.use {
+        return consumeResponse(response) {
             // Keep method/path diagnostics out of the UI and omit bodies and query values.
             if (it.code == 405) {
                 Log.w("Dinnerdesk", "Request rejected: $method /api/$path (405); allowed: ${it.header("Allow") ?: "unspecified"}")
             }
-            return it.code to (it.body?.string() ?: "")
+            it.code to (it.body?.string() ?: "")
         }
     }
 
@@ -220,19 +222,21 @@ class ApiError(val code: Int, val body: String) : Exception() {
     override val message: String
         get() {
             if (code == 404 || code == 405) return "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support."
-            if (code == 401) return "Please sign in again to continue."
-            if (code == 403) return "You don't have access to this action."
             if (code >= 500) return "The server couldn't complete this action. Please try again shortly."
             try {
                 val obj = Api.json.parseToJsonElement(body) as? JsonObject
                 if (obj != null) {
+                    (obj["message"] as? JsonPrimitive)?.let { if (it.isString && it.content.isNotBlank()) return it.content }
                     val detail = obj["detail"]
+                    if (detail is JsonObject) (detail["message"] as? JsonPrimitive)?.let { if (it.isString && it.content.isNotBlank()) return it.content }
+                    if (code == 401) return "Please sign in again to continue."
+                    if (code == 403) return "You don't have access to this action."
                     if (detail is JsonPrimitive && detail.isString) return detail.content
-                    if (detail is JsonObject) (detail["message"] as? JsonPrimitive)?.let { if (it.isString) return it.content }
-                    (obj["message"] as? JsonPrimitive)?.let { if (it.isString) return it.content }
                 }
             } catch (_: Exception) {
             }
+            if (code == 401) return "Please sign in again to continue."
+            if (code == 403) return "You don't have access to this action."
             return "Couldn't complete this action. Please try again."
         }
 }
@@ -243,3 +247,8 @@ internal fun exportClient(base: OkHttpClient): OkHttpClient = base.newBuilder()
     .followRedirects(false)
     .followSslRedirects(false)
     .build()
+
+
+/** Streaming response bodies must be consumed and closed away from the UI dispatcher. */
+internal suspend fun <T> consumeResponse(response: Response, consume: (Response) -> T): T =
+    withContext(Dispatchers.IO) { response.use(consume) }
