@@ -16,6 +16,7 @@ from app.domain.ingredient_photos import photo_directory, photo_file
 from app.domain.recipe_photos import photo_allowed
 from app.admin_routes import router as admin_router
 from app.auth_routes import router as auth_router
+from app.catalog_sync_routes import router as catalog_sync_router
 from app.assets import food_dir
 from app.db.database import connect, init_db
 from app.perf import server_timing, start_request
@@ -86,6 +87,7 @@ def create_app() -> FastAPI:
     app.include_router(router, prefix="/api")
     app.include_router(taste_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
+    app.include_router(catalog_sync_router, prefix="/api")
     app.include_router(admin_router)
 
     perf_log = logging.getLogger("dinnerdesk.perf")

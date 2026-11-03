@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from app.assets import catalog_dir
-from app.domain.recipe_photos import is_uploaded_photo
+from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
+from app.domain.recipe_photos import archive_id_of, catalog_gallery, is_uploaded_photo
 
 import json
 import os
@@ -157,8 +158,43 @@ def _set_catalog_tags(conn, recipe_id: int, tags: list[str]) -> None:
         )
 
 
-def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
-    """Write a catalog row from JSON. Does not touch kitchen overlays."""
+def _db_content(conn, row) -> dict:
+    """The parts of a catalog row an admin can edit, in the recipe file's format."""
+    flags = json.loads(row["provenance_json"] or "{}")
+    ingredients = flags.get("admin_ingredients")
+    if ingredients is None:
+        ingredients = [
+            {"name": r["canonical_name"], "quantity": r["quantity"]}
+            for r in conn.execute(
+                """SELECT i.canonical_name, ri.quantity FROM recipe_ingredients ri
+                   JOIN ingredients i ON i.id = ri.ingredient_id
+                   WHERE ri.recipe_id = ? ORDER BY ri.sort""",
+                (row["id"],),
+            )
+        ]
+    return {
+        "name": row["name"],
+        "servings": row["servings"],
+        "cooking_minutes": row["cooking_minutes"],
+        "instructions": steps_from_db(row["instructions_json"]),
+        "cookware": json.loads(row["cookware_json"] or "[]"),
+        "ingredients": ingredients,
+    }
+
+
+def _db_tags(conn, recipe_id: int) -> list[str]:
+    return [r["tag"] for r in conn.execute(
+        "SELECT tag FROM recipe_tags WHERE recipe_id = ? ORDER BY tag", (recipe_id,))]
+
+
+def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dict | None = None) -> str:
+    """Write a catalog row from JSON. Does not touch kitchen overlays.
+
+    A part an admin edited in the app (content, tags or primary photo) is kept over the file.
+    When the file already says the same thing, the admin flag is cleared so later file edits
+    apply again; when it says something different, the admin's version stays and the recipe
+    is listed in report["conflicts"]."""
+    report = report if report is not None else {}
     slug = str(data.get("slug") or data.get("id") or "")
     if not slug:
         return "skip"
@@ -182,6 +218,25 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
         keep_admin_tags = flags.get("admin_tags_edited") is True
         keep_primary = flags.get("admin_photo_edited") is True
         keep_content = flags.get("admin_content_edited") is True
+
+        def settle(part: str, keep: bool, find_differences) -> bool:
+            if not keep:
+                return False
+            differences = find_differences()
+            if not differences:
+                report.setdefault("in_sync", []).append({"slug": slug, "part": part})
+                return False  # the file has caught up: clear the flag
+            report.setdefault("conflicts", []).append(
+                {"slug": slug, "name": existing["name"], "part": part, "fields": differences})
+            return True
+
+        keep_content = settle("content", keep_content, lambda: content_differences(data, _db_content(conn, existing)))
+        keep_admin_tags = settle(
+            "tags", keep_admin_tags,
+            lambda: [] if tags_match(data.get("tags"), _db_tags(conn, rid), SKIP_TAGS) else ["tags"])
+        keep_primary = settle(
+            "photo", keep_primary,
+            lambda: [] if same_photo(incoming_photo, existing["photo_path"]) else ["photo_path"])
         incoming_provenance = json.loads(provenance)
         if keep_admin_tags:
             incoming_provenance["admin_tags_edited"] = True
@@ -189,6 +244,14 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
             incoming_provenance["admin_photo_edited"] = True
         if keep_content:
             incoming_provenance["admin_content_edited"] = True
+            if "admin_ingredients" in flags:
+                incoming_provenance["admin_ingredients"] = flags["admin_ingredients"]
+        # Photos an admin deleted stay deleted while recipe_photos.json still lists them. Once
+        # the sync has taken them off the list, there's nothing left to hide.
+        listed = set(catalog_gallery(archive_id_of(data.get("source_url"), slug)))
+        removed = [p for p in flags.get("removed_photos") or [] if p in listed]
+        if removed:
+            incoming_provenance["removed_photos"] = removed
         provenance = json.dumps(incoming_provenance)
         photo = existing["photo_path"] if keep_primary or is_uploaded_photo(existing["photo_path"]) else incoming_photo
         if keep_content:
@@ -252,10 +315,11 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
     return "insert"
 
 
-def import_recipes(conn, aliases: dict[str, str]) -> int:
+def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) -> int:
     src = catalog_dir() / "recipes"
     if not src.is_dir() or not any(src.glob("*.json")):
         raise RuntimeError(f"No recipe JSON files in {src}; configure DINNERDESK_CATALOG_DIR explicitly")
+    report = report if report is not None else {}
     n = 0
     for i, path in enumerate(sorted(src.glob("*.json"))):
         data = json.loads(path.read_text())
@@ -266,7 +330,8 @@ def import_recipes(conn, aliases: dict[str, str]) -> int:
             (str(data.get("slug") or data.get("id")),),
         ).fetchone():
             continue
-        result = upsert_catalog_recipe(conn, data, aliases)
+        result = upsert_catalog_recipe(conn, data, aliases, report)
+        report[result] = report.get(result, 0) + 1
         if result == "insert":
             n += 1
     return n
@@ -297,11 +362,15 @@ def should_import_catalog() -> bool:
     return False
 
 
-def load_catalog(conn) -> int:
+def load_catalog(conn, report: dict | None = None) -> int:
+    report = report if report is not None else {}
     seed_household(conn)
-    n = import_recipes(conn, load_aliases())
+    n = import_recipes(conn, load_aliases(), report)
     for row in remove_unready(conn):
+        report.setdefault("unready_kept", []).append({"id": row["id"], "slug": row["slug"], "name": row["name"]})
         print(f"kept unready recipe {row['id']} {row['slug']} ({row['name']}): still in use")
+    for c in report.get("conflicts") or []:
+        print(f"kept admin edit of {c['slug']} ({c['part']}: {', '.join(c['fields'])}); the file differs")
     conn.commit()
     return n
 
