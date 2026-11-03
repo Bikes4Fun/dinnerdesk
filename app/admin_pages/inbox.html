@@ -54,6 +54,19 @@
   .list tbody tr { cursor: pointer; }
   .list tbody tr:hover, .list tbody tr[aria-selected="true"] { background: var(--sel); }
   .list tbody tr:last-child td { border-bottom: 0; }
+  .save-row { display: flex; align-items: center; gap: 10px; }
+  .saved { color: var(--ok); font-weight: 600; }
+  @media (max-width: 900px) {
+    #detail { display: none !important; }
+    .list table { min-width: 0; }
+    .list thead { display: none; }
+    .list tbody tr { display: block; }
+    .list tbody td { display: block; border: 0; padding: 4px 14px; }
+    .list tbody td:first-child { padding-top: 12px; }
+    .list tbody tr:not(.fold) td:last-child { padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
+    tr.fold td { padding: 0; background: var(--bg); }
+    tr.fold .fold-body { border-top: 1px solid var(--line); }
+  }
   .title { font-weight: 600; display: block; text-decoration: none; }
   .excerpt { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
   .nowrap { white-space: nowrap; color: var(--muted); }
@@ -165,6 +178,8 @@ const state = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
 const find = document.getElementById("find");
 find.value = state.q || "";
 let kind = state.k || "all", which = state.s || "open", selected = state.i || null;
+let savedKey = null;
+const narrow = () => window.matchMedia("(max-width: 900px)").matches;
 let hidden = new Set((state.hide || "").split(",").filter(id => HIDES.some(([k]) => k === id)));
 const kept = i => !HIDES.some(([id, , test]) => hidden.has(id) && test(i));
 
@@ -309,6 +324,7 @@ function sender(i) {
 function detail(i) {
   const body = { bug: feedbackBody, idea: feedbackBody, recipe: recipeBody, ingredient: ingredientBody, plan: planBody, prep: prepBody }[i.kind](i);
   const words = i.note;
+  const savedHere = savedKey === key(i);
   return `<div class="d-head"><div style="min-width:0"><h2>${esc(title(i))}</h2>
       <p class="muted">${KIND_LABEL[i.kind]} · ${esc(from(i))} · ${stamp(i.created_at)}</p></div>
       <button class="close" data-close aria-label="Close panel"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -319,7 +335,7 @@ function detail(i) {
       <input id="issue" placeholder="Issue # (e.g. 217)" value="${esc(i.planned_issue)}">` : ""}
       <label for="note" class="sr">My note</label>
       <textarea id="note" placeholder="My note: what to fix, what I decided… (only admins see this)">${esc(i.admin_note)}</textarea>
-      <div><button type="button" class="btn" data-save-note>Save</button></div></div>
+      <div class="save-row"><button type="button" class="btn" data-save-note>Save</button><span class="saved"${savedHere ? "" : " hidden"}>Saved</span></div></div>
     ${body}
     ${sender(i)}`;
 }
@@ -366,9 +382,22 @@ function render() {
     || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
   const item = DATA.items.find(i => key(i) === selected);
   const aside = document.getElementById("detail");
-  aside.hidden = !item;
-  if (!item || aside.dataset.key !== selected) aside.innerHTML = item ? detail(item) : "";
-  aside.dataset.key = item ? selected : "";
+  if (narrow()) {
+    aside.hidden = true;
+    aside.innerHTML = "";
+    aside.dataset.key = "";
+    const tr = [...document.querySelectorAll("#rows tr[data-key]")].find(row => row.dataset.key === selected);
+    if (tr && item) {
+      const fold = document.createElement("tr");
+      fold.className = "fold";
+      fold.innerHTML = `<td colspan="5"><div class="fold-body">${detail(item)}</div></td>`;
+      tr.after(fold);
+    }
+  } else {
+    aside.hidden = !item;
+    if (!item || aside.dataset.key !== selected) aside.innerHTML = item ? detail(item) : "";
+    aside.dataset.key = item ? selected : "";
+  }
   const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(kind !== "all" ? { k: kind } : {}),
     ...(which !== "open" ? { s: which } : {}), ...(hidden.size ? { hide: [...hidden].join(",") } : {}),
     ...(selected ? { i: selected } : {}) });
@@ -389,34 +418,38 @@ async function save(item, change) {
   Object.assign(item, change);
 }
 
-document.getElementById("detail").addEventListener("click", async e => {
-  const panel = e.currentTarget; // currentTarget is null after the await below
-  if (e.target.closest("[data-close]")) { selected = null; return render(); }
+async function onDetailClick(e) {
+  if (e.target.closest("[data-close]")) { selected = null; savedKey = null; return render(); }
   const goto = e.target.closest("[data-goto]");
-  if (goto) { e.preventDefault(); selected = goto.dataset.goto; return render(); }
+  if (goto) { e.preventDefault(); selected = goto.dataset.goto; savedKey = null; return render(); }
   const item = DATA.items.find(i => key(i) === selected); if (!item) return;
   const s = e.target.closest("[data-status]");
   if (s) {
     try {
       await save(item, { status: s.dataset.status });
-      panel.querySelectorAll("[data-status]").forEach(b => b.setAttribute("aria-pressed", b === s));
-      toast(item.status === "done" || item.status === "declined" ? `${STATUS_LABEL[item.status]}. Find it under "Show done & declined".` : "Saved.");
+      savedKey = key(item);
+      const tucked = item.status === "done" || item.status === "declined";
+      toast(tucked ? `${STATUS_LABEL[item.status]}. Find it under "Show done & declined".` : "Saved.");
       render();
     } catch (err) { toast(err.message, true); }
   }
   if (e.target.closest("[data-save-note]")) {
-    const change = { admin_note: document.getElementById("note").value };
-    const issue = document.getElementById("issue");
+    const root = e.target.closest("#detail, tr.fold");
+    const change = { admin_note: root.querySelector("#note").value };
+    const issue = root.querySelector("#issue");
     if (issue) change.planned_issue = issue.value.trim();
-    try { await save(item, change); toast("Saved."); render(); }
+    try { await save(item, change); savedKey = key(item); toast("Saved."); render(); }
     catch (err) { toast(err.message, true); }
   }
-});
+}
+document.getElementById("detail").addEventListener("click", onDetailClick);
 document.getElementById("rows").addEventListener("click", e => {
+  if (e.target.closest("tr.fold")) return onDetailClick(e);
   const tr = e.target.closest("tr[data-key]"); if (!tr) return;
   e.preventDefault();
-  selected = tr.dataset.key; render();
-  if (window.innerWidth < 900) document.getElementById("detail").scrollIntoView({ behavior: "smooth" });
+  if (selected !== tr.dataset.key) savedKey = null;
+  selected = narrow() && selected === tr.dataset.key ? null : tr.dataset.key;
+  render();
 });
 document.getElementById("kinds").addEventListener("click", e => {
   const b = e.target.closest("[data-k]"); if (b) { kind = b.dataset.k; render(); }
@@ -435,6 +468,7 @@ document.getElementById("states").addEventListener("click", e => {
   const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }
 });
 find.addEventListener("input", render);
+window.matchMedia("(max-width: 900px)").addEventListener("change", render);
 render();
 </script>
 </body>
