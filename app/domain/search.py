@@ -72,18 +72,21 @@ def search_grocery_names(names: list[str], query: str, limit: int = 12) -> tuple
     ordered = list(dict.fromkeys(n for n in names if n))
     if not ordered:
         return [], "none"
-    toks = [t for t in tokens(query) if len(t) > 1 and t not in STOP]
+    toks = [t for t in tokens(_fold(query)) if len(t) > 1 and t not in STOP]
     if not toks:
         return ordered[:limit], ""
     scored = []
     phrase = " ".join(toks)
     for name in ordered:
-        hay = _grocery_hay(name)
+        hay = _grocery_hay(_fold(name))
         words = hay.split()
         hits = 0
         score = 0
         for t in toks:
             if not _grocery_token_hit(hay, t):
+                if any(_typo_match(f, word) for f in _forms(t) for word in words):
+                    hits += 1
+                    score += 1
                 continue
             hits += 1
             score += 4
@@ -130,11 +133,37 @@ def _forms(word: str) -> set[str]:
     return out
 
 
+def _typo_match(query: str, word: str) -> bool:
+    """Allow one edit in a complete word, including an adjacent transposition.
+
+    Short inputs remain prefixes only: fuzzy matching "ham" could suggest "yam".
+    This is search assistance, never the matching used to enforce dietary filters.
+    """
+    if min(len(query), len(word)) < 4 or abs(len(query) - len(word)) > 1:
+        return False
+    if query == word:
+        return True
+    if len(query) == len(word):
+        different = [i for i, (a, b) in enumerate(zip(query, word)) if a != b]
+        if len(different) == 1:
+            return True
+        if len(different) == 2:
+            i, j = different
+            return j == i + 1 and query[i] == word[j] and query[j] == word[i]
+        return False
+    shorter, longer = sorted((query, word), key=len)
+    for i, (a, b) in enumerate(zip(shorter, longer)):
+        if a != b:
+            return shorter[i:] == longer[i + 1:]
+    return True
+
+
 def filter_item_matches(names: list[str], query: str, limit: int = 40) -> list[str]:
     """Foods for a custom allergy or avoid (#85). Every query word must match a word of the
     name: its start ("pep" → pepper), a singular form ("tomatoes" → tomato), or, for longer
-    words, inside a compound ("berries" → blueberries). Accents don't matter. Best first:
-    the exact food, then names that start with it, then shorter names. Never invents a food."""
+    words, inside a compound ("berries" → blueberries). Complete words of at least four
+    letters also allow one typo. Accents don't matter. Literal matches rank before typos,
+    then the exact food, names that start with it, and shorter names. Never invents a food."""
     words = re.findall(r"[a-z0-9]+", _fold(query))
     if not words:
         return []
@@ -147,9 +176,17 @@ def filter_item_matches(names: list[str], query: str, limit: int = 40) -> list[s
     scored = []
     for name in dict.fromkeys(names):
         hay = re.findall(r"[a-z0-9]+", _fold(name))
-        if not hay or not all(any(hit(forms, part) for part in hay) for forms in wanted):
+        if not hay:
             continue
-        folded = " ".join(hay)
-        rank = 0 if folded in exact else 1 if hit(wanted[0], hay[0]) else 2
-        scored.append((rank, len(folded), folded, name))
+        typos = 0
+        for forms in wanted:
+            if any(hit(forms, part) for part in hay):
+                continue
+            if not any(_typo_match(f, part) for f in forms for part in hay):
+                break
+            typos += 1
+        else:
+            folded = " ".join(hay)
+            rank = 0 if folded in exact else 1 if hit(wanted[0], hay[0]) else 2
+            scored.append((typos, rank, len(folded), folded, name))
     return [name for *_, name in sorted(scored)][:limit]

@@ -560,7 +560,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         <label className="grocery-substitute-row">Substitute
           <input className="field" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
         </label>
-        {substitute.trim() && <button className="text-link" onClick={() => onSubstitute(substitute.trim())}>Use this instead</button>}
+        {substitute.trim() && <button className="text-link" onClick={() => onSubstitute(substitute.trim())}>Save substitution</button>}
         <h3 className="block-label">You'll use this in</h3>
         {item.used_in?.length ? (
           <>

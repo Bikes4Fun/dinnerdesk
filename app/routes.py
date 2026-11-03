@@ -43,7 +43,7 @@ from app.domain.ingredient_review import (
     save_group_notes,
 )
 from app.domain.ingredients import aisle_for, pantry_key
-from app.domain.pantry_catalog import in_grocery_catalog, item_key, preferred_grocery_name
+from app.domain.pantry_catalog import collapse_catalog_names, in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots, step_key, step_sentences
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
@@ -1779,7 +1779,7 @@ def list_filter_items(
            JOIN recipe_ingredients ri ON ri.ingredient_id = i.id
            JOIN recipes r ON r.id = ri.recipe_id
            WHERE r.household_id IS NULL OR r.household_id = ?""", (household_id,)))
-    return {"items": [{"name": name} for name in filter_item_matches(sorted(names), q)]}
+    return {"items": [{"name": name} for name in filter_item_matches(collapse_catalog_names(sorted(names)), q)]}
 
 
 @router.get("/grocery-items")
