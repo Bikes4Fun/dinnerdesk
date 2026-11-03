@@ -80,6 +80,7 @@ npm run build --prefix web
 | `FOOD_DIR` | Required directory of private recipe photos, outside Git. |
 | `GROCERY_PHOTO_DIR` | Folder of individual food photos (kept outside Git). Locally: `/Users/turtlesoup/Repos/dd_support/references/individual grocery food items`. On Railway: a mounted volume. |
 | `ADMIN_EMAIL` | The one account that can use the admin tools. Empty means no admin. |
+| `CATALOG_SYNC_TOKEN` | Turns on the catalog sync routes (`/api/catalog-sync/*`) for `dd_support/catalog_sync.py`. A long random value, at least 32 characters; the same value goes in that repo's Actions secrets. Empty turns the routes off. |
 | `AUTH_REQUIRED` | When off, everyone shares one guest household. |
 | `SUPPORT_EMAIL` | Contact address shown on `/support` (the App Store support URL). Empty shows “not set up yet”. |
 
@@ -187,9 +188,18 @@ Before deploying to a new environment:
 5. Verify recipes, photos, Taste Lab, pantry, and household plans. Database photo filenames
    resolve through the external photo directory and the `recipe_photos.json` allowlist.
 
-Catalog updates are deliberate operator actions: `python -m app.db.catalog` updates records
-by slug and commits to the configured database. The deprecated `DINNERDESK_IMPORT_CATALOG`
-startup setting is no longer used.
+Catalog updates normally go through the catalog sync: `dd_support`'s `catalog_sync.py`, run daily
+by a GitHub Action there, brings admin edits, uploaded and deleted photos and the admin tools' files
+back into that repo, uploads its other changed catalog files to `DINNERDESK_CATALOG_DIR` and
+`FOOD_DIR`, and imports them. The routes it uses (`app/catalog_sync_routes.py`) are off unless
+`CATALOG_SYNC_TOKEN` is set. During an import, a part of a recipe an admin edited (content, tags or
+primary photo) is kept over the file; once the file says the same thing the admin flag is cleared so
+the file leads again, and if they disagree the import reports a conflict. A photo deleted in the
+admin screen stays hidden until the sync takes it off `recipe_photos.json`. The rules are in
+`app/domain/catalog_sync.py`.
+
+`python -m app.db.catalog` still imports by hand: it updates records by slug and commits to the
+configured database. The deprecated `DINNERDESK_IMPORT_CATALOG` startup setting is no longer used.
 
 **Recorded Railway setup, October 8, 2026:** the existing `weekplate-volume` mount at
 `/web/public/food/` was reused; the PostgreSQL volume was unchanged. The folder

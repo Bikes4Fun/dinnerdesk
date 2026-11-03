@@ -398,10 +398,15 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
         "SELECT path FROM recipe_photo_gallery WHERE recipe_id = ? ORDER BY created_at, path",
         (row["id"],),
     )]
+    removed = set()
     if row["household_id"] is None:
-        # Catalog recipes also show every photo recipe_photos.json lists for them.
+        # Catalog recipes also show every photo recipe_photos.json lists for them, except the
+        # ones an admin deleted (kept off until the catalog sync takes them off the list).
         gallery += catalog_gallery(archive_id)
+        removed = set(provenance.get("removed_photos") or [])
     for path in gallery:
+        if path in removed:
+            continue
         # An imported kitchen recipe may retain its original page's photo as a fallback.
         if path not in paths and (usable_photo(path) or path == imported_link):
             paths.append(path)
@@ -502,6 +507,12 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
             "DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?",
             (recipe_id, body.path),
         )
+        if row["household_id"] is None and body.path in catalog_gallery(archive_id_of(row["source_url"], row["slug"])):
+            # A photo listed in recipe_photos.json would come straight back; remember it's gone.
+            provenance = json.loads(row["provenance_json"] or "{}")
+            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | {body.path})
+            db.execute("UPDATE recipes SET provenance_json = ? WHERE id = ?", (json.dumps(provenance), recipe_id))
+            row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
         if _shown_photo(row) == body.path:
             remaining = [path for path in paths if path != body.path]
             nxt = remaining[0] if remaining else ""
@@ -553,6 +564,14 @@ def _publish_catalog_content(db: PgConnection, recipe_id: int, household_id: int
         return
     provenance = json.loads(row["provenance_json"] or "{}")
     provenance["admin_content_edited"] = True
+    if body.ingredients is not None:
+        # The catalog sync writes these back to the recipe file as typed; the ingredient
+        # rows hold normalized names.
+        provenance["admin_ingredients"] = [
+            {"name": str(i.get("name") or ""), "quantity": str(i.get("quantity") or "")}
+            if isinstance(i, dict) else {"name": str(i), "quantity": ""}
+            for i in body.ingredients
+        ]
     fields.append("provenance_json = ?")
     args.append(json.dumps(provenance))
     fields.append("updated_at = ?")
