@@ -388,6 +388,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     suspend fun setGroceryQuantity(line: GroceryLine, quantity: String) = patchGrocery(line, mapOf("quantity" to quantity))
 
     suspend fun patchGrocery(line: GroceryLine, body: Map<String, Any?>) {
+        error = null
         grocery = grocery.map {
             if (it.id != line.id) it else it.copy(
                 name = body["custom_text"] as? String ?: it.name,
@@ -411,6 +412,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     suspend fun uncheckAllGrocery() = setAllChecked(false)
 
     private suspend fun setAllChecked(checked: Boolean) {
+        error = null
         val ids = grocery.filter { it.checked != checked && !it.neverShop }.map { it.id }.toSet()
         if (ids.isEmpty()) return
         grocery = grocery.map { if (it.id in ids) it.copy(checked = checked) else it }
@@ -423,6 +425,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     }
 
     suspend fun setPantryFlags(name: String, have: Boolean, neverShop: Boolean) {
+        error = null
         try {
             Api.send<KitchenPantryItem>("pantry/items", "POST", mapOf("name" to name, "have" to have, "never_shop" to neverShop, "zone" to "dry"))
             reloadGrocery()
@@ -432,6 +435,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     }
 
     suspend fun addSubstitute(from: String, to: String) {
+        error = null
         val dest = to.trim()
         if (dest.isEmpty()) return
         try {
@@ -443,6 +447,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     }
 
     suspend fun addGroceryLine(name: String, quantity: String, store: String? = null) {
+        error = null
         val names = name.split(",").map { it.trim() }.filter { it.isNotEmpty() }
         val current = plan ?: return
         if (names.isEmpty()) return
@@ -472,8 +477,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     suspend fun persistGroceryPrefs() {
         if (!groceryPrefsLoaded) return
         val prefs = mapOf(
-            "stores" to stores.map { mapOf("id" to it.id, "name" to it.name) },
-            "aisles" to aisles.map { mapOf("id" to it.id, "name" to it.name, "number" to it.number) },
             "groupByStore" to groupByStore,
             "showMeals" to showMeals,
             "hideChecked" to hideChecked,
@@ -481,7 +484,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
             "showEmoji" to showEmoji,
         )
         try {
-            Api.send<Household>("household", "PUT", mapOf("prefs" to mapOf("grocery" to prefs)), cacheAs = "household")
+            KitchenApi.saveGroceryPrefs(prefs)
         } catch (e: Throwable) {
             fail(e)
         }
