@@ -325,6 +325,8 @@ export function Filters() {
   }
 
   const showProteins = diets.includes("omnivore") || diets.includes("pescatarian");
+  const commonAvoids = AVOIDS.slice(0, 6);
+  const avoidLabel = (id) => id.replace(/\b\w/g, (c) => c.toUpperCase());
   const proteinChoices = PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood");
   const filterCount = (diets.length === 1 && diets[0] === "omnivore" ? 0 : 1)
     + allergens.length + avoids.length + who.length + cuisines.length
@@ -370,9 +372,11 @@ export function Filters() {
           {open === "allergies" && <FoodFilterPicker label="Other allergies" selected={allergens.filter((id) => !ALLERGENS.some(([key]) => key === id))} onAdd={(name) => setFilter({ allergens: [...new Set([...allergens, name])] })} onRemove={(name) => setFilter({ allergens: allergens.filter((a) => a !== name) })} />}
           <h2>I avoid</h2>
           <div className="chip-row wrap filter-chips">
-            {avoids.map((id) => choice(`${id} ×`, true, () => setFilter({ avoids: avoids.filter((a) => a !== id) })))}
+            {commonAvoids.map((id) => choice(avoidLabel(id), avoids.includes(id), () => setFilter({ avoids: avoids.includes(id) ? avoids.filter((a) => a !== id) : [...avoids, id] })))}
+            {avoids.filter((id) => !commonAvoids.includes(id)).map((id) => choice(`${avoidLabel(id)} ×`, true, () => setFilter({ avoids: avoids.filter((a) => a !== id) })))}
+            {choice("Other", open === "avoids", () => setOpen(open === "avoids" ? "" : "avoids"))}
           </div>
-          <FoodFilterPicker label="Foods to avoid" selected={avoids} placeholder="Add an ingredient…" dashed presets={AVOIDS} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />
+          {open === "avoids" && <FoodFilterPicker label="Foods to avoid" selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6).filter((id) => !avoids.includes(id))} skip={[...commonAvoids, ...avoids]} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
         </div>
         <div className="filters-soft">
           <div className="filters-kicker">
