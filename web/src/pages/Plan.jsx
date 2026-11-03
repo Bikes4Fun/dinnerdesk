@@ -103,9 +103,9 @@ export function Plan() {
     setPlan((p) => ({ ...p, slots: p.slots.map((s) => s.id === slot.id ? updated : s) }));
     await week.load();
   }
-  async function markCooked(ids) {
-    for (const slot of plan.slots.filter((s) => ids.has(s.id) && !s.cooked)) await patch(slot, { cooked: true });
-    setSelected(new Set());
+  // Keeps the selection so the edit-mode button flips (Mark cooked ⇄ Mark uncooked) and confirms it.
+  async function markCooked(ids, cooked = true) {
+    for (const slot of plan.slots.filter((s) => ids.has(s.id) && s.cooked !== cooked)) await patch(slot, { cooked });
   }
   async function removeSelected() {
     for (const slot of plan.slots.filter((s) => selected.has(s.id))) setPlan(await api.deleteSlot(slot.id));
@@ -194,7 +194,12 @@ export function Plan() {
       {editing && plan.slots.length > 0 && <div className="plan-bulk">
         <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? "Deselect all" : "Select all"}</button>
         <span>{selected.size} selected</span>
-        <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected))}>Mark cooked</button>
+        {(() => {
+          // "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
+          const picked = plan.slots.filter((s) => selected.has(s.id));
+          const allCooked = picked.length > 0 && picked.every((s) => s.cooked);
+          return <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected, !allCooked))}>{allCooked ? "Mark uncooked" : "Mark cooked"}</button>;
+        })()}
         <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
       </div>}
       {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}

@@ -73,12 +73,12 @@ struct PlanView: View {
               }
               ViewThatFits(in: .horizontal) {
                 HStack {
-                  markCookedButton
+                  markCookedButton(plan)
                   Spacer()
                   removeButton
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                  markCookedButton
+                  markCookedButton(plan)
                   removeButton
                 }
               }
@@ -275,12 +275,13 @@ struct PlanView: View {
     Text("\(selected.count) selected").foregroundStyle(Theme.muted)
   }
 
-  private var markCookedButton: some View {
-    Button("Mark cooked") {
-      Task {
-        await store.markCooked(ids: selected)
-        selected = []
-      }
+  /// "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
+  /// The selection stays after tapping, so the label flips and confirms what happened.
+  private func markCookedButton(_ plan: Plan) -> some View {
+    let picked = plan.slots.filter { selected.contains($0.id) }
+    let allCooked = !picked.isEmpty && picked.allSatisfy(\.cooked)
+    return Button(allCooked ? "Mark uncooked" : "Mark cooked") {
+      Task { await store.markCooked(ids: selected, cooked: !allCooked) }
     }
     .frame(minHeight: 44)
   }

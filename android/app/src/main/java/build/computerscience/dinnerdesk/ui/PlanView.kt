@@ -154,10 +154,14 @@ fun PlanView() {
                         Spacer(Modifier.weight(1f))
                         Text("${selected.size} selected", style = Theme.body, color = Theme.muted)
                     }
+                    // "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
+                    // The selection stays after tapping, so the label flips and confirms what happened.
+                    val picked = plan.slots.filter { it.id in selected }
+                    val allCooked = picked.isNotEmpty() && picked.all { it.cooked }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        LinkButton("Mark cooked", enabled = selected.isNotEmpty(), style = Theme.body) {
+                        LinkButton(if (allCooked) "Mark uncooked" else "Mark cooked", enabled = selected.isNotEmpty(), style = Theme.body) {
                             val ids = selected
-                            store.launch { markCooked(ids); selected = emptySet() }
+                            store.launch { markCooked(ids, cooked = !allCooked) }
                         }
                         Spacer(Modifier.weight(1f))
                         LinkButton("Remove", enabled = selected.isNotEmpty(), color = Theme.destructive, style = Theme.body) { removing = true }
