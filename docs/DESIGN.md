@@ -590,3 +590,13 @@ Android review fixes: internal links use the configured HTTPS API origin (includ
 port). Household export never follows redirects. Family portions can be saved after an
 initial preferences-load failure; only an unchanged, known saved value skips the write.
 Grocery and My kitchen use **Save substitution** for saving replacements.
+
+
+Android persistence: streaming responses are consumed on the IO dispatcher. API errors
+prefer the server's user-facing explanation. Activity stop preserves navigation and pending
+pickers. All grocery preference updates share one serialized read/merge/write; Store display
+settings do not resend stale store/aisle lists. Aisles are saved only after a successful load
+and an edit. Portion writes run in order, including a change back to the old value while a
+save is pending. Pantry batch failures keep unsaved picks visible for retry; item flags and
+quantities save independently of placement loading. Recipe suggestions load on entry and
+recipe action errors remain visible beside the loaded recipe.

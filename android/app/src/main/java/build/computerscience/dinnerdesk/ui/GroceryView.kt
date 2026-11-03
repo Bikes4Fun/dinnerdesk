@@ -437,13 +437,18 @@ private fun EditGrocerySheet(line: GroceryLine) {
     Column(Modifier.fillMaxWidth().background(Theme.bg).padding(bottom = 24.dp)) {
         SheetBar("Edit item", confirm = "Save", confirmEnabled = itemName.isNotBlank(), onConfirm = {
             scope.launch {
+                store.error = null
                 val name = itemName.trim()
-                if (name.isNotEmpty() && name != line.name) store.patchGrocery(line, mapOf("custom_text" to name))
+                if (name.isNotEmpty() && name != line.name) {
+                    store.patchGrocery(line, mapOf("custom_text" to name))
+                    if (store.error != null) return@launch
+                }
                 val trimmed = qty.trim()
                 if (trimmed != line.quantity) store.setGroceryQuantity(line, trimmed)
                 if (store.error == null) dismiss()
             }
         })
+        store.error?.let { ErrorBanner(it, Modifier.padding(16.dp)) }
         FormSection {
             FormField(qty, { qty = it }, "Amount")
             Hairline()
@@ -476,6 +481,7 @@ private fun AddGrocerySheet(storeId: String?) {
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         SheetBar("Add item", confirm = "Add", confirmEnabled = canAdd, onConfirm = ::add)
+        store.error?.let { ErrorBanner(it, Modifier.padding(16.dp)) }
         FormSection {
             FormField(newName, { q ->
                 newName = q

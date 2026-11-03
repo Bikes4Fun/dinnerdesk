@@ -61,6 +61,9 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.Api
 import build.computerscience.dinnerdesk.data.ItemPlacement
+import build.computerscience.dinnerdesk.data.PreferenceWriter
+import build.computerscience.dinnerdesk.data.PantryPickResult
+import build.computerscience.dinnerdesk.data.savePantrySelection
 import build.computerscience.dinnerdesk.data.KitchenApi
 import build.computerscience.dinnerdesk.data.KitchenDefaults
 import build.computerscience.dinnerdesk.data.KitchenOverride
@@ -97,17 +100,18 @@ fun MoreView() {
 @Composable
 fun KitchenView() {
     val nav = LocalNav.current
+    val store = LocalStore.current
     val scope = rememberCoroutineScope()
     var portions by remember { mutableStateOf(4) }
-    var savedPortions by remember { mutableStateOf<Int?>(null) }
+    var portionRevision by remember { mutableStateOf(0) }
+    val portionWriter = remember { PreferenceWriter<Int> { KitchenApi.savePrefs(mapOf("family_portions" to it)) } }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
         try {
-            val prefs = KitchenApi.prefs()
-            val n = prefs.int("family_portions")?.takeIf { it >= 1 } ?: portions
-            savedPortions = n
-            portions = n
+            val revision = portionRevision
+            val n = portionWriter.load { KitchenApi.prefs().int("family_portions")?.takeIf { it in 1..50 } ?: 4 }
+            if (portionRevision == revision) portions = n
             error = null
         } catch (e: Throwable) {
             if (!Api.isCancellation(e)) error = Api.message(e)
@@ -117,11 +121,10 @@ fun KitchenView() {
 
     fun setPortions(value: Int) {
         portions = value
-        if (savedPortions == value) return
-        scope.launch {
+        portionRevision += 1
+        store.launch {
             try {
-                KitchenApi.savePrefs(mapOf("family_portions" to value))
-                savedPortions = value
+                portionWriter.save(value)
                 error = null
             } catch (e: Throwable) {
                 error = Api.message(e)
@@ -347,13 +350,10 @@ fun PantryView() {
         // A stray swipe shouldn't throw away the picks.
         Sheet(onDismiss = { adding = false; picks = emptyList() }, blockDismiss = picks.isNotEmpty()) {
             KitchenItemPicker("Add to pantry", picks, { picks = it }) { names ->
-                try {
-                    for (name in names) KitchenApi.upsertPantry(name, have = true, neverShop = false)
-                    load()
-                    store.loadGrocery()
-                } catch (e: Throwable) {
-                    error = Api.message(e)
-                }
+                val result = savePantrySelection(names) { name -> KitchenApi.upsertPantry(name, have = true, neverShop = false) }
+                load()
+                store.loadGrocery()
+                result
             }
         }
     }
@@ -407,13 +407,10 @@ fun AlwaysCheckedView() {
         // A stray swipe shouldn't throw away the picks.
         Sheet(onDismiss = { adding = false; picks = emptyList() }, blockDismiss = picks.isNotEmpty()) {
             KitchenItemPicker("Always check off", picks, { picks = it }) { names ->
-                try {
-                    for (name in names) KitchenApi.upsertPantry(name, have = true, neverShop = true)
-                    load()
-                    store.loadGrocery()
-                } catch (e: Throwable) {
-                    error = Api.message(e)
-                }
+                val result = savePantrySelection(names) { name -> KitchenApi.upsertPantry(name, have = true, neverShop = true) }
+                load()
+                store.loadGrocery()
+                result
             }
         }
     }
@@ -425,8 +422,8 @@ fun AlwaysCheckedView() {
  * the sheet can refuse a stray swipe while picks are waiting.
  */
 @Composable
-fun KitchenItemPicker(
-    title: String, picked: List<String>, onPicked: (List<String>) -> Unit, onPick: suspend (List<String>) -> Unit,
+private fun KitchenItemPicker(
+    title: String, picked: List<String>, onPicked: (List<String>) -> Unit, onPick: suspend (List<String>) -> PantryPickResult,
 ) {
     val dismiss = LocalDismiss.current
     val scope = rememberCoroutineScope()
@@ -434,6 +431,7 @@ fun KitchenItemPicker(
     var matches by remember { mutableStateOf<List<String>>(emptyList()) }
     var searchError by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
+    var saveError by remember { mutableStateOf<String?>(null) }
     var confirmingCancel by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val hits = matches.filter { it !in picked }
@@ -457,21 +455,33 @@ fun KitchenItemPicker(
         if (saving || picked.isEmpty()) return
         saving = true
         val names = picked
-        scope.launch { onPick(names); onPicked(emptyList()); dismiss() }
+        saveError = null
+        scope.launch {
+            try {
+                val result = onPick(names)
+                onPicked(result.remaining)
+                if (result.remaining.isEmpty()) dismiss()
+                else saveError = result.failure?.let { Api.message(it) } ?: "Couldn't save these items. Try again."
+            } catch (e: Throwable) {
+                if (Api.isCancellation(e)) throw e
+                saveError = Api.message(e)
+            } finally { saving = false }
+        }
     }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         // With picks waiting, Cancel asks first: it sits where a thumb lands and the picks
         // aren't saved until Add.
         SheetBar(
-            title, onCancel = { if (picked.isEmpty()) dismiss() else confirmingCancel = true },
+            title, onCancel = { if (!saving) { if (picked.isEmpty()) dismiss() else confirmingCancel = true } },
             confirm = if (picked.isEmpty()) "Add" else "Add ${picked.size}", confirmEnabled = picked.isNotEmpty() && !saving, onConfirm = ::save,
         )
+        saveError?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { ErrorBanner(it) } }
         TextBox(
             query, { query = it }, "Type an item, like garlic or rice",
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus),
             keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
-            actions = KeyboardActions(onDone = { hits.firstOrNull()?.let { onPicked(picked + it); query = "" } }),
+            actions = KeyboardActions(onDone = { if (!saving) hits.firstOrNull()?.let { onPicked(picked + it); query = "" } }),
             leading = { Icon(Icons.Filled.Search, null, tint = Theme.muted, modifier = Modifier.size(20.dp)) },
             trailing = if (query.isNotEmpty()) ({ IconAction(Icons.Filled.Cancel, "Clear search", tint = Theme.muted, size = 20.dp) { query = ""; focus.requestFocus() } }) else null,
         )
@@ -480,7 +490,7 @@ fun KitchenItemPicker(
                 Text("Selected · ${picked.size}", style = Theme.subtitle, color = Theme.muted)
                 Flow(spacing = 6.dp) {
                     for (name in picked) Box(Modifier.semantics { contentDescription = "Remove $name" }) {
-                        FilterChip("$name ✕", on = true) { onPicked(picked - name) }
+                        FilterChip("$name ✕", on = true) { if (!saving) onPicked(picked - name) }
                     }
                 }
             }
@@ -531,13 +541,12 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
     var have by remember { mutableStateOf(item.have) }
     var neverShop by remember { mutableStateOf(item.neverShop) }
     var placement by remember { mutableStateOf<ItemPlacement?>(null) }
-    var ready by remember { mutableStateOf(false) }
+    var deleted by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
         try {
             placement = KitchenApi.placements().firstOrNull { it.name.lowercase() == item.name.lowercase() }
-            ready = true
         } catch (e: Throwable) {
             if (!Api.isCancellation(e)) error = Api.message(e)
         }
@@ -545,6 +554,7 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
 
     fun save(have: Boolean? = null, neverShop: Boolean? = null, quantity: String? = null) {
         val id = item.id ?: return
+        error = null
         store.launch {
             try { KitchenApi.patchPantry(id, have, neverShop, quantity); loadGrocery() } catch (e: Throwable) { error = Api.message(e) }
         }
@@ -564,9 +574,9 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
     }
 
     val latestQuantity = androidx.compose.runtime.rememberUpdatedState(quantity)
-    val latestReady = androidx.compose.runtime.rememberUpdatedState(ready)
+    val latestDeleted = androidx.compose.runtime.rememberUpdatedState(deleted)
     DisposableCleanup {
-        if (latestReady.value) store.launch {
+        if (!latestDeleted.value) store.launch {
             if (latestQuantity.value != item.quantity) item.id?.let { try { KitchenApi.patchPantry(it, quantity = latestQuantity.value); loadGrocery() } catch (_: Exception) {} }
             onChanged()
         }
@@ -577,14 +587,14 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             FormSection {
                 error?.let { Box(Modifier.padding(vertical = 8.dp)) { ErrorBanner(it) } }
-                FormSwitch("Have this item", have) { have = it; if (ready) save(have = it) }
+                FormSwitch("Have this item", have) { have = it; save(have = it) }
                 Hairline()
-                FormSwitch("Always check off", neverShop) { neverShop = it; if (ready) save(neverShop = it) }
+                FormSwitch("Always check off", neverShop) { neverShop = it; save(neverShop = it) }
                 Hairline()
                 FormField(
                     quantity, { quantity = it }, "Amount (optional)",
                     keyboard = KeyboardOptions(imeAction = ImeAction.Done), actions = KeyboardActions(onDone = { save(quantity = quantity) }),
-                    modifier = Modifier.onFocusChanged { if (ready && !it.isFocused && quantity != item.quantity) save(quantity = quantity) },
+                    modifier = Modifier.onFocusChanged { if (!it.isFocused && quantity != item.quantity) save(quantity = quantity) },
                 )
                 placement?.let { p ->
                     Hairline()
@@ -599,7 +609,7 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
                         scope.launch {
                             try {
                                 Api.send<Ok>("pantry/items/$id", "DELETE")
-                                ready = false
+                                deleted = true
                                 onChanged()
                                 store.loadGrocery()
                                 dismiss()
