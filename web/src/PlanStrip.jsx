@@ -3,6 +3,7 @@ import FoodPhoto from "./FoodPhoto.jsx";
 import { Icon } from "./icons.jsx";
 import { go } from "./nav.js";
 import { useWeek } from "./week.jsx";
+import { shouldScrollToNewMeal } from "./planStripScroll.js";
 
 const HIDE_KEY = "dd.planStrip.hidden";
 
@@ -28,17 +29,18 @@ export function PlanStrip() {
   const week = useWeek();
   const [hidden, setHidden] = useState(readHidden);
   const trackRef = useRef(null);
-  const slots = week?.plan?.slots || [];
+  const plan = week?.plan;
+  const slots = plan?.slots || [];
   const count = slots.length;
-  const lastCount = useRef(count);
+  const previousPlan = useRef(null);
 
   // Scroll to the newest meal after an add so it's in view.
   useEffect(() => {
-    if (count > lastCount.current && trackRef.current) {
+    if (shouldScrollToNewMeal(previousPlan.current, plan) && trackRef.current) {
       trackRef.current.scrollTo({ left: trackRef.current.scrollWidth, behavior: "smooth" });
     }
-    lastCount.current = count;
-  }, [count]);
+    previousPlan.current = plan;
+  }, [plan]);
 
   if (!count) return null;
 

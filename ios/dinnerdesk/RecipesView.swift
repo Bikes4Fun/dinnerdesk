@@ -364,10 +364,16 @@ private struct RecipeGridPage: View {
   }
 }
 
+private struct PlanStripSnapshot: Equatable {
+  let planID: Int?
+  let count: Int
+}
+
 /// Small carousel of this week's meals, pinned under the recipe list while browsing (#88).
 private struct PlanStrip: View {
   @EnvironmentObject private var store: Store
   @AppStorage("planStripHidden") private var hidden = false
+  @ScaledMetric(relativeTo: .caption) private var nameHeight: CGFloat = 32
 
   private var slots: [PlanSlot] { store.plan?.slots ?? [] }
 
@@ -437,10 +443,11 @@ private struct PlanStrip: View {
               }
               .padding(.horizontal, 16)
             }
-            .frame(height: 98)
+            .frame(height: 66 + nameHeight)
             // Bring the newest meal into view after an add.
-            .onChange(of: slots.count) { old, new in
-              guard new > old, let last = slots.last else { return }
+            .onChange(of: PlanStripSnapshot(planID: store.plan?.id, count: slots.count)) { old, new in
+              guard old.planID == new.planID, old.count > 0, new.count > old.count,
+                    let last = slots.last else { return }
               withAnimation { proxy.scrollTo(last.id, anchor: .trailing) }
             }
           }
