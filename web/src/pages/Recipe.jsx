@@ -1,4 +1,5 @@
 import FoodPhoto from "../FoodPhoto.jsx";
+import { RecipeGallery } from "../RecipeGallery.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
@@ -396,7 +397,7 @@ export function Recipe({ id }) {
           {err && <p className="banner err">{err}</p>}
           {editing && canEdit ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
-              <label className="block-label" htmlFor="recipe-photo">Recipe photo</label>
+              <label className="block-label" htmlFor="recipe-photo">Primary photo</label>
               <FoodPhoto path={recipe.photo_path} hideUnavailable />
               <input id="recipe-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || photoLoading} onChange={selectPhoto} />
               <p className="help">Choose your own JPEG, PNG, or WebP photo under 5 MB. {recipe.catalog ? "Save updates the catalog photo for everyone. Save as copy uses it only on the new recipe." : "The photo is saved with this recipe."}</p>
@@ -427,9 +428,7 @@ export function Recipe({ id }) {
             <>
               {tab === "overview" && (
                 <>
-                  <FoodPhoto className="hero" path={recipe.photo_path} hideUnavailable />
-                  {recipe.photo_path && recipe.photo_ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
-                  {recipe.photo_path && !recipe.photo_ai && recipe.photo_shared && <Tip id="recipes.shared-photo" className="ai-photo-tip">This photo is from a similar recipe, so it may not match this one exactly.</Tip>}
+                  <RecipeGallery recipe={recipe} canEdit={canEdit} onChange={setRecipe} />
                   <ServingsMeta />
                   {recipe.tags.length > 0 && (
                     <p className="muted">{recipe.tags.map((t) => t.replaceAll("_", " ")).join(" · ")}</p>

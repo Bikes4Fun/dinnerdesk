@@ -108,12 +108,23 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   }
 }
 
+nonisolated struct RecipeGalleryPhoto: Decodable, Identifiable, Sendable {
+  var id: String { path }
+  let path: String
+  let primary: Bool
+  let ai: Bool
+  let shared: Bool
+  var credit: String? = nil
+  var sourceUrl: String? = nil
+}
+
 nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   let id: Int
   var name: String
   let servings: Int?
   let cookingMinutes: Int?
   let photoPath: String?
+  let photos: [RecipeGalleryPhoto]
   /// The photo was made with AI; the recipe page says so (#33).
   let photoAI: Bool
   /// The photo was taken for a similar recipe; the recipe page says so (#33).
@@ -140,7 +151,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
   }
 
   enum CodingKeys: String, CodingKey {
-    case id, name, servings, cookingMinutes, photoPath, photoAi, photoShared
+    case id, name, servings, cookingMinutes, photoPath, photos, photoAi, photoShared
     case favorited, toTry, hidden, catalog, tags, ingredients, instructions
     case instructionsSource, instructionsCopiedFromThirdParty, sourceUrl
   }
@@ -154,6 +165,13 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     photoPath = try c.decodeIfPresent(String.self, forKey: .photoPath)
     photoAI = try c.decodeIfPresent(Bool.self, forKey: .photoAi) ?? false
     photoShared = try c.decodeIfPresent(Bool.self, forKey: .photoShared) ?? false
+    if let gallery = try c.decodeIfPresent([RecipeGalleryPhoto].self, forKey: .photos) {
+      photos = gallery
+    } else if let path = photoPath, !path.isEmpty {
+      photos = [RecipeGalleryPhoto(path: path, primary: true, ai: photoAI, shared: photoShared)]
+    } else {
+      photos = []
+    }
     favorited = try c.decode(Bool.self, forKey: .favorited)
     toTry = try c.decode(Bool.self, forKey: .toTry)
     hidden = try c.decode(Bool.self, forKey: .hidden)
