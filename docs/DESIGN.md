@@ -583,3 +583,8 @@ Household lifecycle: every account has a kitchen, including solo households. Own
 The Recipes meal strip reserves text space that scales with Dynamic Type. Its initial
 load and switching weeks start at the first meal; only adding meals to an already shown
 week scrolls toward the newest meal.
+
+Android review fixes: internal links use the configured HTTPS API origin (including its
+port). Household export never follows redirects. Family portions can be saved after an
+initial preferences-load failure; only an unchanged, known saved value skips the write.
+Grocery and My kitchen use **Save substitution** for saving replacements.

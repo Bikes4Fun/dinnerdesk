@@ -103,3 +103,10 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Open Recipes before the plan finishes loading: the strip starts at its first meal. Add another meal to that week: the strip scrolls to the newest meal. Refreshing, removing meals, or switching weeks must not jump to the end.
 - On iPhone at the largest accessibility text size, check that both lines of meal names fit inside the strip and that hide/show controls remain reachable.
+
+### Android review checks
+
+- On a debug HTTPS origin with a custom port, follow internal and external links; only the configured origin stays inside Taste Lab.
+- Export normally, then test a redirect response: it must fail without saving a redirected file.
+- Fail the initial My kitchen preferences load, restore networking, change Family portions and reopen; the change persists.
+- Grocery and My kitchen substitution actions both say **Save substitution** and save the replacement.
