@@ -356,7 +356,7 @@ extension RecipeFormView {
   }
 
   /// A JPEG data: URL under the server's 5 MB photo limit.
-  fileprivate static func photoData(_ image: UIImage) -> String? {
+  static func photoData(_ image: UIImage) -> String? {
     let longest = max(image.size.width, image.size.height)
     let scale = min(1, 2000 / max(longest, 1))
     let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
