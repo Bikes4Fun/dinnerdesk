@@ -97,3 +97,11 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Pantry items have a small muted Pantry label, without a star, pill or claim about automatic check-off.
 - With pantry auto-check disabled, an unchecked pantry item stays unchecked and appears in the shared grocery list. Manually checking it removes it from the shared list.
+
+
+### Android review checks
+
+- On a debug HTTPS origin with a custom port, follow internal and external links; only the configured origin stays inside Taste Lab.
+- Export normally, then test a redirect response: it must fail without saving a redirected file.
+- Fail the initial My kitchen preferences load, restore networking, change Family portions and reopen; the change persists.
+- Grocery and My kitchen substitution actions both say **Save substitution** and save the replacement.

@@ -1,8 +1,11 @@
 # Dinnerdesk for Android
 
-This Android app is a native Kotlin/Jetpack Compose port of the iOS app (`ios/dinnerdesk`): the same tabs (Plan, Recipes, Grocery, Prep, More), screens, theme, fonts, server API calls and on-device cache. Taste Lab is a web view, as on iOS. Shared words come from `ios/dinnerdesk/copy.json`, bundled at build time. The app uses the system photo picker and document picker and requests no storage, camera, location, or microphone permissions. External links open in the user's browser or matching app.
+This Android app is a native Kotlin/Jetpack Compose port of the iOS app (`ios/dinnerdesk`): the same tabs (Plan, Recipes, Grocery, Prep, More), screens, theme, fonts, server API calls and on-device cache. Taste Lab is embedded in a web view. Shared words come from `ios/dinnerdesk/copy.json`, bundled at build time. The app uses the system photo picker and document picker and requests no storage, camera, location, or microphone permissions. External links open in the user's browser or matching app.
 
-This Android app presents Dinnerdesk's mobile website in a restricted WebView. The server supplies meal planning, groceries, prep, preferences, and recipe editing, so web changes reach both platforms. Native Android code provides back navigation, keyboard/system-bar insets, connection recovery, a system photo picker, a native grocery share sheet, and an authenticated JSON data export saved through the system document picker. It does not request storage, camera, location, or microphone permissions. External links open in the user's browser or matching app. Only the Dinnerdesk HTTPS origin stays inside the app.
+Native screens call the JSON API directly. Taste Lab is the only embedded WebView; links
+within the configured HTTPS API origin stay in that view, and external links open in the
+browser or matching app. Native code also handles sharing, photo selection, and exporting
+household data through the system document picker.
 
 ## Build
 
@@ -24,7 +27,7 @@ For a signed release, set `DINNERDESK_UPLOAD_KEYSTORE` (absolute path), `DINNERD
 - Target SDK is 36. Confirm the [current target SDK policy](https://developer.android.com/google/play/requirements/target-sdk) when uploading.
 - Review the live [privacy policy](https://dinnerdesk.computerscience.build/privacy) and [support page](https://dinnerdesk.computerscience.build/support). Complete Data safety from actual server collection/retention and third-party integrations. The app sends account and kitchen information to Dinnerdesk over HTTPS; do not claim it collects no data.
 - Provide store text, Android screenshots, 512px store icon and feature graphic, content rating, audience declarations and app access instructions using a dedicated review account. Confirm account/data deletion satisfies Play requirements. Do not include personal tester information in the listing.
-- Confirm the mobile site meets Play's functionality and quality requirements. A working wrapper alone does not guarantee store approval.
+- Confirm the native app and embedded Taste Lab meet Play's functionality and quality requirements.
 - Merge/deploy PR #99 before testing native data export; its endpoint returns 404 on older servers. Merge/deploy PR #111 for the shared web TestFlight fixes.
 
 ## Device acceptance
@@ -32,11 +35,11 @@ For a signed release, set `DINNERDESK_UPLOAD_KEYSTORE` (absolute path), `DINNERD
 Test an Android phone on API 26 and API 36, including gesture and three-button navigation and large fonts:
 
 1. Sign in, relaunch and confirm the kitchen session persists. Sign out and confirm authenticated actions stop working.
-2. Create and edit a plan, complete groceries, check prep, change filters and visit a recipe. Back should navigate the site before leaving the app.
+2. Create and edit a plan, complete groceries, check prep, change filters and visit a recipe. Back should navigate native screens and embedded Taste Lab history before leaving the app.
 3. As an admin, select JPEG/PNG/WebP with the system picker, cancel, upload and revisit the recipe. Rotate while choosing a photo and retry if the system recreates the activity. Unsupported files should be rejected.
 4. Export household data using the native menu, cancel the destination picker, then save and inspect a JSON file. Confirm expired sessions and an older server show useful errors. Rotation while saving may require retry because exported private data is kept only in memory.
 5. Follow external links and verify they leave the app. Check the privacy/support actions. No file URLs, JavaScript URLs or intent URLs should open inside the app.
 6. Disable networking, retry, restore networking, and verify recovery without losing server data. Test keyboard overlap, safe areas and accessibility labels.
 7. Test the signed internal-track bundle installed through Play, not only the debug APK.
 
-The app deliberately keeps no JavaScript-to-native bridge. The system grants access only to the photo/document selected by the user. Export requests send cookies only to the fixed Dinnerdesk endpoint and do not follow redirects.
+The app deliberately keeps no JavaScript-to-native bridge. The system grants access only to the photo/document selected by the user. Export requests send cookies only to the configured Dinnerdesk endpoint and do not follow redirects.

@@ -289,7 +289,7 @@ fun GroceryItemView(lineId: Int) {
                 Text(name, style = Theme.body, color = Theme.ink, modifier = Modifier.fillMaxWidth().clickable { subName = name; suggestions = emptyList() }.padding(vertical = 6.dp))
             }
             if (subName.isNotBlank()) {
-                LinkButton("Use this instead", style = Theme.body) {
+                LinkButton("Save substitution", style = Theme.body) {
                     val target = subName.trim().lowercase()
                     val current = line.id
                     scope.launch {
