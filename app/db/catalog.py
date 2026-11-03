@@ -181,7 +181,12 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
             incoming_provenance = json.loads(provenance)
             incoming_provenance["admin_tags_edited"] = True
             provenance = json.dumps(incoming_provenance)
-        photo = existing["photo_path"] if is_uploaded_photo(existing["photo_path"]) else incoming_photo
+        keep_primary = json.loads(existing["provenance_json"] or "{}").get("admin_photo_edited") is True
+        if keep_primary:
+            incoming_provenance = json.loads(provenance)
+            incoming_provenance["admin_photo_edited"] = True
+            provenance = json.dumps(incoming_provenance)
+        photo = existing["photo_path"] if keep_primary or is_uploaded_photo(existing["photo_path"]) else incoming_photo
         conn.execute(
             """UPDATE recipes SET name = ?, servings = ?, cooking_minutes = ?,
                instructions_json = ?, cookware_json = ?, source_url = ?,

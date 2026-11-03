@@ -1922,6 +1922,8 @@ def test_imported_recipe_keeps_a_copy_of_its_photo_and_the_link(tmp_path, monkey
         }).json()
         assert made["photo_path"].startswith("food/admin-upload-")
         assert made["photo_source_url"] == "https://example.com/r.jpg"
+        assert made["photos"][0]["credit"] == "Imported recipe photo"
+        assert made["photos"][0]["source_url"] == "https://example.com/r"
         assert client.get(f"/{made['photo_path']}").status_code == 200
 
 
@@ -1954,6 +1956,8 @@ def test_cooks_own_photo_wins_over_the_sites(tmp_path, monkeypatch):
         }).json()
         assert made["photo_path"].startswith("food/admin-upload-")
         assert made["photo_source_url"] == "https://example.com/r.jpg"
+        assert made["photos"][0]["credit"] == "Photo uploaded to Dinnerdesk"
+        assert made["photos"][0]["source_url"] == ""
         assert client.post("/api/recipes", json={"name": "Bad", "photo_data": "data:text/plain;base64,aGk="}).status_code == 400
 
 
@@ -2243,7 +2247,7 @@ def test_recipe_gallery_keeps_original_and_selects_primary(tmp_path, monkeypatch
         assert selected.status_code == 200
         detail = client.get('/api/recipes/1').json()
         assert detail['photo_path'] == upload
-        assert detail['photos'][0] == {'path': upload, 'primary': True, 'ai': False, 'shared': False}
+        assert detail['photos'][0] == {'path': upload, 'primary': True, 'ai': False, 'shared': False, 'credit': 'Photo uploaded to Dinnerdesk', 'source_url': ''}
         assert sum(p['primary'] for p in detail['photos']) == 1
         assert original in {p['path'] for p in detail['photos']}
         card = next(r for r in client.get('/api/recipes').json()['recipes'] if r['id'] == 1)
