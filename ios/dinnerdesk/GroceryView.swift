@@ -420,7 +420,7 @@ struct GroceryItemView: View {
                 }
               }
               if !subName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button("Use this instead") {
+                Button("Save substitution") {
                   let target = subName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                   let current = line.id
                   Task {

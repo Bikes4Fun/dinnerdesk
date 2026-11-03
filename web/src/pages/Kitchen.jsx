@@ -443,14 +443,14 @@ function Overrides() {
             onChange={setFromName}
             placeholder="chicken thighs, bone-in skin-on"
           />
-          <label className="block-label">Use this instead</label>
+          <label className="block-label">Replacement item</label>
           <GroceryPick
             value={toName}
             onChange={setToName}
             placeholder="chicken thighs, boneless skinless"
           />
           <button type="submit" className="btn-primary block">
-            Add override
+            Save substitution
           </button>
         </form>
       </div>
