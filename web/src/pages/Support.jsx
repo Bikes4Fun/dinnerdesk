@@ -72,8 +72,8 @@ export function Support() {
           that works once, for one hour.
         </p>
         <p>
-          <strong>How do I share my plan?</strong> Settings → Account &amp; security → Invite someone to this
-          household. Whoever opens the link and creates an account sees the same plan, recipes and grocery list.
+          <strong>How do I share my plan?</strong> Settings → Account &amp; security → Invite someone.
+          Someone new opens the link and creates an account. Someone who already has an account pastes that same link into Join a household.
         </p>
         <p>
           <strong>How do I delete my account?</strong> Settings → Account &amp; security → Delete account. If you are
