@@ -733,12 +733,13 @@ struct TasteLabView: View {
         if lab.swapFrom == nil { banner }
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
           ForEach(lab.plan) { r in
-            Button { lab.openSwap(r.id) } label: { PlanMealCard(recipe: r) }
-              .buttonStyle(.plain)
-              .accessibilityLabel("Swap \(r.name)")
-              .overlay(alignment: .topLeading) {
-                SaveForLater(recipeID: r.recipeId, name: r.name, small: true).padding(14)
-              }
+            // Side by side, not nested, so the bookmark gets its own taps and VoiceOver stop.
+            ZStack(alignment: .topLeading) {
+              Button { lab.openSwap(r.id) } label: { PlanMealCard(recipe: r) }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Swap \(r.name)")
+              SaveForLater(recipeID: r.recipeId, name: r.name, small: true).padding(14)
+            }
           }
         }
         HStack(spacing: 10) {
