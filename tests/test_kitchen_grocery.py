@@ -74,6 +74,21 @@ def test_pantry_item_stays_unchecked_when_auto_check_is_off(tmp_path):
         assert _onion(client, pid)["checked"] is False
 
 
+def test_resending_auto_check_does_not_retick_pantry_items(tmp_path):
+    """#172: the web tour saved every pref back, including pantry_auto_check, which re-ticked
+    pantry items the user had unchecked. Only a real change to the switch touches the list."""
+    with _client(tmp_path) as client:
+        pid = _plan_with_soup(client, tmp_path)
+        client.post("/api/pantry/items", json={"name": "onion", "have": True})
+        client.put("/api/household", json={"prefs": {"pantry_auto_check": True}})
+        line = _onion(client, pid)
+        assert line["checked"] is True
+        client.patch(f"/api/grocery/lines/{line['id']}", json={"checked": False})
+        prefs = client.get("/api/household").json()["prefs"]
+        client.put("/api/household", json={"prefs": {**prefs, "tour_done": True, "tour_version": 9}})
+        assert _onion(client, pid)["checked"] is False
+
+
 def test_staple_checks_and_unchecks(tmp_path):
     with _client(tmp_path) as client:
         pid = _plan_with_soup(client, tmp_path)

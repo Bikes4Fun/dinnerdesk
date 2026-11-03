@@ -2608,11 +2608,19 @@ def put_household(
             current = {store["id"] for store in grocery["stores"]}
             removed_stores = previous - current
         saved_filters = prefs.get("filters")
+        # Resending the saved value (e.g. a screen that writes every pref back) must not re-tick
+        # pantry items the user has unchecked since (#172); only a real change touches the list.
+        auto_check_changed = (
+            "pantry_auto_check" in body.prefs
+            and bool(body.prefs["pantry_auto_check"]) != bool(prefs.get("pantry_auto_check"))
+        )
         prefs.update(body.prefs)
         if isinstance(body.prefs.get("filters"), dict):
             # Settings, the tour and Taste Lab each send only what they show; merge so one
             # screen can't wipe another's choices. Diets rule each other out; "none" isn't an avoid.
             prefs["filters"] = merge_filters(saved_filters, body.prefs["filters"])
+    else:
+        auto_check_changed = False
     name = body.name.strip() if body.name else row["name"]
     with transaction(db):
         db.execute(
@@ -2622,7 +2630,7 @@ def put_household(
         for store_id in removed_stores:
             db.execute("UPDATE grocery_places SET store = '' WHERE household_id = ? AND store = ?", (household_id, store_id))
             db.execute("UPDATE grocery_lines SET store = '' WHERE store = ? AND plan_id IN (SELECT id FROM plans WHERE household_id = ?)", (store_id, household_id))
-        if body.prefs is not None and "pantry_auto_check" in body.prefs:
+        if auto_check_changed:
             # Turning the switch on or off checks or unchecks pantry items on this week's list.
             plan_id = _plan_id_for_household(db, household_id)
             if plan_id is not None:
