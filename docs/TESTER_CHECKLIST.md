@@ -106,3 +106,21 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Scroll the strip to the end, switch to another plan with the same meal count, and repeat with a larger plan: both start at the first meal on web and iOS. Adding a meal to the current plan still scrolls to the new meal.
 - Mark a strip meal cooked: its photo fades, but its name stays as readable as uncooked meal names.
+
+### Android review checks
+
+- On a debug HTTPS origin with a custom port, follow internal and external links; only the configured origin stays inside Taste Lab.
+- Export normally, then test a redirect response: it must fail without saving a redirected file.
+- Fail the initial My kitchen preferences load, restore networking, change Family portions and reopen; the change persists.
+- Grocery and My kitchen substitution actions both say **Save substitution** and save the replacement.
+
+
+### Android persistence and retry checks
+
+- Open a system photo/document picker or external browser and return: the original tab, form, and export operation remain available.
+- On a slow connection, change portions 4 → 5 → 4 quickly; reopen and confirm 4. Fail a save, restore connectivity, and retry.
+- Change aisle order and stores close together, then toggle grocery display settings; all three changes persist. Fail the initial aisle load and leave without editing: custom aisle names/numbers must remain unchanged.
+- Pick three pantry items and fail the second save. Only the two unsaved picks stay selected; retry adds them without losing the first. Repeat for Always checked off.
+- Fail placement loading, then change Have this item, Always check off, and quantity: pantry changes still persist.
+- Fail a grocery Add/Edit, then retry successfully: the old error clears and the sheet closes. Auth failures show explanations rather than codes.
+- Open Recipes without pulling to refresh: suggestions appear. Fail an Add/Remove or Prep action while a recipe is displayed: its error banner is visible.
