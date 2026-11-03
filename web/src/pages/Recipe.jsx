@@ -2,6 +2,20 @@ import FoodPhoto from "../FoodPhoto.jsx";
 import { RecipeGallery } from "../RecipeGallery.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
+
+const SIDE_MIN = 200;
+const SIDE_BOTH = 480;
+const PHOTO_MIN = 160;
+
+function storedSide() {
+  try {
+    const n = Number(localStorage.getItem("recipeSide"));
+    if (Number.isFinite(n)) return n;
+  } catch {
+    /* storage off */
+  }
+  return 260;
+}
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { parseIngLine } from "../parseIngredient.js";
@@ -43,6 +57,10 @@ export function Recipe({ id }) {
   const week = useWeek();
   const [recipe, setRecipe] = useState(null);
   const [tab, setTab] = useState("overview");
+  const layoutRef = useRef(null);
+  const [side, setSide] = useState(storedSide);
+  const [desktop, setDesktop] = useState(() => window.matchMedia("(min-width: 880px)").matches);
+  const both = desktop && side >= SIDE_BOTH;
   const [editing, setEditing] = useState(false);
   // A kitchen edits its own recipes; catalog edits are for Dinnerdesk admins only, and the
   // server refuses everyone else too.
@@ -66,6 +84,72 @@ export function Recipe({ id }) {
   const [report, setReport] = useState(null);
   const [reportedId, setReportedId] = useState(null);
   const moreRef = useRef(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 880px)");
+    const apply = () => setDesktop(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("recipeSide", String(side));
+    } catch {
+      /* storage off */
+    }
+  }, [side]);
+
+  useEffect(() => {
+    if (!desktop || !recipe) return;
+    const layout = layoutRef.current;
+    if (!layout) return;
+    const fit = () => {
+      const width = layout.getBoundingClientRect().width;
+      setSide((w) => Math.min(Math.max(SIDE_MIN, width - PHOTO_MIN), Math.max(SIDE_MIN, Math.round(w))));
+    };
+    fit();
+    const obs = new ResizeObserver(fit);
+    obs.observe(layout);
+    return () => obs.disconnect();
+  }, [desktop, recipe]);
+
+  function clampSide(px) {
+    const width = layoutRef.current?.getBoundingClientRect().width || px + PHOTO_MIN;
+    return Math.min(Math.max(SIDE_MIN, width - PHOTO_MIN), Math.max(SIDE_MIN, Math.round(px)));
+  }
+
+  function startSplit(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const handle = event.currentTarget;
+    handle.setPointerCapture(event.pointerId);
+    const origin = event.clientX;
+    const start = side;
+    document.body.classList.add("is-resizing");
+    const move = (ev) => setSide(clampSide(start + ev.clientX - origin));
+    const stop = () => {
+      document.body.classList.remove("is-resizing");
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", stop);
+      handle.removeEventListener("pointercancel", stop);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", stop);
+    handle.addEventListener("pointercancel", stop);
+  }
+
+  function nudgeSplit(event) {
+    const step = event.shiftKey ? 48 : 24;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSide((w) => clampSide(w - step));
+    }
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSide((w) => clampSide(w + step));
+    }
+  }
 
   useEffect(() => {
     setEditing(false);
@@ -285,6 +369,42 @@ export function Recipe({ id }) {
     );
   }
 
+  function CookBlock({ headed = false }) {
+    return (
+      <>
+        {headed ? <h3>Cook</h3> : null}
+        {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinnerdesk</p>}
+        {sourceHost(recipe.source_url) && !recipe.catalog && (
+          <p className="muted">
+            {recipe.instructions_source === "import" ? "Steps from " : "Original recipe: "}
+            <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{sourceHost(recipe.source_url)}</a>
+          </p>
+        )}
+        <ol className="steps">
+          {cookSteps.map((s, i) => (
+            <li key={i}>
+              <button
+                type="button"
+                className={`prep-tag${s.prep ? " is-on" : ""}`}
+                aria-pressed={!!s.prep}
+                onClick={() => toggleCookPrep(i)}
+              >
+                Prep
+              </button>
+              <StepText text={s.text || s.step || ""} />
+              {/* Far-future feature: <StepTimers text={s.text || s.step || ""} /> */}
+              {s.ings ? (
+                <div className="step-ings">
+                  <StepText text={amountLines(s.ings)} />
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </>
+    );
+  }
+
   return (
     <section className="screen">
       <header className="top sub">
@@ -378,20 +498,42 @@ export function Recipe({ id }) {
           )}
         </div>
       )}
-      <div className="recipe-layout">
+      <div className="recipe-layout" ref={layoutRef}>
         {!editing && (
-          <aside className="recipe-side">
+          <aside className={`recipe-side${both ? " is-both" : ""}`} style={desktop ? { width: side } : undefined}>
             <ServingsMeta />
-            <h3>Ingredients</h3>
-            <ul className="plain">
-              {recipe.ingredients.map((ing) => (
-                <li key={`${ing.ingredient_id}-${ing.name}`}>
-                  {ing.quantity ? `${scaleAmount(ing.quantity, recipe.servings, mealServings)} ` : ""}
-                  {ing.name}
-                </li>
-              ))}
-            </ul>
+            <div className="recipe-side-cols">
+              <div>
+                <h3>Ingredients</h3>
+                <ul className="plain">
+                  {recipe.ingredients.map((ing) => (
+                    <li key={`${ing.ingredient_id}-${ing.name}`}>
+                      {ing.quantity ? `${scaleAmount(ing.quantity, recipe.servings, mealServings)} ` : ""}
+                      {ing.name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {both && (
+                <div>
+                  <CookBlock headed />
+                </div>
+              )}
+            </div>
           </aside>
+        )}
+        {!editing && desktop && (
+          <div
+            className="recipe-resizer"
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize ingredients and photo"
+            aria-valuemin={SIDE_MIN}
+            aria-valuenow={Math.round(side)}
+            tabIndex={0}
+            onPointerDown={startSplit}
+            onKeyDown={nudgeSplit}
+          />
         )}
         <div className="scroll pad recipe-body">
           {err && <p className="banner err">{err}</p>}
@@ -426,9 +568,10 @@ export function Recipe({ id }) {
             </form>
           ) : (
             <>
-              {tab === "overview" && (
+              {(tab === "overview" || both) && (
                 <>
                   <RecipeGallery recipe={recipe} canEdit={canEdit} onChange={setRecipe} />
+                  {tab === "overview" && <>
                   <ServingsMeta />
                   {recipe.tags.length > 0 && (
                     <p className="muted">{recipe.tags.map((t) => t.replaceAll("_", " ")).join(" · ")}</p>
@@ -460,40 +603,10 @@ export function Recipe({ id }) {
                     }}
                   />
                   </>)}
+                  </>}
                 </>
               )}
-              {tab === "cook" && (
-                <>
-                {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinnerdesk</p>}
-                {sourceHost(recipe.source_url) && !recipe.catalog && (
-                  <p className="muted">
-                    {recipe.instructions_source === "import" ? "Steps from " : "Original recipe: "}
-                    <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{sourceHost(recipe.source_url)}</a>
-                  </p>
-                )}
-                <ol className="steps">
-                  {cookSteps.map((s, i) => (
-                    <li key={i}>
-                      <button
-                        type="button"
-                        className={`prep-tag${s.prep ? " is-on" : ""}`}
-                        aria-pressed={!!s.prep}
-                        onClick={() => toggleCookPrep(i)}
-                      >
-                        Prep
-                      </button>
-                      <StepText text={s.text || s.step || ""} />
-                      {/* Far-future feature: <StepTimers text={s.text || s.step || ""} /> */}
-                      {s.ings ? (
-                        <div className="step-ings">
-                          <StepText text={amountLines(s.ings)} />
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ol>
-                </>
-              )}
+              {tab === "cook" && !both && <CookBlock />}
             </>
           )}
           {recipe.catalog && !editing && (reportedId === recipe.id
