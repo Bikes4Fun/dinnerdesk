@@ -265,7 +265,14 @@ final class Store: ObservableObject {
   func setTryLater(id: Int, on: Bool) async -> RecipeDetail? {
     recipes = recipes.map { $0.id == id ? $0.withToTry(on) : $0 }
     do {
-      return try await API.send("recipes/\(id)/try", method: "PUT", body: ["on": on], cacheAs: "recipes/\(id)")
+      let next: RecipeDetail = try await API.send("recipes/\(id)/try", method: "PUT", body: ["on": on], cacheAs: "recipes/\(id)")
+      // Saved from Taste Lab, a meal may not be in the loaded list; add it so To try shows it now.
+      if next.toTry, !recipes.contains(where: { $0.id == id }) {
+        let row = RecipeSummary(next)
+        let at = recipes.firstIndex { $0.name.localizedCaseInsensitiveCompare(row.name) == .orderedDescending } ?? recipes.endIndex
+        recipes.insert(row, at: at)
+      }
+      return next
     } catch {
       fail(error)
       return nil
