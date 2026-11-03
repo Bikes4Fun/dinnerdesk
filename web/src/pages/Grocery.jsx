@@ -289,7 +289,6 @@ export function Grocery() {
         onSubstitute={async (name) => {
           await api.addOverride({ from_name: item.name, to_name: name });
           await load();
-          setView("list");
         }}
       />
     );
