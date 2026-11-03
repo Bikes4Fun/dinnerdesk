@@ -117,11 +117,12 @@ fun KitchenView() {
 
     fun setPortions(value: Int) {
         portions = value
-        if (savedPortions == null || savedPortions == value) return
+        if (savedPortions == value) return
         scope.launch {
             try {
                 KitchenApi.savePrefs(mapOf("family_portions" to value))
                 savedPortions = value
+                error = null
             } catch (e: Throwable) {
                 error = Api.message(e)
             }
@@ -206,7 +207,7 @@ fun SubstitutionsView() {
             ListHeader("Add one")
             ListRow { FormField(from, { from = it }, "Recipe says (e.g. vegetable oil)", KeyboardOptions(capitalization = KeyboardCapitalization.None)) }
             ListRow { FormField(to, { to = it }, "Buy instead (e.g. olive oil)", KeyboardOptions(capitalization = KeyboardCapitalization.None)) }
-            ThemeAddRow("Add substitution", enabled = canAdd) {
+            ThemeAddRow("Save substitution", enabled = canAdd) {
                 scope.launch {
                     try {
                         items = KitchenApi.addOverride(from.trim(), to.trim())

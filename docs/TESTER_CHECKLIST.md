@@ -106,3 +106,10 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 
 - Scroll the strip to the end, switch to another plan with the same meal count, and repeat with a larger plan: both start at the first meal on web and iOS. Adding a meal to the current plan still scrolls to the new meal.
 - Mark a strip meal cooked: its photo fades, but its name stays as readable as uncooked meal names.
+
+### Android review checks
+
+- On a debug HTTPS origin with a custom port, follow internal and external links; only the configured origin stays inside Taste Lab.
+- Export normally, then test a redirect response: it must fail without saving a redirected file.
+- Fail the initial My kitchen preferences load, restore networking, change Family portions and reopen; the change persists.
+- Grocery and My kitchen substitution actions both say **Save substitution** and save the replacement.

@@ -585,3 +585,8 @@ load and switching weeks start at the first meal; only adding meals to an alread
 week scrolls toward the newest meal. Changing weeks resets an already-scrolled strip to
 the beginning, even when meal counts match. Cooked meals fade only their photos; names
 retain their normal text contrast.
+
+Android review fixes: internal links use the configured HTTPS API origin (including its
+port). Household export never follows redirects. Family portions can be saved after an
+initial preferences-load failure; only an unchanged, known saved value skips the write.
+Grocery and My kitchen use **Save substitution** for saving replacements.
