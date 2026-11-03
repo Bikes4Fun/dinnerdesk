@@ -627,8 +627,5 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
 
 @Composable
 private fun FormSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { onChange(!checked) }, verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = Theme.body, color = Theme.ink, modifier = Modifier.weight(1f))
-        ThemeSwitch(checked, onChange)
-    }
+    SwitchRow(label, checked, divider = false, onChange = onChange)
 }

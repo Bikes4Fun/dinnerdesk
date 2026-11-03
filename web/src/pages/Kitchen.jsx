@@ -266,6 +266,7 @@ function PantryAdd() {
           <form className="add-line" onSubmit={addCustom}>
             <input
               className="field"
+              aria-label="Custom ingredient"
               placeholder="Custom ingredient"
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
@@ -538,7 +539,7 @@ function Stores() {
             setName("");
           }}
         >
-          <input className="field" placeholder="Add a store" value={name} onChange={(e) => setName(e.target.value)} />
+          <input className="field" aria-label="New store name" placeholder="Add a store" value={name} onChange={(e) => setName(e.target.value)} />
           <button type="submit" className="btn-secondary">
             Add
           </button>
@@ -624,14 +625,15 @@ function Aisles() {
             <strong>{a.name}</strong>
             <input
               className="field tight aisle-num"
+              aria-label={`Aisle number for ${a.name}`}
               placeholder="#"
               value={a.number}
               onChange={(e) => persist(aisles.map((x) => (x.id === a.id ? { ...x, number: e.target.value } : x)))}
             />
-            <button type="button" className="icon-btn" onClick={() => move(i, -1)} aria-label="Move up">
+            <button type="button" className="icon-btn" onClick={() => move(i, -1)} aria-label={`Move ${a.name} up`}>
               ↑
             </button>
-            <button type="button" className="icon-btn" onClick={() => move(i, 1)} aria-label="Move down">
+            <button type="button" className="icon-btn" onClick={() => move(i, 1)} aria-label={`Move ${a.name} down`}>
               ↓
             </button>
           </div>
@@ -722,10 +724,10 @@ function PantryItem({ item, onBack }) {
     <div className="scroll pad">
       <label className="toggle-row">Have this item <input type="checkbox" checked={have} onChange={async (e) => { const value = e.target.checked; await api.patchPantry(item.id, { have: value }); setHave(value); }} /></label>
       <label className="toggle-row">Always check off <input type="checkbox" checked={neverShop} onChange={async (e) => { const value = e.target.checked; await api.patchPantry(item.id, { never_shop: value }); setNeverShop(value); }} /></label>
-      <label className="block-label">Amount</label><input className="field" value={amount} onChange={(e) => setAmount(e.target.value)} onBlur={() => api.patchPantry(item.id, { quantity: amount })} />
+      <label className="block-label" htmlFor="pantry-amount">Amount</label><input id="pantry-amount" className="field" value={amount} onChange={(e) => setAmount(e.target.value)} onBlur={() => api.patchPantry(item.id, { quantity: amount })} />
       {place && <>
-        <label className="block-label">Store</label><select className="field" value={place.store} onChange={(e) => placement({ store: e.target.value })}><option value="">Not set</option>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
-        <label className="block-label">Aisle</label><select className="field" value={place.aisle} onChange={(e) => placement({ aisle: e.target.value })}>{aisles.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        <label className="block-label" htmlFor="pantry-store">Store</label><select id="pantry-store" className="field" value={place.store} onChange={(e) => placement({ store: e.target.value })}><option value="">Not set</option>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <label className="block-label" htmlFor="pantry-aisle">Aisle</label><select id="pantry-aisle" className="field" value={place.aisle} onChange={(e) => placement({ aisle: e.target.value })}>{aisles.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
       </>}
       <button className="text-link danger" onClick={async () => { await api.deletePantry(item.id); onBack(); }}>Delete item</button>
     </div>

@@ -902,7 +902,7 @@ export function AccountSecurity() {
                     <Tip id="settings.invite-link">
                       Someone new opens this link and creates an account in your household, with the same recipes, plan, and grocery list. Someone who already has an account pastes this same link into Join a household. Expires in 7 days, one-time use.
                     </Tip>
-                    <input className="field" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
+                    <input className="field" aria-label="Household invite link" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
                     <button type="button" className="btn-secondary block" onClick={shareInvite}>
                       Copy link
                     </button>

@@ -1705,6 +1705,7 @@ struct FeedbackView: View {
           }
           Text(kind.prompt).font(Theme.action).foregroundStyle(Theme.ink)
           TextField(kind.placeholder, text: $note, axis: .vertical)
+            .accessibilityLabel(kind.prompt)
             .font(Theme.subtitle)
             .lineLimit(4...10)
             .padding(12)

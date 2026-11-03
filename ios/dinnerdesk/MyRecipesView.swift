@@ -155,6 +155,7 @@ struct RecipeFormView: View {
         if mode == .importURL {
           Section {
             TextField("https://", text: $url)
+              .accessibilityLabel("Recipe page URL")
               .keyboardType(.URL)
               .textContentType(.URL)
               .textInputAutocapitalization(.never)
@@ -189,6 +190,7 @@ struct RecipeFormView: View {
           .listRowBackground(Theme.surface)
           Section {
             TextField("1 onion\n2 cloves garlic", text: $ingredients, axis: .vertical)
+              .accessibilityLabel("Ingredients, one per line")
               .lineLimit(5...30)
           } header: {
             Text("Ingredients")
@@ -234,6 +236,7 @@ struct RecipeFormView: View {
           if mode == .write {
             Section {
               TextField("https://", text: $source)
+                .accessibilityLabel("Recipe source URL (optional)")
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
@@ -251,6 +254,7 @@ struct RecipeFormView: View {
                   .font(Theme.count)
                   .foregroundStyle(Theme.muted)
                 TextField("What to do", text: $step.text, axis: .vertical)
+                  .accessibilityLabel("Step \((steps.firstIndex { $0.id == step.id } ?? 0) + 1) instructions")
                   .lineLimit(2...12)
               }
             }

@@ -748,6 +748,7 @@ struct RecipeDetailView: View {
           }
           Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
           TextField("e.g. Step 4 says to add the cream but it's not in the ingredients", text: $reportNote, axis: .vertical)
+            .accessibilityLabel("Recipe report details (optional)")
             .font(Theme.subtitle)
             .lineLimit(3...8)
             .padding(12)

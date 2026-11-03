@@ -73,12 +73,12 @@ struct PlanView: View {
               }
               ViewThatFits(in: .horizontal) {
                 HStack {
-                  markCookedButton
+                  markCookedButton(plan)
                   Spacer()
                   removeButton
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                  markCookedButton
+                  markCookedButton(plan)
                   removeButton
                 }
               }
@@ -151,20 +151,13 @@ struct PlanView: View {
       .navigationBarTitleDisplayMode(.inline)
       .tint(Theme.accent)
       .menuSheet(isPresented: $menu) {
+        // New meal plan is the button under the plan (and on the empty plan), not here (#104).
         [
-          
-          MenuSheetItem.newMealPlan {
-            Task { await store.openSuggestions() }
-          },
-          MenuSheetItem(title: "Mark all cooked", systemImage: "checkmark.circle") {
-            Task { await store.markAllCooked() }
-          },
           MenuSheetItem(title: "Save as draft", systemImage: "square.and.arrow.down") {
             draftTitle = store.plan?.title ?? "Saved plan"
             savingDraft = true
           },
           MenuSheetItem(title: "Saved plans & history", systemImage: "tray") { drafts = true },
-          // MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.openSuggestions() } }
         ]
       }
       .alert("Save as draft", isPresented: $savingDraft) {
@@ -275,12 +268,13 @@ struct PlanView: View {
     Text("\(selected.count) selected").foregroundStyle(Theme.muted)
   }
 
-  private var markCookedButton: some View {
-    Button("Mark cooked") {
-      Task {
-        await store.markCooked(ids: selected)
-        selected = []
-      }
+  /// "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
+  /// The selection stays after tapping, so the label flips and confirms what happened.
+  private func markCookedButton(_ plan: Plan) -> some View {
+    let picked = plan.slots.filter { selected.contains($0.id) }
+    let allCooked = !picked.isEmpty && picked.allSatisfy(\.cooked)
+    return Button(allCooked ? "Mark uncooked" : "Mark cooked") {
+      Task { await store.markCooked(ids: selected, cooked: !allCooked) }
     }
     .frame(minHeight: 44)
   }
@@ -586,7 +580,9 @@ struct SavedPlansView: View {
 
   private var drafts: [SavedPlan] { plans.filter { $0.status == "draft" } }
   private var history: [SavedPlan] {
-    plans.filter { $0.status != "draft" && $0.status != "active" || $0.decision != nil }
+    // Only plans that were really used: past weeks, and the current plan once approved.
+    // Declined and pending suggestions stay out of history (#104).
+    plans.filter { $0.status == "history" || ($0.status == "active" && $0.decision == "approve") }
   }
 
   /// One plan: its name (or the week it starts), dates, meal count and status, the first
