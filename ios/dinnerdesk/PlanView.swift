@@ -700,10 +700,8 @@ struct SuggestedPlanReview: View {
             if store.generatingProposal {
               ProgressView("Finding meals…").frame(maxWidth: .infinity, minHeight: 80)
             }
-            Stepper(value: Binding(get: { store.proposal?.slots.count ?? 4 }, set: { count in run { await store.resizeProposal(count) } }), in: max(1, (store.proposal?.slots.count ?? 0) - (store.proposal?.suggestedRecipeIds?.count ?? 0))...14) {
-              Text("\(store.proposal?.slots.count ?? 4) meals").font(Theme.mealName)
-            }
-            .disabled(store.proposal?.status != "suggested")
+            mealCountControl
+              .disabled(store.proposal?.status != "suggested")
             if let error = store.proposalError {
               ErrorBanner(message: error)
               Button("Dismiss error") { store.proposalError = nil }
@@ -714,6 +712,7 @@ struct SuggestedPlanReview: View {
                   Color.clear.aspectRatio(1, contentMode: .fit)
                     .overlay {
                       NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
+                        .buttonStyle(.plain)
                         .accessibilityLabel("Open \(slot.recipeName)")
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 14))
@@ -721,15 +720,16 @@ struct SuggestedPlanReview: View {
                       if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
                         Button { swapping = slot } label: {
                           Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(Theme.action).foregroundStyle(Theme.accent)
-                            .frame(width: 44, height: 44)
+                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.accent)
+                            .frame(width: 28, height: 28)
                             .background(Theme.surface, in: Circle())
-                            .shadow(color: .black.opacity(0.12), radius: 3, y: 1)
+                            .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                         .disabled(store.proposal?.status != "suggested")
                         .accessibilityLabel("Swap meal: \(slot.recipeName)")
-                        .padding(6)
                       }
                     }
                   VStack(alignment: .leading, spacing: 4) {
@@ -836,6 +836,33 @@ struct SuggestedPlanReview: View {
       .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
       .overlay(RoundedRectangle(cornerRadius: 14).stroke(Theme.line, lineWidth: 1.5))
   }
+  /// "4 meals" with − and + in the app's colors (the system Stepper is gray).
+  private var mealCountControl: some View {
+    let count = store.proposal?.slots.count ?? 4
+    let minimum = max(1, count - (store.proposal?.suggestedRecipeIds?.count ?? 0))
+    return HStack {
+      Text("\(count) meals").font(Theme.mealName)
+      Spacer()
+      HStack(spacing: 2) {
+        Button { run { await store.resizeProposal(count - 1) } } label: {
+          Image(systemName: "minus").font(Theme.count).foregroundStyle(Theme.ink)
+            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+        }
+        .disabled(count <= minimum)
+        .accessibilityLabel("Fewer meals")
+        Button { run { await store.resizeProposal(count + 1) } } label: {
+          Image(systemName: "plus").font(Theme.count).foregroundStyle(Theme.ink)
+            .frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+        }
+        .disabled(count >= 14)
+        .accessibilityLabel("More meals")
+      }
+      .buttonStyle(.plain)
+      .background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
+      .overlay(RoundedRectangle(cornerRadius: 10).stroke(Theme.line))
+    }
+  }
+
   private func run(_ work: @escaping () async -> Void) {
     busy = true
     Task { await work(); busy = false }
