@@ -155,8 +155,9 @@ export function Tour() {
   async function finish(saveFilters, stay) {
     setBusy(true);
     try {
-      const hh = await api.household();
-      const prefs = { ...(hh.prefs || {}), tour_done: true, tour_version: TOUR_VERSION };
+      // Send only the tour's own fields; the server merges top-level keys. Writing every pref
+      // back re-ticked pantry items on the grocery list (#172).
+      const prefs = { tour_done: true, tour_version: TOUR_VERSION };
       if (saveFilters) prefs.filters = { diets, avoids, time };
       await api.putHousehold({ prefs });
     } catch (error) { setBusy(false); throw error; }

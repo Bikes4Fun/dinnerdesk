@@ -61,8 +61,8 @@ function KitchenHub() {
     const n = Math.max(1, Math.min(50, Number(value) || 1));
     setPortions(n);
     try {
-      const hh = await api.household();
-      await api.putHousehold({ prefs: { ...(hh.prefs || {}), family_portions: n } });
+      // Only this key: the server merges top-level prefs (#172).
+      await api.putHousehold({ prefs: { family_portions: n } });
     } catch (e) {
       setErr(e.message);
     }
