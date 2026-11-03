@@ -2201,7 +2201,9 @@ def test_inbox_gathers_reports_and_saves_triage(tmp_path):
                           VALUES (?, 1, 'down', 'Chop onions', -1, 'day_of', 'now'), (?, 1, 'up', 'Make sauce', 1, '', 'now')""",
                        (home, home))
             db.commit()
-        data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
+        page = client.get("/admin/inbox").text
+        assert 'aria-label="Hide"' in page and '["photo", "Photo reports"' in page
+        data = json.loads(page.split("const DATA = ")[1].split(";\n")[0])
         items = {(i["source"], i["kind"]): i for i in data["items"]}
         # 👍 prep votes only count in the overview; the 👎 is an item.
         assert set(items) == {("feedback", "bug"), ("recipe", "recipe"), ("plan", "plan"), ("prep", "prep")}
