@@ -1121,7 +1121,7 @@ struct AccountView: View {
             }
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
           }
-          Button(alone ? "Have an invite code? Join a household" : "Join a different household") {
+          Button(alone ? "Already have an account? Join with a link" : "Join a different household") {
             withMotion { joining.toggle() }
           }
           .font(AccountFont.label)
@@ -1130,10 +1130,13 @@ struct AccountView: View {
           .padding(.top, 6)
           if joining {
             VStack(alignment: .leading, spacing: 8) {
-              TextField("Invite link or token", text: $joinToken)
+              TextField("Paste the invite link", text: $joinToken)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .accountField()
+              Text("The whole link works. The code at the end works too.")
+                .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
               Button("Join household") { confirmJoin = true }
                 .font(AccountFont.strong)
                 .disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

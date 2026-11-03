@@ -900,8 +900,7 @@ export function AccountSecurity() {
                 {inviteLink && (
                   <div className="acct-pane">
                     <Tip id="settings.invite-link">
-                      Share this link — whoever opens it and creates an account joins your household
-                      and sees the same recipes, plan, and grocery list. Expires in 7 days, one-time use.
+                      Someone new opens this link and creates an account in your household, with the same recipes, plan, and grocery list. Someone who already has an account pastes this same link into Join a household. Expires in 7 days, one-time use.
                     </Tip>
                     <input className="field" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
                     <button type="button" className="btn-secondary block" onClick={shareInvite}>
@@ -914,15 +913,16 @@ export function AccountSecurity() {
               <button type="button" className="acct-row has-sub is-alone" aria-expanded={joining} onClick={() => setJoining(!joining)}>
                 <span className="acct-row-text">
                   <span className="acct-row-title">Join a different household</span>
-                  <span className="acct-sub">Have an invite link or code?</span>
+                  <span className="acct-sub">Already have an account? Paste the invite link.</span>
                 </span>
                 <Chevron open={joining} />
               </button>
               {joining && (
                 <div className="acct-card">
                   <div className="acct-pane">
-                    <label className="block-label" htmlFor="join-household">Join with an invite link or token</label>
-                    <input id="join-household" className="field" value={joinToken} onChange={(e) => setJoinToken(e.target.value)} />
+                    <label className="block-label" htmlFor="join-household">Invite link</label>
+                    <input id="join-household" className="field" placeholder="Paste the whole link" value={joinToken} onChange={(e) => setJoinToken(e.target.value)} />
+                    <p className="help">The whole link works. The code at the end works too.</p>
                     <button className="btn-secondary block" disabled={busy || !joinToken.trim()} onClick={() => { if (confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) householdAction(() => api.joinHousehold(joinToken.trim().split("/").pop())); }}>Join household</button>
                   </div>
                 </div>

@@ -1962,7 +1962,6 @@ img { display: block; max-width: 100%; }
   font-size: 0.85rem;
   box-shadow: 0 2px 8px rgba(46, 26, 44, 0.2);
 }
-
 /* Recipe gallery: touch scrolling, keyboard-accessible paging, one square photo per page. */
 .recipe-gallery { min-width: 0; }
 .recipe-gallery-track { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; border-radius: 16px; }
