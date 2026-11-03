@@ -1,4 +1,6 @@
 .claude
+
+.worktrees/
 # Python and test artifacts
 .venv/
 venv/
