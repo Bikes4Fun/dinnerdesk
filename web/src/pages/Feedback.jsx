@@ -123,7 +123,7 @@ export function Feedback() {
               {shots.length < MAX_SHOTS && (
                 <label className="btn-secondary feedback-add-shot">
                   {shots.length ? "Add another screenshot" : "Add a screenshot (optional)"}
-                  <input type="file" accept="image/*" multiple hidden onChange={addShots} />
+                  <input type="file" accept="image/*" multiple className="accessible-file" onChange={addShots} />
                 </label>
               )}
             </div>

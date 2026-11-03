@@ -2016,3 +2016,21 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .photo-credit-icon { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border-radius: 50%; background: rgba(255,255,255,.9); color: var(--ink); font-size: 14px; box-shadow: 0 1px 5px #0003; }
 .photo-credit-tooltip { position: absolute; bottom: 100%; right: 0; width: max-content; max-width: min(260px, 70vw); padding: 10px 12px; border-radius: 10px; background: var(--surface); color: var(--ink); box-shadow: 0 2px 12px #0003; font-size: 12px; line-height: 1.4; }
 .photo-credit-tooltip a { display: block; margin-top: 4px; text-decoration: underline; }
+
+/* Keyboard focus stays visible on fields, links, disclosure menus and custom buttons. */
+:where(button, a, input, textarea, select, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
+/* Keep file selection in the keyboard order; the visible label provides its name. */
+.accessible-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.feedback-add-shot:focus-within { outline: 3px solid var(--brand); outline-offset: 3px; }
+.thumb, .step-move { min-width: 44px; min-height: 44px; }

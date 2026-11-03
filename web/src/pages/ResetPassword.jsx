@@ -38,10 +38,10 @@ export function ResetPassword({ token, onAuthed }) {
         <div className="scroll pad auth-pad">
           <div className="brand auth-brand">Dinnerdesk</div>
           <h1 className="auth-title">Set a new password</h1>
-          {err ? <p className="banner err">{err}</p> : null}
+          {err ? <p className="banner err" role="alert">{err}</p> : null}
           {done ? (
             <>
-              <p className="banner ok">
+              <p className="banner ok" role="status">
                 Password changed. You're signed in here; use the new password in the app too.
               </p>
               <button type="button" className="btn-primary block" onClick={() => onAuthed()}>
