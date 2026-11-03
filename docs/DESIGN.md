@@ -90,7 +90,8 @@ cards or suggested-plan sizing. Small screens and larger text can scroll.
 
 ### 3. Suggested meal plans
 
-**New meal plan** (the empty Plan, Grocery, or Prep screen, and Plan → ⋯) opens a
+**New meal plan** (the empty Plan, Grocery, or Prep screen, and the button under the meals on
+Plan; not in Plan → ⋯) opens a
 **proposal** to review. The live plan stays as it is until that proposal is approved.
 
 - **Must:** the current plan and grocery list stay unchanged until the proposal is approved.
@@ -139,7 +140,9 @@ An empty plan centers “Nothing on this plan,” **New meal plan**, and **Add m
 List rows show a square photo, the name, servings, and Schedule. **Grid View** in ⋯ is two
 columns; the same item switches back to List View. Accessibility text sizes stay on the list.
 ⋯ also offers Fill in this plan, Edit plan (Finish editing while editing), Save as draft, and
-Saved plans & history. There is no Mark all cooked: Edit → Select all → Mark cooked covers it. While editing, **Done** sits in the header beside ⋯.
+Saved plans & history. There is no Mark all cooked: Edit → Select all → Mark cooked covers it.
+New meal plan is not in ⋯ either: it is the button under the meals, beside Add meals (iPhone,
+Android) or Fill in this plan (website), and on the empty plan. While editing, **Done** sits in the header beside ⋯.
 
 ![Empty week](images/plan-empty.png)
 

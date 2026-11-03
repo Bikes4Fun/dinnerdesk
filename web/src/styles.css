@@ -1845,6 +1845,9 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .pill-primary:hover { background: var(--brand-hover); }
 .pill-secondary { background: #f0e9e6; color: var(--ink); }
 .pill:disabled { opacity: 0.5; }
+/* Plan: New meal plan (and Fill in this plan) under the meals; ⋯ no longer has it (#104). */
+.plan-new { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 16px 0 96px; }
+.plan-new .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 
 .suggest-bar {
   display: flex;

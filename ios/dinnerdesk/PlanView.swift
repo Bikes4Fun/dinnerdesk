@@ -151,17 +151,13 @@ struct PlanView: View {
       .navigationBarTitleDisplayMode(.inline)
       .tint(Theme.accent)
       .menuSheet(isPresented: $menu) {
+        // New meal plan is the button under the plan (and on the empty plan), not here (#104).
         [
-          
-          MenuSheetItem.newMealPlan {
-            Task { await store.openSuggestions() }
-          },
           MenuSheetItem(title: "Save as draft", systemImage: "square.and.arrow.down") {
             draftTitle = store.plan?.title ?? "Saved plan"
             savingDraft = true
           },
           MenuSheetItem(title: "Saved plans & history", systemImage: "tray") { drafts = true },
-          // MenuSheetItem(title: "New meal plan", systemImage: "sparkles") { Task { await store.openSuggestions() } }
         ]
       }
       .alert("Save as draft", isPresented: $savingDraft) {

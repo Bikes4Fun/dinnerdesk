@@ -194,14 +194,17 @@ fun PlanView() {
                         }
                     }
                 }
-                if (plan.slots.isNotEmpty()) AddMealsButton { selectTab(AppTab.Recipes) }
+                // New meal plan lives here, not in ⋯ (#104), matching iPhone's buttons under the plan.
+                if (plan.slots.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CreateMealPlanButton { store.launch { openSuggestions() } }
+                    AddMealsButton { selectTab(AppTab.Recipes) }
+                }
             }
         }
     }
 
     if (menu) {
         MenuSheet(onDismiss = { menu = false }, items = listOf(
-            MenuItem(CREATE_MEAL_PLAN, Icons.Outlined.AddCircleOutline, createsMealPlan = true) { store.launch { openSuggestions() } },
             MenuItem("Fill in this plan", Icons.Outlined.AddCircleOutline) { store.launch { openSuggestions(keepCurrent = true) } },
             MenuItem(if (editing) "Finish editing" else "Edit plan", if (editing) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Edit) { setEditing(!editing) },
             MenuItem(if (grid) "List View" else "Grid View", Icons.Outlined.GridView) { grid = !grid },

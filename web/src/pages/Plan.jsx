@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
-import { Tip } from "../Tip.jsx";
+import { Sparkle, Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
 
@@ -159,7 +159,6 @@ export function Plan() {
               if (title?.trim()) act(async () => { await api.createPlan({ title: title.trim(), draft: true, source_plan_id: plan.id }); setMessage("Plan saved as draft."); });
             }}>Save as draft</button>
             <button type="button" disabled={busy} onClick={() => act(async () => setSaved((await api.plans()).plans))}>View drafts</button>
-            <button type="button" disabled={busy} onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); act(() => newPlan(undefined, 4)); }}>New meal plan</button>
           </div>
         </details>
       </div>
@@ -244,7 +243,11 @@ export function Plan() {
           </article>)}
         </div>
       </section>)}
-      {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
+      {/* New meal plan lives under the plan (and on an empty plan), not in ⋯ (#104). */}
+      <div className="plan-new">
+        <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
+        {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
+      </div>
     </div>
     <div className="fab-pill-wrap"><button type="button" className="fab-pill" onClick={() => go("/recipes")}>Add meals</button></div>
       {proposal && reviewing && <div className="sheet-backdrop"><section className="suggested-plan schedule-sheet review-sheet" role="dialog" aria-modal="true" aria-labelledby="suggested-title">
