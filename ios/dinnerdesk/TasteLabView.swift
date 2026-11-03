@@ -1090,9 +1090,9 @@ private struct SwipeStack: View {
                 withAnimation(.spring(duration: 0.25)) { drag = 0 }
               }
           )
-          .accessibilityElement(children: .combine)
-          .accessibilityAction(named: "Like") { lab.decide(true) }
-          .accessibilityAction(named: "Pass") { lab.decide(false) }
+          // VoiceOver reads the name and time, reaches the save button, and uses the Like and
+          // Pass buttons below the card instead of dragging.
+          .accessibilityElement(children: .contain)
       }
     }
     .onChange(of: lab.index) { drag = 0 }
