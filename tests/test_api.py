@@ -2225,3 +2225,51 @@ def test_inbox_is_admin_only(tmp_path):
     with _client(tmp_path, admin=False) as client:
         assert client.get("/admin/inbox/count").status_code == 403
         assert client.post("/admin/inbox/feedback/1", json={"status": "done"}).status_code == 403
+
+
+def test_recipe_gallery_keeps_original_and_selects_primary(tmp_path, monkeypatch):
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    with _client(tmp_path) as client:
+        original = client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).json()['photo_path']
+        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()})
+        assert added.status_code == 200
+        first = added.json()
+        upload = next(p['path'] for p in first['photos'] if p['path'] != original)
+        assert first['photo_path'] == original
+        assert len(first['photos']) == 2
+        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()}).json()
+        assert len(again['photos']) == 3
+        selected = client.put('/api/recipes/1/photos/primary', json={'path': upload})
+        assert selected.status_code == 200
+        detail = client.get('/api/recipes/1').json()
+        assert detail['photo_path'] == upload
+        assert detail['photos'][0] == {'path': upload, 'primary': True, 'ai': False, 'shared': False}
+        assert sum(p['primary'] for p in detail['photos']) == 1
+        assert original in {p['path'] for p in detail['photos']}
+        card = next(r for r in client.get('/api/recipes').json()['recipes'] if r['id'] == 1)
+        assert card['photo_path'] == upload
+        copied = client.patch('/api/recipes/1', json={'as_copy': True}).json()
+        assert {p['path'] for p in copied['photos']} == {p['path'] for p in detail['photos']}
+        assert client.put('/api/recipes/1/photos/primary', json={'path': 'food/not-this-recipe.jpg'}).status_code == 400
+        assert client.get('/api/recipes/1').json()['photo_path'] == upload
+
+
+def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypatch):
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    with _client(tmp_path, admin=False) as client:
+        assert client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()}).status_code == 403
+        assert client.put('/api/recipes/1/photos/primary', json={'path': 'food/soup.jpg'}).status_code == 403
+        assert client.post('/api/recipes/2/photos', json={'photo_data': _upload_photo_data()}).status_code == 404
+        own = client.post('/api/recipes', json={'name': 'My gallery'}).json()
+        rid = own['id']
+        assert client.get(f'/api/recipes/{rid}').json()['photos'] == []
+        first = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
+        assert first['photo_path'] == first['photos'][0]['path']
+        assert first['photos'][0]['primary']
+        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
+        path = next(p['path'] for p in second['photos'] if not p['primary'])
+        assert client.put(f'/api/recipes/{rid}/photos/primary', json={'path': path}).json()['photo_path'] == path
+        assert client.post(f'/api/recipes/{rid}/photos', json={'photo_data': 'invalid'}).status_code == 400
+        assert len(client.get(f'/api/recipes/{rid}').json()['photos']) == 2
+        exported = client.get('/api/household/export').json()
+        assert len(next(r for r in exported['recipes_you_added'] if r['id'] == rid)['photos']) == 2
