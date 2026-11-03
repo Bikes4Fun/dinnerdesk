@@ -3,13 +3,15 @@ import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
-import { Tip } from "../Tip.jsx";
+import { Sparkle, Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
 
 const shortDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-const inHistory = (p) => (p.status !== "draft" && p.status !== "active") || Boolean(p.decision);
+// Only plans that were really used: past weeks, and the current plan once approved. Declined and
+// pending suggestions stay out of history (#104).
+const inHistory = (p) => p.status === "history" || (p.status === "active" && p.decision === "approve");
 
 /** The plan's own name, or the week it starts when it's still called "This week". */
 function planHeading(p) {
@@ -103,9 +105,9 @@ export function Plan() {
     setPlan((p) => ({ ...p, slots: p.slots.map((s) => s.id === slot.id ? updated : s) }));
     await week.load();
   }
-  async function markCooked(ids) {
-    for (const slot of plan.slots.filter((s) => ids.has(s.id) && !s.cooked)) await patch(slot, { cooked: true });
-    setSelected(new Set());
+  // Keeps the selection so the edit-mode button flips (Mark cooked ⇄ Mark uncooked) and confirms it.
+  async function markCooked(ids, cooked = true) {
+    for (const slot of plan.slots.filter((s) => ids.has(s.id) && s.cooked !== cooked)) await patch(slot, { cooked });
   }
   async function removeSelected() {
     for (const slot of plan.slots.filter((s) => selected.has(s.id))) setPlan(await api.deleteSlot(slot.id));
@@ -153,14 +155,12 @@ export function Plan() {
           <summary aria-label="Plan menu"><Icon name="dots" size={24} /></summary>
           <div>
             <button type="button" onClick={() => { setEditing(!editing); setSelected(new Set()); }}> {editing ? "Finish editing" : "Edit this plan"}</button>
-            <button type="button" disabled={busy} onClick={() => act(() => markCooked(new Set(plan.slots.map((s) => s.id))))}>Mark all cooked</button>
             <button type="button" onClick={() => setGrid(!grid)}>{grid ? "List" : "Grid"} View</button>
             <button type="button" disabled={busy} onClick={() => {
               const title = window.prompt("Plan name", plan.title);
               if (title?.trim()) act(async () => { await api.createPlan({ title: title.trim(), draft: true, source_plan_id: plan.id }); setMessage("Plan saved as draft."); });
             }}>Save as draft</button>
             <button type="button" disabled={busy} onClick={() => act(async () => setSaved((await api.plans()).plans))}>View drafts</button>
-            <button type="button" disabled={busy} onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); act(() => newPlan(undefined, 4)); }}>New meal plan</button>
           </div>
         </details>
       </div>
@@ -194,7 +194,12 @@ export function Plan() {
       {editing && plan.slots.length > 0 && <div className="plan-bulk">
         <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? "Deselect all" : "Select all"}</button>
         <span>{selected.size} selected</span>
-        <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected))}>Mark cooked</button>
+        {(() => {
+          // "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
+          const picked = plan.slots.filter((s) => selected.has(s.id));
+          const allCooked = picked.length > 0 && picked.every((s) => s.cooked);
+          return <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected, !allCooked))}>{allCooked ? "Mark uncooked" : "Mark cooked"}</button>;
+        })()}
         <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
       </div>}
       {!plan.slots.length && <p className="help" data-tip="plan.empty">Nothing selected yet. Add meals from Recipes.</p>}
@@ -240,7 +245,11 @@ export function Plan() {
           </article>)}
         </div>
       </section>)}
-      {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
+      {/* New meal plan lives under the plan (and on an empty plan), not in ⋯ (#104). */}
+      <div className="plan-new">
+        <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
+        {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
+      </div>
     </div>
     <div className="fab-pill-wrap"><button type="button" className="fab-pill" onClick={() => go("/recipes")}>Add meals</button></div>
       {proposal && reviewing && <div className="sheet-backdrop"><section className="suggested-plan schedule-sheet review-sheet" role="dialog" aria-modal="true" aria-labelledby="suggested-title">
