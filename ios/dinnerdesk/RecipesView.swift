@@ -426,6 +426,7 @@ private struct PlanStrip: View {
                   } label: {
                     VStack(alignment: .leading, spacing: 3) {
                       RecipePhoto(path: slot.photoPath, fill: true)
+                        .opacity(slot.cooked ? 0.5 : 1)
                         .frame(width: 60, height: 60)
                         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                       Text(slot.recipeName)
@@ -435,7 +436,6 @@ private struct PlanStrip: View {
                         .multilineTextAlignment(.leading)
                         .frame(width: 60, alignment: .leading)
                     }
-                    .opacity(slot.cooked ? 0.5 : 1)
                   }
                   .buttonStyle(.plain)
                   .id(slot.id)
@@ -445,9 +445,13 @@ private struct PlanStrip: View {
               .padding(.horizontal, 16)
             }
             .frame(height: 66 + nameHeight)
-            // Bring the newest meal into view after an add.
+            // A different week starts at its first meal; additions reveal the newest meal.
             .onChange(of: PlanStripSnapshot(planID: store.plan?.id, count: slots.count)) { old, new in
-              guard old.planID == new.planID, old.count > 0, new.count > old.count,
+              if old.planID != new.planID {
+                if let first = slots.first { proxy.scrollTo(first.id, anchor: .leading) }
+                return
+              }
+              guard old.count > 0, new.count > old.count,
                     let last = slots.last else { return }
               withAnimation { proxy.scrollTo(last.id, anchor: .trailing) }
             }
