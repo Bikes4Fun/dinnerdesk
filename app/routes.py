@@ -23,7 +23,7 @@ from app.db.catalog import public_recipe_sql
 from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
-from app.assets import catalog_dir, feedback_dir
+from app.assets import catalog_dir, feedback_dir, food_dir
 from app.auth import SESSION_COOKIE, describe_device, session_info
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
@@ -31,7 +31,9 @@ from fractions import Fraction
 from app.domain.photo_uploads import save_photo, save_screenshot, save_photo_bytes
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
-from app.domain.recipe_photos import archive_id_of, catalog_gallery, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested, usable_photo
+from app.domain.recipe_photos import (
+    archive_id_of, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_name, usable_photo,
+)
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
     collect_flagged_recipes,
@@ -470,6 +472,103 @@ def set_recipe_primary_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgCon
     return _recipe_out(db, row, household_id, admin is not None)
 
 
+def _drop_unused_upload(db: PgConnection, path: str) -> None:
+    """Remove an uploaded file once no recipe still shows it. Catalog photos stay on disk."""
+    if not is_uploaded_photo(path):
+        return
+    used = db.execute(
+        """SELECT 1 FROM recipes WHERE photo_path = ?
+           UNION ALL SELECT 1 FROM recipe_photo_gallery WHERE path = ?
+           LIMIT 1""",
+        (path, path),
+    ).fetchone()
+    if used:
+        return
+    file = food_dir() / photo_name(path)
+    if file.is_file():
+        file.unlink()
+
+
+@router.delete("/recipes/{recipe_id}/photos")
+def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnection = DbDep,
+                        household_id: int = HhDep, admin=OptionalAdminDep):
+    with transaction(db):
+        row = _editable_photo_recipe(db, recipe_id, household_id, admin)
+        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row)]
+        if body.path not in paths:
+            raise HTTPException(400, "Choose a photo from this recipe's gallery.")
+        db.execute(
+            "DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?",
+            (recipe_id, body.path),
+        )
+        if _shown_photo(row) == body.path:
+            remaining = [path for path in paths if path != body.path]
+            nxt = remaining[0] if remaining else ""
+            db.execute(
+                "UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?",
+                (nxt, now(), recipe_id),
+            )
+            if row["household_id"] is None:
+                provenance = json.loads(row["provenance_json"] or "{}")
+                provenance["admin_photo_edited"] = True
+                db.execute(
+                    "UPDATE recipes SET provenance_json = ? WHERE id = ?",
+                    (json.dumps(provenance), recipe_id),
+                )
+        else:
+            db.execute("UPDATE recipes SET updated_at = ? WHERE id = ?", (now(), recipe_id))
+        _drop_unused_upload(db, body.path)
+    if row["household_id"] is None:
+        _invalidate_all_pools()
+    else:
+        _invalidate_pool(household_id)
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, admin is not None)
+
+
+def _publish_catalog_content(db: PgConnection, recipe_id: int, household_id: int, body: RecipePatch) -> None:
+    """Write an admin's catalog edit onto the shared recipe so every household sees it."""
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    fields = []
+    args = []
+    if body.name is not None:
+        fields.append("name = ?")
+        args.append(body.name.strip())
+    if body.servings is not None:
+        fields.append("servings = ?")
+        args.append(body.servings)
+    if "cooking_minutes" in body.model_fields_set:
+        fields.append("cooking_minutes = ?")
+        args.append(body.cooking_minutes)
+    if body.instructions is not None:
+        fields.append("instructions_json = ?")
+        args.append(json.dumps(body.instructions))
+    if body.cookware is not None:
+        fields.append("cookware_json = ?")
+        args.append(json.dumps(body.cookware))
+    if body.ingredients is not None:
+        _set_recipe_ingredients(db, recipe_id, body.ingredients)
+    if not fields and body.ingredients is None:
+        return
+    provenance = json.loads(row["provenance_json"] or "{}")
+    provenance["admin_content_edited"] = True
+    fields.append("provenance_json = ?")
+    args.append(json.dumps(provenance))
+    fields.append("updated_at = ?")
+    args.append(now())
+    args.append(recipe_id)
+    db.execute(
+        f"UPDATE recipes SET {', '.join(fields)} WHERE id = ? AND household_id IS NULL",
+        tuple(args),
+    )
+    db.execute(
+        "DELETE FROM household_recipe_edits WHERE household_id = ? AND recipe_id = ?",
+        (household_id, recipe_id),
+    )
+    if body.ingredients is not None or body.servings is not None:
+        _rebuild_plans_using_recipe(db, recipe_id)
+
+
 def _recipe_out(db: PgConnection, row, household_id: int, admin: bool = False) -> dict:
     rid = row["id"]
     ings = [
@@ -556,6 +655,17 @@ def _rebuild_grocery_for_household(db: PgConnection, household_id: int) -> None:
     plan_id = _plan_id_for_household(db, household_id)
     if plan_id is not None:
         _rebuild_grocery(db, plan_id, household_id)
+
+
+def _rebuild_plans_using_recipe(db: PgConnection, recipe_id: int) -> None:
+    """Ingredient and serving edits on a shared recipe change every plan that uses it."""
+    for plan in db.execute(
+        """SELECT DISTINCT p.id, p.household_id
+           FROM plan_slots s JOIN plans p ON p.id = s.plan_id
+           WHERE s.recipe_id = ?""",
+        (recipe_id,),
+    ):
+        _rebuild_grocery(db, int(plan["id"]), int(plan["household_id"]))
 
 
 def _meal_ratings(db: PgConnection, household_id: int) -> dict[int, int]:
@@ -1017,9 +1127,16 @@ def patch_recipe(
     if admin is None and (row["household_id"] != household_id or body.as_copy):
         raise HTTPException(403, {"error": "forbidden", "detail": "admin"})
     catalog = row["household_id"] is None
-    # recipe_tags has no household_id, and photo_path gates public_recipe_sql eligibility,
-    # so a tag or photo change on a shared catalog row affects every household's candidates.
-    global_change = catalog and not body.as_copy and (body.tags is not None or body.photo_data is not None)
+    # A catalog edit is the shared recipe. Tags, photos, name, steps, and ingredients
+    # are visible to every household. Save as copy stays a private kitchen recipe.
+    content_change = catalog and not body.as_copy and (
+        body.name is not None or body.servings is not None or body.instructions is not None
+        or body.cookware is not None or body.ingredients is not None
+        or "cooking_minutes" in body.model_fields_set
+    )
+    global_change = catalog and not body.as_copy and (
+        body.tags is not None or body.photo_data is not None or content_change
+    )
     target = recipe_id
     with transaction(db):
         if catalog and not body.as_copy:
@@ -1038,9 +1155,8 @@ def patch_recipe(
                 provenance["admin_tags_edited"] = True
                 db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?", (json.dumps(provenance), now(), recipe_id))
                 row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-            base = _recipe_out(db, row, household_id)
-            _upsert_recipe_edit(db, household_id, recipe_id, body, base)
-            _rebuild_grocery_for_household(db, household_id)
+            if content_change:
+                _publish_catalog_content(db, recipe_id, household_id, body)
         else:
             copied = catalog and body.as_copy
             if copied:
