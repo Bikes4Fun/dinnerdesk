@@ -25,6 +25,7 @@ AI_SUFFIX = "_ai-generated"
 # `"shared_photo": true` with no recipe of their own, or any entry whose `recipe_id` (an archive
 # id) isn't the recipe showing it. Those recipes say so with a purple ★ tip.
 SHARED: set[str] = set()
+CREDITS: dict[str, dict[str, str]] = {}
 for item in _DATA.get("use") or []:
     if isinstance(item, str):
         name = Path(item).name
@@ -35,6 +36,11 @@ for item in _DATA.get("use") or []:
         raw = item.get("recipe_id")
         recipe_id = int(raw) if raw is not None else None
         ai = item.get("ai_generated") is True
+        source = str(item.get("source_url") or "")
+        CREDITS[name] = {
+            "credit": str(item.get("credit") or item.get("owner") or ""),
+            "source_url": source if source.startswith(("https://", "http://")) else "",
+        }
         if item.get("shared_photo") is True:
             SHARED.add(name)
     if name:
@@ -95,3 +101,18 @@ def photo_is_borrowed(path: str, archive_id: str | None) -> bool:
     if owner is not None:
         return archive_id is not None and str(owner) != str(archive_id)
     return name in SHARED
+
+
+def photo_credit(path: str) -> dict[str, str]:
+    """Only cite recorded photo metadata, never assume the recipe's source owns its photo."""
+    recorded = CREDITS.get(photo_name(path), {})
+    owner = recorded.get("credit", "")
+    if photo_is_ai(path):
+        label = f"AI-generated photo · {owner}" if owner else "AI-generated photo"
+    elif owner:
+        label = f"Photo: {owner}"
+    elif is_uploaded_photo(path):
+        label = "Photo uploaded to Dinnerdesk"
+    else:
+        label = "Photo source not recorded"
+    return {"credit": label, "source_url": recorded.get("source_url", "")}

@@ -30,3 +30,12 @@ def test_invalid_images_are_rejected_without_files(data, tmp_path, monkeypatch):
         save_photo(data)
     assert error.value.status_code == 400
     assert list(tmp_path.iterdir()) == []
+
+
+def test_photo_credit_uses_recorded_owner_and_source(monkeypatch):
+    from app.domain.recipe_photos import photo_credit, CREDITS, AI
+    monkeypatch.setitem(CREDITS, "credited.jpg", {"credit": "Dinnerdesk", "source_url": "https://example.com/photo"})
+    assert photo_credit("food/credited.jpg") == {"credit": "Photo: Dinnerdesk", "source_url": "https://example.com/photo"}
+    monkeypatch.setattr("app.domain.recipe_photos.AI", AI | {"credited.jpg"})
+    assert photo_credit("food/credited.jpg")["credit"] == "AI-generated photo · Dinnerdesk"
+    assert photo_credit("food/unrecorded.jpg")["credit"] == "Photo source not recorded"

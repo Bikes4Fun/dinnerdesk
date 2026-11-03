@@ -71,3 +71,39 @@ def test_custom_food_search_handles_plurals_accents_and_compounds():
     assert filter_item_matches(names, "kale") == []
     assert filter_item_matches(names, "red onion") == []
     assert filter_item_matches(names, "  ") == []
+
+
+def test_custom_food_search_finds_typos_without_dropping_query_words():
+    from app.domain.search import filter_item_matches
+
+    names = ["cremini mushroom", "sandwich", "cheddar", "mushroom", "red onion"]
+    assert filter_item_matches(names, "crimini") == ["cremini mushroom"]
+    assert filter_item_matches(names, "sandwhich") == ["sandwich"]
+    assert filter_item_matches(names, "chedar") == ["cheddar"]
+    assert filter_item_matches(names, "cheddarx") == ["cheddar"]
+    assert filter_item_matches(names, "cheddra") == ["cheddar"]
+    assert filter_item_matches(names, "mushroms") == ["mushroom", "cremini mushroom"]
+    assert filter_item_matches(names, "crimini mushrrom") == ["cremini mushroom"]
+    assert filter_item_matches(names, "crimini onion") == []
+    assert filter_item_matches(names, "crimini", limit=0) == []
+
+
+def test_custom_food_search_keeps_literal_matches_first_and_short_words_strict():
+    from app.domain.search import filter_item_matches
+
+    assert filter_item_matches(["rice", "rice noodles", "ryce"], "rice") == [
+        "rice", "rice noodles", "ryce",
+    ]
+    assert filter_item_matches(["yam", "ham", "egg", "fig"], "ham") == ["ham"]
+    assert filter_item_matches(["onion", "pepper"], "zzzzzz") == []
+    assert filter_item_matches(["chicken", "coconut"], "choclate") == []
+
+
+def test_grocery_search_finds_typos_after_literal_matches():
+    names = ["white mushroom", "cremini mushroom", "sandwich", "crimini seasoning"]
+    hits, _ = search_grocery_names(names, "crimini")
+    assert hits[:2] == ["crimini seasoning", "cremini mushroom"]
+    hits, _ = search_grocery_names(names, "sandwhich")
+    assert hits[0] == "sandwich"
+    hits, _ = search_grocery_names(["jalapeño pepper", "salt"], "jalapeno")
+    assert hits[0] == "jalapeño pepper"
