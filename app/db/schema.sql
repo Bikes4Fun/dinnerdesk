@@ -44,6 +44,14 @@ CREATE TABLE IF NOT EXISTS recipes (
   updated_at TEXT NOT NULL
 );
 
+-- Existing recipes keep their photo_path as the primary photo. Gallery rows are additive.
+CREATE TABLE IF NOT EXISTS recipe_photo_gallery (
+  recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+  path TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (recipe_id, path)
+);
+
 CREATE INDEX IF NOT EXISTS recipes_household ON recipes(household_id);
 CREATE INDEX IF NOT EXISTS recipes_name ON recipes(name);
 

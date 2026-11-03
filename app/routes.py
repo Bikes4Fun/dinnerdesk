@@ -53,6 +53,8 @@ from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, s
 from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
+    RecipePhotoAdd,
+    RecipePhotoPrimary,
     PrepMissingPut,
     IngredientReportCreate,
     PlanReportCreate,
@@ -383,6 +385,75 @@ def _is_favorited(db: PgConnection, household_id: int, recipe_id: int) -> bool:
     )
 
 
+def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
+    primary = _shown_photo(row)
+    paths = [primary] if primary else []
+    for photo in db.execute(
+        "SELECT path FROM recipe_photo_gallery WHERE recipe_id = ? ORDER BY created_at, path",
+        (row["id"],),
+    ):
+        path = photo["path"]
+        # An imported kitchen recipe may retain its original page's photo as a fallback.
+        if path not in paths and (usable_photo(path) or path == json.loads(row["provenance_json"] or "{}").get("photo_url") and row["household_id"] is not None):
+            paths.append(path)
+    return [{"path": path, "primary": path == primary, "ai": photo_is_ai(path),
+             "shared": photo_is_borrowed(path, archive_id_of(row["source_url"], row["slug"]))}
+            for path in paths]
+
+
+def _remember_recipe_photo(db: PgConnection, recipe_id: int, path: str) -> None:
+    if path:
+        db.execute(
+            "INSERT OR IGNORE INTO recipe_photo_gallery (recipe_id, path, created_at) VALUES (?, ?, ?)",
+            (recipe_id, path, now()),
+        )
+
+
+def _editable_photo_recipe(db: PgConnection, recipe_id: int, household_id: int, admin):
+    row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+    if not row or not _recipe_visible(row, household_id):
+        raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    if admin is None and row["household_id"] != household_id:
+        raise HTTPException(403, {"error": "forbidden", "detail": "admin"})
+    return row
+
+
+@router.post("/recipes/{recipe_id}/photos")
+def add_recipe_photo(recipe_id: int, body: RecipePhotoAdd, db: PgConnection = DbDep,
+                     household_id: int = HhDep, admin=OptionalAdminDep):
+    with transaction(db):
+        row = _editable_photo_recipe(db, recipe_id, household_id, admin)
+        path = save_photo(body.photo_data)
+        _remember_recipe_photo(db, recipe_id, _shown_photo(row))
+        _remember_recipe_photo(db, recipe_id, path)
+        if not _shown_photo(row):
+            db.execute("UPDATE recipes SET photo_path = ? WHERE id = ?", (path, recipe_id))
+        db.execute("UPDATE recipes SET updated_at = ? WHERE id = ?", (now(), recipe_id))
+    if row["household_id"] is None:
+        _invalidate_all_pools()
+    else:
+        _invalidate_pool(household_id)
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, admin is not None)
+
+
+@router.put("/recipes/{recipe_id}/photos/primary")
+def set_recipe_primary_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnection = DbDep,
+                             household_id: int = HhDep, admin=OptionalAdminDep):
+    with transaction(db):
+        row = _editable_photo_recipe(db, recipe_id, household_id, admin)
+        if body.path not in {photo["path"] for photo in _recipe_photo_gallery(db, row)}:
+            raise HTTPException(400, "Choose a photo from this recipe's gallery.")
+        _remember_recipe_photo(db, recipe_id, _shown_photo(row))
+        db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (body.path, now(), recipe_id))
+    if row["household_id"] is None:
+        _invalidate_all_pools()
+    else:
+        _invalidate_pool(household_id)
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, admin is not None)
+
+
 def _recipe_out(db: PgConnection, row, household_id: int, admin: bool = False) -> dict:
     rid = row["id"]
     ings = [
@@ -417,6 +488,7 @@ def _recipe_out(db: PgConnection, row, household_id: int, admin: bool = False) -
         "servings": row["servings"],
         "cooking_minutes": row["cooking_minutes"],
         "photo_path": _shown_photo(row),
+        "photos": _recipe_photo_gallery(db, row),
         "photo_ai": photo_is_ai(usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"])),
         "photo_shared": photo_is_borrowed(
             usable_photo(row["photo_path"], row["id"], row["parent_recipe_id"]),
@@ -901,6 +973,8 @@ def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
         ),
     )
     new_id = int(cur.lastrowid)
+    for photo in shown.get("photos") or []:
+        _remember_recipe_photo(db, new_id, photo["path"])
     _set_recipe_ingredients(db, new_id, shown.get("ingredients") or [])
     for tag in shown.get("tags") or []:
         db.execute(
@@ -933,6 +1007,8 @@ def patch_recipe(
         if catalog and not body.as_copy:
             if body.photo_data is not None:
                 photo = save_photo(body.photo_data)
+                _remember_recipe_photo(db, recipe_id, _shown_photo(row))
+                _remember_recipe_photo(db, recipe_id, photo)
                 db.execute("UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?", (photo, now(), recipe_id))
                 row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
             if body.tags is not None:
@@ -956,7 +1032,10 @@ def patch_recipe(
             args = []
             if body.photo_data is not None:
                 fields.append("photo_path = ?")
-                args.append(save_photo(body.photo_data))
+                photo = save_photo(body.photo_data)
+                _remember_recipe_photo(db, target, _shown_photo(row))
+                _remember_recipe_photo(db, target, photo)
+                args.append(photo)
             if body.name is not None:
                 fields.append("name = ?")
                 args.append(body.name.strip())
@@ -2345,6 +2424,7 @@ def export_household(request: Request, db: PgConnection = DbDep, household_id: i
                FROM recipe_ingredients ri JOIN ingredients i ON i.id = ri.ingredient_id
                WHERE ri.recipe_id = ? ORDER BY ri.sort, ri.ingredient_id""", (recipe["id"],)))
         recipe["tags"] = _recipe_tags(db, recipe["id"])
+        recipe["photos"] = _recipe_photo_gallery(db, recipe)
     for plan in _rows(db.execute("SELECT * FROM plans WHERE household_id = ? ORDER BY id", (household_id,))):
         pid = plan["id"]
         plan["meals"] = _rows(db.execute(
