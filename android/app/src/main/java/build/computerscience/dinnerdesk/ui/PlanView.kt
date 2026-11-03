@@ -265,7 +265,7 @@ private fun MealCard(
     onSelect: () -> Unit, onSchedule: () -> Unit,
 ) {
     val large = isAccessibilitySize
-    Box(Modifier.fillMaxWidth().alpha(if (slot.cooked) 0.45f else 1f)) {
+    Box(Modifier.fillMaxWidth()) {
         when {
             grid -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MealPhoto(slot, null, editing)
@@ -312,11 +312,13 @@ private fun MealPhoto(slot: PlanSlot, side: Int?, editing: Boolean) {
         (if (side != null) Modifier.size(side.dp) else Modifier.fillMaxWidth().aspectRatio(1f))
             .clip(RoundedCornerShape(12.dp)).clickable { nav.push(Route.Recipe(slot.recipeId)) },
     ) {
-        RecipePhoto(slot.photoPath, fill = true, corner = 12.dp)
+        Box(Modifier.alpha(if (slot.cooked) 0.45f else 1f)) {
+            RecipePhoto(slot.photoPath, fill = true, corner = 12.dp)
+        }
         if (!editing) {
             Box(
                 Modifier.align(Alignment.TopEnd).size(44.dp).clickable { store.launch { toggleCooked(slot) } }
-                    .semantics { contentDescription = if (slot.cooked) "Mark not cooked" else "Mark cooked" },
+                    .semantics { contentDescription = if (slot.cooked) "Mark ${slot.recipeName} not cooked" else "Mark ${slot.recipeName} cooked" },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

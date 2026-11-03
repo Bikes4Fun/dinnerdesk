@@ -124,3 +124,28 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 - Fail placement loading, then change Have this item, Always check off, and quantity: pantry changes still persist.
 - Fail a grocery Add/Edit, then retry successfully: the old error clears and the sheet closes. Auth failures show explanations rather than codes.
 - Open Recipes without pulling to refresh: suggestions appear. Fail an Add/Remove or Prep action while a recipe is displayed: its error banner is visible.
+
+
+## Accessibility acceptance — November 3, 2026 (local changes, no release build assigned)
+
+Focus: forms, control names/states, keyboard reachability, contrast and large text on web,
+iOS and native Android. All checks below remain manual acceptance work.
+
+- [ ] Web keyboard: Tab through sign-in/reset, recipe creation/editing, Pantry item details,
+  Stores & aisles, substitutions, household invites and feedback. Every focused control has
+  a visible outline; screenshot upload opens with the keyboard and returns focus on cancel.
+- [ ] Web screen reader: fields announce their purpose after typing. Recipe instructions,
+  prep toggles, amounts and move actions identify the step. Clicking a visible field label
+  focuses its field. Failed sign-in/reset/save errors and successful reset messages announce.
+- [ ] iOS VoiceOver: recipe URL, source, ingredients, each numbered instruction, recipe report
+  and bug/idea details announce their purpose. Like/dislike buttons announce selection and
+  remain reachable at largest Dynamic Type, with Reduce Motion enabled.
+- [ ] Android TalkBack: check sign-in, recipe forms, Pantry, Grocery and Settings. Fields retain
+  labels after entry; passwords remain masked. Each switch is one focus stop announcing its
+  label and on/off state. Double-tap and touch on either label or switch toggle exactly once.
+- [ ] Android: buttons announce their role; segmented controls announce selection. Errors
+  announce without moving focus. Cooked meals keep readable names, servings and controls;
+  the cooked action identifies the recipe. Test maximum font/display scaling on a small phone
+  for wrapped labels, reachable actions and keyboard overlap.
+- [ ] Web: repeat forms at 200% zoom and phone width; enlarged rating and step-move targets
+  do not overlap adjacent controls. Check high-contrast/forced-colors mode with keyboard focus.
