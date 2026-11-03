@@ -221,19 +221,20 @@ def migrate_prep_completion(conn) -> None:
 def refresh_aisles(conn) -> None:
     """Re-sort ingredients and grocery lines with the current aisle rules. Items a
     household placed by hand (grocery_places) keep their aisle."""
-    from app.domain.ingredients import aisle_for, pantry_key
+    from app.domain.ingredients import aisle_for
+    from app.domain.pantry_catalog import ingredient_name
 
     for row in conn.execute("SELECT id, canonical_name, aisle FROM ingredients"):
         aisle = aisle_for(row["canonical_name"])
         if aisle != row["aisle"]:
             conn.execute("UPDATE ingredients SET aisle = ? WHERE id = ?", (aisle, row["id"]))
-    placed = {(r["household_id"], r["name"]) for r in conn.execute("SELECT household_id, name FROM grocery_places")}
+    placed = {(r["household_id"], ingredient_name(r["name"])) for r in conn.execute("SELECT household_id, name FROM grocery_places")}
     for row in conn.execute(
         """SELECT g.id, g.aisle, p.household_id, COALESCE(g.custom_text, i.canonical_name) AS name
            FROM grocery_lines g JOIN plans p ON p.id = g.plan_id
            LEFT JOIN ingredients i ON i.id = g.ingredient_id"""
     ):
-        if not row["name"] or (row["household_id"], pantry_key(row["name"])) in placed:
+        if not row["name"] or (row["household_id"], ingredient_name(row["name"])) in placed:
             continue
         aisle = aisle_for(row["name"])
         if aisle != row["aisle"]:

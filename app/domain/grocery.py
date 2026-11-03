@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from fractions import Fraction
 
-from .ingredients import apply_alias, aisle_for
-from .pantry_catalog import preferred_grocery_name
+from .ingredients import apply_alias, aisle_for, pantry_key
+from .pantry_catalog import ingredient_name
 
 _VULGAR = {
     "¼": "1/4",
@@ -55,9 +55,9 @@ _UNIT_ALIASES = {
 
 def grocery_item_name(raw: str, aliases: dict[str, str], overrides: dict[str, str]) -> str:
     key = apply_alias(raw, aliases)
-    key = apply_alias(key, overrides)
-    key = apply_alias(key, aliases)
-    return preferred_grocery_name(key) or key
+    canonical = ingredient_name(key)
+    key = overrides.get(pantry_key(key), overrides.get(canonical, canonical))
+    return ingredient_name(apply_alias(key, aliases))
 
 
 def _norm_unit(unit: str) -> str:

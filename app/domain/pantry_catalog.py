@@ -159,6 +159,15 @@ def preferred_grocery_name(raw: str) -> str:
     return _item_preferred().get(item_key(name), name)
 
 
+def ingredient_name(raw: str) -> str:
+    """One identity for ingredient, pantry, grocery and placement names.
+
+    Known aliases/plurals resolve to the catalog; custom names are normalized
+    without adding them to the shared catalog or changing household settings.
+    """
+    return pantry_key(preferred_grocery_name(raw) or raw)
+
+
 def in_grocery_catalog(raw: str) -> bool:
     name = canonical_pantry_name(raw)
     return bool(name) and item_key(name) in _item_preferred()

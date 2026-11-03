@@ -151,3 +151,16 @@ iOS and native Android. All checks below remain manual acceptance work.
   for wrapped labels, reachable actions and keyboard overlap.
 - [ ] Web: repeat forms at 200% zoom and phone width; enlarged rating and step-move targets
   do not overlap adjacent controls. Check high-contrast/forced-colors mode with keyboard focus.
+
+
+### Ingredient identity and household privacy (#178)
+- [ ] Add Green Onion / green onions to Pantry and Grocery: one catalog name is used.
+- [ ] Set its store and aisle, then rebuild groceries and restart: the assignment stays.
+- [ ] Add a custom item with extra spaces/capitalization: its normalized name appears in
+  your Pantry/Grocery list but does not appear in another household's catalog/search.
+- [ ] Rename a grocery item and set its aisle: another household still sees the original
+  shared ingredient and retains its own aisle/store settings.
+
+- [ ] Before live cleanup: review the dry-run report and backup destination; resolve
+  any conflicting alias placements/metadata. After approved cleanup, confirm recipes,
+  pantry amounts/check-offs, grocery renames and each household's placements survived.
