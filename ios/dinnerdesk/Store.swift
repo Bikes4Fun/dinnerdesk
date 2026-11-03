@@ -398,14 +398,6 @@ final class Store: ObservableObject {
     }
   }
 
-  func markAllCooked() async {
-    let pending = (plan?.slots ?? []).filter { !$0.cooked }
-    for slot in pending {
-      applyLocalSlot(id: slot.id) { $0.cooked = true }
-      await patchSlot(slot.id, ["cooked": true], reloadOnError: true)
-    }
-  }
-
   /// The server rebuilds the list whenever the plan, pantry or stores change, so reading it
   /// is enough. `onlyIfStale` (opening the Grocery tab) uses the saved list while it's fresh;
   /// `rebuild` (pull-to-refresh) asks the server to rebuild it first.
@@ -921,9 +913,12 @@ extension Store {
     return error == nil
   }
 
-  func markCooked(ids: Set<Int>) async {
-    for slot in (plan?.slots ?? []) where ids.contains(slot.id) && !slot.cooked {
-      await patchSlot(slot.id, ["cooked": true])
+  /// Sets cooked (or uncooked) on the given meals. The local plan updates first so the
+  /// edit-mode button flips to its opposite right away.
+  func markCooked(ids: Set<Int>, cooked: Bool = true) async {
+    for slot in (plan?.slots ?? []) where ids.contains(slot.id) && slot.cooked != cooked {
+      applyLocalSlot(id: slot.id) { $0.cooked = cooked }
+      await patchSlot(slot.id, ["cooked": cooked])
     }
   }
 

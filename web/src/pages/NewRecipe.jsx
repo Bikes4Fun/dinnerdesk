@@ -113,7 +113,7 @@ export function NewRecipe() {
         <h1>{byUrl ? "Import a recipe" : "New recipe"}</h1>
       </header>
       <form className="scroll pad" onSubmit={onSubmit}>
-        {err && <p className="banner err">{err}</p>}
+        {err && <p className="banner err" role="alert">{err}</p>}
         {byUrl && (
           <>
             <label className="block-label" htmlFor="recipe-url">Recipe page</label>

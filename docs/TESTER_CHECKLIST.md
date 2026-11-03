@@ -21,6 +21,7 @@
 | **Recipe photos** | On web and iOS, add several photos to a recipe you can edit. Swipe or use Previous/Next; count and AI/shared attribution follow the displayed image. Make another photo primary; reopen and check recipe cards and planned meals use it. Adding photos preserves the old primary; a recipe with no photo uses its first upload. Hover/focus the small ⓘ on web or tap it on iOS; verify the credit follows each photo and a recorded source link opens. Test an upload, a known catalog/AI credit, and an unknown source. Test a bad image, retry, a copy, large text, and a non-admin catalog recipe (view only). |
 | **Recipe detail** | ⋯ stays open and all options are reachable. Favorite, To try, Hide/Unhide, servings, Edit/Restore, and instruction attribution work. Search uses the cream palette. AI-tagged photos show the purple-star attribution tip. |
 | **Taste Lab** | **Try both entry buttons:** Swipe meals skips the quiz and ends without forcing plans; Suggest plans works without swiping. Intro photos/heading/buttons have breathing room; scroll if needed at large text. Edit filters in either mode. Like/pass, swap/More options and reject work; answers do not repeat. Three plan approvals finish; **Done for now** ends early. Empty results offer recovery. |
+| **Mark cooked (#104)** | iPhone, Android and web. Edit → select two uncooked meals → **Mark cooked**: both fade and move under Cooked, they stay selected, and the button now reads **Mark uncooked**. Tap it: both return to their days. Select one cooked and one uncooked meal: the button reads Mark cooked. ⋯ no longer lists Mark all cooked; Select all → Mark cooked does the whole week. ⋯ no longer lists **New meal plan**: the orange button under the meals opens suggestions, on an empty plan too (website: check both, since the empty web plan had no button before). **Saved plans & history:** decline a suggested plan, then open history: the declined plan is not listed. Past weeks and the approved current plan still are. |
 | **Plan / drafts** | **iPhone 16, normal text:** four meals, full names, Schedule controls, and Add meals should fit without scrolling in the main list. Photos stay square; larger text can scroll. **Edit:** checkbox sits on the right; Schedule/votes and servings use two rows when they fit, stacking at large text. Select/remove, change portions, vote and Done work. Full names, cooked/undo and removal confirmation remain readable. Save/load/delete a draft; active plan is protected. |
 | **Filters** | Pantry search supports clear, keyboard arrows, and Return. Filter search: “bell peppers”, “ground”, “tomatoes”, “strawberries”, “jalapeno”; matches appear as **+ chips**; tap one, see **Saving… → ✓ Saved**, reopen, then remove it. Try “crimini” → cremini, “sandwhich” → sandwich, and “chedar” → cheddar in Other-food and grocery substitution search (when those foods exist). Correct spellings rank first. “Red bell pepper”/“red bell peppers” appear as one choice; green and yellow peppers remain separate. Other-food queries must still match every word; “crimini onion” must not return cremini mushrooms alone. Unknown searches show no unrelated results. **None** clears selections. |
 | **Grocery / kitchen** | **Set Family portions to 8:** an unplanned recipe shows 8, adding it scales groceries, and new suggestions use 8. Existing meals keep their portions; an explicit recipe choice wins. Missing photos leave no empty box. On iOS and web, enter a replacement and tap **Save substitution**; the grocery line updates and the item page stays open. Web My kitchen → Substitutions labels the second field **Replacement item** and uses **Save substitution**. Substitution, pantry, stores/aisles and completed-item controls persist. |
@@ -124,3 +125,28 @@ Ingredient gallery preparation: 16 currently mapped files, 26,393,274 bytes, SHA
 - Fail placement loading, then change Have this item, Always check off, and quantity: pantry changes still persist.
 - Fail a grocery Add/Edit, then retry successfully: the old error clears and the sheet closes. Auth failures show explanations rather than codes.
 - Open Recipes without pulling to refresh: suggestions appear. Fail an Add/Remove or Prep action while a recipe is displayed: its error banner is visible.
+
+
+## Accessibility acceptance — November 3, 2026 (local changes, no release build assigned)
+
+Focus: forms, control names/states, keyboard reachability, contrast and large text on web,
+iOS and native Android. All checks below remain manual acceptance work.
+
+- [ ] Web keyboard: Tab through sign-in/reset, recipe creation/editing, Pantry item details,
+  Stores & aisles, substitutions, household invites and feedback. Every focused control has
+  a visible outline; screenshot upload opens with the keyboard and returns focus on cancel.
+- [ ] Web screen reader: fields announce their purpose after typing. Recipe instructions,
+  prep toggles, amounts and move actions identify the step. Clicking a visible field label
+  focuses its field. Failed sign-in/reset/save errors and successful reset messages announce.
+- [ ] iOS VoiceOver: recipe URL, source, ingredients, each numbered instruction, recipe report
+  and bug/idea details announce their purpose. Like/dislike buttons announce selection and
+  remain reachable at largest Dynamic Type, with Reduce Motion enabled.
+- [ ] Android TalkBack: check sign-in, recipe forms, Pantry, Grocery and Settings. Fields retain
+  labels after entry; passwords remain masked. Each switch is one focus stop announcing its
+  label and on/off state. Double-tap and touch on either label or switch toggle exactly once.
+- [ ] Android: buttons announce their role; segmented controls announce selection. Errors
+  announce without moving focus. Cooked meals keep readable names, servings and controls;
+  the cooked action identifies the recipe. Test maximum font/display scaling on a small phone
+  for wrapped labels, reachable actions and keyboard overlap.
+- [ ] Web: repeat forms at 200% zoom and phone width; enlarged rating and step-move targets
+  do not overlap adjacent controls. Check high-contrast/forced-colors mode with keyboard focus.

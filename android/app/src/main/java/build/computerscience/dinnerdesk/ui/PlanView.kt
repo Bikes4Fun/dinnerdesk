@@ -154,10 +154,14 @@ fun PlanView() {
                         Spacer(Modifier.weight(1f))
                         Text("${selected.size} selected", style = Theme.body, color = Theme.muted)
                     }
+                    // "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
+                    // The selection stays after tapping, so the label flips and confirms what happened.
+                    val picked = plan.slots.filter { it.id in selected }
+                    val allCooked = picked.isNotEmpty() && picked.all { it.cooked }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        LinkButton("Mark cooked", enabled = selected.isNotEmpty(), style = Theme.body) {
+                        LinkButton(if (allCooked) "Mark uncooked" else "Mark cooked", enabled = selected.isNotEmpty(), style = Theme.body) {
                             val ids = selected
-                            store.launch { markCooked(ids); selected = emptySet() }
+                            store.launch { markCooked(ids, cooked = !allCooked) }
                         }
                         Spacer(Modifier.weight(1f))
                         LinkButton("Remove", enabled = selected.isNotEmpty(), color = Theme.destructive, style = Theme.body) { removing = true }
@@ -190,17 +194,19 @@ fun PlanView() {
                         }
                     }
                 }
-                if (plan.slots.isNotEmpty()) AddMealsButton { selectTab(AppTab.Recipes) }
+                // New meal plan lives here, not in ⋯ (#104), matching iPhone's buttons under the plan.
+                if (plan.slots.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    CreateMealPlanButton { store.launch { openSuggestions() } }
+                    AddMealsButton { selectTab(AppTab.Recipes) }
+                }
             }
         }
     }
 
     if (menu) {
         MenuSheet(onDismiss = { menu = false }, items = listOf(
-            MenuItem(CREATE_MEAL_PLAN, Icons.Outlined.AddCircleOutline, createsMealPlan = true) { store.launch { openSuggestions() } },
             MenuItem("Fill in this plan", Icons.Outlined.AddCircleOutline) { store.launch { openSuggestions(keepCurrent = true) } },
             MenuItem(if (editing) "Finish editing" else "Edit plan", if (editing) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Edit) { setEditing(!editing) },
-            MenuItem("Mark all cooked", Icons.Outlined.CheckCircleOutline) { store.launch { markAllCooked() } },
             MenuItem(if (grid) "List View" else "Grid View", Icons.Outlined.GridView) { grid = !grid },
             MenuItem("Save as draft", Icons.Outlined.SaveAlt) { draftTitle = store.plan?.title ?: "Saved plan"; savingDraft = true },
             MenuItem("Saved plans & history", Icons.Outlined.Inbox) { drafts = true },
@@ -265,7 +271,7 @@ private fun MealCard(
     onSelect: () -> Unit, onSchedule: () -> Unit,
 ) {
     val large = isAccessibilitySize
-    Box(Modifier.fillMaxWidth().alpha(if (slot.cooked) 0.45f else 1f)) {
+    Box(Modifier.fillMaxWidth()) {
         when {
             grid -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MealPhoto(slot, null, editing)
@@ -312,11 +318,13 @@ private fun MealPhoto(slot: PlanSlot, side: Int?, editing: Boolean) {
         (if (side != null) Modifier.size(side.dp) else Modifier.fillMaxWidth().aspectRatio(1f))
             .clip(RoundedCornerShape(12.dp)).clickable { nav.push(Route.Recipe(slot.recipeId)) },
     ) {
-        RecipePhoto(slot.photoPath, fill = true, corner = 12.dp)
+        Box(Modifier.alpha(if (slot.cooked) 0.45f else 1f)) {
+            RecipePhoto(slot.photoPath, fill = true, corner = 12.dp)
+        }
         if (!editing) {
             Box(
                 Modifier.align(Alignment.TopEnd).size(44.dp).clickable { store.launch { toggleCooked(slot) } }
-                    .semantics { contentDescription = if (slot.cooked) "Mark not cooked" else "Mark cooked" },
+                    .semantics { contentDescription = if (slot.cooked) "Mark ${slot.recipeName} not cooked" else "Mark ${slot.recipeName} cooked" },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -445,7 +453,9 @@ fun SavedPlansView() {
         loading = false
     }
     val drafts = plans.filter { it.status == "draft" }
-    val history = plans.filter { (it.status != "draft" && it.status != "active") || it.decision != null }
+    // Only plans that were really used: past weeks, and the current plan once approved.
+    // Declined and pending suggestions stay out of history (#104).
+    val history = plans.filter { it.status == "history" || (it.status == "active" && it.decision == "approve") }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         SheetBar("Saved plans", cancel = "Close", onCancel = dismiss)

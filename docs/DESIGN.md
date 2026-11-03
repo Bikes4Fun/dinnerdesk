@@ -90,7 +90,8 @@ cards or suggested-plan sizing. Small screens and larger text can scroll.
 
 ### 3. Suggested meal plans
 
-**New meal plan** (the empty Plan, Grocery, or Prep screen, and Plan → ⋯) opens a
+**New meal plan** (the empty Plan, Grocery, or Prep screen, and the button under the meals on
+Plan; not in Plan → ⋯) opens a
 **proposal** to review. The live plan stays as it is until that proposal is approved.
 
 - **Must:** the current plan and grocery list stay unchanged until the proposal is approved.
@@ -138,8 +139,10 @@ The Plan tab badge counts meals that are not cooked yet.
 An empty plan centers “Nothing on this plan,” **New meal plan**, and **Add meals** (Recipes).
 List rows show a square photo, the name, servings, and Schedule. **Grid View** in ⋯ is two
 columns; the same item switches back to List View. Accessibility text sizes stay on the list.
-⋯ also offers Fill in this plan, Edit plan (Finish editing while editing), Mark all cooked,
-Save as draft, and Saved plans & history. While editing, **Done** sits in the header beside ⋯.
+⋯ also offers Fill in this plan, Edit plan (Finish editing while editing), Save as draft, and
+Saved plans & history. There is no Mark all cooked: Edit → Select all → Mark cooked covers it.
+New meal plan is not in ⋯ either: it is the button under the meals, beside Add meals (iPhone,
+Android) or Fill in this plan (website), and on the empty plan. While editing, **Done** sits in the header beside ⋯.
 
 ![Empty week](images/plan-empty.png)
 
@@ -159,7 +162,9 @@ by this preference. Without a valid saved preference, use the recipe's own yield
 - **Must:** unscheduled meals count toward groceries. Marking a meal cooked keeps it on the plan,
   faded, and moving it to another day keeps it cooked.
 - **Must:** Edit mode handles servings, scheduling, selecting several meals (mark cooked or
-  remove), and 👍/👎 per meal. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
+  remove), and 👍/👎 per meal. When every selected meal is already cooked, Mark cooked reads
+  **Mark uncooked** and undoes it. The selection stays after either, so the label flips as
+  confirmation. 👍/👎 are hidden outside Edit mode. 👎 means never suggested again.
   iPhone selection sits on the right rather than occupying a column beside every photo.
   Schedule and voting share one row when they fit; servings use the next row. Narrow layouts
   and larger text stack controls, while vote explanations remain below the controls.
@@ -167,6 +172,8 @@ by this preference. Without a valid saved preference, use the recipe's own yield
   website). Done leaves Edit mode and clears the selection; ⋯ → Finish editing does the same.
 - **Must:** save the plan as a draft without replacing it. Starting a new plan moves the live
   week to history; nothing is deleted. Saved plans can be deleted, except the active plan.
+  Plan history lists only plans that were used: past weeks and the approved current plan.
+  Declined and pending suggestions are left out.
   Each saved row shows its name (or "Week of …"), dates, meal count, status, first meals and
   when it was saved; delete is a visible button, not swipe-only.
 - **Must not:** clone a catalog recipe because it was added to a day; blow away the rest of the
@@ -604,3 +611,28 @@ and an edit. Portion writes run in order, including a change back to the old val
 save is pending. Pantry batch failures keep unsaved picks visible for retry; item flags and
 quantities save independently of placement loading. Recipe suggestions load on entry and
 recipe action errors remain visible beside the loaded recipe.
+
+
+## Accessibility across clients — November 3, 2026
+
+Web recipe editor fields have connected labels and unique IDs per editor. Step instructions,
+prep toggles, amounts and move buttons identify their step. Kitchen amount/store/aisle controls,
+store creation, grocery substitutions and invite links have accessible names. Keyboard focus
+uses an explicit outline; feedback screenshot selection remains keyboard reachable. Sign-in,
+password reset and recipe creation errors are alerts; successful account actions are status messages.
+
+Android shared text fields retain their accessible name after entry, including passwords.
+Switch rows expose one labeled switch with its checked state and a single toggle action;
+tapping either the label or switch changes it once. Shared buttons expose button roles,
+segmented controls expose selected tabs, and errors use polite live announcements. Shared
+icon, rating and segmented controls use 48dp targets. Muted/coral text uses the same darker
+palette as web and iOS; section headers and placeholders stay opaque. Cooked meal photos fade,
+while their names and controls retain contrast.
+
+iOS recipe import/source/ingredient fields and numbered instructions have explicit labels,
+as do recipe-report and general-feedback details. Rating buttons have a 44-point minimum
+design height that grows with Dynamic Type. Existing Reduce Motion handling, opaque section
+headers and cooked-meal text contrast remain in place.
+
+These changes require hands-on VoiceOver/TalkBack and largest-text acceptance; compilation
+and source checks do not establish accessibility conformance.

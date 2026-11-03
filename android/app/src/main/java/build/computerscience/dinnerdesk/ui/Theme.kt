@@ -27,8 +27,8 @@ object Theme {
     val surface = Color(0xFFFFFDF9)
     val line = Color(0xFFECE2DC)
     val ink = Color(0xFF4A1646)
-    val muted = Color(0xFF7A6A76)
-    val accent = Color(0xFFC2462A)
+    val muted = Color(0xFF746570)
+    val accent = Color(0xFFB84228)
     val aubergineTint = Color(0xFFF1E7EF)
     val ok = Color(0xFF3F6B4A)
     val chip = aubergineTint
@@ -101,7 +101,7 @@ fun DinnerdeskTheme(content: @Composable () -> Unit) {
         surfaceContainerLowest = Theme.surface,
         outline = Theme.line,
         outlineVariant = Theme.line,
-        error = Theme.destructive,
+        error = Theme.errorText,
         primaryContainer = Theme.coralTint,
         onPrimaryContainer = Theme.coralInk,
         secondaryContainer = Theme.aubergineTint,

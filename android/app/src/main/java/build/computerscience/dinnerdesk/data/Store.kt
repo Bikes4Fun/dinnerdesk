@@ -352,13 +352,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         }
     }
 
-    suspend fun markAllCooked() {
-        for (slot in (plan?.slots ?: emptyList()).filter { !it.cooked }) {
-            applyLocalSlot(slot.id) { it.copy(cooked = true) }
-            patchSlot(slot.id, mapOf("cooked" to true), reloadOnError = true)
-        }
-    }
-
     /** `onlyIfStale` (opening Grocery) uses the saved list while fresh; `rebuild` (pull-to-refresh) rebuilds it first. */
     suspend fun loadGrocery(onlyIfStale: Boolean = false, rebuild: Boolean = false) {
         if (onlyIfStale && Freshness.isFresh(Freshness.GROCERY)) {
@@ -662,8 +655,12 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         return error == null
     }
 
-    suspend fun markCooked(ids: Set<Int>) {
-        for (slot in plan?.slots ?: emptyList()) if (slot.id in ids && !slot.cooked) patchSlot(slot.id, mapOf("cooked" to true))
+    /** Sets cooked (or uncooked) on the given meals; the local plan updates first so the edit-mode button flips right away. */
+    suspend fun markCooked(ids: Set<Int>, cooked: Boolean = true) {
+        for (slot in plan?.slots ?: emptyList()) if (slot.id in ids && slot.cooked != cooked) {
+            applyLocalSlot(slot.id) { it.copy(cooked = cooked) }
+            patchSlot(slot.id, mapOf("cooked" to cooked))
+        }
     }
 
     suspend fun removeSlots(ids: Set<Int>) {

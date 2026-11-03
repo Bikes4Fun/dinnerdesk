@@ -19,7 +19,7 @@ or as a grid. The Plan badge counts meals not cooked yet.
 
 | Grid | Plan menu |
 |---|---|
-| ![Same week as a two-column grid](docs/images/plan-grid.jpg) | ![Plan menu: New meal plan, Fill in this plan, Edit plan, Mark all cooked, Grid View, Save as draft, Saved plans and history](docs/images/plan-menu.png) |
+| ![Same week as a two-column grid](docs/images/plan-grid.jpg) | ![Plan menu: Fill in this plan, Edit plan, Grid View, Save as draft, Saved plans and history](docs/images/plan-menu.png) |
 
 **Fill in this plan** keeps meals already chosen and suggests only the open slots. The same
 menu edits the week, marks every meal cooked, switches list and grid, saves a draft, or opens
