@@ -130,6 +130,8 @@ nonisolated struct RecipeGalleryPhoto: Decodable, Identifiable, Sendable {
   let primary: Bool
   let ai: Bool
   let shared: Bool
+  /// The developer took this photo of the recipe as cooked.
+  var tested: Bool? = nil
   var credit: String? = nil
   var sourceUrl: String? = nil
 }

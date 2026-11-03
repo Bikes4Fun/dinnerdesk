@@ -31,7 +31,7 @@ from fractions import Fraction
 from app.domain.photo_uploads import save_photo, save_screenshot, save_photo_bytes
 from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
-from app.domain.recipe_photos import archive_id_of, photo_credit, photo_is_ai, photo_is_borrowed, usable_photo
+from app.domain.recipe_photos import archive_id_of, catalog_gallery, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested, usable_photo
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
     collect_flagged_recipes,
@@ -390,11 +390,15 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
     provenance = json.loads(row["provenance_json"] or "{}")
     imported_link = _web_link(provenance.get("photo_url")) if row["household_id"] is not None else ""
     paths = [primary] if primary else []
-    for photo in db.execute(
+    archive_id = archive_id_of(row["source_url"], row["slug"])
+    gallery = [photo["path"] for photo in db.execute(
         "SELECT path FROM recipe_photo_gallery WHERE recipe_id = ? ORDER BY created_at, path",
         (row["id"],),
-    ):
-        path = photo["path"]
+    )]
+    if row["household_id"] is None:
+        # Catalog recipes also show every photo recipe_photos.json lists for them.
+        gallery += catalog_gallery(archive_id)
+    for path in gallery:
         # An imported kitchen recipe may retain its original page's photo as a fallback.
         if path not in paths and (usable_photo(path) or path == imported_link):
             paths.append(path)
@@ -405,7 +409,7 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
             source = _web_link(row["source_url"]) or _web_link(provenance.get("photo_url"))
             credit = {"credit": "Imported recipe photo", "source_url": source}
         photos.append({"path": path, "primary": path == primary, "ai": photo_is_ai(path),
-                       "shared": photo_is_borrowed(path, archive_id_of(row["source_url"], row["slug"])), **credit})
+                       "shared": photo_is_borrowed(path, archive_id), "tested": photo_is_tested(path), **credit})
     return photos
 
 

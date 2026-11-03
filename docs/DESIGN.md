@@ -224,7 +224,11 @@ preserves the previous one in the gallery. Copies retain the gallery and can cho
 primary. Gallery editing follows recipe permissions: a kitchen's own recipes or catalog
 recipes for admins. Catalog edits apply to everyone. AI/shared-photo attribution follows
 the photo being viewed. A small ⓘ shows recorded photo credits on hover/focus (web) or
-tap (iOS), with a source link when recorded. Unknown credits say “Photo source not recorded”;
+tap (iOS), with a source link when recorded. Credits come from each entry's `credit` and
+`source_url` in the catalog's `recipe_photos.json`. A catalog recipe's gallery shows every
+entry listed for its archive id, so it can have several different photos. Entries marked
+`"developer_tested": true` (photos the developer took of the recipe as cooked) show a gold ★
+“Developer tested” badge on the photo. Unknown credits say “Photo source not recorded”;
 the recipe source is never assumed to be the photo source. Gallery paths and credits are
 included in household data exports.
 

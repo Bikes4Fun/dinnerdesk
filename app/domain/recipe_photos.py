@@ -26,6 +26,12 @@ AI_SUFFIX = "_ai-generated"
 # id) isn't the recipe showing it. Those recipes say so with a purple ★ tip.
 SHARED: set[str] = set()
 CREDITS: dict[str, dict[str, str]] = {}
+# Photos the Dinnerdesk developer took of the recipe as cooked: entries marked
+# `"developer_tested": true`. They show a gold ★ "Developer tested" badge on the photo.
+TESTED: set[str] = set()
+# Every listed photo, by the archive id of the recipe it was taken for, in file order. A catalog
+# recipe's gallery shows them all, so one recipe can have several different photos.
+GALLERY: dict[str, list[str]] = {}
 for item in _DATA.get("use") or []:
     if isinstance(item, str):
         name = Path(item).name
@@ -43,6 +49,10 @@ for item in _DATA.get("use") or []:
         }
         if item.get("shared_photo") is True:
             SHARED.add(name)
+        if item.get("developer_tested") is True:
+            TESTED.add(name)
+        if name and recipe_id is not None:
+            GALLERY.setdefault(str(recipe_id), []).append(name)
     if name:
         USE[name] = recipe_id
         if ai:
@@ -101,6 +111,16 @@ def photo_is_borrowed(path: str, archive_id: str | None) -> bool:
     if owner is not None:
         return archive_id is not None and str(owner) != str(archive_id)
     return name in SHARED
+
+
+def photo_is_tested(path: str) -> bool:
+    """True when the developer took this photo of the recipe as cooked."""
+    return photo_name(path) in TESTED
+
+
+def catalog_gallery(archive_id: str | None) -> list[str]:
+    """Paths of the listed photos taken for the recipe with this archive id."""
+    return [f"food/{name}" for name in GALLERY.get(str(archive_id), [])] if archive_id else []
 
 
 def photo_credit(path: str) -> dict[str, str]:
