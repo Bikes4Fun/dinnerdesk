@@ -148,11 +148,17 @@ def test_catalog_in_place_edit(tmp_path):
         assert body["instructions"][0]["ings"] == ""
         db = connect()
         catalog = db.execute("SELECT name FROM recipes WHERE id = 1").fetchone()
+        overlays = db.execute(
+            "SELECT COUNT(*) AS c FROM household_recipe_edits WHERE recipe_id = 1"
+        ).fetchone()["c"]
         db.close()
-        assert catalog["name"] == "Soup"
+        assert catalog["name"] == "Soup (fixed)"
+        assert overlays == 0
         shown = client.get("/api/recipes/1").json()
         assert shown["name"] == "Soup (fixed)"
-        assert shown["edited"] is True
+        assert shown["edited"] is False
+        other = TestClient(create_app())
+        assert other.get("/api/recipes/1").json()["name"] == "Soup (fixed)"
 
 
 def test_restore_overlay_keeps_favorite_and_id(tmp_path):
@@ -160,11 +166,20 @@ def test_restore_overlay_keeps_favorite_and_id(tmp_path):
         client.put("/api/recipes/1/favorite", json={"on": True})
         client.put("/api/recipes/1/hidden", json={"on": True})
         client.patch("/api/recipes/1", json={"name": "Kitchen soup"})
+        assert client.delete("/api/recipes/1/edit").status_code == 404
+        db = connect()
+        db.execute(
+            """INSERT INTO household_recipe_edits
+               (household_id, recipe_id, name, ingredients_json, instructions_json, cookware_json, updated_at)
+               VALUES (1, 1, 'Private soup', '[]', '[]', '[]', 'now')"""
+        )
+        db.commit()
+        db.close()
         restored = client.delete("/api/recipes/1/edit")
         assert restored.status_code == 200
         body = restored.json()
         assert body["id"] == 1
-        assert body["name"] == "Soup"
+        assert body["name"] == "Kitchen soup"
         assert body["catalog"] is True
         assert body["edited"] is False
         assert body["favorited"] is True
@@ -202,10 +217,11 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
         catalog = db.execute("SELECT name, photo_path, provenance_json FROM recipes WHERE id = 1").fetchone()
         db.close()
         assert result == "update"
-        assert overlays == 1
-        assert catalog["name"] == "Published soup"
+        assert overlays == 0
+        assert catalog["name"] == "Kitchen soup"
         assert catalog["photo_path"] == "food/soup.jpg"
         provenance = json.loads(catalog["provenance_json"])
+        assert provenance["admin_content_edited"] is True
         assert "instructions_customized" not in provenance
         assert provenance["instructions_rewritten_from"] == "fictional-source"
         shown = client.get("/api/recipes/1").json()
@@ -214,11 +230,8 @@ def test_catalog_publish_updates_original_keeps_overlay(tmp_path):
         assert "instructions_customized" not in shown
         assert shown["id"] == 1
         assert shown["name"] == "Kitchen soup"
-        assert shown["edited"] is True
-        restored = client.delete("/api/recipes/1/edit").json()
-        assert restored["name"] == "Published soup"
-        assert restored["edited"] is False
-        assert restored["servings"] == 6
+        assert shown["edited"] is False
+        assert shown["servings"] == 4
 
 
 def test_copy_does_not_share_overlay(tmp_path):
@@ -300,7 +313,6 @@ def test_overlay_changes_grocery_without_new_id(tmp_path):
         names = [x["name"] for x in groc]
         assert any("lime" in n for n in names)
         assert not any("onion" in n for n in names)
-        # catalog onion still on the catalog row
         db = connect()
         catalog_name = db.execute("SELECT name FROM recipes WHERE id = 1").fetchone()["name"]
         catalog_ing = db.execute(
@@ -310,7 +322,7 @@ def test_overlay_changes_grocery_without_new_id(tmp_path):
         ).fetchone()["canonical_name"]
         db.close()
         assert catalog_name == "Soup"
-        assert "onion" in catalog_ing
+        assert "lime" in catalog_ing
 
 
 def test_copy_leaves_plan_on_original(tmp_path):
@@ -342,7 +354,7 @@ def test_copy_after_overlay_is_independent(tmp_path):
         db = connect()
         catalog = db.execute("SELECT name FROM recipes WHERE id = 1").fetchone()["name"]
         db.close()
-        assert catalog == "Soup"
+        assert catalog == "Kitchen soup"
 
 
 def test_taste_catalog_uses_database_not_json_copy(tmp_path, monkeypatch):
@@ -675,7 +687,7 @@ def test_add_to_plan_keeps_catalog_recipe(tmp_path):
         ).fetchone()
         db.close()
         assert copies == []
-        assert catalog["name"] == "Soup"
+        assert catalog["name"] == "Kitchen soup"
         assert catalog["household_id"] is None
 
 
@@ -2201,7 +2213,9 @@ def test_inbox_gathers_reports_and_saves_triage(tmp_path):
                           VALUES (?, 1, 'down', 'Chop onions', -1, 'day_of', 'now'), (?, 1, 'up', 'Make sauce', 1, '', 'now')""",
                        (home, home))
             db.commit()
-        data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
+        page = client.get("/admin/inbox").text
+        assert 'aria-label="Hide"' in page and '["photo", "Photo reports"' in page
+        data = json.loads(page.split("const DATA = ")[1].split(";\n")[0])
         items = {(i["source"], i["kind"]): i for i in data["items"]}
         # 👍 prep votes only count in the overview; the 👎 is an item.
         assert set(items) == {("feedback", "bug"), ("recipe", "recipe"), ("plan", "plan"), ("prep", "prep")}
@@ -2260,7 +2274,15 @@ def test_recipe_gallery_keeps_original_and_selects_primary(tmp_path, monkeypatch
         copied = client.patch('/api/recipes/1', json={'as_copy': True}).json()
         assert {p['path'] for p in copied['photos']} == {p['path'] for p in detail['photos']}
         assert client.put('/api/recipes/1/photos/primary', json={'path': 'food/not-this-recipe.jpg'}).status_code == 400
-        assert client.get('/api/recipes/1').json()['photo_path'] == upload
+        removed = client.request('DELETE', '/api/recipes/1/photos', json={'path': upload})
+        assert removed.status_code == 200
+        after = removed.json()
+        assert upload not in {p['path'] for p in after['photos']}
+        assert after['photo_path'] != upload
+        assert original in {p['path'] for p in after['photos']}
+        gone = client.request('DELETE', '/api/recipes/1/photos', json={'path': upload})
+        assert gone.status_code == 400
+        assert client.get('/api/recipes/1').json()['photo_path'] != upload
 
 
 def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypatch):
@@ -2268,6 +2290,7 @@ def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypa
     with _client(tmp_path, admin=False) as client:
         assert client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()}).status_code == 403
         assert client.put('/api/recipes/1/photos/primary', json={'path': 'food/soup.jpg'}).status_code == 403
+        assert client.request('DELETE', '/api/recipes/1/photos', json={'path': 'food/soup.jpg'}).status_code == 403
         assert client.post('/api/recipes/2/photos', json={'photo_data': _upload_photo_data()}).status_code == 404
         own = client.post('/api/recipes', json={'name': 'My gallery'}).json()
         rid = own['id']

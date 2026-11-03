@@ -991,6 +991,7 @@ private struct RecipeGalleryView: View {
   @State private var busy = false
   @State private var notice: String?
   @State private var error: String?
+  @State private var confirmDelete = false
 
   private var current: RecipeGalleryPhoto? {
     recipe.photos.first(where: { $0.path == selected }) ?? recipe.photos.first
@@ -1045,13 +1046,21 @@ private struct RecipeGalleryView: View {
         }
         .disabled(busy)
         Text(recipe.catalog
-          ? "Add your own photos. The primary photo appears on recipe cards. Catalog photo changes are shared with everyone."
-          : "Add your own photos. The primary photo appears on recipe cards.")
+          ? "Add your own photos. The primary photo appears on recipe cards. Delete photo removes the one showing now. Catalog photo changes, including deletes, are shared with everyone."
+          : "Add your own photos. The primary photo appears on recipe cards. Delete photo removes the one showing now.")
           .font(Theme.subtitle).foregroundStyle(Theme.muted)
       }
       if busy { ProgressView(notice ?? "Saving photos…") }
       else if let notice { Text(notice).font(Theme.subtitle) }
       if let error { Text(error).foregroundStyle(.red).accessibilityLabel(error) }
+    }
+    .confirmationDialog(
+      recipe.catalog ? "Delete this photo for everyone?" : "Delete this photo?",
+      isPresented: $confirmDelete,
+      titleVisibility: .visible
+    ) {
+      Button("Delete photo", role: .destructive) { Task { await deleteCurrent() } }
+      Button("Cancel", role: .cancel) {}
     }
     .onAppear { selected = recipe.photos.first?.path ?? "" }
     .onChange(of: recipe.photoPath) { _, _ in selected = recipe.photos.first?.path ?? "" }
@@ -1068,6 +1077,10 @@ private struct RecipeGalleryView: View {
     }
     if let current, !current.primary {
       Button("Make primary") { Task { await makePrimary(current.path) } }
+        .frame(minHeight: 44)
+    }
+    if current != nil {
+      Button("Delete photo", role: .destructive) { confirmDelete = true }
         .frame(minHeight: 44)
     }
   }
@@ -1102,6 +1115,21 @@ private struct RecipeGalleryView: View {
       self.error = "\(error.localizedDescription) Select the remaining photos to try again."
     }
     if saved > 0 { await store.loadAll() }
+  }
+
+  private func deleteCurrent() async {
+    guard let current else { return }
+    busy = true
+    error = nil
+    defer { busy = false }
+    do {
+      let next: RecipeDetail = try await API.send("recipes/\(recipe.id)/photos", method: "DELETE",
+        body: ["path": current.path], cacheAs: "recipes/\(recipe.id)")
+      onChange(next)
+      selected = next.photos.first?.path ?? ""
+      notice = "Photo deleted."
+      await store.loadAll()
+    } catch { self.error = error.localizedDescription }
   }
 
   private func makePrimary(_ path: String) async {

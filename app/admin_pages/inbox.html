@@ -40,6 +40,9 @@
     border: 1px solid var(--field); background: var(--card); color: var(--ink); }
   button.chip[aria-pressed="true"] { border-color: var(--solid); font-weight: 600; }
   button.chip span { color: var(--faint); font-weight: 400; }
+  .hide-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
+  .hide-label { color: var(--muted); font-size: 13px; }
+  #hides button.chip[aria-pressed="true"] { text-decoration: line-through; border-color: var(--warn); color: var(--muted); font-weight: 500; }
   .split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
   .list { flex: 999 1 520px; min-width: 0; overflow: hidden; }
@@ -106,6 +109,10 @@
       <input id="find" type="search" autocomplete="off" placeholder="Search words, recipe, household or email"></label>
     <div class="chips" role="group" aria-label="Type" id="kinds"></div>
     <div class="chips" role="group" aria-label="Status" id="states"></div>
+    <div class="hide-row">
+      <span class="hide-label">Hide</span>
+      <div class="chips" role="group" aria-label="Hide" id="hides"></div>
+    </div>
   </div>
   <section class="panel prepsum" id="prepsum" aria-label="Prep votes" hidden></section>
   <div class="split">
@@ -135,6 +142,11 @@ function ago(s) {
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 const KINDS = [["all", "All"], ["bug", "Bugs"], ["idea", "Ideas"], ["recipe", "Recipe reports"], ["ingredient", "Ingredient reports"], ["plan", "Plan reports"], ["prep", "Prep"]];
+// Each pressed chip drops those items. The type and status chips above still choose what is shown.
+const HIDES = [["photo", "Photo reports", i => i.reason === "photo"], ["bug", "Bugs", i => i.kind === "bug"],
+  ["idea", "Ideas", i => i.kind === "idea"], ["recipe", "Recipe reports", i => i.kind === "recipe"],
+  ["ingredient", "Ingredient reports", i => i.kind === "ingredient"], ["plan", "Plan reports", i => i.kind === "plan"],
+  ["prep", "Prep", i => i.kind === "prep"], ["planned", "Planned", i => i.status === "planned"]];
 const KIND_LABEL = { bug: "Bug", idea: "Idea", recipe: "Recipe report", ingredient: "Ingredient report", plan: "Plan report", prep: "Prep step" };
 const STATUSES = [["new", "New"], ["planned", "Planned"], ["done", "Done"], ["declined", "Declined"]];
 const STATUS_LABEL = Object.fromEntries(STATUSES);
@@ -153,6 +165,8 @@ const state = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
 const find = document.getElementById("find");
 find.value = state.q || "";
 let kind = state.k || "all", which = state.s || "open", selected = state.i || null;
+let hidden = new Set((state.hide || "").split(",").filter(id => HIDES.some(([k]) => k === id)));
+const kept = i => !HIDES.some(([id, , test]) => hidden.has(id) && test(i));
 
 const from = i => i.email || `${i.household_name || "household"} (h${i.household_id})${i.guest ? " · guest" : ""}`;
 function title(i) {
@@ -313,7 +327,7 @@ function detail(i) {
 // "3 · 1 new": what the status filter shows, plus how many of this type are new. Prep adds
 // its overall votes, since most 👍 never become items.
 function chipCount(items, stateTest, k) {
-  const mine = items.filter(i => k === "all" || i.kind === k);
+  const mine = items.filter(i => (k === "all" || i.kind === k) && kept(i));
   const fresh = mine.filter(i => i.status === "new").length;
   const votes = k === "prep" ? ` · ${DATA.overview.prep_votes.up} 👍 ${DATA.overview.prep_votes.down} 👎` : "";
   return `${mine.filter(stateTest).length}${fresh && which !== "new" ? ` · <b class="warn">${fresh} new</b>` : ""}${votes}`;
@@ -335,7 +349,10 @@ function render() {
   const stateTest = (STATES.find(s => s[0] === which) || STATES[0])[2];
   document.getElementById("kinds").innerHTML = KINDS.map(([k, l]) =>
     `<button type="button" class="chip" data-k="${k}" aria-pressed="${kind === k}">${l} <span>${chipCount(base, stateTest, k)}</span></button>`).join("");
-  const inKind = test => base.filter(i => test(i) && (kind === "all" || i.kind === kind)).length;
+  const view = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind));
+  document.getElementById("hides").innerHTML = HIDES.map(([id, label, test]) =>
+    `<button type="button" class="chip" data-hide="${id}" aria-pressed="${hidden.has(id)}">${label} <span>${view.filter(test).length}</span></button>`).join("");
+  const inKind = test => base.filter(i => test(i) && (kind === "all" || i.kind === kind) && kept(i)).length;
   document.getElementById("states").innerHTML = STATES.filter(([k]) => k !== "closed").map(([k, l, test]) =>
     `<button type="button" class="chip" data-s="${k}" aria-pressed="${which === k}">${l} <span>${inKind(test)}</span></button>`).join("");
   // Done and declined stay out of the way: a line under the list brings them back.
@@ -343,7 +360,7 @@ function render() {
   document.getElementById("closed").innerHTML = which === "closed"
     ? `Showing ${closed} done &amp; declined · <button type="button" class="link" data-s="open">Back to open</button>`
     : `<button type="button" class="link" data-s="closed">Show done &amp; declined (${closed})</button>`;
-  const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind));
+  const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind) && kept(i));
   prepSummary();
   document.getElementById("rows").innerHTML = shown.map(row).join("")
     || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
@@ -353,7 +370,8 @@ function render() {
   if (!item || aside.dataset.key !== selected) aside.innerHTML = item ? detail(item) : "";
   aside.dataset.key = item ? selected : "";
   const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(kind !== "all" ? { k: kind } : {}),
-    ...(which !== "open" ? { s: which } : {}), ...(selected ? { i: selected } : {}) });
+    ...(which !== "open" ? { s: which } : {}), ...(hidden.size ? { hide: [...hidden].join(",") } : {}),
+    ...(selected ? { i: selected } : {}) });
   history.replaceState(null, "", hash.toString() ? `#${hash}` : location.pathname);
 }
 
@@ -402,6 +420,13 @@ document.getElementById("rows").addEventListener("click", e => {
 });
 document.getElementById("kinds").addEventListener("click", e => {
   const b = e.target.closest("[data-k]"); if (b) { kind = b.dataset.k; render(); }
+});
+document.getElementById("hides").addEventListener("click", e => {
+  const b = e.target.closest("[data-hide]");
+  if (!b) return;
+  if (hidden.has(b.dataset.hide)) hidden.delete(b.dataset.hide);
+  else hidden.add(b.dataset.hide);
+  render();
 });
 document.getElementById("closed").addEventListener("click", e => {
   const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }

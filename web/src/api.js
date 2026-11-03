@@ -182,6 +182,8 @@ export const api = {
     req(`/api/recipes/${id}/photos`, { method: "POST", body: JSON.stringify({ photo_data }) }),
   setRecipePrimaryPhoto: (id, path) =>
     req(`/api/recipes/${id}/photos/primary`, { method: "PUT", body: JSON.stringify({ path }) }),
+  deleteRecipePhoto: (id, path) =>
+    req(`/api/recipes/${id}/photos`, { method: "DELETE", body: JSON.stringify({ path }) }),
   patchRecipe: (id, body) =>
     req(`/api/recipes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   restoreRecipe: (id) => req(`/api/recipes/${id}/edit`, { method: "DELETE" }),

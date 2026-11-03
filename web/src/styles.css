@@ -44,6 +44,14 @@ img { display: block; max-width: 100%; }
   min-height: 0;
   display: flex;
   flex-direction: column;
+  max-width: 1024px;
+  position: relative;
+  width: 100%;
+  padding-right: 16px;
+  padding-left: 16px;
+  margin-right: auto;
+  margin-left: auto;
+  box-sizing: border-box;
 }
 .screen {
   flex: 1;
@@ -855,6 +863,8 @@ img { display: block; max-width: 100%; }
 .tab-btn.is-on { background: var(--soft); color: var(--ink); }
 .recipe-layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .recipe-side { display: none; }
+.recipe-resizer { display: none; }
+body.is-resizing { cursor: col-resize; user-select: none; }
 .hero { width: 100%; height: auto; aspect-ratio: 1; object-fit: cover; object-position: center; border-radius: 14px; margin-bottom: 1rem; }
 .ing-heading { margin: 1.1rem 0 0.45rem; font-size: 0.92rem; }
 .steps { padding-left: 1.2rem; }
@@ -1389,13 +1399,41 @@ img { display: block; max-width: 100%; }
     z-index: 2;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
   }
-  .recipe-layout { flex-direction: row; }
+  .recipe-layout { flex-direction: row; align-items: stretch; }
   .recipe-side {
-    display: block;
+    display: flex;
+    flex-direction: column;
     width: 260px;
-    padding: 1rem;
-    border-right: 1px solid var(--line);
+    flex: 0 0 auto;
+    padding: 1rem 0.85rem 1rem 0;
     overflow: auto;
+    min-width: 0;
+  }
+  .recipe-layout > .recipe-body { flex: 1; min-width: 0; }
+  .recipe-body .recipe-meta { display: none; }
+  .recipe-resizer {
+    display: flex;
+    flex: 0 0 14px;
+    width: 14px;
+    align-self: stretch;
+    align-items: stretch;
+    justify-content: center;
+    cursor: col-resize;
+    touch-action: none;
+    padding: 0;
+  }
+  .recipe-resizer::before {
+    content: "";
+    width: 1px;
+    background: var(--line);
+  }
+  .recipe-resizer:hover::before,
+  .recipe-resizer:focus-visible::before { width: 3px; background: var(--muted); }
+  .recipe-side.is-both .recipe-side-cols {
+    display: grid;
+    grid-template-columns: minmax(140px, 0.8fr) minmax(180px, 1.2fr);
+    gap: 0.25rem 1.25rem;
+    align-items: start;
   }
   .recipe-ings, .ing-heading { display: none; }
 }
