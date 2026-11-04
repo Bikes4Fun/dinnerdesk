@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from app.assets import catalog_dir
-from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
-from app.domain.recipe_photos import archive_id_of, catalog_gallery, is_uploaded_photo
+from app.assets import catalog_dir, food_dir
+from app.domain.recipe_photos import is_uploaded_photo, our_photo_entries
 
 import json
 import os
+from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
+from app.domain.pantry_catalog import ingredient_name
 
 
 def parse_servings(raw) -> int:
@@ -44,9 +45,15 @@ def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     return sql, [REWRITTEN_MARK, RETIRED_MARK]
 
 
-def ready(data: dict) -> bool:
-    """Only recipes with our own steps and a photo go into the database."""
-    return not data.get("instructions_copied_from_third_party") and bool((data.get("photo_path") or "").strip())
+def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
+    """Only recipes with our own steps and a photo go into the database. With `photos`
+    (from catalog_photos), the photo must also be one of ours on the allowlist."""
+    if data.get("instructions_copied_from_third_party"):
+        return False
+    photo = (data.get("photo_path") or "").strip()
+    if photos is None:
+        return bool(photo)
+    return Path(photo).name in photos.get("*", [])
 
 
 UNREADY_SQL = (
@@ -89,7 +96,7 @@ def load_aliases() -> dict[str, str]:
 
 
 def get_or_create_ingredient(conn, name: str, aliases: dict[str, str]) -> int:
-    key = apply_alias(name, aliases)
+    key = ingredient_name(apply_alias(name, aliases))
     row = conn.execute(
         "SELECT id FROM ingredients WHERE canonical_name = ?", (key,)
     ).fetchone()
@@ -315,17 +322,78 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
     return "insert"
 
 
-def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) -> int:
+def rewritten_dir() -> Path | None:
+    """dd_support's recipes/rewritten/ folder: DINNERDESK_REWRITTEN_DIR, or found next to the
+    catalog (dd_support/catalog/dinnerdesk/data -> dd_support/recipes/rewritten)."""
+    value = os.environ.get("DINNERDESK_REWRITTEN_DIR", "").strip()
+    if value:
+        path = Path(value).expanduser()
+    else:
+        parents = catalog_dir().resolve().parents
+        if len(parents) < 3:
+            return None
+        path = parents[2] / "recipes" / "rewritten"
+    return path if path.is_dir() else None
+
+
+def catalog_photos() -> dict[str, list[str]]:
+    """Our own photos that exist on disk, by archive recipe id, in allowlist order.
+    Key "*" holds every usable file name."""
+    listed = catalog_dir() / "recipe_photos.json"
+    raw = json.loads(listed.read_text()) if listed.is_file() else {}
+    folder = food_dir()
+    out: dict[str, list[str]] = {"*": []}
+    for name, recipe_id in our_photo_entries(raw):
+        if not (folder / name).is_file():
+            continue
+        out["*"].append(name)
+        if recipe_id is not None:
+            out.setdefault(str(recipe_id), []).append(name)
+    return out
+
+
+def with_photo(data: dict, photos: dict[str, list[str]]) -> dict:
+    """Keep the recipe's photo if it is one of ours; otherwise use our first photo for it."""
+    current = (data.get("photo_path") or "").strip()
+    if current and Path(current).name in photos["*"]:
+        return data
+    mine = photos.get(str(data.get("id") or ""), [])
+    return {**data, "photo_path": f"food/{mine[0]}" if mine else ""}
+
+
+def catalog_records() -> list[dict]:
+    """Every catalog recipe: the catalog's recipes/*.json, plus dd_support rewrites for recipes the
+    catalog lacks or still has third-party steps for. The catalog copy wins once it is rewritten,
+    so edits made there are kept."""
     src = catalog_dir() / "recipes"
     if not src.is_dir() or not any(src.glob("*.json")):
         raise RuntimeError(f"No recipe JSON files in {src}; configure DINNERDESK_CATALOG_DIR explicitly")
-    report = report if report is not None else {}
-    n = 0
-    for i, path in enumerate(sorted(src.glob("*.json"))):
+    records: dict[str, dict] = {}
+    for path in sorted(src.glob("*.json")):
         data = json.loads(path.read_text())
         if not (data.get("slug") or data.get("id")):
             data = {**data, "slug": path.stem}
-        if not ready(data) and not conn.execute(
+        records[str(data.get("id") or data.get("slug"))] = data
+    rewritten = rewritten_dir()
+    for path in sorted(rewritten.glob("*.json")) if rewritten else []:
+        data = json.loads(path.read_text())
+        key = str(data.get("id") or path.stem.split("-", 1)[-1])
+        current = records.get(key)
+        if data.get("instructions_copied_from_third_party"):
+            continue
+        if current is None:
+            records[key] = {**data, "slug": data.get("slug") or key}
+        elif current.get("instructions_copied_from_third_party"):
+            records[key] = {**current, **data, "slug": current.get("slug") or data.get("slug") or key}
+    return list(records.values())
+
+
+def import_recipes(conn, aliases: dict[str, str]) -> int:
+    photos = catalog_photos()
+    n = 0
+    for data in catalog_records():
+        data = with_photo(data, photos)
+        if not ready(data, photos) and not conn.execute(
             "SELECT 1 FROM recipes WHERE household_id IS NULL AND slug = ?",
             (str(data.get("slug") or data.get("id")),),
         ).fetchone():
