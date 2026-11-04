@@ -37,10 +37,10 @@ def test_placements_persist_across_plans_and_are_private(tmp_path):
         assert c.put('/api/grocery/places', json={'name': 'onion', 'store': 'local', 'aisle': 'produce'}).status_code == 200
         c.put('/api/grocery/places', json={'name': 'onion', 'aisle': 'other'})
         places = c.get('/api/grocery/places').json()['items']
-        assert {'name': 'onion', 'store': 'local', 'aisle': 'other'} in places
+        assert {'name': 'yellow onion', 'store': 'local', 'aisle': 'other'} in places
         assert not any(p['name'] == 'hidden salt' for p in places)
         c.post('/api/plans', json={})
-        assert {'name': 'onion', 'store': 'local', 'aisle': 'other'} in c.get('/api/grocery/places').json()['items']
+        assert {'name': 'yellow onion', 'store': 'local', 'aisle': 'other'} in c.get('/api/grocery/places').json()['items']
 
 
 def test_new_household_has_no_automatic_staples(tmp_path):
@@ -137,7 +137,7 @@ def test_removing_last_store_clears_saved_placements(tmp_path):
         c.put('/api/household', json={'prefs': {'grocery': {'stores': [{'id': 'costco', 'name': 'Costco'}]}}})
         c.put('/api/grocery/places', json={'name': 'onion', 'store': 'costco', 'aisle': 'produce'})
         assert c.put('/api/household', json={'prefs': {'grocery': {'stores': []}}}).status_code == 200
-        row = next(p for p in c.get('/api/grocery/places').json()['items'] if p['name'] == 'onion')
+        row = next(p for p in c.get('/api/grocery/places').json()['items'] if p['name'] == 'yellow onion')
         assert row['store'] == '' and row['aisle'] == 'produce'
 
 

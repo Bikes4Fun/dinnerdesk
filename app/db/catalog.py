@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from app.assets import catalog_dir
-from app.domain.recipe_photos import is_uploaded_photo
+from app.assets import catalog_dir, food_dir
+from app.domain.recipe_photos import is_uploaded_photo, our_photo_entries
 
 import json
 import os
+from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
+from app.domain.pantry_catalog import ingredient_name
 
 
 def parse_servings(raw) -> int:
@@ -43,9 +45,15 @@ def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     return sql, [REWRITTEN_MARK, RETIRED_MARK]
 
 
-def ready(data: dict) -> bool:
-    """Only recipes with our own steps and a photo go into the database."""
-    return not data.get("instructions_copied_from_third_party") and bool((data.get("photo_path") or "").strip())
+def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
+    """Only recipes with our own steps and a photo go into the database. With `photos`
+    (from catalog_photos), the photo must also be one of ours on the allowlist."""
+    if data.get("instructions_copied_from_third_party"):
+        return False
+    photo = (data.get("photo_path") or "").strip()
+    if photos is None:
+        return bool(photo)
+    return Path(photo).name in photos.get("*", [])
 
 
 UNREADY_SQL = (
@@ -88,7 +96,7 @@ def load_aliases() -> dict[str, str]:
 
 
 def get_or_create_ingredient(conn, name: str, aliases: dict[str, str]) -> int:
-    key = apply_alias(name, aliases)
+    key = ingredient_name(apply_alias(name, aliases))
     row = conn.execute(
         "SELECT id FROM ingredients WHERE canonical_name = ?", (key,)
     ).fetchone()
@@ -157,8 +165,43 @@ def _set_catalog_tags(conn, recipe_id: int, tags: list[str]) -> None:
         )
 
 
-def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
-    """Write a catalog row from JSON. Does not touch kitchen overlays."""
+def _db_content(conn, row) -> dict:
+    """The parts of a catalog row an admin can edit, in the recipe file's format."""
+    flags = json.loads(row["provenance_json"] or "{}")
+    ingredients = flags.get("admin_ingredients")
+    if ingredients is None:
+        ingredients = [
+            {"name": r["canonical_name"], "quantity": r["quantity"]}
+            for r in conn.execute(
+                """SELECT i.canonical_name, ri.quantity FROM recipe_ingredients ri
+                   JOIN ingredients i ON i.id = ri.ingredient_id
+                   WHERE ri.recipe_id = ? ORDER BY ri.sort""",
+                (row["id"],),
+            )
+        ]
+    return {
+        "name": row["name"],
+        "servings": row["servings"],
+        "cooking_minutes": row["cooking_minutes"],
+        "instructions": steps_from_db(row["instructions_json"]),
+        "cookware": json.loads(row["cookware_json"] or "[]"),
+        "ingredients": ingredients,
+    }
+
+
+def _db_tags(conn, recipe_id: int) -> list[str]:
+    return [r["tag"] for r in conn.execute(
+        "SELECT tag FROM recipe_tags WHERE recipe_id = ? ORDER BY tag", (recipe_id,))]
+
+
+def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dict | None = None) -> str:
+    """Write a catalog row from JSON. Does not touch kitchen overlays.
+
+    A part an admin edited in the app (content, tags or primary photo) is kept over the file.
+    When the file already says the same thing, the admin flag is cleared so later file edits
+    apply again; when it says something different, the admin's version stays and the recipe
+    is listed in report["conflicts"]."""
+    report = report if report is not None else {}
     slug = str(data.get("slug") or data.get("id") or "")
     if not slug:
         return "skip"
@@ -182,6 +225,25 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
         keep_admin_tags = flags.get("admin_tags_edited") is True
         keep_primary = flags.get("admin_photo_edited") is True
         keep_content = flags.get("admin_content_edited") is True
+
+        def settle(part: str, keep: bool, find_differences) -> bool:
+            if not keep:
+                return False
+            differences = find_differences()
+            if not differences:
+                report.setdefault("in_sync", []).append({"slug": slug, "part": part})
+                return False  # the file has caught up: clear the flag
+            report.setdefault("conflicts", []).append(
+                {"slug": slug, "name": existing["name"], "part": part, "fields": differences})
+            return True
+
+        keep_content = settle("content", keep_content, lambda: content_differences(data, _db_content(conn, existing)))
+        keep_admin_tags = settle(
+            "tags", keep_admin_tags,
+            lambda: [] if tags_match(data.get("tags"), _db_tags(conn, rid), SKIP_TAGS) else ["tags"])
+        keep_primary = settle(
+            "photo", keep_primary,
+            lambda: [] if same_photo(incoming_photo, existing["photo_path"]) else ["photo_path"])
         incoming_provenance = json.loads(provenance)
         if keep_admin_tags:
             incoming_provenance["admin_tags_edited"] = True
@@ -189,6 +251,14 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
             incoming_provenance["admin_photo_edited"] = True
         if keep_content:
             incoming_provenance["admin_content_edited"] = True
+            if "admin_ingredients" in flags:
+                incoming_provenance["admin_ingredients"] = flags["admin_ingredients"]
+        # Photos an admin deleted stay deleted while recipe_photos.json still lists them. Once
+        # the sync has taken them off the list, there's nothing left to hide.
+        listed = set(catalog_gallery(archive_id_of(data.get("source_url"), slug)))
+        removed = [p for p in flags.get("removed_photos") or [] if p in listed]
+        if removed:
+            incoming_provenance["removed_photos"] = removed
         provenance = json.dumps(incoming_provenance)
         photo = existing["photo_path"] if keep_primary or is_uploaded_photo(existing["photo_path"]) else incoming_photo
         if keep_content:
@@ -252,21 +322,84 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str]) -> str:
     return "insert"
 
 
-def import_recipes(conn, aliases: dict[str, str]) -> int:
+def rewritten_dir() -> Path | None:
+    """dd_support's recipes/rewritten/ folder: DINNERDESK_REWRITTEN_DIR, or found next to the
+    catalog (dd_support/catalog/dinnerdesk/data -> dd_support/recipes/rewritten)."""
+    value = os.environ.get("DINNERDESK_REWRITTEN_DIR", "").strip()
+    if value:
+        path = Path(value).expanduser()
+    else:
+        parents = catalog_dir().resolve().parents
+        if len(parents) < 3:
+            return None
+        path = parents[2] / "recipes" / "rewritten"
+    return path if path.is_dir() else None
+
+
+def catalog_photos() -> dict[str, list[str]]:
+    """Our own photos that exist on disk, by archive recipe id, in allowlist order.
+    Key "*" holds every usable file name."""
+    listed = catalog_dir() / "recipe_photos.json"
+    raw = json.loads(listed.read_text()) if listed.is_file() else {}
+    folder = food_dir()
+    out: dict[str, list[str]] = {"*": []}
+    for name, recipe_id in our_photo_entries(raw):
+        if not (folder / name).is_file():
+            continue
+        out["*"].append(name)
+        if recipe_id is not None:
+            out.setdefault(str(recipe_id), []).append(name)
+    return out
+
+
+def with_photo(data: dict, photos: dict[str, list[str]]) -> dict:
+    """Keep the recipe's photo if it is one of ours; otherwise use our first photo for it."""
+    current = (data.get("photo_path") or "").strip()
+    if current and Path(current).name in photos["*"]:
+        return data
+    mine = photos.get(str(data.get("id") or ""), [])
+    return {**data, "photo_path": f"food/{mine[0]}" if mine else ""}
+
+
+def catalog_records() -> list[dict]:
+    """Every catalog recipe: the catalog's recipes/*.json, plus dd_support rewrites for recipes the
+    catalog lacks or still has third-party steps for. The catalog copy wins once it is rewritten,
+    so edits made there are kept."""
     src = catalog_dir() / "recipes"
     if not src.is_dir() or not any(src.glob("*.json")):
         raise RuntimeError(f"No recipe JSON files in {src}; configure DINNERDESK_CATALOG_DIR explicitly")
-    n = 0
-    for i, path in enumerate(sorted(src.glob("*.json"))):
+    records: dict[str, dict] = {}
+    for path in sorted(src.glob("*.json")):
         data = json.loads(path.read_text())
         if not (data.get("slug") or data.get("id")):
             data = {**data, "slug": path.stem}
-        if not ready(data) and not conn.execute(
+        records[str(data.get("id") or data.get("slug"))] = data
+    rewritten = rewritten_dir()
+    for path in sorted(rewritten.glob("*.json")) if rewritten else []:
+        data = json.loads(path.read_text())
+        key = str(data.get("id") or path.stem.split("-", 1)[-1])
+        current = records.get(key)
+        if data.get("instructions_copied_from_third_party"):
+            continue
+        if current is None:
+            records[key] = {**data, "slug": data.get("slug") or key}
+        elif current.get("instructions_copied_from_third_party"):
+            records[key] = {**current, **data, "slug": current.get("slug") or data.get("slug") or key}
+    return list(records.values())
+
+
+def import_recipes(conn, aliases: dict[str, str]) -> int:
+    photos = catalog_photos()
+    n = 0
+    for data in catalog_records():
+        data = with_photo(data, photos)
+        if not ready(data, photos) and not conn.execute(
             "SELECT 1 FROM recipes WHERE household_id IS NULL AND slug = ?",
             (str(data.get("slug") or data.get("id")),),
         ).fetchone():
             continue
-        result = upsert_catalog_recipe(conn, data, aliases)
+        result = upsert_catalog_recipe(conn, data, aliases, report)
+        report[result] = report.get(result, 0) + 1
         if result == "insert":
             n += 1
     return n
@@ -297,11 +430,15 @@ def should_import_catalog() -> bool:
     return False
 
 
-def load_catalog(conn) -> int:
+def load_catalog(conn, report: dict | None = None) -> int:
+    report = report if report is not None else {}
     seed_household(conn)
-    n = import_recipes(conn, load_aliases())
+    n = import_recipes(conn, load_aliases(), report)
     for row in remove_unready(conn):
+        report.setdefault("unready_kept", []).append({"id": row["id"], "slug": row["slug"], "name": row["name"]})
         print(f"kept unready recipe {row['id']} {row['slug']} ({row['name']}): still in use")
+    for c in report.get("conflicts") or []:
+        print(f"kept admin edit of {c['slug']} ({c['part']}: {', '.join(c['fields'])}); the file differs")
     conn.commit()
     return n
 
