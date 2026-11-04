@@ -2371,6 +2371,11 @@ def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
     import hashlib
     from app.domain import recipe_photos
     data, auth = _sync_catalog(tmp_path, monkeypatch, [{'file': 'soup.jpg', 'recipe_id': 77}])
+    # An import only keeps a recipe live if its photo is on disk.
+    food = tmp_path / 'food'
+    food.mkdir()
+    (food / 'soup.jpg').write_bytes(b'jpg')
+    monkeypatch.setenv('FOOD_DIR', str(food))
     try:
         with _client(tmp_path) as client:
             assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
