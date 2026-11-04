@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from app.assets import catalog_dir, food_dir
-from app.domain.recipe_photos import is_uploaded_photo, our_photo_entries
+from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
+from app.domain.recipe_photos import archive_id_of, catalog_gallery, is_uploaded_photo, our_photo_entries
 
 import json
 import os
@@ -388,7 +389,8 @@ def catalog_records() -> list[dict]:
     return list(records.values())
 
 
-def import_recipes(conn, aliases: dict[str, str]) -> int:
+def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) -> int:
+    report = report if report is not None else {}
     photos = catalog_photos()
     n = 0
     for data in catalog_records():

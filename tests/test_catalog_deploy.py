@@ -1,6 +1,8 @@
 """The deploy step: dd_support rewrites with one of our photos reach the database."""
 import json
+import shutil
 import subprocess
+from pathlib import Path
 
 from app.db.catalog import catalog_records, ready, with_photo
 from app.domain.recipe_photos import our_photo_entries
@@ -11,6 +13,7 @@ def _catalog(tmp_path, monkeypatch, recipes=(), rewritten=(), photos=(), files=(
     data = tmp_path / "catalog" / "dinnerdesk" / "data"
     food = tmp_path / "catalog" / "dinnerdesk" / "food"
     rw = tmp_path / "recipes" / "rewritten"
+    shutil.copytree(Path(__file__).parent / "fixtures" / "catalog", data)  # startup seeds read these
     for d in (data / "recipes", food, rw):
         d.mkdir(parents=True, exist_ok=True)
     for r in recipes:
