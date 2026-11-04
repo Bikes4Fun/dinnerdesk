@@ -73,3 +73,10 @@ def test_filter_search_collapses_plural_duplicates_and_keeps_food_varieties():
     assert any("yellow bell" in name for name in hits)
     assert "black pepper" in names
     assert "red pepper flakes" in names
+
+
+def test_ingredient_identity_is_shared_for_aliases_and_private_names():
+    from app.domain.pantry_catalog import ingredient_name
+    assert ingredient_name("  GREEN   ONION ") == ingredient_name("green onions")
+    assert ingredient_name("  FAMILY   SECRET MIX ") == "family secret mix"
+    assert ingredient_name("LiMeS") == ingredient_name("lime")

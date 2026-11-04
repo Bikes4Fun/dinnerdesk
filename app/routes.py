@@ -46,7 +46,7 @@ from app.domain.ingredient_review import (
     save_group_notes,
 )
 from app.domain.ingredients import aisle_for, pantry_key
-from app.domain.pantry_catalog import collapse_catalog_names, in_grocery_catalog, item_key, preferred_grocery_name
+from app.domain.pantry_catalog import collapse_catalog_names, ingredient_name, in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import prep_from_slots, step_key, step_sentences
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
@@ -103,10 +103,10 @@ router = APIRouter()
 def _aliases(db: PgConnection) -> dict[str, str]:
     out = {}
     for row in db.execute("SELECT canonical_name, aliases_json FROM ingredients"):
-        out[row["canonical_name"]] = row["canonical_name"]
+        out[ingredient_name(row["canonical_name"])] = ingredient_name(row["canonical_name"])
         try:
             for a in json.loads(row["aliases_json"] or "[]"):
-                out[pantry_key(a)] = row["canonical_name"]
+                out[ingredient_name(a)] = ingredient_name(row["canonical_name"])
         except json.JSONDecodeError:
             raise
     return out
@@ -114,7 +114,7 @@ def _aliases(db: PgConnection) -> dict[str, str]:
 
 def _overrides(db: PgConnection, household_id: int) -> dict[str, str]:
     return {
-        r["from_name"]: r["to_name"]
+        ingredient_name(r["from_name"]): ingredient_name(r["to_name"])
         for r in db.execute(
             "SELECT from_name, to_name FROM household_overrides WHERE household_id = ?",
             (household_id,),
@@ -127,7 +127,7 @@ def _grocery_name_pool(db: PgConnection, household_id: int) -> list[str]:
     seen: set[str] = set()
     names: list[str] = []
     for raw, _zone in pantry_catalog():
-        name = preferred_grocery_name(raw) or pantry_key(raw)
+        name = ingredient_name(raw)
         if not name:
             continue
         key = item_key(name)
@@ -138,8 +138,16 @@ def _grocery_name_pool(db: PgConnection, household_id: int) -> list[str]:
     return names
 
 
+def _placement(db: PgConnection, household_id: int, name: str):
+    key = ingredient_name(name)
+    rows = db.execute("SELECT name, store, aisle FROM grocery_places WHERE household_id = ? ORDER BY name",
+                      (household_id,)).fetchall()
+    return next((r for r in rows if r["name"] == key), None) or next(
+        (r for r in rows if ingredient_name(r["name"]) == key), None)
+
+
 def _get_or_create_ingredient(db: PgConnection, name: str) -> int:
-    key = pantry_key(name)
+    key = ingredient_name(name)
     row = db.execute(
         "SELECT id FROM ingredients WHERE canonical_name = ?", (key,)
     ).fetchone()
@@ -160,7 +168,7 @@ def _set_recipe_ingredients(db: PgConnection, recipe_id: int, ingredients: list)
         qty, name = coerce_qty_name(qty, name or "")
         if not name:
             continue
-        name = preferred_grocery_name(name) or pantry_key(name)
+        name = ingredient_name(name)
         iid = _get_or_create_ingredient(db, name)
         db.execute(
             """INSERT INTO recipe_ingredients
@@ -197,7 +205,7 @@ def _norm_edit_ings(raw) -> list[dict]:
             name = (ing.get("name") or "").strip()
             qty = ing.get("quantity") or ""
         qty, name = coerce_qty_name(qty, name)
-        name = preferred_grocery_name(name) or pantry_key(name)
+        name = ingredient_name(name)
         if name:
             out.append({"name": name, "quantity": qty, "ingredient_id": None})
     return out
@@ -1444,7 +1452,7 @@ def _combine_duplicate_grocery_lines(db: PgConnection, plan_id: int) -> dict[int
     rows = list(db.execute("SELECT g.*, i.canonical_name FROM grocery_lines g LEFT JOIN ingredients i ON i.id = g.ingredient_id WHERE g.plan_id = ? ORDER BY g.id", (plan_id,)))
     for row in rows:
         name = row["custom_text"] or row["canonical_name"]
-        groups.setdefault((pantry_key(name), row["store"], row["aisle"]), []).append(row)
+        groups.setdefault((ingredient_name(name), row["store"], row["aisle"]), []).append(row)
     for group in groups.values():
         if len(group) < 2:
             continue
@@ -1549,9 +1557,9 @@ def _rebuild_grocery(db: PgConnection, plan_id: int, household_id: int) -> None:
         iid = _get_or_create_ingredient(db, line["name"])
         old = prev.get(iid) or prev.get(line["name"])
         if old and old["name_override"] is not None:
-            item_name = pantry_key(old["name_override"])
-            line["from_pantry"] = any(pantry_key(n) == item_name for n in pantry_have)
-            line["never_shop"] = any(pantry_key(n) == item_name for n in never)
+            item_name = ingredient_name(old["name_override"])
+            line["from_pantry"] = any(ingredient_name(n) == item_name for n in pantry_have)
+            line["never_shop"] = any(ingredient_name(n) == item_name for n in never)
         owned_check = auto_check and line["from_pantry"]
         checked = line["checked"] or owned_check
         qty = line["quantity"]
@@ -1561,8 +1569,7 @@ def _rebuild_grocery(db: PgConnection, plan_id: int, household_id: int) -> None:
             # Keep where the household put it, even for always-checked staples.
             store = old["store"] if "store" in old.keys() else ""
             aisle = old["aisle"] or aisle
-        place = db.execute("SELECT store, aisle FROM grocery_places WHERE household_id = ? AND name = ?",
-                           (household_id, pantry_key(old["name_override"] if old and old["name_override"] is not None else line["name"]))).fetchone()
+        place = _placement(db, household_id, old["name_override"] if old and old["name_override"] is not None else line["name"])
         if place:
             store, aisle = place["store"], place["aisle"]
         if old and not line["never_shop"]:
@@ -1744,7 +1751,7 @@ def add_grocery_line(
     ).fetchone()
     if not plan:
         raise HTTPException(404, {"error": "not_found", "detail": "plan"})
-    name = body.name.strip()
+    name = ingredient_name(body.name)
     if not name:
         raise HTTPException(400, {"error": "bad_request", "detail": "name"})
     if in_grocery_catalog(name):
@@ -1792,7 +1799,7 @@ def patch_grocery(
         args.extend([body.quantity, body.quantity])
     if body.custom_text is not None:
         fields.extend(["custom_text = ?", "name_override = ?"])
-        args.extend([body.custom_text.strip(), body.custom_text.strip()])
+        args.extend([ingredient_name(body.custom_text), ingredient_name(body.custom_text)])
     if body.aisle is not None:
         fields.append("aisle = ?")
         args.append(body.aisle.strip() or "other")
@@ -1806,7 +1813,7 @@ def patch_grocery(
         db.execute(f"UPDATE grocery_lines SET {', '.join(fields)} WHERE id = ?", args)
         if body.store is not None or body.aisle is not None:
             line = db.execute("SELECT COALESCE(g.custom_text, i.canonical_name) AS name, g.store, g.aisle FROM grocery_lines g LEFT JOIN ingredients i ON i.id = g.ingredient_id WHERE g.id = ?", (line_id,)).fetchone()
-            db.execute("INSERT INTO grocery_places (household_id, name, store, aisle) VALUES (?, ?, ?, ?) ON CONFLICT(household_id, name) DO UPDATE SET store = excluded.store, aisle = excluded.aisle", (household_id, pantry_key(line["name"]), line["store"], line["aisle"]))
+            db.execute("INSERT INTO grocery_places (household_id, name, store, aisle) VALUES (?, ?, ?, ?) ON CONFLICT(household_id, name) DO UPDATE SET store = excluded.store, aisle = excluded.aisle", (household_id, ingredient_name(line["name"]), line["store"], line["aisle"]))
     return {"ok": True}
 
 
@@ -1822,16 +1829,16 @@ def _pantry_row(r) -> dict:
 
 
 def _find_pantry(db: PgConnection, household_id: int, name: str):
-    want = preferred_grocery_name(name) or pantry_key(name)
+    want = ingredient_name(name)
     match = None
     for row in db.execute(
         "SELECT * FROM pantry_items WHERE household_id = ?",
         (household_id,),
     ):
-        got = preferred_grocery_name(row["name"]) or pantry_key(row["name"])
+        got = ingredient_name(row["name"])
         if got != want:
             continue
-        if pantry_key(row["name"]) == want:
+        if ingredient_name(row["name"]) == want:
             return row
         if match is None:
             match = row
@@ -1841,7 +1848,7 @@ def _find_pantry(db: PgConnection, household_id: int, name: str):
 def _merge_pantry_rows(rows) -> list[dict]:
     merged: dict[str, dict] = {}
     for row in rows:
-        name = preferred_grocery_name(row["name"]) or pantry_key(row["name"])
+        name = ingredient_name(row["name"])
         if not name:
             continue
         item = _pantry_row(row)
@@ -1946,7 +1953,7 @@ def put_pantry(
     with transaction(db):
         db.execute("DELETE FROM pantry_items WHERE household_id = ?", (household_id,))
         for it in body.items:
-            name = preferred_grocery_name(it.name) or pantry_key(it.name)
+            name = ingredient_name(it.name)
             if not name:
                 continue
             iid = _get_or_create_ingredient(db, name)
@@ -1974,7 +1981,7 @@ def upsert_pantry_item(
     db: PgConnection = DbDep,
     household_id: int = HhDep,
 ):
-    name = preferred_grocery_name(body.name) or pantry_key(body.name)
+    name = ingredient_name(body.name)
     if not name:
         raise HTTPException(400, {"error": "bad_request", "detail": "name"})
     iid = _get_or_create_ingredient(db, name)
@@ -2020,7 +2027,7 @@ def upsert_pantry_item(
         ).fetchall():
             if row["id"] == keep_id:
                 continue
-            other = preferred_grocery_name(row["name"]) or pantry_key(row["name"])
+            other = ingredient_name(row["name"])
             if other == name:
                 db.execute(
                     "DELETE FROM pantry_items WHERE id = ? AND household_id = ?",
@@ -2102,8 +2109,8 @@ def put_overrides(
     with transaction(db):
         db.execute("DELETE FROM household_overrides WHERE household_id = ?", (household_id,))
         for it in body.items:
-            frm = pantry_key(it.from_name)
-            to = pantry_key(it.to_name)
+            frm = ingredient_name(it.from_name)
+            to = ingredient_name(it.to_name)
             if not frm or not to:
                 continue
             db.execute(
@@ -2121,8 +2128,8 @@ def add_override(
     db: PgConnection = DbDep,
     household_id: int = HhDep,
 ):
-    frm = pantry_key(body.from_name)
-    to = pantry_key(body.to_name)
+    frm = ingredient_name(body.from_name)
+    to = ingredient_name(body.to_name)
     if not frm or not to:
         raise HTTPException(400, {"error": "bad_request", "detail": "names"})
     with transaction(db):
@@ -3560,21 +3567,21 @@ def get_plan(plan_id: int, db: PgConnection = DbDep, household_id: int = HhDep):
 
 @router.get("/grocery/places")
 def get_places(db: PgConnection = DbDep, household_id: int = HhDep):
-    items = {pantry_key(r["name"]): {"name": r["name"], "store": "", "aisle": aisle_for(r["name"])}
+    items = {ingredient_name(r["name"]): {"name": ingredient_name(r["name"]), "store": "", "aisle": aisle_for(r["name"])}
              for r in db.execute("SELECT name FROM pantry_items WHERE household_id = ?", (household_id,))}
     for r in db.execute("SELECT DISTINCT COALESCE(g.custom_text, i.canonical_name) AS name, g.store, g.aisle FROM grocery_lines g JOIN plans p ON p.id = g.plan_id LEFT JOIN ingredients i ON i.id = g.ingredient_id WHERE p.household_id = ?", (household_id,)):
         if r["name"]:
-            items[pantry_key(r["name"])] = dict(r)
+            items[ingredient_name(r["name"])] = {**dict(r), "name": ingredient_name(r["name"])}
     for r in db.execute("SELECT name, store, aisle FROM grocery_places WHERE household_id = ?", (household_id,)):
-        items[pantry_key(r["name"])] = dict(r)
+        items[ingredient_name(r["name"])] = {**dict(r), "name": ingredient_name(r["name"])}
     return {"items": sorted(items.values(), key=lambda r: r["name"])}
 
 
 @router.put("/grocery/places")
 def put_place(body: PlacementPut, db: PgConnection = DbDep, household_id: int = HhDep):
-    name = pantry_key(body.name)
+    name = ingredient_name(body.name)
     with transaction(db):
-        previous = db.execute("SELECT store, aisle FROM grocery_places WHERE household_id = ? AND name = ?", (household_id, name)).fetchone()
+        previous = _placement(db, household_id, name)
         store = body.store if body.store is not None else (previous["store"] if previous else "")
         aisle = body.aisle if body.aisle is not None else (previous["aisle"] if previous else aisle_for(name))
         db.execute("INSERT INTO grocery_places (household_id, name, store, aisle) VALUES (?, ?, ?, ?) ON CONFLICT(household_id, name) DO UPDATE SET store = excluded.store, aisle = excluded.aisle", (household_id, name, store, aisle))

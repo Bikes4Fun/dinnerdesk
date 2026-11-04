@@ -28,6 +28,7 @@
 | **Weekend prep** | Items sit in food sections (Vegetables, Aromatics…, Protein, Sauces), one row per item even when several meals share it. Collapse and reopen a section with its arrow. Check an item: it leaves the list, the ring and its section bar move, and a bar offers Undo and 👍/👎 (👎 shows reasons). **Show completed** brings done items back faded. Closed rows show no thumbs or days; open one (name or chevron) for 👍/👎 (👎 asks why), each step with its cook day on the left, and a purple recipe pill that opens the recipe. At the bottom, **Missing a prep step?**: pick a meal, a step, add a note, Add to prep; it appears as "Added by you", and Remove from prep in the same sheet takes it out. Refresh: check-offs, votes and added steps stay. |
 | **Saved on iPhone** | Open every tab once, then switch between them: no spinners or reloading. Turn on Airplane Mode and relaunch: Plan, Recipes, Grocery, Prep and planned/favorite recipes (with photos) still show, with an offline banner instead of "App stopped". Check a grocery item with signal, then relaunch in Airplane Mode: it shows checked. (Checks made while offline aren't sent later yet.) Make a change on the web, then reopen the app after 10+ minutes or pull to refresh: the change appears. Sign out and in as another account: none of the first account's data shows. |
 | **Tour keeps pantry check-offs (#172)** | Website. My kitchen → Pantry: turn on **Always check off pantry items** and add an item a planned meal uses. On Grocery, uncheck that item. Replay the tour (Settings) and finish it; replay again and Skip. The item stays unchecked both times. Also change Family portions, a Social switch and Newsletter: the item stays unchecked. Turning the pantry switch off and on still unchecks and re-checks pantry items. |
+| **Quick start tour order (#24)** | iPhone, Android and web. Replay the tour (Settings or More) → Quick start: How we use AI → What do you eat? → six cards: Suggestions, Review and approve, Grocery, Weekend prep, Recipes and tips, Taste Lab. Each card has a picture (Recipes and tips shows a purple ★ tip); none mentions Apple Watch, drafts or tips fading. Change a diet, tap Next, then Skip: reopen Filters and the diet is saved. On the last card, **Start planning** closes the tour (web: lands on Plan); replay and tap **Try Taste Lab**: it opens. Back works on every step. At the largest text size, words aren't clipped. |
 | **Navigation / account** | **Grocery → garlic → Plan → Grocery returns to the grocery list.** Repeat with Recipe detail and More → Settings; reselecting the active tab also returns home. Saved data stays intact. Tour pictures appear below their text; selected-tab styling stays within the bar. Household name saves and reset email sends only when tapped. |
 
 ## Before a release — not daily
@@ -151,3 +152,16 @@ iOS and native Android. All checks below remain manual acceptance work.
   for wrapped labels, reachable actions and keyboard overlap.
 - [ ] Web: repeat forms at 200% zoom and phone width; enlarged rating and step-move targets
   do not overlap adjacent controls. Check high-contrast/forced-colors mode with keyboard focus.
+
+
+### Ingredient identity and household privacy (#178)
+- [ ] Add Green Onion / green onions to Pantry and Grocery: one catalog name is used.
+- [ ] Set its store and aisle, then rebuild groceries and restart: the assignment stays.
+- [ ] Add a custom item with extra spaces/capitalization: its normalized name appears in
+  your Pantry/Grocery list but does not appear in another household's catalog/search.
+- [ ] Rename a grocery item and set its aisle: another household still sees the original
+  shared ingredient and retains its own aisle/store settings.
+
+- [ ] Before live cleanup: review the dry-run report and backup destination; resolve
+  any conflicting alias placements/metadata. After approved cleanup, confirm recipes,
+  pantry amounts/check-offs, grocery renames and each household's placements survived.

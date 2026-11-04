@@ -17,7 +17,7 @@ os.environ["DINNERDESK_REFRESH_SUGGESTIONS"] = "0"
 @pytest.fixture(autouse=True)
 def isolated_database(request, monkeypatch):
     # Pure domain tests don't need a database.
-    modules = {'test_api', 'test_auth', 'test_password_reset', 'test_kitchen_grocery', 'test_yolo'}
+    modules = {'test_api', 'test_auth', 'test_catalog_deploy', 'test_password_reset', 'test_kitchen_grocery', 'test_yolo'}
     if request.module.__name__.split('.')[-1] not in modules and request.node.name != 'test_review_api_is_proposal_only':
         yield
         return

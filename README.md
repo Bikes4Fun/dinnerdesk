@@ -97,10 +97,11 @@ The iOS app is in `ios/dinnerdesk.xcodeproj`; build and run it in Xcode.
 **Database changes** apply on server start: `app.db.database.init_db` creates tables and adds
 missing columns. After pulling changes that touch `app/db/schema.sql`, restart the server.
 
-**Deploy:** Railway builds the website and starts the API without importing recipes.
-Before deploying this branch, upload private assets to persistent storage and set both required
-asset paths. See [private catalog and deployment](#private-catalog-and-deployment). PostgreSQL records
-remain independent of Git. Catalog import is an explicit operator action: `python -m app.db.catalog`.
+**Deploy:** before the API starts, Railway runs `python -m app.db.deploy_catalog`. It pulls
+the latest pushed `dd_support` onto the volume and imports the catalog, so every deploy adds
+recipes that are rewritten and have one of our photos, and applies catalog edits. See
+[automatic catalog updates](#automatic-catalog-updates). Locally, import by hand with
+`python -m app.db.catalog`.
 
 ## Test
 
@@ -183,8 +184,9 @@ Before deploying to a new environment:
    to Railway.
 3. Set `DINNERDESK_CATALOG_DIR` and `FOOD_DIR` to the uploaded directories. Retain existing
    database, authentication, mail, and `GROCERY_PHOTO_DIR` settings.
-4. Deploy after the private paths exist. Startup initializes the schema and starts the API;
-   it does not import recipes. Missing required asset directories fail configuration checks.
+4. Deploy after the private paths exist. The deploy step updates and imports the catalog
+   ([automatic catalog updates](#automatic-catalog-updates)); the API's own startup only
+   initializes the schema. Missing required asset directories fail configuration checks.
 5. Verify recipes, photos, Taste Lab, pantry, and household plans. Database photo filenames
    resolve through the external photo directory and the `recipe_photos.json` allowlist.
 
