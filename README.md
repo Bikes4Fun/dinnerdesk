@@ -97,10 +97,11 @@ The iOS app is in `ios/dinnerdesk.xcodeproj`; build and run it in Xcode.
 **Database changes** apply on server start: `app.db.database.init_db` creates tables and adds
 missing columns. After pulling changes that touch `app/db/schema.sql`, restart the server.
 
-**Deploy:** Railway builds the website and starts the API without importing recipes.
-Before deploying this branch, upload private assets to persistent storage and set both required
-asset paths. See [private catalog and deployment](#private-catalog-and-deployment). PostgreSQL records
-remain independent of Git. Catalog import is an explicit operator action: `python -m app.db.catalog`.
+**Deploy:** before the API starts, Railway runs `python -m app.db.deploy_catalog`. It pulls
+the latest pushed `dd_support` onto the volume and imports the catalog, so every deploy adds
+recipes that are rewritten and have one of our photos, and applies catalog edits. See
+[automatic catalog updates](#automatic-catalog-updates). Locally, import by hand with
+`python -m app.db.catalog`.
 
 ## Test
 
@@ -183,23 +184,41 @@ Before deploying to a new environment:
    to Railway.
 3. Set `DINNERDESK_CATALOG_DIR` and `FOOD_DIR` to the uploaded directories. Retain existing
    database, authentication, mail, and `GROCERY_PHOTO_DIR` settings.
-4. Deploy after the private paths exist. Startup initializes the schema and starts the API;
-   it does not import recipes. Missing required asset directories fail configuration checks.
+4. Deploy after the private paths exist. The deploy step updates and imports the catalog
+   ([automatic catalog updates](#automatic-catalog-updates)); the API's own startup only
+   initializes the schema. Missing required asset directories fail configuration checks.
 5. Verify recipes, photos, Taste Lab, pantry, and household plans. Database photo filenames
    resolve through the external photo directory and the `recipe_photos.json` allowlist.
 
-Catalog updates normally go through the catalog sync: `dd_support`'s `catalog_sync.py`, run daily
-by a GitHub Action there, brings admin edits, uploaded and deleted photos and the admin tools' files
-back into that repo, uploads its other changed catalog files to `DINNERDESK_CATALOG_DIR` and
-`FOOD_DIR`, and imports them. The routes it uses (`app/catalog_sync_routes.py`) are off unless
-`CATALOG_SYNC_TOKEN` is set. During an import, a part of a recipe an admin edited (content, tags or
-primary photo) is kept over the file; once the file says the same thing the admin flag is cleared so
-the file leads again, and if they disagree the import reports a conflict. A photo deleted in the
-admin screen stays hidden until the sync takes it off `recipe_photos.json`. The rules are in
-`app/domain/catalog_sync.py`.
+### Automatic catalog updates
 
-`python -m app.db.catalog` still imports by hand: it updates records by slug and commits to the
-configured database. The deprecated `DINNERDESK_IMPORT_CATALOG` startup setting is no longer used.
+On every Railway deploy, `app/db/deploy_catalog.py` (the start command in `railpack.json`):
+
+1. Updates a shallow, sparse checkout of the private `dd_support` repo on the volume:
+   only `catalog/dinnerdesk/` and `recipes/rewritten/`. Later deploys download only what changed.
+2. Imports the catalog (`python -m app.db.catalog`), updating records by slug:
+   - Recipes come from `catalog/dinnerdesk/data/recipes/`. A rewrite in `dd_support/recipes/rewritten/`
+     is used when the catalog has no copy of that recipe or its copy still has third-party steps.
+     Once the catalog copy is rewritten, it wins, so edits there are kept.
+   - A recipe goes live only with rewritten steps and one of our photos: listed in
+     `recipe_photos.json` and present in `food/`. With no `photo_path`, its first listed photo is used.
+     Entries crediting a recipe site (Mealime, Allrecipes, MyPlate) never count as ours.
+   - Edits made in the app's admin pages are kept (`admin_*_edited` flags).
+3. Starts the API. If GitHub or the import fails, it logs why and the site keeps its current recipes.
+
+Only what is **pushed** to `dd_support` on GitHub reaches Railway, and a push to `dd_support`
+alone does not redeploy. Redeploy in Railway after pushing it.
+
+Railway settings:
+
+```text
+DD_SUPPORT_REPO=Bikes4Fun/weekplate
+DD_SUPPORT_TOKEN=<fine-grained GitHub token: read-only Contents on that repo>
+DD_SUPPORT_DIR=/web/public/food/dd_support
+DINNERDESK_CATALOG_DIR=/web/public/food/dd_support/catalog/dinnerdesk/data
+FOOD_DIR=/web/public/food/dd_support/catalog/dinnerdesk/food
+DINNERDESK_IMPORT_CATALOG=1
+```
 
 **Recorded Railway setup, October 8, 2026:** the existing `weekplate-volume` mount at
 `/web/public/food/` was reused; the PostgreSQL volume was unchanged. The folder
