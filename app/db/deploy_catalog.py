@@ -28,6 +28,8 @@ import sys
 from pathlib import Path
 
 SPARSE_PATHS = ["catalog/dinnerdesk", "recipes/rewritten"]
+# dd_support keeps photos in Git LFS; a checkout alone holds only small pointer files.
+LFS_PATHS = "catalog/dinnerdesk/food/**"
 
 
 def _repo_url(repo: str) -> str:
@@ -43,7 +45,19 @@ def _git(args: list[str], cwd: Path | None = None) -> None:
         # Passed per command, so the token is never written into the checkout's git config.
         basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
         auth = ["-c", f"http.extraHeader=Authorization: Basic {basic}"]
-    subprocess.run(["git", *auth, *args], cwd=cwd, check=True, capture_output=True, text=True)
+    # Photos are fetched by _pull_photos, only for the folders the app reads.
+    env = {**os.environ, "GIT_LFS_SKIP_SMUDGE": "1"}
+    subprocess.run(["git", *auth, *args], cwd=cwd, env=env, check=True, capture_output=True, text=True)
+
+
+def _pull_photos(target: Path) -> None:
+    """Replace LFS pointer files under catalog/dinnerdesk/food with the photos. Only new or
+    changed photos are downloaded; the rest are already on the volume."""
+    attributes = target / ".git" / "info" / "attributes"
+    attributes.parent.mkdir(parents=True, exist_ok=True)
+    attributes.write_text(f"{LFS_PATHS} filter=lfs diff=lfs merge=lfs -text\n")
+    _git(["lfs", "install", "--local", "--skip-smudge"], cwd=target)
+    _git(["lfs", "pull", f"--include={LFS_PATHS}"], cwd=target)
 
 
 def sync_dd_support() -> bool:
@@ -63,6 +77,7 @@ def sync_dd_support() -> bool:
         _git(["sparse-checkout", "set", *SPARSE_PATHS], cwd=target)
         _git(["fetch", "--depth", "1", "origin", branch], cwd=target)
         _git(["reset", "--hard", "FETCH_HEAD"], cwd=target)
+    _pull_photos(target)
     return True
 
 
