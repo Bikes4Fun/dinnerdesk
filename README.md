@@ -80,6 +80,7 @@ npm run build --prefix web
 | `FOOD_DIR` | Required directory of private recipe photos, outside Git. |
 | `GROCERY_PHOTO_DIR` | Folder of individual food photos (kept outside Git). Locally: `/Users/turtlesoup/Repos/dd_support/references/individual grocery food items`. On Railway: a mounted volume. |
 | `ADMIN_EMAIL` | The one account that can use the admin tools. Empty means no admin. |
+| `CATALOG_SYNC_TOKEN` | Turns on the catalog sync routes (`/api/catalog-sync/*`) for `dd_support/catalog_sync.py`. A long random value, at least 32 characters; the same value goes in that repo's Actions secrets. Empty turns the routes off. |
 | `AUTH_REQUIRED` | When off, everyone shares one guest household. |
 | `SUPPORT_EMAIL` | Contact address shown on `/support` (the App Store support URL). Empty shows “not set up yet”. |
 
@@ -189,35 +190,18 @@ Before deploying to a new environment:
 5. Verify recipes, photos, Taste Lab, pantry, and household plans. Database photo filenames
    resolve through the external photo directory and the `recipe_photos.json` allowlist.
 
-### Automatic catalog updates
+Catalog updates normally go through the catalog sync: `dd_support`'s `catalog_sync.py`, run daily
+by a GitHub Action there, brings admin edits, uploaded and deleted photos and the admin tools' files
+back into that repo, uploads its other changed catalog files to `DINNERDESK_CATALOG_DIR` and
+`FOOD_DIR`, and imports them. The routes it uses (`app/catalog_sync_routes.py`) are off unless
+`CATALOG_SYNC_TOKEN` is set. During an import, a part of a recipe an admin edited (content, tags or
+primary photo) is kept over the file; once the file says the same thing the admin flag is cleared so
+the file leads again, and if they disagree the import reports a conflict. A photo deleted in the
+admin screen stays hidden until the sync takes it off `recipe_photos.json`. The rules are in
+`app/domain/catalog_sync.py`.
 
-On every Railway deploy, `app/db/deploy_catalog.py` (the start command in `railpack.json`):
-
-1. Updates a shallow, sparse checkout of the private `dd_support` repo on the volume:
-   only `catalog/dinnerdesk/` and `recipes/rewritten/`. Later deploys download only what changed.
-2. Imports the catalog (`python -m app.db.catalog`), updating records by slug:
-   - Recipes come from `catalog/dinnerdesk/data/recipes/`. A rewrite in `dd_support/recipes/rewritten/`
-     is used when the catalog has no copy of that recipe or its copy still has third-party steps.
-     Once the catalog copy is rewritten, it wins, so edits there are kept.
-   - A recipe goes live only with rewritten steps and one of our photos: listed in
-     `recipe_photos.json` and present in `food/`. With no `photo_path`, its first listed photo is used.
-     Entries crediting a recipe site (Mealime, Allrecipes, MyPlate) never count as ours.
-   - Edits made in the app's admin pages are kept (`admin_*_edited` flags).
-3. Starts the API. If GitHub or the import fails, it logs why and the site keeps its current recipes.
-
-Only what is **pushed** to `dd_support` on GitHub reaches Railway, and a push to `dd_support`
-alone does not redeploy. Redeploy in Railway after pushing it.
-
-Railway settings:
-
-```text
-DD_SUPPORT_REPO=Bikes4Fun/weekplate
-DD_SUPPORT_TOKEN=<fine-grained GitHub token: read-only Contents on that repo>
-DD_SUPPORT_DIR=/web/public/food/dd_support
-DINNERDESK_CATALOG_DIR=/web/public/food/dd_support/catalog/dinnerdesk/data
-FOOD_DIR=/web/public/food/dd_support/catalog/dinnerdesk/food
-DINNERDESK_IMPORT_CATALOG=1
-```
+`python -m app.db.catalog` still imports by hand: it updates records by slug and commits to the
+configured database. The deprecated `DINNERDESK_IMPORT_CATALOG` startup setting is no longer used.
 
 **Recorded Railway setup, October 8, 2026:** the existing `weekplate-volume` mount at
 `/web/public/food/` was reused; the PostgreSQL volume was unchanged. The folder

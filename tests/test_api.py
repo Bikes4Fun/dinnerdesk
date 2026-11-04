@@ -2305,3 +2305,167 @@ def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypa
         assert len(client.get(f'/api/recipes/{rid}').json()['photos']) == 2
         exported = client.get('/api/household/export').json()
         assert len(next(r for r in exported['recipes_you_added'] if r['id'] == rid)['photos']) == 2
+
+
+SYNC_TOKEN = "t" * 40
+
+
+def test_catalog_import_clears_admin_flag_once_the_file_matches(tmp_path):
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        assert client.patch('/api/recipes/1', json={'name': 'Better soup'}).status_code == 200
+        db = connect()
+        report = {}
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20}, {}, report)
+        db.commit()
+        assert report['conflicts'] == [{'slug': 'soup', 'name': 'Better soup', 'part': 'content', 'fields': ['name']}]
+        assert client.get('/api/recipes/1').json()['name'] == 'Better soup'
+        report = {}
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Better soup', 'servings': 4, 'cooking_minutes': 20}, {}, report)
+        db.commit()
+        assert report.get('conflicts') is None and report['in_sync'] == [{'slug': 'soup', 'part': 'content'}]
+        flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+        assert 'admin_content_edited' not in flags
+        # The file leads again: its next change goes straight in.
+        upsert_catalog_recipe(db, {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20}, {})
+        db.commit()
+        db.close()
+        assert client.get('/api/recipes/1').json()['name'] == 'Soup'
+
+
+def test_admin_ingredients_are_kept_as_typed_for_the_sync(tmp_path):
+    with _client(tmp_path) as client:
+        saved = client.patch('/api/recipes/1', json={'ingredients': [{'name': 'Yellow Onions', 'quantity': '2'}]})
+        assert saved.status_code == 200
+        db = connect()
+        flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+        db.close()
+        assert flags['admin_ingredients'] == [{'name': 'Yellow Onions', 'quantity': '2'}]
+
+
+def test_catalog_sync_routes_are_off_without_a_token(tmp_path, monkeypatch):
+    monkeypatch.delenv('CATALOG_SYNC_TOKEN', raising=False)
+    with _client(tmp_path) as client:
+        assert client.get('/api/catalog-sync/state').status_code == 404
+        monkeypatch.setenv('CATALOG_SYNC_TOKEN', SYNC_TOKEN)
+        assert client.get('/api/catalog-sync/state').status_code == 401
+        wrong = {'Authorization': 'Bearer ' + 'x' * 40}
+        assert client.get('/api/catalog-sync/state', headers=wrong).status_code == 401
+
+
+def _sync_catalog(tmp_path, monkeypatch, photos):
+    """A writable copy of the test catalog, with this recipe_photos.json."""
+    import shutil
+    from app.domain import recipe_photos
+    data = tmp_path / 'catalog'
+    shutil.copytree(Path(__file__).parent / 'fixtures' / 'catalog', data)
+    (data / 'recipes').mkdir(exist_ok=True)
+    (data / 'recipe_photos.json').write_text(json.dumps({'use': photos}))
+    monkeypatch.setenv('DINNERDESK_CATALOG_DIR', str(data))
+    monkeypatch.setenv('CATALOG_SYNC_TOKEN', SYNC_TOKEN)
+    recipe_photos.reload()
+    return data, {'Authorization': f'Bearer {SYNC_TOKEN}'}
+
+
+def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
+    import hashlib
+    from app.domain import recipe_photos
+    data, auth = _sync_catalog(tmp_path, monkeypatch, [{'file': 'soup.jpg', 'recipe_id': 77}])
+    # An import only keeps a recipe live if its photo is on disk.
+    food = tmp_path / 'food'
+    food.mkdir()
+    (food / 'soup.jpg').write_bytes(b'jpg')
+    monkeypatch.setenv('FOOD_DIR', str(food))
+    try:
+        with _client(tmp_path) as client:
+            assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
+            state = client.get('/api/catalog-sync/state', headers=auth).json()
+            soup = next(r for r in state['recipes'] if r['slug'] == 'soup')
+            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False}
+            assert soup['content']['name'] == 'Better soup' and soup['tags'] == ['tested']
+            assert state['files']['data/recipe_photos.json'] == hashlib.sha256(
+                (data / 'recipe_photos.json').read_bytes()).hexdigest()
+
+            # The repo sends the recipe file with the admin's edit written in.
+            body = json.dumps({'slug': 'soup', 'name': 'Better soup', 'servings': 4, 'cooking_minutes': 20,
+                               'tags': ['tested'], 'photo_path': 'food/soup.jpg',
+                               'instructions_copied_from_third_party': False}).encode()
+            sha = hashlib.sha256(body).hexdigest()
+            put = client.put('/api/catalog-sync/file', params={'path': 'data/recipes/soup.json', 'sha256': sha},
+                             content=body, headers=auth)
+            assert put.status_code == 200 and (data / 'recipes' / 'soup.json').read_bytes() == body
+            assert client.get('/api/catalog-sync/file', params={'path': 'data/recipes/soup.json'},
+                              headers=auth).content == body
+            report = client.post('/api/catalog-sync/import', headers=auth).json()
+            assert report.get('conflicts') is None
+            assert {'slug': 'soup', 'part': 'content'} in report['in_sync']
+            assert {'slug': 'soup', 'part': 'tags'} in report['in_sync']
+            assert client.get('/api/recipes/1').json()['name'] == 'Better soup'
+
+            refused = [
+                ('data/ingredient_normalization_answers.json', b'{}'),  # the server's admin tools own it
+                ('data/../escape.json', b'{}'),
+                ('food/x.png', b'version https://git-lfs.github.com/spec/v1\n'),
+            ]
+            for path, content in refused:
+                res = client.put('/api/catalog-sync/file', params={'path': path, 'sha256': hashlib.sha256(content).hexdigest()},
+                                 content=content, headers=auth)
+                assert res.status_code == 400, path
+            bad_sum = client.put('/api/catalog-sync/file', params={'path': 'data/x.json', 'sha256': '0' * 64},
+                                 content=b'{}', headers=auth)
+            assert bad_sum.status_code == 400 and not (data / 'x.json').exists()
+    finally:
+        monkeypatch.undo()
+        recipe_photos.reload()
+
+
+def test_deleted_catalog_photo_stays_deleted_until_the_list_drops_it(tmp_path, monkeypatch):
+    from app.db.catalog import upsert_catalog_recipe
+    from app.domain import recipe_photos
+    listed = [{'file': '77_a.jpg', 'recipe_id': 77}, {'file': '77_b.jpg', 'recipe_id': 77}]
+    data, _auth = _sync_catalog(tmp_path, monkeypatch, listed)
+    try:
+        with _client(tmp_path) as client:
+            db = connect()
+            db.execute("UPDATE recipes SET source_url = 'https://example.test/recipes/soup/77', photo_path = 'food/77_a.jpg' WHERE id = 1")
+            db.commit()
+            paths = [p['path'] for p in client.get('/api/recipes/1').json()['photos']]
+            assert paths == ['food/77_a.jpg', 'food/77_b.jpg']
+            res = client.request('DELETE', '/api/recipes/1/photos', json={'path': 'food/77_b.jpg'})
+            assert res.status_code == 200
+            assert [p['path'] for p in res.json()['photos']] == ['food/77_a.jpg']
+            recipe = {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20,
+                      'source_url': 'https://example.test/recipes/soup/77', 'photo_path': 'food/77_a.jpg'}
+            upsert_catalog_recipe(db, recipe, {})  # the list still has it: it stays hidden
+            db.commit()
+            assert [p['path'] for p in client.get('/api/recipes/1').json()['photos']] == ['food/77_a.jpg']
+            (data / 'recipe_photos.json').write_text(json.dumps({'use': listed[:1]}))
+            recipe_photos.reload()
+            upsert_catalog_recipe(db, recipe, {})  # the sync took it off the list
+            db.commit()
+            flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+            db.close()
+            assert 'removed_photos' not in flags
+    finally:
+        monkeypatch.undo()
+        recipe_photos.reload()
+
+
+def test_catalog_sync_merge_writes_admin_edits_into_the_repo_files(tmp_path, monkeypatch):
+    from app.domain import recipe_photos
+    _data, auth = _sync_catalog(tmp_path, monkeypatch, [])
+    try:
+        with _client(tmp_path) as client:
+            assert client.patch('/api/recipes/1', json={'name': 'Better soup'}).status_code == 200
+            repo_file = {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20,
+                         'photo_path': 'food/soup.jpg', 'note': 'only in the repo'}
+            res = client.post('/api/catalog-sync/merge', headers=auth,
+                              json={'recipes': {'soup': repo_file}, 'photos': {'use': []}})
+            assert res.status_code == 200
+            out = res.json()
+            assert out['changes'] == {'soup': ['name']}
+            assert out['recipes']['soup'] == {**repo_file, 'name': 'Better soup'}
+            assert client.get('/api/recipes/1').json()['name'] == 'Better soup'  # nothing saved
+    finally:
+        monkeypatch.undo()
+        recipe_photos.reload()

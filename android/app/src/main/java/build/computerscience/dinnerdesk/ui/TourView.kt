@@ -35,18 +35,14 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Copyright
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.MoveToInbox
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.Restaurant
 import androidx.compose.material.icons.outlined.ShoppingCart
-import androidx.compose.material.icons.outlined.Watch
+import androidx.compose.material.icons.outlined.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -78,15 +74,15 @@ import build.computerscience.dinnerdesk.data.string
 import build.computerscience.dinnerdesk.data.strings
 import kotlinx.coroutines.launch
 
-private enum class TourStep { Welcome, Filters, Ai, How }
+private enum class TourStep { Welcome, Ai, Filters, How }
 
 private class HowStep(val id: Int, val title: String, val icon: ImageVector, val text: String)
 
 // Text lives in copy.json (tour.how.N.title / tour.how.N), shared with the website and iOS tours.
+// Order chosen on #24: Suggestions, Review and approve, Grocery, Weekend prep, Recipes and tips, Taste Lab.
 private val howIcons = listOf(
-    Icons.AutoMirrored.Outlined.MenuBook, Icons.Outlined.CalendarToday, Icons.Outlined.MoveToInbox, Icons.Outlined.ShoppingCart,
-    Icons.Outlined.Inventory2, Icons.AutoMirrored.Outlined.Assignment, Icons.Outlined.Restaurant, Icons.Outlined.AutoAwesome,
-    Icons.Outlined.Watch, Icons.Outlined.Gesture,
+    Icons.Outlined.AutoAwesome, Icons.Outlined.SwapHoriz, Icons.Outlined.ShoppingCart,
+    Icons.AutoMirrored.Outlined.Assignment, Icons.AutoMirrored.Outlined.MenuBook, Icons.Outlined.Gesture,
 )
 private val aiIcons = listOf(Icons.Outlined.Image, Icons.Outlined.Copyright, Icons.Outlined.Computer, Icons.Outlined.PhotoCamera)
 
@@ -95,15 +91,16 @@ private fun steps(prefix: String, icons: List<ImageVector>) = icons.mapIndexedNo
     if (Copy.has(key) && Copy.has("$key.title")) HowStep(i, Copy.text("$key.title"), icon, Copy.text(key)) else null
 }
 
-/** Real screenshots for how-to cards, by card index; drawn pictures for the next two. */
-private val shots = mapOf(0 to R.drawable.tour_suggestions, 1 to R.drawable.tour_schedule, 2 to R.drawable.tour_draft, 3 to R.drawable.tour_stores)
-private val drawings = mapOf(4 to 2, 5 to 3)
-/** The tips card shows a real tip instead of a picture. */
-private const val TIPS_CARD = 6
+/** Real screenshots for how-to cards, by card index. */
+private val shots = mapOf(0 to R.drawable.tour_suggestions, 2 to R.drawable.tour_stores)
+/** Drawn pictures (TourScreenPicture: 0 suggestions, 3 weekend prep). */
+private val drawings = mapOf(1 to 0, 3 to 3)
+/** The recipes and tips card shows a real tip instead of a picture. */
+private const val TIPS_CARD = 4
 
 /**
- * First-run tour (mirrors web/src/Tour.jsx and TourView.swift). Welcome → Quick start (filters, how we
- * use AI, then how-to) or Taste Lab, or Skip. Full screen over the app.
+ * First-run tour (mirrors web/src/Tour.jsx and TourView.swift). Welcome → Quick start (how we use AI,
+ * filters, then the how-to cards in the order chosen on #24) or Taste Lab, or Skip. Full screen over the app.
  */
 @Composable
 fun TourView() {
@@ -151,7 +148,18 @@ fun TourView() {
         }
     }
 
-    fun finish(saveFilters: Boolean) {
+    fun finish() {
+        saving = true
+        scope.launch {
+            markDone(null)
+            saving = false
+            session.showTour = false
+        }
+    }
+
+    // Filters come before the how-to cards (#24), so they're saved on Next: skipping later keeps them.
+    // A failed save keeps the Filters step open so nothing is lost.
+    fun saveFilters() {
         saving = true
         scope.launch {
             val body = mapOf(
@@ -160,19 +168,25 @@ fun TourView() {
                 "avoids" to o.avoids.filter { it in avoids } + avoids.filter { it !in o.avoids }.sorted(),
                 "time" to time,
             )
-            val ok = markDone(if (saveFilters) body else null)
+            val ok = try {
+                KitchenApi.savePrefs(mapOf("filters" to body))
+                error = null
+                true
+            } catch (e: Throwable) {
+                error = Api.message(e)
+                false
+            }
             saving = false
-            // Skip always closes; a failed save of chosen filters keeps the tour open so nothing is lost.
-            if (ok || !saveFilters) session.showTour = false
+            if (ok) step = TourStep.How
         }
     }
 
     fun goBack() {
         when (step) {
             TourStep.Welcome -> Unit
-            TourStep.Filters -> step = TourStep.Welcome
-            TourStep.Ai -> step = TourStep.Filters
-            TourStep.How -> if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } else step = TourStep.Ai
+            TourStep.Ai -> step = TourStep.Welcome
+            TourStep.Filters -> step = TourStep.Ai
+            TourStep.How -> if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } else step = TourStep.Filters
         }
     }
 
@@ -195,7 +209,7 @@ fun TourView() {
             if (step != TourStep.Welcome) {
                 Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 6.dp)) {
                     LinkButton("Back", Modifier.align(Alignment.CenterStart), style = Theme.body) { goBack() }
-                    LinkButton("Skip", Modifier.align(Alignment.CenterEnd), color = Theme.muted, style = Theme.body) { finish(false) }
+                    LinkButton("Skip", Modifier.align(Alignment.CenterEnd), color = Theme.muted, style = Theme.body) { finish() }
                 }
             }
             error?.let { Box(Modifier.padding(horizontal = 16.dp)) { ErrorBanner(it) } }
@@ -205,16 +219,16 @@ fun TourView() {
                         Text(if (isUpdate) Copy.text("tour.update.title") else "Welcome to ${Copy.appName}", style = Theme.bigTitle, color = Theme.ink)
                         Text(if (isUpdate) Copy.text("tour.update") else Copy.text("app.tagline"), style = Theme.body, color = Theme.muted)
                     }
-                    ChoiceCard("Quick start", "Tell us what you eat, then a 1-minute how-to.", Icons.Outlined.Bolt) { step = TourStep.Filters }
+                    ChoiceCard("Quick start", "Tell us what you eat, then a 1-minute how-to.", Icons.Outlined.Bolt) { step = TourStep.Ai }
                     ChoiceCard("Taste Lab", "Swipe through dishes so ${Copy.appName} learns what you like.", Icons.Outlined.Gesture) {
                         scope.launch { markDone(null); showTasteLab = true }
                     }
-                    LinkButton("Skip for now", Modifier.fillMaxWidth().padding(top = 8.dp), color = Theme.muted, style = Theme.body) { finish(false) }
+                    LinkButton("Skip for now", Modifier.fillMaxWidth().padding(top = 8.dp), color = Theme.muted, style = Theme.body) { finish() }
                 }
-                TourStep.Filters -> TourPage({ AccentButton("Next") { step = TourStep.Ai } }) {
+                TourStep.Filters -> TourPage({ AccentButton(if (saving) "Saving…" else "Next", enabled = !saving) { saveFilters() } }) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("What do you eat?", style = Theme.tourTitle, color = Theme.ink)
-                        Text("You can change this later in Settings › Filters.", style = Theme.subtitle, color = Theme.muted)
+                        Text(Copy.text("tour.filters.title"), style = Theme.tourTitle, color = Theme.ink)
+                        Text(Copy.text("tour.filters"), style = Theme.subtitle, color = Theme.muted)
                     }
                     ChipGroup("Diet") {
                         for (item in o.diets) FilterChip(item.replaceFirstChar { it.uppercase() }, item in diets) { diets = o.toggled(diets, item) }
@@ -229,7 +243,7 @@ fun TourView() {
                         for ((id, label) in o.times) FilterChip(label, time == id) { time = id }
                     }
                 }
-                TourStep.Ai -> TourPage({ AccentButton("Next") { step = TourStep.How } }) {
+                TourStep.Ai -> TourPage({ AccentButton("Next") { step = TourStep.Filters } }) {
                     Text(Copy.text("tour.ai.title"), style = Theme.tourTitle, color = Theme.ink)
                     for (item in ai) {
                         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -256,9 +270,13 @@ fun TourView() {
                             Box(Modifier.size(width = if (i == pager.currentPage) 18.dp else 6.dp, height = 6.dp).background(if (i == pager.currentPage) Theme.accent else Theme.line, CircleShape))
                         }
                     }
-                    Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+                    Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         if (pager.currentPage < how.size - 1) AccentButton("Next") { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
-                        else AccentButton(if (saving) "Saving…" else "Start planning", enabled = !saving) { finish(true) }
+                        else {
+                            // Last card (Taste Lab): start planning, or try Taste Lab now.
+                            AccentButton(if (saving) "Saving…" else "Start planning", enabled = !saving) { finish() }
+                            LinkButton("Try Taste Lab", Modifier.padding(top = 4.dp)) { scope.launch { markDone(null); showTasteLab = true } }
+                        }
                     }
                 }
             }

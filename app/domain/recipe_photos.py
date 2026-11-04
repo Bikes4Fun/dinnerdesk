@@ -40,11 +40,10 @@ def our_photo_entries(data: dict) -> list[tuple[str, int | None]]:
         else:
             name, raw = Path(str(item.get("file") or "")).name, item.get("recipe_id")
         if name:
-            out.append((name, int(raw) if raw is not None else None))
+            out.append((name, int(raw) if raw is not None and str(raw).isdigit() else None))
     return out
 
 
-_DATA = json.loads((catalog_dir() / "recipe_photos.json").read_text())
 USE: dict[str, int | None] = {}
 # Photos made with AI: entries marked `"ai_generated": true`, or files named
 # `<id>_<name>_ai-generated.png`. Those recipes say so with a purple ★ tip (#33).
@@ -61,33 +60,42 @@ TESTED: set[str] = set()
 # Every listed photo, by the archive id of the recipe it was taken for, in file order. A catalog
 # recipe's gallery shows them all, so one recipe can have several different photos.
 GALLERY: dict[str, list[str]] = {}
-for item in _DATA.get("use") or []:
-    if is_third_party_entry(item):
-        continue
-    if isinstance(item, str):
-        name = Path(item).name
-        recipe_id = None
-        ai = False
-    else:
-        name = Path(str(item.get("file") or "")).name
-        raw = item.get("recipe_id")
-        recipe_id = int(raw) if raw is not None else None
-        ai = item.get("ai_generated") is True
-        source = str(item.get("source_url") or "")
-        CREDITS[name] = {
-            "credit": str(item.get("credit") or item.get("owner") or ""),
-            "source_url": source if source.startswith(("https://", "http://")) else "",
-        }
-        if item.get("shared_photo") is True:
-            SHARED.add(name)
-        if item.get("developer_tested") is True:
-            TESTED.add(name)
-        if name and recipe_id is not None:
-            GALLERY.setdefault(str(recipe_id), []).append(name)
-    if name:
-        USE[name] = recipe_id
-        if ai:
-            AI.add(name)
+
+
+def reload() -> None:
+    """Read recipe_photos.json again, e.g. after the catalog sync replaced it. The tables are
+    updated in place, so every module that imported them sees the new list."""
+    data = json.loads((catalog_dir() / "recipe_photos.json").read_text())
+    for table in (USE, AI, SHARED, CREDITS, TESTED, GALLERY):
+        table.clear()
+    for item in data.get("use") or []:
+        if isinstance(item, str):
+            name = Path(item).name
+            recipe_id = None
+            ai = False
+        else:
+            name = Path(str(item.get("file") or "")).name
+            raw = item.get("recipe_id")
+            recipe_id = int(raw) if raw is not None and str(raw).isdigit() else None
+            ai = item.get("ai_generated") is True
+            source = str(item.get("source_url") or "")
+            CREDITS[name] = {
+                "credit": str(item.get("credit") or item.get("owner") or ""),
+                "source_url": source if source.startswith(("https://", "http://")) else "",
+            }
+            if item.get("shared_photo") is True:
+                SHARED.add(name)
+            if item.get("developer_tested") is True:
+                TESTED.add(name)
+            if name and recipe_id is not None:
+                GALLERY.setdefault(str(recipe_id), []).append(name)
+        if name:
+            USE[name] = recipe_id
+            if ai:
+                AI.add(name)
+
+
+reload()
 
 
 def photo_name(path: str) -> str:
