@@ -80,6 +80,7 @@ npm run build --prefix web
 | `FOOD_DIR` | Required directory of private recipe photos, outside Git. |
 | `GROCERY_PHOTO_DIR` | Folder of individual food photos (kept outside Git). Locally: `/Users/turtlesoup/Repos/dd_support/references/individual grocery food items`. On Railway: a mounted volume. |
 | `ADMIN_EMAIL` | The one account that can use the admin tools. Empty means no admin. |
+| `CATALOG_SYNC_TOKEN` | Turns on the catalog sync routes (`/api/catalog-sync/*`) for `dd_support/catalog_sync.py`. A long random value, at least 32 characters; the same value goes in that repo's Actions secrets. Empty turns the routes off. |
 | `AUTH_REQUIRED` | When off, everyone shares one guest household. |
 | `SUPPORT_EMAIL` | Contact address shown on `/support` (the App Store support URL). Empty shows “not set up yet”. |
 

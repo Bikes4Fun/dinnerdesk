@@ -39,9 +39,12 @@ Email-and-password accounts with a session cookie. All normal features work sign
 private kitchen identified by a random guest cookie. Expired sign-in sessions fall back to guest
 access. Creating an account keeps the guest kitchen and revokes its anonymous access. Forgot password works on the website and in the iOS app.
 
-The Quick start tour is optional: a short what-to-eat survey (diet, avoids, cook time, the same
-filters as Settings), a **How we use AI** screen, and one screen each for Recipes, This week,
-Grocery, and Weekend prep. How we use AI says plainly: recipe photos are AI-generated; recipes
+The Quick start tour is optional. Its order (chosen on #24, the same on iPhone, Android and web):
+Welcome, **How we use AI**, a short what-to-eat survey (diet, avoids, cook time, the same filters
+as Settings; saved when you leave it, so a later Skip keeps them), then one card each for
+Suggestions, Review and approve, Grocery, Weekend prep, Recipes and ★ tips, and Taste Lab. The
+last card offers **Start planning** or **Try Taste Lab**. The tour must not promise that tips fade
+until that is built. How we use AI says plainly: recipe photos are AI-generated; recipes
 are not (they come from reliable sources); photos can be copyrighted and recipes can't, so we
 never copy photos; the AI runs on our own computer, not in a data center; and real photos will
 replace AI ones over time.
@@ -636,3 +639,29 @@ headers and cooked-meal text contrast remain in place.
 
 These changes require hands-on VoiceOver/TalkBack and largest-text acceptance; compilation
 and source checks do not establish accessibility conformance.
+
+
+### Ingredient identities (#178)
+
+Ingredient names in catalog import, recipe ingredients, groceries, pantry, substitutions
+and store/aisle assignments use `ingredient_name` from `app/domain/pantry_catalog.py`.
+It normalizes case, Unicode and whitespace and resolves known catalog aliases/plurals.
+Unknown custom names stay normalized without being published to the shared catalog.
+An ingredient identity is shared; pantry contents, substitutions, grocery renames and
+store/aisle choices belong to the household. Editing one of these never renames the
+shared ingredient or changes another household's preferences. Grocery search continues to use the shared catalog; custom additions do not
+modify that catalog or appear in another household.
+Legacy aisle spellings resolve through the same normalizer during rebuild and refresh.
+
+
+Existing ingredient records can be reconciled with `python -m app.db.ingredient_cleanup`.
+The default is a read-only preview. Maintenance application requires `--apply --backup PATH`,
+uses one transaction, saves the original affected tables to a new JSON backup first,
+rewires all four ingredient foreign-key references, and refuses conflicting package
+metadata or different store/aisle choices for aliases in the same household. It retains
+pantry rows and their quantities/check-offs, report snapshots, and household boundaries.
+It is not a startup migration and has not been applied to production. Review the preview,
+resolve conflicts and approve application before running it on a live database. Backups
+contain private household data and should be stored outside the repository.
+This issue's ingredient-name work does not change recipe titles, login names, quantities
+or the set of available aisles.
