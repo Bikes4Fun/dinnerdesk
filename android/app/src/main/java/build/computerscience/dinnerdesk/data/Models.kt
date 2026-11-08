@@ -62,7 +62,6 @@ data class RecipeSummary(
     val name: String,
     val servings: Int? = null,
     @SerialName("cooking_minutes") val cookingMinutes: Int? = null,
-    @SerialName("coming_soon") val comingSoon: Boolean = false,
     @SerialName("photo_path") val photoPath: String? = null,
     val favorited: Boolean = false,
     @SerialName("to_try") val toTry: Boolean = false,
@@ -193,6 +192,8 @@ data class PrepTask(
     val rating: Int? = null,
     val reason: String? = null,
     @SerialName("reason_note") val reasonNote: String? = null,
+    val storage: String? = null,
+    @SerialName("instruction_groups") val instructionGroups: List<PrepInstructionGroup>? = null,
 ) {
     /** What the row says: "Peel and mince garlic". */
     val name: String get() = title
@@ -251,7 +252,43 @@ data class PrepStep(
     val done: Boolean? = null,
     /** The household added this step with "Missing a prep step?". */
     val added: Boolean? = null,
+    @SerialName("display_text") val displayText: String? = null,
+    val quantities: List<String> = emptyList(),
 )
+
+@Serializable
+data class PrepInstructionMeal(val id: Int, val name: String = "", val day: String? = null)
+
+@Serializable
+data class PrepInstructionGroup(
+    val text: String,
+    val quantities: List<String> = emptyList(),
+    val added: Boolean = false,
+    val meals: List<PrepInstructionMeal> = emptyList(),
+)
+
+/** Server grouping is canonical. Older cached payloads use the same fallback rules. */
+class PrepTaskPresentation(private val task: PrepTask) {
+    val instructionGroups: List<PrepInstructionGroup>
+        get() {
+            task.instructionGroups?.let { return it }
+            val groups = mutableListOf<PrepInstructionGroup>()
+            for (meal in task.meals) {
+                val steps = meal.steps.orEmpty().ifEmpty { meal.instructions.map { PrepStep(key = "", text = it) } }
+                for (step in steps) {
+                    val text = (step.displayText?.takeIf { it.isNotEmpty() } ?: step.text).trim()
+                    if (text.isEmpty()) continue
+                    val quantities = step.quantities.filter { it.isNotEmpty() }
+                    val added = step.added == true
+                    val link = PrepInstructionMeal(meal.id, meal.name, meal.day)
+                    val index = groups.indexOfFirst { it.text.equals(text, ignoreCase = true) && it.quantities == quantities && it.added == added }
+                    if (index < 0) groups.add(PrepInstructionGroup(text, quantities, added, listOf(link)))
+                    else if (groups[index].meals.none { it.id == meal.id }) groups[index] = groups[index].copy(meals = groups[index].meals + link)
+                }
+            }
+            return groups
+        }
+}
 
 @Serializable
 data class MissingPrepList(val meals: List<MissingPrepMeal> = emptyList())

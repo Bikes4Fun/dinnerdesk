@@ -48,7 +48,8 @@ from app.domain.ingredient_review import (
 )
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import collapse_catalog_names, ingredient_name, in_grocery_catalog, item_key, preferred_grocery_name
-from app.domain.prep import prep_from_slots, step_key, step_sentences
+from app.domain.prep import SemanticPrepEngine, step_key, step_sentences
+from app.domain.prep_presentation import PrepTaskPresentation
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
@@ -2226,7 +2227,7 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
         completed.update(json.loads(row["completed_steps_json"]))
     retained = set()
     # Completion follows recipe and step identity, even when tasks regroup.
-    for index, task in enumerate(prep_from_slots(slots)):
+    for index, task in enumerate(SemanticPrepEngine().build(slots)):
         linked = json.dumps(task["recipe_ids"])
         # Section and item name drive the Weekend prep layout (#21); without them every row
         # lands in "More prep" as "Prep garlic".
@@ -2290,6 +2291,7 @@ def list_prep(
         reason = next((why for value, why, _ in votes if value == rating and why), "") if rating < 0 else ""
         # The cook's own words on a 👎 ("notes" is the task's recipe summary).
         reason_note = next((n for value, _, n in votes if value == rating and n), "") if rating < 0 else ""
+        details['instruction_groups'] = PrepTaskPresentation(details).instruction_groups()
         tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
                       "rating": rating, "reason": reason, "reason_note": reason_note, "section": "other", "item": r["title"],
                       "action": "", **details})
