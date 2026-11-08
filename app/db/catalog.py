@@ -360,34 +360,6 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
     return "insert"
 
 
-def rewritten_dir() -> Path | None:
-    """dd_support's recipes/rewritten/ folder: DINNERDESK_REWRITTEN_DIR, or found next to the
-    catalog (dd_support/catalog/dinnerdesk/data -> dd_support/recipes/rewritten)."""
-    value = os.environ.get("DINNERDESK_REWRITTEN_DIR", "").strip()
-    if value:
-        path = Path(value).expanduser()
-    else:
-        parents = catalog_dir().resolve().parents
-        if len(parents) < 3:
-            return None
-        path = parents[2] / "recipes" / "rewritten"
-    return path if path.is_dir() else None
-
-
-def originals_dir() -> Path | None:
-    """dd_support's recipes/originals/ folder, next to recipes/rewritten/ (DINNERDESK_ORIGINALS_DIR
-    overrides). Only names, photos and ingredients are read from it, never the steps."""
-    value = os.environ.get("DINNERDESK_ORIGINALS_DIR", "").strip()
-    if value:
-        path = Path(value).expanduser()
-    else:
-        rewritten = rewritten_dir()
-        if rewritten is None:
-            return None
-        path = rewritten.parent / "originals"
-    return path if path.is_dir() else None
-
-
 def coming_soon_record(data: dict) -> dict:
     """The parts of a not-yet-rewritten recipe the app may keep: everything but its steps."""
     keep = ("id", "slug", "name", "servings", "cooking_minutes", "ingredients", "cookware",
@@ -441,9 +413,9 @@ def with_photo(data: dict, photos: dict[str, list[str]]) -> dict:
 
 
 def catalog_records() -> list[dict]:
-    """Every catalog recipe: the catalog's recipes/*.json, plus dd_support rewrites for recipes the
-    catalog lacks or still has third-party steps for. The catalog copy wins once it is rewritten,
-    so edits made there are kept."""
+    """Every catalog recipe: catalog/dinnerdesk/data/recipes/*.json, the one recipe folder. Rewrites
+    and coming-soon records are put there in dd_support (recipe_rewrite/add_to_catalog.py), and the
+    catalog sync copies it to the server; nothing else is read."""
     src = catalog_dir() / "recipes"
     if not src.is_dir() or not any(src.glob("*.json")):
         raise RuntimeError(f"No recipe JSON files in {src}; configure DINNERDESK_CATALOG_DIR explicitly")
@@ -453,27 +425,6 @@ def catalog_records() -> list[dict]:
         if not (data.get("slug") or data.get("id")):
             data = {**data, "slug": path.stem}
         records[str(data.get("id") or data.get("slug"))] = data
-    rewritten = rewritten_dir()
-    for path in sorted(rewritten.glob("*.json")) if rewritten else []:
-        data = json.loads(path.read_text())
-        key = str(data.get("id") or path.stem.split("-", 1)[-1])
-        current = records.get(key)
-        if data.get("instructions_copied_from_third_party"):
-            continue
-        if current is None:
-            records[key] = {**data, "slug": data.get("slug") or key}
-        elif current.get("instructions_copied_from_third_party"):
-            records[key] = {**current, **data, "slug": current.get("slug") or data.get("slug") or key}
-    # Originals nobody has rewritten yet can still show as coming soon when they have our photo.
-    originals = originals_dir()
-    for path in sorted(originals.glob("*.json")) if originals else []:
-        try:
-            data = json.loads(path.read_text())
-        except ValueError:
-            continue
-        key = str(data.get("id") or path.stem.split("-", 1)[-1])
-        if key not in records:
-            records[key] = {**coming_soon_record(data), "slug": data.get("slug") or key}
     # Files should already be normalized (scripts/normalize_catalog.py); this catches any that aren't.
     return [normalize_recipe(r)[0] for r in records.values()]
 
