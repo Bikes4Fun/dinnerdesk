@@ -20,7 +20,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
-from app.domain.offering import withheld
+from app.domain.coming_soon import ComingSoon
+from app.domain.offering import Offering
 from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
@@ -305,7 +306,7 @@ def _recipe_visible(row, household_id: int) -> bool:
     hid = row["household_id"]
     if hid is not None and hid != household_id:
         return False
-    if hid is None and withheld(row["name"] or ""):
+    if hid is None and Offering.withheld(row["name"] or ""):
         return False
     # Coming soon: shown as a photo in Recipes only; not openable or plannable.
     if _is_coming_soon(row):
@@ -761,8 +762,7 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
     }
 
 
-def _is_coming_soon(row) -> bool:
-    return row["household_id"] is None and '"coming_soon": true' in (row["provenance_json"] or "")
+_is_coming_soon = ComingSoon.is_row
 
 
 def _coming_soon_rows(db: PgConnection, q: str = "") -> list:
@@ -775,7 +775,7 @@ def _coming_soon_rows(db: PgConnection, q: str = "") -> list:
         args.append(f"%{tok}%")
     return [
         r for r in db.execute(sql + " ORDER BY r.name", args).fetchall()
-        if usable_photo(r["photo_path"]) and not withheld(r["name"] or "")
+        if usable_photo(r["photo_path"]) and not Offering.withheld(r["name"] or "")
     ]
 
 
@@ -2232,7 +2232,7 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
         # lands in "More prep" as "Prep garlic".
         details = json.dumps({"meals": task["meals"], "quantities": task["quantities"], "auto": task["auto"],
                               "section": task.get("section", "other"), "item": task.get("item") or task["title"],
-                              "action": task.get("action", "")})
+                              "action": task.get("action", ""), "storage": task.get("storage", "")})
         keys = {f"{m['id']}:{s['key']}" for m in task["meals"] for s in m["steps"]}
         progress = json.dumps(sorted(completed & keys))
         done = int(bool(keys) and keys <= completed)
