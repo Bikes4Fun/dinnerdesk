@@ -2232,7 +2232,7 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
         # lands in "More prep" as "Prep garlic".
         details = json.dumps({"meals": task["meals"], "quantities": task["quantities"], "auto": task["auto"],
                               "section": task.get("section", "other"), "item": task.get("item") or task["title"],
-                              "action": task.get("action", "")})
+                              "action": task.get("action", ""), "storage": task.get("storage", "")})
         keys = {f"{m['id']}:{s['key']}" for m in task["meals"] for s in m["steps"]}
         progress = json.dumps(sorted(completed & keys))
         done = int(bool(keys) and keys <= completed)
