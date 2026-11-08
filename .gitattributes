@@ -1,0 +1,7 @@
+# Every image in this repo is stored in Git LFS. Without this, a checkout (GitHub Actions,
+# Railway, a fresh clone) gets the small pointer text instead of the image.
+*.png filter=lfs diff=lfs merge=lfs -text
+*.jpg filter=lfs diff=lfs merge=lfs -text
+*.jpeg filter=lfs diff=lfs merge=lfs -text
+*.webp filter=lfs diff=lfs merge=lfs -text
+*.gif filter=lfs diff=lfs merge=lfs -text
