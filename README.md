@@ -97,9 +97,10 @@ The iOS app is in `ios/dinnerdesk.xcodeproj`; build and run it in Xcode.
 **Database changes** apply on server start: `app.db.database.init_db` creates tables and adds
 missing columns. After pulling changes that touch `app/db/schema.sql`, restart the server.
 
-**Deploy:** before the API starts, Railway runs `python -m app.db.deploy_catalog`. It pulls
-the latest pushed `dd_support` onto the volume and imports the catalog, so every deploy adds
-recipes that are rewritten and have one of our photos, and applies catalog edits. See
+**Deploy:** before the API starts, Railway runs `python -m app.db.deploy_catalog`, which imports
+the catalog already on the volume. Recipes and photos get there one way only: dd_support's
+catalog sync, which runs on every push that changes its `catalog/dinnerdesk/` (the one folder
+for current recipes and photos) and uploads and imports them. See
 [automatic catalog updates](#automatic-catalog-updates). Locally, import by hand with
 `python -m app.db.catalog`.
 
