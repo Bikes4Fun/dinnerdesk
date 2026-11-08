@@ -77,6 +77,7 @@ def test_only_admins_can_edit_recipes(tmp_path):
         assert client.patch("/api/recipes/1", json={"as_copy": True, "name": "Copy"}).status_code == 403
         assert client.put("/api/recipes/1/dev-notes", json={"text": "hi"}).status_code == 403
         assert client.delete("/api/recipes/1/edit").status_code == 403
+        assert client.put("/api/recipes/1/retired", json={"on": True}).status_code == 403
         assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
@@ -86,6 +87,7 @@ def test_only_admins_can_edit_recipes(tmp_path):
         assert client.patch("/api/recipes/1", json={"as_copy": True, "name": "Copy"}).status_code == 403
         assert client.put("/api/recipes/1/dev-notes", json={"text": "hi"}).status_code == 403
         assert client.delete("/api/recipes/1/edit").status_code == 403
+        assert client.put("/api/recipes/1/retired", json={"on": True}).status_code == 403
         assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
@@ -2498,3 +2500,20 @@ def test_catalog_sync_merge_writes_admin_edits_into_the_repo_files(tmp_path, mon
     finally:
         monkeypatch.undo()
         recipe_photos.reload()
+
+
+def test_admin_removes_a_recipe_from_the_app_and_brings_it_back(tmp_path):
+    with _client(tmp_path) as client:
+        assert any(r["id"] == 1 for r in client.get("/api/recipes").json()["recipes"])
+        gone = client.put("/api/recipes/1/retired", json={"on": True})
+        assert gone.status_code == 200 and gone.json()["retired"] is True
+        # Hidden from every list, but not deleted: its own page (and any plan using it) still opens.
+        assert not any(r["id"] == 1 for r in client.get("/api/recipes").json()["recipes"])
+        assert client.get("/api/recipes/1").json()["retired"] is True
+        db = connect()
+        row = db.execute("SELECT provenance_json FROM recipes WHERE id = 1").fetchone()
+        db.close()
+        assert json.loads(row["provenance_json"])["admin_retired_edited"] is True  # the sync writes it to the file
+        back = client.put("/api/recipes/1/retired", json={"on": False})
+        assert back.json()["retired"] is False
+        assert any(r["id"] == 1 for r in client.get("/api/recipes").json()["recipes"])
