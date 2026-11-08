@@ -124,8 +124,10 @@ def parse_qty(text: str) -> tuple[Fraction, str] | None:
     return Fraction(m.group(1)), unit
 
 
+_NUMBER = r"(?:\d+\s+\d+\s*/\s*\d+|\d+\s*/\s*\d+|\d+(?:\.\d+)?)"
+# "2", "1 1/2", "about 3", and ranges: "5 to 8", "2-3", "1 or 2".
 _AMOUNT_RE = re.compile(
-    r"^(?:about\s+)?(?:\d+\s+\d+\s*/\s*\d+|\d+\s*/\s*\d+|\d+(?:\.\d+)?)",
+    rf"^(?:about\s+)?{_NUMBER}(?:\s*(?:-|–|to|or)\s*{_NUMBER}(?!\s*%))?",
     re.I,
 )
 _PAREN_WT_RE = re.compile(
@@ -135,7 +137,7 @@ _PAREN_WT_RE = re.compile(
 _UNIT_RE = re.compile(
     r"^(?:fluid\s+ounces?|fl(?:uid)?\s+oz|tablespoons?|teaspoons?|pounds?|ounces?|"
     r"cups?|tbsp|tsp|lbs?|oz|cloves?|heads?|pints?|bunches?|bunch|cans?|"
-    r"packages?|pkgs?|pkg|slices?)\b",
+    r"packages?|pkgs?|pkg|slices?|pinch(?:es)?|dash(?:es)?)\b",
     re.I,
 )
 
