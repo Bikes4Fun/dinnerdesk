@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.domain.offering import withheld
+from app.domain.offering import Offering
 
 
 class ComingSoon:
@@ -30,7 +30,7 @@ class ComingSoon:
     def is_candidate(data: dict, photos: dict[str, list[str]]) -> bool:
         """A catalog recipe file that should show as coming soon: has one of our photos, isn't
         withheld (pizza, breakfast, snacks) or retired, and its steps are someone else's or missing."""
-        if withheld(str(data.get("name") or ""), data.get("tags")) or data.get("retired"):
+        if Offering.withheld(str(data.get("name") or ""), data.get("tags")) or data.get("retired"):
             return False
         photo = Path((data.get("photo_path") or "").strip()).name
         return bool(photo) and photo in photos.get("*", []) and bool(

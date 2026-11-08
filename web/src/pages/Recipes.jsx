@@ -5,14 +5,13 @@ import { RecipeCard, RecipeRow } from "../cards.jsx";
 import { Icon } from "../icons.jsx";
 import { go } from "../nav.js";
 import { PlanStrip } from "../PlanStrip.jsx";
-import { RecipeCollections } from "../recipeCollections.js";
+import { RecipeCollections, isBudget } from "../recipeCollections.js";
 
 const FILTERS = RecipeCollections.FILTERS;
 const SORTS = [
   ["name", "A–Z"],
   ["time", "Time"],
 ];
-const STAPLE = /^(salt|black pepper|pepper|olive oil|extra virgin olive oil|vegetable oil|neutral cooking oil|canola oil|oil|water|cooking spray)$/;
 
 const LIST_TITLES = {
   suggestions: "Suggestions",
@@ -143,10 +142,6 @@ function usesPantry(r, pantryHave) {
   return hits >= 2 || (hits >= 1 && hits / ings.length >= 0.4);
 }
 
-function isBudget(r) {
-  const n = (r.ingredients || []).map(norm).filter((x) => x && !STAPLE.test(x)).length;
-  return n > 0 && n <= 8;
-}
 
 function browseOrder(rows) {
   const seed = Math.floor(Date.now() / 86400000);
@@ -277,8 +272,8 @@ export function Recipes() {
   const { comingSoon, toTry, meals, sauces, popular, mine, simple } = collections;
   const yours = collections.favorites;
   const hiddenList = hiddenRecipes;
-  const budget = meals.filter((r) => r.budget);
-  const pantryRow = meals.filter((r) => r.usesPantry);
+  const budget = collections.budget;
+  const pantryRow = collections.pantry;
 
   const inList = Boolean(list) || showSearch || Boolean(familyId);
 
