@@ -1,3 +1,5 @@
+import json
+
 from app.domain import recipe_photos
 
 
@@ -51,3 +53,23 @@ def test_catalog_gallery_lists_every_photo_for_the_recipe(monkeypatch):
     assert recipe_photos.catalog_gallery("2478") == ["food/2478_ai-generated.png", "food/2478_photo-by-deanna.jpg"]
     assert recipe_photos.catalog_gallery("905") == []
     assert recipe_photos.catalog_gallery(None) == []
+
+
+def test_recipe_site_photos_are_never_shown_even_if_listed(tmp_path, monkeypatch):
+    (tmp_path / "recipe_photos.json").write_text(json.dumps({"use": [
+        {"file": "7_ours.png", "recipe_id": 7, "credit": "Deanna"},
+        {"file": "7_credited.png", "recipe_id": 7, "credit": "Mealime"},
+        {"file": "7_linked.png", "recipe_id": 7, "source_url": "https://www.allrecipes.com/r/7"},
+        "myplate-7.png",
+    ]}))
+    monkeypatch.setenv("DINNERDESK_CATALOG_DIR", str(tmp_path))
+    try:
+        recipe_photos.reload()
+        assert recipe_photos.usable_photo("food/7_ours.png") == "food/7_ours.png"
+        assert recipe_photos.catalog_gallery("7") == ["food/7_ours.png"]
+        for name in ("7_credited.png", "7_linked.png", "myplate-7.png"):
+            assert not recipe_photos.photo_allowed(name)  # the /food/ route's check
+            assert recipe_photos.usable_photo(f"food/{name}") == ""
+    finally:
+        monkeypatch.undo()
+        recipe_photos.reload()
