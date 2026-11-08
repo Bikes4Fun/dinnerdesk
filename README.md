@@ -160,6 +160,9 @@ database. The following paths are relative to `DINNERDESK_CATALOG_DIR`, outside 
 - `templates/<family>/recipes.json`: template family lists
 - `sides.json`, `recipe_tags.json`: side names and known tags
 - `recipe_photos.json`: photos we may use, and which recipe each belongs to
+  (photographs, credited photos). Dinnerdesk's own AI photos don't need listing: any file in the
+  photo folder named `<recipe id>_<name>_ai-generated.png` counts for that recipe, with a `_PRIMARY_`
+  one first. Put `REVIEW` or `REDO` in the name to keep a photo out until it's approved.
 
 Private archive material is for reference and review. Publish our own instructions and
 our/user-provided photos. Third-party apps inform workflow ideas; they are not implementation specifications.
