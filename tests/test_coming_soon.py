@@ -29,3 +29,11 @@ def test_record_drops_the_copied_steps():
     assert rec["instructions"] == [] and rec["coming_soon"] is True
     assert rec["instructions_copied_from_third_party"] is True  # never public
     assert "description" not in rec and rec["photo_path"].endswith("PRIMARY_ai-generated.png")
+
+
+def test_one_class_holds_the_rules():
+    from app.domain.coming_soon import ComingSoon
+    assert is_coming_soon is ComingSoon.is_candidate and coming_soon_record is ComingSoon.record
+    assert ComingSoon.is_row({"household_id": None, "provenance_json": '{"coming_soon": true}'})
+    assert not ComingSoon.is_row({"household_id": 5, "provenance_json": '{"coming_soon": true}'})
+    assert not ComingSoon.is_row({"household_id": None, "provenance_json": '{"coming_soon": false}'})
