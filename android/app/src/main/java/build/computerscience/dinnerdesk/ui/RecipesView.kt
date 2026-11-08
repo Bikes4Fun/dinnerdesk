@@ -66,8 +66,10 @@ import build.computerscience.dinnerdesk.data.IngredientLine
 import build.computerscience.dinnerdesk.data.InstructionStep
 import build.computerscience.dinnerdesk.data.KitchenApi
 import build.computerscience.dinnerdesk.data.PantryMatch
+import build.computerscience.dinnerdesk.data.RecipeCollections
 import build.computerscience.dinnerdesk.data.RecipeDetail
 import build.computerscience.dinnerdesk.data.RecipeReportReason
+import build.computerscience.dinnerdesk.data.RecipeSearchFilter
 import build.computerscience.dinnerdesk.data.RecipeSuggestions
 import build.computerscience.dinnerdesk.data.RecipeSummary
 import build.computerscience.dinnerdesk.data.ResponseCache
@@ -80,11 +82,7 @@ import java.time.LocalDate
 
 private enum class RecipeListKind(val title: String) {
     Suggestions("Suggestions"), Fav("Your Favorites"), TryLater("To try"), Popular("Most Popular"), Mine("Your Recipes"),
-    Simple("Super simple"), Sauces("Sauces & dressings"), Hidden("Hidden"), All("All recipes"),
-}
-
-private enum class RecipeSearchFilter(val label: String) {
-    Fav("Your favorites"), TryLater("To try"), Popular("Popular"), Quick("Quick"), Pantry("Uses pantry"), Hidden("Hidden"),
+    Simple("Super simple"), Sauces("Sauces & dressings"), ComingSoon("Coming soon"), Hidden("Hidden"), All("All recipes"),
 }
 
 @Composable
@@ -111,13 +109,15 @@ fun RecipesView() {
     }
 
     val recipes = store.recipes
-    val favorites = recipes.filter { it.favorited }
-    val toTry = recipes.filter { it.toTry }
-    val meals = recipes.filter { it.isMeal }
-    val popular = meals.filter { "popular" in it.tags }
-    val mine = recipes.filter { !it.catalog }
-    val simple = meals.filter { (it.cookingMinutes ?: 99) <= 20 }
-    val sauces = recipes.filter { it.isExtra }
+    // Every list comes from RecipeCollections, the same class (and rules) as on web and iOS.
+    val collections = remember(recipes) { RecipeCollections(recipes) }
+    val favorites = collections.favorites
+    val toTry = collections.toTry
+    val popular = collections.popular
+    val mine = collections.mine
+    val simple = collections.simple
+    val sauces = collections.sauces
+    val comingSoon = collections.comingSoon
 
     fun rows(kind: RecipeListKind): List<RecipeSummary> = when (kind) {
         RecipeListKind.Suggestions -> suggestedIds.mapNotNull { id -> recipes.firstOrNull { it.id == id } }
@@ -127,8 +127,9 @@ fun RecipesView() {
         RecipeListKind.Mine -> mine
         RecipeListKind.Simple -> simple
         RecipeListKind.Sauces -> sauces
+        RecipeListKind.ComingSoon -> comingSoon
         RecipeListKind.Hidden -> hiddenRecipes
-        RecipeListKind.All -> meals.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        RecipeListKind.All -> collections.all
     }
 
     val searchRows = run {
@@ -137,12 +138,7 @@ fun RecipesView() {
         if (RecipeSearchFilter.Hidden in filters && q.isNotEmpty()) {
             rows = rows.filter { r -> r.name.lowercase().contains(q) || r.ingredients.any { it.lowercase().contains(q) } }
         }
-        if (RecipeSearchFilter.Fav in filters) rows = rows.filter { it.favorited }
-        if (RecipeSearchFilter.TryLater in filters) rows = rows.filter { it.toTry }
-        if (RecipeSearchFilter.Popular in filters) rows = rows.filter { "popular" in it.tags }
-        if (RecipeSearchFilter.Quick in filters) rows = rows.filter { (it.cookingMinutes ?: 99) <= 30 }
-        if (RecipeSearchFilter.Pantry in filters) rows = rows.filter { PantryMatch.uses(it.ingredients, pantryHave) }
-        rows
+        collections.filter(rows, filters, pantryHave)
     }
 
     fun onQuery(q: String) {
@@ -203,6 +199,7 @@ fun RecipesView() {
                     if (mine.isNotEmpty()) BrowseSection("Your recipes", mine) { open(RecipeListKind.Mine) }
                     if (simple.isNotEmpty()) BrowseSection("Super simple", simple) { open(RecipeListKind.Simple) }
                     if (sauces.isNotEmpty()) BrowseSection("Sauces & dressings", sauces) { open(RecipeListKind.Sauces) }
+                    if (comingSoon.isNotEmpty()) BrowseSection("Coming soon", comingSoon) { open(RecipeListKind.ComingSoon) }
                     BrowseSection("All recipes", rows(RecipeListKind.All), empty = "No recipes") { open(RecipeListKind.All) }
                 }
             }

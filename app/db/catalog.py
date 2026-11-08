@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.domain.recipe_normalize import normalize_recipe
+from app.domain.recipe_normalize import RecipeNormalizer
 from app.assets import catalog_dir, food_dir
 from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
 from app.domain.recipe_photos import (
@@ -15,6 +15,7 @@ from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
+from app.domain.coming_soon import ComingSoon
 from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, withheld
 from app.domain.pantry_catalog import ingredient_name
 
@@ -37,7 +38,7 @@ REWRITTEN_MARK = '%"instructions_copied_from_third_party": false%'
 RETIRED_MARK = '%"retired": true%'
 # A recipe that has one of our photos but whose steps aren't in our own words yet. It's stored
 # without steps and stays out of every list but Recipes, where it shows greyed out as coming soon.
-COMING_SOON_MARK = '%"coming_soon": true%'
+COMING_SOON_MARK = ComingSoon.MARK_SQL
 
 
 def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
@@ -360,22 +361,9 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
     return "insert"
 
 
-def coming_soon_record(data: dict) -> dict:
-    """The parts of a not-yet-rewritten recipe the app may keep: everything but its steps."""
-    keep = ("id", "slug", "name", "servings", "cooking_minutes", "ingredients", "cookware",
-            "source_url", "tags", "photo_path", "variant_of")
-    out = {k: data[k] for k in keep if k in data}
-    out.update({"instructions": [], "instructions_copied_from_third_party": True, "coming_soon": True})
-    return out
-
-
-def is_coming_soon(data: dict, photos: dict[str, list[str]]) -> bool:
-    """Has one of our photos, but its steps are still someone else's (or missing)."""
-    if withheld(str(data.get("name") or ""), data.get("tags")):
-        return False
-    photo = Path((data.get("photo_path") or "").strip()).name
-    return bool(photo) and photo in photos.get("*", []) and not data.get("retired") and bool(
-        data.get("instructions_copied_from_third_party") or not data.get("instructions"))
+# Kept as names here so existing callers and tests read the same; the rules are in ComingSoon.
+coming_soon_record = ComingSoon.record
+is_coming_soon = ComingSoon.is_candidate
 
 
 def catalog_photos() -> dict[str, list[str]]:
@@ -426,7 +414,7 @@ def catalog_records() -> list[dict]:
             data = {**data, "slug": path.stem}
         records[str(data.get("id") or data.get("slug"))] = data
     # Files should already be normalized (scripts/normalize_catalog.py); this catches any that aren't.
-    return [normalize_recipe(r)[0] for r in records.values()]
+    return [RecipeNormalizer.normalize(r)[0] for r in records.values()]
 
 
 def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) -> int:

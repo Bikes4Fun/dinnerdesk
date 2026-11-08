@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
+from app.domain.coming_soon import ComingSoon
 from app.domain.offering import withheld
 from app.perf import Laps
 from app.db.seed import pantry_catalog
@@ -761,8 +762,7 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
     }
 
 
-def _is_coming_soon(row) -> bool:
-    return row["household_id"] is None and '"coming_soon": true' in (row["provenance_json"] or "")
+_is_coming_soon = ComingSoon.is_row
 
 
 def _coming_soon_rows(db: PgConnection, q: str = "") -> list:
