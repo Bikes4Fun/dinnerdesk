@@ -315,14 +315,11 @@ struct RecipesView: View {
     case .hidden: hiddenRecipes
     case .all:
       meals.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-        + store.recipes.filter(\.comingSoon).sorted {
-          $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-        }
     }
   }
 
   private var searchRows: [RecipeSummary] {
-    var rows = (filters.contains(.hidden) ? hiddenRecipes : store.recipes).filter { !$0.comingSoon }
+    var rows = filters.contains(.hidden) ? hiddenRecipes : store.recipes
     let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     if filters.contains(.hidden), !q.isEmpty {
       rows = rows.filter { recipe in
@@ -473,22 +470,37 @@ struct RecipeTile: View {
   let recipe: RecipeSummary
 
   var body: some View {
-    if recipe.comingSoon {
+    if recipe.comingSoon { comingSoonTile } else { readyTile }
+  }
+
+  /// Dimmed photo with a "Coming soon" label; no link, no add button.
+  private var comingSoonTile: some View {
+    VStack(alignment: .leading, spacing: 8) {
       Color.clear
         .aspectRatio(1, contentMode: .fit)
         .overlay {
           RecipePhoto(path: recipe.photoPath, fill: true)
-            .allowsHitTesting(false)
+            .grayscale(0.6)
+            .opacity(0.6)
+        }
+        .overlay {
+          Text("Coming soon")
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.6), radius: 3)
         }
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .accessibilityLabel("Coming soon")
-    } else {
-      recipeLink
+      Text(recipe.name)
+        .font(Theme.recipeCardServing)
+        .foregroundStyle(Theme.muted)
+        .lineLimit(3)
     }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(recipe.name), coming soon")
   }
 
-  private var recipeLink: some View {
+  private var readyTile: some View {
     NavigationLink {
       RecipeDetailView(id: recipe.id)
     } label: {

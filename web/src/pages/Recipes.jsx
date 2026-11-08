@@ -136,17 +136,7 @@ function isExtra(r) {
 }
 
 function isMeal(r) {
-  return !r.coming_soon && !isExtra(r);
-}
-
-function ComingSoonPhoto({ recipe }) {
-  return (
-    <div className="recipe-row">
-      <span className="recipe-open-photo" aria-label="Coming soon">
-        <FoodPhoto className="thumb-sq" path={recipe.photo_path} />
-      </span>
-    </div>
-  );
+  return !isExtra(r);
 }
 
 function nameHits(ingredient, pantryHave) {
@@ -297,13 +287,15 @@ export function Recipes() {
     setRecipes((cur) => cur.map((r) => (r.id === next.id ? { ...r, ...next } : r)));
   }
 
-  const yours = decorated.filter((r) => r.favorited);
-  const toTry = decorated.filter((r) => r.to_try);
+  // Coming-soon recipes stay out of the themed rows; they get their own row and end the full list.
+  const ready = decorated.filter((r) => !r.coming_soon);
   const comingSoon = decorated.filter((r) => r.coming_soon);
-  const meals = decorated.filter(isMeal);
-  const sauces = decorated.filter(isExtra);
+  const yours = ready.filter((r) => r.favorited);
+  const toTry = ready.filter((r) => r.to_try);
+  const meals = ready.filter(isMeal);
+  const sauces = ready.filter(isExtra);
   const popular = meals.filter((r) => hasTag(r, "popular"));
-  const mine = decorated.filter((r) => !r.catalog);
+  const mine = ready.filter((r) => !r.catalog);
   const hiddenList = hiddenRecipes;
   const simple = meals.filter((r) => (r.cooking_minutes || 99) <= 20);
   const budget = meals.filter((r) => r.budget);
@@ -315,7 +307,7 @@ export function Recipes() {
     const needle = q.trim();
     const buckets = {
       fav: yours,
-      suggestions: suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter((r) => r && !r.coming_soon),
+      suggestions: suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean),
       try: toTry,
       popular,
       mine,
@@ -326,7 +318,7 @@ export function Recipes() {
       hidden: hiddenList,
       all: meals,
     };
-    let rows = meals.filter((r) => !r.coming_soon);
+    let rows = meals;
     if (showSearch) {
       const hiddenOn = filters.includes("hidden");
       rows = hiddenOn
@@ -335,7 +327,7 @@ export function Recipes() {
             usesPantry: usesPantry(r, pantryHave),
             budget: isBudget(r),
           }))
-        : decorated.filter((r) => !r.coming_soon);
+        : decorated;
       if (filters.includes("fav")) rows = rows.filter((r) => r.favorited);
       if (filters.includes("try")) rows = rows.filter((r) => r.to_try);
       if (filters.includes("popular")) rows = rows.filter((r) => hasTag(r, "popular"));
@@ -353,7 +345,7 @@ export function Recipes() {
     if (showSearch && needle) {
       let ranked = rankSearch(rows, needle);
       if (!ranked.rows.length && filters.length) {
-        ranked = rankSearch(decorated.filter((r) => !r.coming_soon), needle);
+        ranked = rankSearch(decorated, needle);
         if (ranked.rows.length) note = "Nothing in this filter. Matches from all recipes:";
         else note = ranked.note;
       } else {
@@ -361,7 +353,7 @@ export function Recipes() {
       }
       rows = ranked.rows;
       if (!rows.length) {
-        rows = suggestionPool(popular, meals, decorated.filter((r) => !r.coming_soon));
+        rows = suggestionPool(popular, meals, decorated);
         note = "none";
       }
     } else if (!familyId) {
@@ -553,7 +545,7 @@ export function Recipes() {
         {!inList && (
           <>
             {!!suggestedIds.length && <Row title="Suggestions" onSeeAll={() => setList("suggestions")}>
-              {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter((r) => r && !r.coming_soon).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />)}
+              {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />)}
             </Row>}
             <Row title="Your Favorites" onSeeAll={() => setList("fav")} empty="Heart a recipe to keep it here.">
               {yours.length ? browseOrder(yours).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
@@ -586,6 +578,9 @@ export function Recipes() {
             <Row title="Sauces & dressings" onSeeAll={() => setList("sauces")}>
               {sauces.length ? browseOrder(sauces).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
             </Row>
+            {comingSoon.length > 0 && <Row title="Coming soon">
+              {comingSoon.slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} />)}
+            </Row>}
             <div className="section-head flush">
               <h2>All recipes</h2>
             </div>
@@ -593,14 +588,9 @@ export function Recipes() {
               {meals
                 .slice()
                 .sort((a, b) => a.name.localeCompare(b.name))
+                .concat(comingSoon)
                 .map((r) => (
                   <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
-                ))}
-              {comingSoon
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .map((r) => (
-                  <ComingSoonPhoto key={r.id} recipe={r} />
                 ))}
             </div>
             {hiddenList.length > 0 ? (

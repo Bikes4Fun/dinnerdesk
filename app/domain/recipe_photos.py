@@ -69,6 +69,8 @@ def reload() -> None:
     for table in (USE, AI, SHARED, CREDITS, TESTED, GALLERY):
         table.clear()
     for item in data.get("use") or []:
+        if is_third_party_entry(item):
+            continue
         if isinstance(item, str):
             name = Path(item).name
             recipe_id = None

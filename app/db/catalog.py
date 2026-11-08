@@ -12,7 +12,7 @@ from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
-from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, coming_soon, withheld
+from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, withheld
 from app.domain.pantry_catalog import ingredient_name
 
 
@@ -32,35 +32,35 @@ def parse_servings(raw) -> int:
 
 REWRITTEN_MARK = '%"instructions_copied_from_third_party": false%'
 RETIRED_MARK = '%"retired": true%'
+# A recipe that has one of our photos but whose steps aren't in our own words yet. It's stored
+# without steps and stays out of every list but Recipes, where it shows greyed out as coming soon.
 COMING_SOON_MARK = '%"coming_soon": true%'
 
 
 def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     """Household recipes always. Public catalog recipes only when the steps are
-    ours, a photo path is set, and the recipe isn't retired, coming soon, pizza,
-    breakfast, or a snack. The photo is shown only if that file is tagged usable."""
+    ours, a photo path is set, and the recipe isn't retired, pizza, breakfast, or a
+    snack. The photo is shown only if that file is tagged usable."""
     withheld_name = " AND ".join(f"{alias}.name NOT ILIKE ?" for _ in WITHHELD_LIKE)
     exact = ", ".join("?" for _ in WITHHELD_EXACT)
     sql = (
         f"({alias}.household_id IS NOT NULL OR ("
         f"{alias}.provenance_json LIKE ?"
         f" AND {alias}.provenance_json NOT LIKE ?"
-        f" AND {alias}.provenance_json NOT LIKE ?"
         f" AND COALESCE({alias}.photo_path, '') <> ''"
         f" AND {withheld_name}"
         f" AND LOWER(BTRIM({alias}.name)) NOT IN ({exact})))"
     )
-    return sql, [REWRITTEN_MARK, RETIRED_MARK, COMING_SOON_MARK, *WITHHELD_LIKE, *WITHHELD_EXACT]
+    return sql, [REWRITTEN_MARK, RETIRED_MARK, *WITHHELD_LIKE, *WITHHELD_EXACT]
 
 
 def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
-    """Only recipes with our own steps and a photo are offered as meals. With `photos`
+    """Only recipes with our own steps and a photo go into the database. With `photos`
     (from catalog_photos), the photo must also be one of ours on the allowlist.
-    Pizza, breakfast, and snacks are never ready. A rewritten recipe with no photo is
-    coming soon, not ready."""
+    Pizza, breakfast, and snacks are never ready."""
     if withheld(str(data.get("name") or ""), data.get("tags")):
         return False
-    if data.get("instructions_copied_from_third_party") or data.get("coming_soon"):
+    if data.get("instructions_copied_from_third_party"):
         return False
     photo = (data.get("photo_path") or "").strip()
     if photos is None:
@@ -69,10 +69,9 @@ def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
 
 
 UNREADY_SQL = (
-    "household_id IS NULL AND (provenance_json NOT LIKE ? OR "
-    "(COALESCE(photo_path, '') = '' AND provenance_json NOT LIKE ?))"
+    "household_id IS NULL AND (provenance_json NOT LIKE ? OR COALESCE(photo_path, '') = '')"
+    " AND NOT (provenance_json LIKE ? AND COALESCE(photo_path, '') <> '')"
 )
-UNREADY_ARGS = (REWRITTEN_MARK, COMING_SOON_MARK)
 
 
 def remove_unready(conn) -> list:
@@ -82,9 +81,10 @@ def remove_unready(conn) -> list:
         "(EXISTS (SELECT 1 FROM plan_slots s WHERE s.recipe_id = recipes.id)"
         " OR EXISTS (SELECT 1 FROM recipes c WHERE c.parent_recipe_id = recipes.id))"
     )
-    conn.execute(f"DELETE FROM recipes WHERE {UNREADY_SQL} AND NOT {used}", UNREADY_ARGS)
+    marks = (REWRITTEN_MARK, COMING_SOON_MARK)
+    conn.execute(f"DELETE FROM recipes WHERE {UNREADY_SQL} AND NOT {used}", marks)
     return conn.execute(
-        f"SELECT id, slug, name FROM recipes WHERE {UNREADY_SQL} ORDER BY id", UNREADY_ARGS
+        f"SELECT id, slug, name FROM recipes WHERE {UNREADY_SQL} ORDER BY id", marks
     ).fetchall()
 
 
@@ -172,7 +172,6 @@ def _provenance_json(data: dict) -> str:
             # Kept in the catalog files for reference, but no longer offered anywhere. Plans
             # and favorites that already point at it still open it.
             "retired": bool(data.get("retired")),
-            # Rewritten, but no photo of ours yet. The recipes list shows the photo only.
             "coming_soon": bool(data.get("coming_soon")),
         }
     )
@@ -372,6 +371,38 @@ def rewritten_dir() -> Path | None:
     return path if path.is_dir() else None
 
 
+def originals_dir() -> Path | None:
+    """dd_support's recipes/originals/ folder, next to recipes/rewritten/ (DINNERDESK_ORIGINALS_DIR
+    overrides). Only names, photos and ingredients are read from it, never the steps."""
+    value = os.environ.get("DINNERDESK_ORIGINALS_DIR", "").strip()
+    if value:
+        path = Path(value).expanduser()
+    else:
+        rewritten = rewritten_dir()
+        if rewritten is None:
+            return None
+        path = rewritten.parent / "originals"
+    return path if path.is_dir() else None
+
+
+def coming_soon_record(data: dict) -> dict:
+    """The parts of a not-yet-rewritten recipe the app may keep: everything but its steps."""
+    keep = ("id", "slug", "name", "servings", "cooking_minutes", "ingredients", "cookware",
+            "source_url", "tags", "photo_path", "variant_of")
+    out = {k: data[k] for k in keep if k in data}
+    out.update({"instructions": [], "instructions_copied_from_third_party": True, "coming_soon": True})
+    return out
+
+
+def is_coming_soon(data: dict, photos: dict[str, list[str]]) -> bool:
+    """Has one of our photos, but its steps are still someone else's (or missing)."""
+    if withheld(str(data.get("name") or ""), data.get("tags")):
+        return False
+    photo = Path((data.get("photo_path") or "").strip()).name
+    return bool(photo) and photo in photos.get("*", []) and not data.get("retired") and bool(
+        data.get("instructions_copied_from_third_party") or not data.get("instructions"))
+
+
 def catalog_photos() -> dict[str, list[str]]:
     """Our own photos that exist on disk, by archive recipe id, in allowlist order.
     Key "*" holds every usable file name."""
@@ -421,6 +452,16 @@ def catalog_records() -> list[dict]:
             records[key] = {**data, "slug": data.get("slug") or key}
         elif current.get("instructions_copied_from_third_party"):
             records[key] = {**current, **data, "slug": current.get("slug") or data.get("slug") or key}
+    # Originals nobody has rewritten yet can still show as coming soon when they have our photo.
+    originals = originals_dir()
+    for path in sorted(originals.glob("*.json")) if originals else []:
+        try:
+            data = json.loads(path.read_text())
+        except ValueError:
+            continue
+        key = str(data.get("id") or path.stem.split("-", 1)[-1])
+        if key not in records:
+            records[key] = {**coming_soon_record(data), "slug": data.get("slug") or key}
     return list(records.values())
 
 
@@ -428,23 +469,33 @@ def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) ->
     report = report if report is not None else {}
     photos = catalog_photos()
     n = 0
+    soon: set[str] = set()
     for data in catalog_records():
         data = with_photo(data, photos)
-        name = str(data.get("name") or "")
-        if withheld(name, data.get("tags")):
+        if withheld(str(data.get("name") or ""), data.get("tags")):
             continue
-        soon = coming_soon(data, photos)
-        if not ready(data, photos) and not soon and not conn.execute(
+        if not ready(data, photos) and is_coming_soon(data, photos):
+            data = coming_soon_record(data)
+            soon.add(str(data.get("slug") or data.get("id")))
+        elif data.get("coming_soon"):
+            continue  # an original without our photo: nothing to show
+        if not ready(data, photos) and not data.get("coming_soon") and not conn.execute(
             "SELECT 1 FROM recipes WHERE household_id IS NULL AND slug = ?",
             (str(data.get("slug") or data.get("id")),),
         ).fetchone():
             continue
-        if soon:
-            data = {**data, "coming_soon": True}
         result = upsert_catalog_recipe(conn, data, aliases, report)
         report[result] = report.get(result, 0) + 1
         if result == "insert":
             n += 1
+    # A coming-soon recipe that lost its photo, or whose file is gone, stops showing.
+    for row in conn.execute(
+        "SELECT id, slug FROM recipes WHERE household_id IS NULL AND provenance_json LIKE ?",
+        (COMING_SOON_MARK,),
+    ).fetchall():
+        if row["slug"] not in soon:
+            conn.execute("UPDATE recipes SET photo_path = '' WHERE id = ?", (row["id"],))
+    report["coming_soon"] = len(soon)
     return n
 
 
