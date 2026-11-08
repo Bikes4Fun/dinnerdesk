@@ -136,7 +136,17 @@ function isExtra(r) {
 }
 
 function isMeal(r) {
-  return !isExtra(r);
+  return !r.coming_soon && !isExtra(r);
+}
+
+function ComingSoonPhoto({ recipe }) {
+  return (
+    <div className="recipe-row">
+      <span className="recipe-open-photo" aria-label="Coming soon">
+        <FoodPhoto className="thumb-sq" path={recipe.photo_path} />
+      </span>
+    </div>
+  );
 }
 
 function nameHits(ingredient, pantryHave) {
@@ -289,6 +299,7 @@ export function Recipes() {
 
   const yours = decorated.filter((r) => r.favorited);
   const toTry = decorated.filter((r) => r.to_try);
+  const comingSoon = decorated.filter((r) => r.coming_soon);
   const meals = decorated.filter(isMeal);
   const sauces = decorated.filter(isExtra);
   const popular = meals.filter((r) => hasTag(r, "popular"));
@@ -304,7 +315,7 @@ export function Recipes() {
     const needle = q.trim();
     const buckets = {
       fav: yours,
-      suggestions: suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean),
+      suggestions: suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter((r) => r && !r.coming_soon),
       try: toTry,
       popular,
       mine,
@@ -315,7 +326,7 @@ export function Recipes() {
       hidden: hiddenList,
       all: meals,
     };
-    let rows = meals;
+    let rows = meals.filter((r) => !r.coming_soon);
     if (showSearch) {
       const hiddenOn = filters.includes("hidden");
       rows = hiddenOn
@@ -324,7 +335,7 @@ export function Recipes() {
             usesPantry: usesPantry(r, pantryHave),
             budget: isBudget(r),
           }))
-        : decorated;
+        : decorated.filter((r) => !r.coming_soon);
       if (filters.includes("fav")) rows = rows.filter((r) => r.favorited);
       if (filters.includes("try")) rows = rows.filter((r) => r.to_try);
       if (filters.includes("popular")) rows = rows.filter((r) => hasTag(r, "popular"));
@@ -342,7 +353,7 @@ export function Recipes() {
     if (showSearch && needle) {
       let ranked = rankSearch(rows, needle);
       if (!ranked.rows.length && filters.length) {
-        ranked = rankSearch(decorated, needle);
+        ranked = rankSearch(decorated.filter((r) => !r.coming_soon), needle);
         if (ranked.rows.length) note = "Nothing in this filter. Matches from all recipes:";
         else note = ranked.note;
       } else {
@@ -350,7 +361,7 @@ export function Recipes() {
       }
       rows = ranked.rows;
       if (!rows.length) {
-        rows = suggestionPool(popular, meals, decorated);
+        rows = suggestionPool(popular, meals, decorated.filter((r) => !r.coming_soon));
         note = "none";
       }
     } else if (!familyId) {
@@ -542,7 +553,7 @@ export function Recipes() {
         {!inList && (
           <>
             {!!suggestedIds.length && <Row title="Suggestions" onSeeAll={() => setList("suggestions")}>
-              {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />)}
+              {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter((r) => r && !r.coming_soon).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />)}
             </Row>}
             <Row title="Your Favorites" onSeeAll={() => setList("fav")} empty="Heart a recipe to keep it here.">
               {yours.length ? browseOrder(yours).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
@@ -584,6 +595,12 @@ export function Recipes() {
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((r) => (
                   <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
+                ))}
+              {comingSoon
+                .slice()
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((r) => (
+                  <ComingSoonPhoto key={r.id} recipe={r} />
                 ))}
             </div>
             {hiddenList.length > 0 ? (

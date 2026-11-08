@@ -63,10 +63,12 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   let hidden: Bool
   let tags: [String]
   let ingredients: [String]
+  /// Rewritten recipe with no photo yet. The recipes list shows the photo only.
+  let comingSoon: Bool
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath
-    case favorited, toTry, catalog, hidden, tags, ingredients
+    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon
   }
 
   init(from decoder: Decoder) throws {
@@ -82,6 +84,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     hidden = try c.decode(Bool.self, forKey: .hidden)
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([String].self, forKey: .ingredients)
+    comingSoon = try c.decodeIfPresent(Bool.self, forKey: .comingSoon) ?? false
   }
 
   func withFavorited(_ on: Bool) -> RecipeSummary {
@@ -104,6 +107,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     hidden = detail.hidden
     tags = detail.tags
     ingredients = detail.ingredients.map(\.name)
+    comingSoon = false
   }
 
   func withToTry(_ on: Bool) -> RecipeSummary {
@@ -117,7 +121,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     return tags.contains(where: { $0 == "sauce" || $0 == "dressing" || $0 == "component" })
   }
 
-  var isMeal: Bool { !isExtra }
+  var isMeal: Bool { !isExtra && !comingSoon }
 
   var prettyTags: String {
     tags.map { $0.replacingOccurrences(of: "_", with: " ") }.joined(separator: " · ")

@@ -19,7 +19,8 @@ from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.db.catalog import public_recipe_sql
+from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
+from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, withheld
 from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
@@ -300,9 +301,27 @@ def _upsert_recipe_edit(
     )
 
 
+def _catalog_offered(row) -> bool:
+    """Catalog meals a kitchen can open or put on a plan. Coming soon and withheld recipes
+    stay out; a household's own recipe is always offered."""
+    if row["household_id"] is not None:
+        return True
+    if withheld(row["name"] or ""):
+        return False
+    try:
+        flags = json.loads(row["provenance_json"] or "{}")
+    except (json.JSONDecodeError, KeyError):
+        flags = {}
+    # Retired recipes stay open from a plan that already uses them. They are left out of
+    # lists by public_recipe_sql. Coming soon and withheld recipes do not load.
+    return not flags.get("coming_soon")
+
+
 def _recipe_visible(row, household_id: int) -> bool:
     hid = row["household_id"]
-    return hid is None or hid == household_id
+    if hid is not None and hid != household_id:
+        return False
+    return _catalog_offered(row)
 
 
 def _recipe_tags(db: PgConnection, recipe_id: int) -> list[str]:
@@ -383,6 +402,13 @@ def _recipe_card(
         "cookware": cookware,
         "ingredients": ings,
     }
+    try:
+        flags = json.loads(row["provenance_json"] or "{}")
+    except (json.JSONDecodeError, KeyError):
+        flags = {}
+    if flags.get("coming_soon"):
+        card["coming_soon"] = True
+        card["ingredients"] = []
     return _apply_recipe_edit(db, card, household_id, hidden)
 
 
@@ -820,6 +846,8 @@ def list_recipes(
         _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
         for r in rows
     ]
+    if not (q.strip() or hidden_only or mine):
+        cards.extend(_coming_soon_cards(db, household_id, favs, later, hidden_ids))
     laps.lap("cards")
     laps.publish("recipes")
     _log.debug("recipes hh=%d q=%r tag=%r %s", household_id, q.strip() or None, tag.strip() or None, laps.fmt())
@@ -832,6 +860,25 @@ def list_recipes(
 
 
 @router.get("/tags")
+def _coming_soon_cards(db, household_id: int, favs: set[int], later: set[int], hidden_ids: set[int]) -> list[dict]:
+    """Rewritten recipes with no photo yet. The list shows the photo and nothing else."""
+    withheld_name = " AND ".join("r.name NOT ILIKE ?" for _ in WITHHELD_LIKE)
+    exact = ", ".join("?" for _ in WITHHELD_EXACT)
+    rows = db.execute(
+        f"""SELECT r.* FROM recipes r
+            WHERE r.household_id IS NULL
+              AND r.provenance_json LIKE ?
+              AND {withheld_name}
+              AND LOWER(BTRIM(r.name)) NOT IN ({exact})
+            ORDER BY r.name""",
+        (COMING_SOON_MARK, *WITHHELD_LIKE, *WITHHELD_EXACT),
+    ).fetchall()
+    return [
+        _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
+        for r in rows
+    ]
+
+
 def list_tags(db: PgConnection = DbDep, household_id: int = HhDep):
     public_sql, public_args = public_recipe_sql("r")
     rows = db.execute(
@@ -1332,7 +1379,7 @@ def put_slots(
     resolved = []
     for slot in body.slots:
         rec = db.execute(
-            "SELECT id, household_id FROM recipes WHERE id = ?",
+            "SELECT id, household_id, name, provenance_json FROM recipes WHERE id = ?",
             (slot.recipe_id,),
         ).fetchone()
         if not rec or not _recipe_visible(rec, household_id):

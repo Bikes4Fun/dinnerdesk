@@ -1695,6 +1695,44 @@ def test_short_rank_matches_the_front_of_a_long_one(tmp_path, monkeypatch):
             db.close()
 
 
+def test_pizza_breakfast_and_snacks_do_not_load_and_coming_soon_is_photo_only(tmp_path):
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        db = connect()
+        upsert_catalog_recipe(db, {
+            "slug": "frittata", "name": "Spinach frittata", "servings": 2,
+            "photo_path": "food/f.jpg", "instructions_copied_from_third_party": False,
+        }, {})
+        upsert_catalog_recipe(db, {
+            "slug": "ribs", "name": "Sheet pan ribs", "servings": 2,
+            "photo_path": "", "instructions_copied_from_third_party": False, "coming_soon": True,
+        }, {})
+        db.commit()
+        frittata = db.execute("SELECT id FROM recipes WHERE slug = 'frittata'").fetchone()["id"]
+        ribs = db.execute("SELECT id FROM recipes WHERE slug = 'ribs'").fetchone()["id"]
+        db.close()
+        listed = client.get("/api/recipes?limit=500").json()["recipes"]
+        names = {r["name"] for r in listed}
+        assert "Spinach frittata" not in names and "Soup" in names
+        soon = next(r for r in listed if r["id"] == ribs)
+        assert soon["coming_soon"] is True and soon["ingredients"] == []
+        assert client.get(f"/api/recipes/{frittata}").status_code == 404
+        assert client.get(f"/api/recipes/{ribs}").status_code == 404
+        db = connect()
+        db.execute(
+            "INSERT INTO plans (household_id, start_date, days, title, created_at) VALUES (1, date('now'), 7, 'Week', ?)",
+            (now(),),
+        )
+        pid = db.execute("SELECT id FROM plans WHERE household_id = 1").fetchone()["id"]
+        db.commit()
+        db.close()
+        added = client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": ribs, "day_index": 0, "meal_type": "dinner", "servings": 2}]},
+        )
+        assert added.status_code == 400
+
+
 def test_retired_catalog_recipe_is_offered_nowhere_but_still_opens(tmp_path):
     import app.routes as routes
     from app.db.catalog import upsert_catalog_recipe

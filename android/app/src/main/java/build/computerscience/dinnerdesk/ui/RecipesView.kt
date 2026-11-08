@@ -126,11 +126,12 @@ fun RecipesView() {
         RecipeListKind.Simple -> simple
         RecipeListKind.Sauces -> sauces
         RecipeListKind.Hidden -> hiddenRecipes
-        RecipeListKind.All -> meals.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
+        RecipeListKind.All -> meals.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name }) +
+            recipes.filter { it.comingSoon }.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.name })
     }
 
     val searchRows = run {
-        var rows = if (RecipeSearchFilter.Hidden in filters) hiddenRecipes else recipes
+        var rows = (if (RecipeSearchFilter.Hidden in filters) hiddenRecipes else recipes).filter { !it.comingSoon }
         val q = query.trim().lowercase()
         if (RecipeSearchFilter.Hidden in filters && q.isNotEmpty()) {
             rows = rows.filter { r -> r.name.lowercase().contains(q) || r.ingredients.any { it.lowercase().contains(q) } }
@@ -284,6 +285,15 @@ fun RecipeGridPage(title: String, recipes: List<RecipeSummary>) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecipeTile(recipe: RecipeSummary) {
+    if (recipe.comingSoon) {
+        Box(
+            Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp))
+                .semantics { contentDescription = "Coming soon" },
+        ) {
+            RecipePhoto(recipe.photoPath, fill = true, corner = 12.dp)
+        }
+        return
+    }
     val store = LocalStore.current
     val nav = LocalNav.current
     var menu by remember { mutableStateOf(false) }

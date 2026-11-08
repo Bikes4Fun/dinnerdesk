@@ -315,11 +315,14 @@ struct RecipesView: View {
     case .hidden: hiddenRecipes
     case .all:
       meals.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        + store.recipes.filter(\.comingSoon).sorted {
+          $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+        }
     }
   }
 
   private var searchRows: [RecipeSummary] {
-    var rows = filters.contains(.hidden) ? hiddenRecipes : store.recipes
+    var rows = (filters.contains(.hidden) ? hiddenRecipes : store.recipes).filter { !$0.comingSoon }
     let q = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     if filters.contains(.hidden), !q.isEmpty {
       rows = rows.filter { recipe in
@@ -470,6 +473,22 @@ struct RecipeTile: View {
   let recipe: RecipeSummary
 
   var body: some View {
+    if recipe.comingSoon {
+      Color.clear
+        .aspectRatio(1, contentMode: .fit)
+        .overlay {
+          RecipePhoto(path: recipe.photoPath, fill: true)
+            .allowsHitTesting(false)
+        }
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .accessibilityLabel("Coming soon")
+    } else {
+      recipeLink
+    }
+  }
+
+  private var recipeLink: some View {
     NavigationLink {
       RecipeDetailView(id: recipe.id)
     } label: {
