@@ -14,6 +14,7 @@ const FILTERS = [
   ["popular", "Popular"],
   ["quick", "Quick"],
   ["hidden", "Hidden"],
+  ["soon", "Coming soon"],
 ];
 const SORTS = [
   ["name", "A–Z"],
@@ -32,6 +33,7 @@ const LIST_TITLES = {
   pantry: "Uses pantry",
   sauces: "Sauces & dressings",
   hidden: "Hidden",
+  soon: "Coming soon",
   templates: "Templates",
   all: "All recipes",
 };
@@ -316,6 +318,7 @@ export function Recipes() {
       budget,
       sauces,
       hidden: hiddenList,
+      soon: comingSoon,
       all: meals,
     };
     let rows = meals;
@@ -328,6 +331,7 @@ export function Recipes() {
             budget: isBudget(r),
           }))
         : decorated;
+      if (filters.includes("soon")) rows = comingSoon;
       if (filters.includes("fav")) rows = rows.filter((r) => r.favorited);
       if (filters.includes("try")) rows = rows.filter((r) => r.to_try);
       if (filters.includes("popular")) rows = rows.filter((r) => hasTag(r, "popular"));
@@ -578,7 +582,7 @@ export function Recipes() {
             <Row title="Sauces & dressings" onSeeAll={() => setList("sauces")}>
               {sauces.length ? browseOrder(sauces).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
             </Row>
-            {comingSoon.length > 0 && <Row title="Coming soon">
+            {comingSoon.length > 0 && <Row title="Coming soon" onSeeAll={() => setList("soon")}>
               {comingSoon.slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} />)}
             </Row>}
             <div className="section-head flush">
@@ -623,9 +627,14 @@ export function Recipes() {
             {showSearch && searchNote.startsWith("Nothing in this filter") && (
               <p className="search-note">{searchNote}</p>
             )}
-            {visible.map((r) => (
-              <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
-            ))}
+            {list === "soon" && !showSearch ? (
+              // Photos first: a grid of the coming-soon cards to scroll through.
+              <div className="photo-grid">
+                {visible.map((r) => <RecipeCard key={r.id} recipe={r} />)}
+              </div>
+            ) : (
+              visible.map((r) => <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />)
+            )}
           </div>
         )}
       </div>
