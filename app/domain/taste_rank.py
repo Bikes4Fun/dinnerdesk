@@ -88,6 +88,12 @@ class Taste:
         self.plan_liked: set[str] = set()
         self.cooked_liked: set[str] = set()
         self.hearted: set[str] = set()
+        # Marked To try: not liked yet, but they want meals like it.
+        self.to_try: set[str] = set()
+        # Meals from a plan they declined lately. Kept out unless nothing else fits.
+        self.held_back: set[int] = set()
+        # How many of the last few suggested plans each meal was in.
+        self.recent: dict[int, int] = {}
         self.blocks = blocks
         self.like_ings: dict[str, float] = {}
         self.pass_ings: dict[str, float] = {}
@@ -273,7 +279,7 @@ def _signal_weight(
         return 0.0, weights.like_weight
     if keys & taste.cooked_liked:
         return weights.cooked_weight, 0.0
-    if keys & taste.liked or keys & taste.hearted:
+    if keys & taste.liked or keys & taste.hearted or keys & taste.to_try:
         return weights.like_weight, 0.0
     if keys & taste.plan_liked:
         return weights.plan_weight, 0.0
@@ -329,10 +335,18 @@ def _fit(
     taste.pass_vec = unit(passed) if pass_w else None
 
 
-def _apply_household(taste: Taste, recipes: list[dict], favorites: set[int], cooked: set[int]) -> None:
-    """A heart counts like a thumbs-up. A heart on a meal they cooked counts for more."""
+def _apply_household(taste: Taste, recipes: list[dict], favorites: set[int], cooked: set[int],
+                     to_try: set[int] | None = None) -> None:
+    """A heart counts like a thumbs-up. A heart on a meal they cooked counts for more.
+
+    A To try meal isn't liked yet, but meals like it are found the same way.
+    """
     by_id = {int(recipe["id"]): recipe for recipe in recipes}
     done = {int(rid) for rid in cooked}
+    for rid in to_try or set():
+        recipe = by_id.get(int(rid))
+        if recipe and not _keys(recipe) & taste.passed:
+            taste.to_try |= _keys(recipe)
     for rid in favorites:
         recipe = by_id.get(int(rid))
         if not recipe:
@@ -474,6 +488,8 @@ def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict
     keys = _keys(recipe)
     if keys & taste.passed and not allow_downvoted:
         return 0.0, [], True
+    if int(recipe["id"]) in taste.held_back and not allow_downvoted:
+        return 0.0, [], True
     if taste.blocks:
         blob = recipe_text(recipe.get("name") or "", recipe.get("ingredients") or [])
         if any(hits(blob, group) for group in taste.blocks):
@@ -482,6 +498,7 @@ def _adjust(recipe: dict, taste: Taste, aliases: dict[str, str], overrides: dict
         return 0.0, [], True
     bonus, direct = _direct_bonus(keys, taste, weights)
     bonus += getattr(taste, "suggestion_penalties", {}).get(int(recipe["id"]), 0.0)
+    bonus += taste.recent.get(int(recipe["id"]), 0) * weights.recent_penalty
     reasons: list[str] = []
     _reason(reasons, direct)
     if shop is None:
@@ -601,10 +618,11 @@ def pick_meals(
     allow_downvoted: bool = False,
     weights: SuggestionWeights = DEFAULT_WEIGHTS,
 ) -> list[dict]:
-    """allow_downvoted keeps meals the household passed on or rated 👎, for a backup pick."""
+    """allow_downvoted keeps meals the household passed on, rated 👎 or declined lately, for a
+    backup pick."""
     swaps = overrides or {}
     ignored = skip or set()
-    _apply_household(taste, recipes, favorites, cooked or set())
+    _apply_household(taste, recipes, favorites, cooked or set(), to_try)
     known = {int(recipe["id"]): recipe for recipe in taste.recipes}
     for recipe in recipes:
         known[int(recipe["id"])] = recipe
@@ -628,7 +646,15 @@ def pick_meals(
         to_try,
         laps=laps,
         weights=weights,
+        familiar=_familiar(recipes, taste, to_try, cooked),
     )
+
+
+def _familiar(recipes: list[dict], taste: Taste, to_try: set[int] | None, cooked: set[int] | None) -> set[int]:
+    """Meals the household already knows: liked, hearted, approved, cooked or marked To try."""
+    known = taste.liked | taste.hearted | taste.cooked_liked | taste.plan_liked
+    ids = {int(rid) for rid in (to_try or set()) | (cooked or set())}
+    return {int(r["id"]) for r in recipes if int(r["id"]) in ids or _keys(r) & known}
 
 
 def suggestion_note(count: int, taste: Taste) -> str:
@@ -672,15 +698,46 @@ def reasons_summary(reasons: list[list[str]]) -> str:
     return " · ".join(parts)
 
 
+# A declined plan's meals stay out of this many suggested plans after it.
+DECLINE_HOLD_PLANS = 3
+
+
+def held_back(history: list[dict], plans: int = DECLINE_HOLD_PLANS) -> set[int]:
+    """Meals from a declined plan, until that many suggested plans have come after it.
+
+    Declining says "not this week", not "we don't like these": it doesn't lower their rank.
+    A meal approved in a later plan is let back in.
+    """
+    suggested = [h for h in history if h.get("suggested_recipe_ids")]
+    held: set[int] = set()
+    for i, plan in enumerate(suggested):
+        later = suggested[i + 1:]
+        if plan.get("decision") != "decline" or len(later) >= plans:
+            continue
+        approved = {int(rid) for h in later if h.get("decision") == "approve" for rid in h["suggested_recipe_ids"]}
+        held |= {int(rid) for rid in plan["suggested_recipe_ids"]} - approved
+    return held
+
+
+# Meals in this many of the latest suggested plans rank lower in the next one.
+RECENT_PLANS = 3
+
+
+def recent_suggestions(history: list[dict], plans: int = RECENT_PLANS) -> dict[int, int]:
+    """How many of the latest suggested plans each meal was in, approved or not."""
+    counts: dict[int, int] = {}
+    for plan in [h for h in history if h.get("suggested_recipe_ids")][-plans:]:
+        for rid in set(plan["suggested_recipe_ids"]):
+            counts[int(rid)] = counts.get(int(rid), 0) + 1
+    return counts
+
+
 def suggestion_penalties(
     history: list[dict], weights: SuggestionWeights = DEFAULT_WEIGHTS,
 ) -> dict[int, float]:
-    """Repeated refusal lowers rank; targeted swaps, especially in approved plans, weigh more."""
+    """Targeted swaps lower rank, more so in approved plans. A declined plan doesn't: see held_back."""
     penalties: dict[int, float] = {}
     for plan in history:
-        if plan.get("decision") == "decline":
-            for rid in set(plan.get("suggested_recipe_ids", [])):
-                penalties[int(rid)] = max(-weights.context_penalty_cap, penalties.get(int(rid), 0.0) + weights.plan_refusal_penalty)
         for rid in {c["from"] for c in plan.get("changes", [])}:
             penalties[int(rid)] = max(-weights.context_penalty_cap, penalties.get(int(rid), 0.0) + (weights.approved_swap_penalty if plan.get("decision") == "approve" else weights.swap_penalty))
         if plan.get("decision") == "approve":

@@ -352,15 +352,36 @@ def test_reasons_summary_singular_and_empty():
     assert reasons_summary([["already covered"], []]) == ""
 
 
-def test_contextual_refusals_accumulate_without_banning():
+def test_declining_a_plan_does_not_lower_its_meals():
     from app.domain.taste_rank import suggestion_penalties
     declined = {"decision": "decline", "suggested_recipe_ids": [1], "changes": []}
-    assert suggestion_penalties([declined])[1] == -0.75
-    assert suggestion_penalties([declined] * 3)[1] == -2.25
+    assert 1 not in suggestion_penalties([declined] * 3)
     changed = {"decision": "approve", "suggested_recipe_ids": [2], "changes": [{"from": 1, "to": 2}]}
-    assert suggestion_penalties([changed])[1] < suggestion_penalties([declined])[1]
+    assert suggestion_penalties([changed])[1] < 0
     approved = {"decision": "approve", "suggested_recipe_ids": [1], "changes": []}
-    assert suggestion_penalties([declined, approved])[1] == 0
+    assert suggestion_penalties([changed, approved])[1] > suggestion_penalties([changed])[1]
+
+
+def test_declined_meals_sit_out_the_next_three_plans():
+    from app.domain.taste_rank import held_back
+    declined = {"decision": "decline", "suggested_recipe_ids": [1, 2], "changes": []}
+    later = {"suggested_recipe_ids": [3]}
+    assert held_back([declined]) == {1, 2}
+    assert held_back([declined, later, later]) == {1, 2}
+    assert held_back([declined, later, later, later]) == set()
+    # Plans made by hand aren't suggestions and don't count.
+    assert held_back([declined, {}, {}, {}]) == {1, 2}
+    approved = {"decision": "approve", "suggested_recipe_ids": [2]}
+    assert held_back([declined, approved]) == {1}
+
+
+def test_a_held_back_meal_is_skipped_unless_nothing_else_fits():
+    recipes = [meal(1, "Tacos", ["beef", "tortilla"]), meal(2, "Ramen", ["noodles", "egg"])]
+    taste = learn([], recipes)
+    taste.held_back = {1}
+    assert [row["id"] for row in pick(recipes, taste, want=2)] == [2]
+    backup = pick_meals(recipes, taste, set(), set(), {}, 2, allow_downvoted=True)
+    assert 1 in [row["id"] for row in backup]
 
 
 def test_public_taste_shows_household_filters_when_given():
@@ -412,3 +433,47 @@ def test_plain_household_skips_a_special_diet_and_a_second_steak():
     names = [row["name"].lower() for row in pick(recipes, taste, want=3)]
     assert not any("vegan" in name for name in names)
     assert sum("steak" in name for name in names) == 1
+
+
+def test_a_plan_is_mostly_meals_new_to_them():
+    # They liked three meals. A plan of five has at most two of them, and the new meals are the
+    # ones closest to what they liked.
+    liked = [meal(1, "Pasta bolognese", ["spaghetti", "ground beef", "tomato"]),
+             meal(2, "Salmon and asparagus", ["salmon", "asparagus", "lemon"]),
+             meal(3, "Fried rice", ["rice", "egg", "peas"])]
+    new = [meal(10, "Baked ziti", ["ziti", "ground beef", "tomato"]),
+           meal(11, "Lemon cod", ["cod", "asparagus", "lemon"]),
+           meal(12, "Egg noodles", ["egg noodles", "peas", "egg"]),
+           meal(13, "Tofu curry", ["tofu", "curry paste", "coconut milk"])]
+    recipes = liked + new
+    taste = learn([snap("a", swipes=[{"recipe_id": str(i), "liked": True} for i in (1, 2, 3)])], recipes)
+    picked = pick_meals(recipes, taste, set(), set(), {}, 5)
+    ids = [row["id"] for row in picked]
+    assert len([rid for rid in ids if rid < 10]) == 2
+    assert [row["familiar"] for row in picked].count(True) == 2
+    # Even a plan cut short isn't all meals they know.
+    assert any(rid >= 10 for rid in ids[:2])
+
+
+def test_a_meal_in_recent_plans_rotates_out():
+    from app.domain.taste_rank import recent_suggestions
+    plans = [{"suggested_recipe_ids": [1, 2]}, {}, {"suggested_recipe_ids": [1]},
+             {"suggested_recipe_ids": [3]}, {"suggested_recipe_ids": [1]}]
+    # The last three suggested plans; plans made by hand don't count.
+    assert recent_suggestions(plans) == {1: 2, 3: 1}
+    recipes = [meal(1, "Tacos", ["beef", "tortilla"]), meal(2, "Ramen", ["noodles", "egg"])]
+    taste = learn([snap("a", swipes=[{"recipe_id": "1", "liked": True}])], recipes)
+    assert pick(recipes, taste)[0]["id"] == 1
+    taste.recent = {1: 2}
+    assert pick(recipes, taste)[0]["id"] == 2
+
+
+def test_to_try_meals_count_as_liked_when_finding_similar_meals():
+    recipes = [
+        meal(1, "Thai green curry", ["coconut milk", "green curry paste", "basil"]),
+        meal(2, "Thai red curry", ["coconut milk", "red curry paste", "basil"]),
+        meal(3, "Meatloaf", ["ground beef", "ketchup", "breadcrumbs"]),
+    ]
+    taste = learn([], recipes)
+    picked = pick_meals([recipes[1], recipes[2]], taste, set(), set(), {}, 1, to_try={1})
+    assert picked[0]["id"] == 2

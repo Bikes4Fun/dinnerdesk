@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass
 
@@ -78,8 +79,6 @@ class SuggestionWeights:
     # needs a full shop loses a little, not as much as a meal they already approved.
     new_shop_penalty: float = -0.35
 
-    plan_refusal_penalty: float = -0.75
-
     over_time: float = -1.1
 
     swap_penalty: float = -1.5
@@ -89,6 +88,15 @@ class SuggestionWeights:
     same_kind_penalty: float = -2.5
 
     approved_swap_penalty: float = -3.0
+
+    # Each time the meal was in one of the last few suggested plans, so the same meals
+    # (often the few they liked) don't come back plan after plan.
+    recent_penalty: float = -4.0
+
+    # Most of a plan that can be meals the household already knows: liked, hearted, cooked,
+    # approved or marked To try. Rounded up: 1 of 1-2 meals, 2 of 3-5. The rest are new to
+    # them, ranked by how close they are to what they liked and by pantry and grocery reuse.
+    familiar_share: float = 0.4
 
 
 DEFAULT_WEIGHTS = SuggestionWeights()
@@ -249,12 +257,17 @@ def pick_suggestions(
     to_try: set[int] | None = None,
     laps: Laps | None = None,
     weights: SuggestionWeights = DEFAULT_WEIGHTS,
+    familiar: set[int] | None = None,
 ) -> list[dict]:
     """Greedy: each pick updates the plan's ingredient pool so add-ons reuse groceries.
 
     adjust(recipe, shop) may return (bonus, reasons, reject). Rejected recipes are
     eliminated before the greedy loop; each recipe's static bonus is computed exactly once.
     Only score_recipe (pantry/pool overlap) is recomputed per pick as the pool grows.
+
+    familiar are meals the household already knows. While new meals are left, no run of picks
+    from the start holds more than familiar_cap of them, so a plan cut short keeps the mix.
+    Each picked row says whether it was familiar.
 
     laps, if given, gets "filter" and "greedy" phases and a filtered_out count.
     """
@@ -282,11 +295,15 @@ def pick_suggestions(
     trying = to_try or set()
     pool = set(plan_ings)
     used_kinds: dict[str, int] = {}
+    known = familiar or set()
+    familiar_picks = 0
     id_to_rec = {rec["id"]: rec for rec in recipes if rec["id"] in pre}
     remaining = list(pre.keys())
     picked = []
 
     while remaining and len(picked) < want:
+        only_new = familiar_picks >= familiar_cap(len(picked) + 1, weights) and any(
+            rid not in known for rid in remaining)
         best_id = None
         best_key: tuple | None = None
         best_reasons: list[str] = []
@@ -294,6 +311,8 @@ def pick_suggestions(
         best_kinds: frozenset[str] = frozenset()
 
         for rid in remaining:
+            if only_new and rid in known:
+                continue
             shop, bonus, extra, kinds = pre[rid]
             rec = id_to_rec[rid]
             favorited = rec["id"] in favorites
@@ -317,14 +336,21 @@ def pick_suggestions(
             break
 
         rec = id_to_rec[best_id]
-        picked.append({**rec, "score": round(best_key[0], 3), "reasons": best_reasons})
+        picked.append({**rec, "score": round(best_key[0], 3), "reasons": best_reasons,
+                       "familiar": best_id in known})
         pool |= best_shop
+        familiar_picks += best_id in known
         for kind in best_kinds:
             used_kinds[kind] = used_kinds.get(kind, 0) + 1
         remaining.remove(best_id)
 
     laps.lap("greedy")
     return picked
+
+
+def familiar_cap(meals: int, weights: SuggestionWeights = DEFAULT_WEIGHTS) -> int:
+    """How many of this many meals may be ones the household already knows."""
+    return math.ceil(meals * weights.familiar_share - 1e-9)
 
 
 def norm_pantry(

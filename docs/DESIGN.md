@@ -131,8 +131,23 @@ Plan; not in Plan → ⋯) opens a
 4. Part of a Taste Lab plan the household approved.
 
 A pass or 👎 drops the meal. One to three liked meals can pull in others with similar
-ingredients. Refusing a whole plan is a weaker signal than swapping one meal and approving the
-rest. Diet and avoid filters are hard rules (see 5).
+ingredients; To try meals pull in similar meals the same way.
+
+A plan is mostly new ideas, not the same few meals they liked. At most 40% of it (1 of 1–2
+meals, 2 of 3–5) is meals the household already knows: liked, hearted, cooked, approved or To
+try. The rest are new to them, ranked by how close they are to what they liked and by pantry and
+grocery reuse. Familiar meals fill in only when too few new meals fit. A meal in the last three
+suggested plans ranks lower each time it was in one, so liked meals take turns instead of
+showing up in every plan.
+
+Declining a whole plan doesn't lower its meals: they sit out the next three suggested plans (or
+come back sooner as a backup when nothing else fits). Swapping a meal out does lower it. Diet
+and avoid filters are hard rules (see 5).
+
+- **Bug if:** more than 40% of a suggested plan is meals the household already knows while
+  new meals fit.
+- **Bug if:** a meal from a declined plan is in one of the next three suggested plans while
+  other meals fit.
 
 ### 4. Your plan (This week)
 
