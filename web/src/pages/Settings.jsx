@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { ADMIN_PAGES, go, inboxCount } from "../nav.js";
-import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
+import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, TIMES, DIET_LABELS, FilterOptions, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
 
 function Back() {
@@ -124,14 +124,7 @@ export function AdminHub() {
   );
 }
 
-const TIMES = [
-  ["any", "Any time"],
-  ["20", "20 min or less"],
-  ["30", "30 min or less"],
-  ["45", "45 min or less"],
-];
 // Same labels as Taste Lab's Filters screen.
-const DIET_LABELS = { omnivore: "Omnivore", pescatarian: "Pescatarian", vegetarian: "Vegetarian", vegan: "Vegan", "gluten-free": "Gluten-free", "dairy-free": "Dairy-free" };
 
 /** Chips for a list plus an Other box for words not on it. Saves the whole list. */
 function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, skip = [], quietEmpty = false, placeholder, dashed = false, presets = [] }) {
@@ -324,10 +317,10 @@ export function Filters() {
     }
   }
 
-  const showProteins = diets.includes("omnivore") || diets.includes("pescatarian");
+  const showProteins = FilterOptions.proteinsFor(diets).length > 0;
   const commonAvoids = AVOIDS.slice(0, 6);
   const avoidLabel = (id) => id.replace(/\b\w/g, (c) => c.toUpperCase());
-  const proteinChoices = PROTEINS.filter(([id]) => diets.includes("omnivore") || id === "seafood");
+  const proteinChoices = FilterOptions.proteinsFor(diets);
   const filterCount = (diets.length === 1 && diets[0] === "omnivore" ? 0 : 1)
     + allergens.length + avoids.length + who.length + cuisines.length
     + proteinMore.length + proteinLess.length + (time === "any" ? 0 : 1);
