@@ -35,10 +35,10 @@ const HOW = [
 
 // Same words as tour.ai.* in ios/dinnerdesk/copy.json.
 const AI = [
-  ["Recipe photos are made with AI", "Recipes are not. They come from reliable sources."],
-  ["We never copy photos", "Recipes can’t be copyrighted, but photos can."],
+  ["Are these recipes AI-generated?", "No. These are real recipes developed by people and shared publicly by reliable sources."],
+  ["AI photos and wording", "We use AI to create representative photos and rewrite descriptions and instructions, rather than copy the source’s photos or exact wording. The photos are inspiration, not the exact result."],
   ["Made on our own computer", "Our AI runs on a machine we own, not in a data center."],
-  ["Real photos are coming", "We’ll replace AI photos as we cook, and you’ll be able to share yours."],
+  ["Reviewed by our team", "Our team reviews the AI-generated photos and wording. We’re working through cooking the recipes, checking ingredients and steps, and replacing AI images with our own photos."],
 ];
 
 // One line for the notice; Details shows the rest.
