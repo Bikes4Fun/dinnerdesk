@@ -1,0 +1,16 @@
+{
+  "diets": [["omnivore", "Omnivore"], ["pescatarian", "Pescatarian"], ["vegetarian", "Vegetarian"], ["vegan", "Vegan"], ["gluten-free", "Gluten-free"], ["dairy-free", "Dairy-free"]],
+  "allergens": [["soy", "Soy"], ["peanut", "Peanut"], ["tree-nuts", "Tree nuts"], ["dairy", "Dairy"], ["egg", "Egg"], ["gluten", "Gluten"], ["sesame", "Sesame"], ["fish", "Fish"], ["shellfish", "Shellfish"]],
+  "avoids": [["fish", "Fish"], ["cilantro", "Cilantro"], ["mushrooms", "Mushrooms"], ["onions", "Onions"], ["bell peppers", "Bell peppers"], ["olives", "Olives"], ["goat cheese", "Goat cheese"], ["nuts", "Nuts"], ["beans", "Beans"], ["tofu", "Tofu"], ["eggplant", "Eggplant"], ["brussels sprouts", "Brussels sprouts"], ["coconut", "Coconut"], ["spicy", "Spicy"]],
+  "who": [["beginner", "Beginner"], ["family", "Family"], ["kids", "Kid-friendly"], ["entertaining", "Entertaining"]],
+  "cuisines": [["italian", "Italian"], ["mexican", "Mexican"], ["american", "American"], ["chinese", "Chinese"], ["thai", "Thai"], ["indian", "Indian"], ["japanese", "Japanese"], ["mediterranean", "Mediterranean"], ["korean", "Korean"], ["vietnamese", "Vietnamese"], ["greek", "Greek"], ["middle-eastern", "Middle Eastern"], ["french", "French"], ["spanish", "Spanish"], ["southern", "Southern"], ["cajun", "Cajun & Creole"], ["caribbean", "Caribbean"], ["latin-american", "Latin American"]],
+  "proteins": [["chicken", "Chicken"], ["beef", "Beef"], ["pork", "Pork"], ["salmon", "Salmon"], ["shrimp", "Shrimp"], ["tofu", "Tofu"], ["turkey", "Turkey"], ["white-fish", "White fish"], ["lamb", "Lamb"], ["sausage", "Sausage"], ["tempeh", "Tempeh"], ["beans", "Beans & lentils"], ["eggs", "Eggs"], ["scallops", "Scallops"]],
+  "times": [["any", "Any time"], ["20", "20 min or less"], ["30", "30 min or less"], ["45", "45 min or less"]],
+  "exclusive_diets": ["omnivore", "pescatarian", "vegetarian", "vegan"],
+  "strictest": ["vegan", "vegetarian", "pescatarian", "omnivore"],
+  "protein_diets": {
+    "pescatarian": ["salmon", "shrimp", "white-fish", "scallops", "tofu", "tempeh", "beans", "eggs"],
+    "vegetarian": ["tofu", "tempeh", "beans", "eggs"],
+    "vegan": ["tofu", "tempeh", "beans"]
+  }
+}
