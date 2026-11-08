@@ -470,6 +470,37 @@ struct RecipeTile: View {
   let recipe: RecipeSummary
 
   var body: some View {
+    if recipe.comingSoon { comingSoonTile } else { readyTile }
+  }
+
+  /// Dimmed photo with a "Coming soon" label; no link, no add button.
+  private var comingSoonTile: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Color.clear
+        .aspectRatio(1, contentMode: .fit)
+        .overlay {
+          RecipePhoto(path: recipe.photoPath, fill: true)
+            .grayscale(0.6)
+            .opacity(0.6)
+        }
+        .overlay {
+          Text("Coming soon")
+            .font(.footnote.weight(.bold))
+            .foregroundStyle(.white)
+            .shadow(color: .black.opacity(0.6), radius: 3)
+        }
+        .clipped()
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+      Text(recipe.name)
+        .font(Theme.recipeCardServing)
+        .foregroundStyle(Theme.muted)
+        .lineLimit(3)
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("\(recipe.name), coming soon")
+  }
+
+  private var readyTile: some View {
     NavigationLink {
       RecipeDetailView(id: recipe.id)
     } label: {

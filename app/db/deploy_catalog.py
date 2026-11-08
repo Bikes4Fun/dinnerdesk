@@ -15,7 +15,8 @@ DINNERDESK_CATALOG_DIR and FOOD_DIR inside it:
     FOOD_DIR=$DD_SUPPORT_DIR/catalog/dinnerdesk/food
     DINNERDESK_IMPORT_CATALOG=1                import the catalog on every deploy
 
-Then every deploy adds recipes that are rewritten and have one of our photos, and applies
+Then every deploy adds recipes that are rewritten and have one of our photos, shows recipes that
+have one of our photos but aren't rewritten yet as "coming soon" (without their steps), and applies
 catalog edits. Edits made in the app's admin pages are kept (see upsert_catalog_recipe).
 """
 
@@ -27,7 +28,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-SPARSE_PATHS = ["catalog/dinnerdesk", "recipes/rewritten"]
+# recipes/originals: names, ingredients and photos for coming-soon recipes; their steps are never kept.
+SPARSE_PATHS = ["catalog/dinnerdesk", "recipes/rewritten", "recipes/originals"]
 # dd_support keeps photos in Git LFS; a checkout alone holds only small pointer files.
 LFS_PATHS = "catalog/dinnerdesk/food/**"
 
