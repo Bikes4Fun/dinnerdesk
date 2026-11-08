@@ -120,7 +120,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     return tags.contains(where: { $0 == "sauce" || $0 == "dressing" || $0 == "component" })
   }
 
-  var isMeal: Bool { !isExtra }
+  var isMeal: Bool { !isExtra && !comingSoon }
 
   var prettyTags: String {
     tags.map { $0.replacingOccurrences(of: "_", with: " ") }.joined(separator: " · ")
