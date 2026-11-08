@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.domain.recipe_normalize import normalize_recipe
 from app.assets import catalog_dir, food_dir
 from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
 from app.domain.recipe_photos import archive_id_of, catalog_gallery, is_uploaded_photo, our_photo_entries
@@ -462,7 +463,8 @@ def catalog_records() -> list[dict]:
         key = str(data.get("id") or path.stem.split("-", 1)[-1])
         if key not in records:
             records[key] = {**coming_soon_record(data), "slug": data.get("slug") or key}
-    return list(records.values())
+    # Files should already be normalized (scripts/normalize_catalog.py); this catches any that aren't.
+    return [normalize_recipe(r)[0] for r in records.values()]
 
 
 def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) -> int:
