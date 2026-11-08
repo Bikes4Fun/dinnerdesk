@@ -2,8 +2,8 @@
 
 A recipe with steps tagged Prep uses only those (someone chose them), titled by the
 step's heading. A recipe with no tags gets its likely make-ahead sentences picked out:
-knife work, grating, sauces and marinades, but nothing that needs heat or happens at
-serving time.
+knife work, grating and cold sauces. Reviewed exceptions include roasting beets and
+cooking quinoa; meat work and salad assembly stay on cooking day.
 
 Tasks are grouped by what is being prepped, not by verb: "Peel and cube the potatoes" in
 two recipes becomes one task, "Prep potatoes", with each meal's step as its own item.
@@ -13,9 +13,11 @@ from __future__ import annotations
 
 import hashlib
 import re
-from app.domain.grocery import combine_quantities
+from fractions import Fraction
 
-# Anything with heat, assembly or serving belongs on cooking night, not prep day.
+from app.domain.grocery import combine_quantities, parse_qty, scale_quantity
+
+# Default filter; _cooking_component supplies narrowly reviewed heat exceptions.
 COOK_WORDS = re.compile(
     r"\b(heat|preheat|oven|bake[sd]?|baking|roast|broil|grill|sauté|saute|fry|fried|sear|simmer|boil|"
     r"cook|cooking|cooked|skillet|pan|pot|wok|microwave|toast|melt|warm|reheat|serve|serving|plate|"
@@ -37,7 +39,7 @@ KINDS = [
     ("grate", re.compile(r"\b(grate|shred)\b", re.I)),
     ("chop", re.compile(
         r"\b(chop|dice|mince|slice|peel|trim|julienne|cut|halve|quarter|zest|rinse|wash|"
-        r"stem|core|seed|spiralize|strip the leaves|cube)\b", re.I)),
+        r"stem|core|seed|spiralize|strip|cube)\b", re.I)),
 ]
 # Titles of the old verb groups, kept for likely_prep() callers and feedback categories.
 KIND_TITLES = {
@@ -69,11 +71,28 @@ FILLER = {
 # A protein's first word is what recipes call it ("the chicken"), not "breasts".
 PROTEINS = {"chicken", "beef", "pork", "turkey", "salmon", "shrimp", "steak", "lamb", "sausage",
             "tofu", "cod", "tilapia", "tuna"}
+MEAT = PROTEINS - {"tofu"}
+MEAT_WORDS = re.compile(r"\b(?:" + "|".join(sorted(MEAT | {"fish", "bacon", "ham", "meat"})) + r")\b", re.I)
+
+
+def _prep_subject(text: str) -> str:
+    # A destination is not another ingredient being cut.
+    return re.split(r"\b(?:set|reserve|keep)\b.*?\b(?:aside|for)\b", text, maxsplit=1, flags=re.I)[0]
+
+
+def _excluded(text: str) -> bool:
+    # A packaged stock is a sauce/grain ingredient, not active meat preparation.
+    meat_context = re.sub(r"\b(?:chicken|beef|fish|turkey|pork)\s+(?:broth|stock)\b", '', text, flags=re.I)
+    return bool(MEAT_WORDS.search(meat_context) or re.search(
+        r"\b(?:salad|romaine|lettuce|greens|arugula|spinach)\b.*\b(?:dressing|mix|toss)\b|"
+        r"\b(?:dressing)\b.*\b(?:salad|romaine|lettuce|greens|arugula|spinach)\b|"
+        r"\b(?:halfway|baste|basting)\b", text, re.I))
 
 # A head word that names two different groceries, told apart by the word before it:
 # "black pepper" (seasoning) vs "bell pepper" (vegetable). A seasoning one only matches when
 # the text says it in full, so "dice the pepper" means the bell pepper (#29).
-SEASONING_QUALIFIERS = {"pepper": {"black", "white", "cayenne", "ground"}}
+SEASONING_QUALIFIERS = {"pepper": {"black", "white", "cayenne", "ground"},
+                         "powder": {"curry", "garlic", "onion", "chili", "chilli"}}
 
 SENTENCE = re.compile(r"(?<=[.!?])\s+(?=[A-Z])|\n+")
 
@@ -93,7 +112,8 @@ BOTTLED = re.compile(r"\b(?:soy|fish|hot|worcestershire|chili-garlic|sriracha|ho
 def _kind(text: str, force: bool = False) -> str | None:
     """What kind of make-ahead work this is. `force` (a step someone said was missing from
     prep) skips the cooking/serving filters and calls plain knife work "chop"."""
-    if not force and (COOK_WORDS.search(text) or FRESH_ONLY.search(text) or SKIP_WORDS.search(text)):
+    skip = SKIP_WORDS.search(text) and not re.search(r"\bdrain the tofu\b.*\b(?:cut|cube)\b", text, re.I)
+    if not force and (_excluded(text) or COOK_WORDS.search(text) or FRESH_ONLY.search(text) or skip):
         return None
     plain = BOTTLED.sub("", text)
     for kind, pattern in KINDS:
@@ -160,6 +180,7 @@ def mentioned(text: str, ingredients: list[dict]) -> list[dict]:
     """Ingredients this text actually names, in recipe order. Matches the item, not filler words."""
     # "salt and pepper" is the seasoning, never the bell pepper.
     text = re.sub(r"\bsalt\s*(?:,|and|&)\s*pepper\b", "salt and black pepper", text, flags=re.I)
+    text = re.sub(r"\bmayo\b", "mayonnaise", text, flags=re.I)
     text_words = _words(text)
     found = set(text_words)
     out = []
@@ -286,8 +307,8 @@ def _auto_items(
             title = f"Make {named.group(1).lower()}"
             key = "component:" + " ".join(_words(named.group(1)))
         else:
-            hits = mentioned(sentence, ingredients)
-            generic = re.search(r"\b(sauce|dressing|vinaigrette|glaze|marinade)\b", sentence, re.I)
+            hits = mentioned(_prep_subject(sentence), ingredients)
+            generic = re.search(r"\b(sauce|dressing|vinaigrette|glaze|marinade)\b", BOTTLED.sub('', sentence), re.I)
             if kind in ("sauce", "marinate") and generic:
                 # An unnamed "dressing" is this meal's own; don't merge it with another meal's.
                 word = generic.group(1).lower()
@@ -398,14 +419,14 @@ def _item(title: str) -> tuple[str, str]:
 CUT_VERB = re.compile(
     r"\b(?:(finely|thinly|roughly|coarsely|thickly)\s+)?"
     r"(wash|rinse|scrub|peel|trim|core|seed|stem|halve|quarter|chop|dice|mince|slice|julienne|cube|"
-    r"cut|break|grate|shred|zest|spiralize|crush|smash|tear)\b", re.I)
+    r"cut|break|grate|shred|zest|spiralize|crush|smash|tear|strip)\b", re.I)
 # A new clause starts at a comma, "then", or "and" + another cut: "Break the cauliflower into
 # florets | and cut the tomatoes", so the tomatoes' cut doesn't land on the cauliflower.
 CLAUSE = re.compile(
     r"[,;]|\s+then\s+|\s+and\s+(?=(?:(?:finely|thinly|roughly|coarsely|thickly)\s+)?"
     r"(?:wash|rinse|scrub|peel|trim|core|seed|stem|halve|quarter|chop|dice|mince|slice|julienne|"
-    r"cube|cut|break|grate|shred|zest|pull|remove)\b)", re.I)
-PART_WORDS = {"root", "end", "stem", "top", "leave", "leaf", "skin", "peel", "seed", "rib", "core",
+    r"cube|cut|break|grate|shred|zest|pull|remove|strip)\b)", re.I)
+PART_WORDS = {"base", "individual", "root", "end", "stem", "top", "leave", "leaf", "skin", "peel", "seed", "rib", "core",
               "pit", "rind", "fat", "them", "it", "both", "everything", "all", "half", "piece"}
 # Words that describe the cut or a side step, not another grocery: "cut it into bite-size
 # florets", "pull off the leaves". A clause with only these stays on the item.
@@ -516,9 +537,70 @@ def _merge_verbs(per_step: list[list[str]]) -> list[str]:
 def _action(task: dict) -> str:
     """What the meals say to do to this item, merged across meals, or "" when they don't say."""
     words = {w for w in _words(task["item"]) if w not in FILLER and len(w) > 2}
-    per_step = [_verbs_for(text, words) for meal in task["meals"] for text in meal["instructions"]]
+    per_step = [_verbs_for(_prep_subject(text), words) for meal in task["meals"] for text in meal["instructions"]]
     verbs = _merge_verbs([v for v in per_step if v])
     return _phrase(verbs) if verbs else ""
+
+
+def _cooking_component(text: str) -> tuple[str, str] | None:
+    """Narrow heat exceptions from reviewed feedback, never general cooking."""
+    if _excluded(text) or FRESH_ONLY.search(text):
+        return None
+    if re.search(r"\broast\b", text, re.I) and re.search(r"\bbeets?\b", text, re.I):
+        return "beets", "Roast beets"
+    if re.search(r"\bquinoa\b", text, re.I) and re.search(r"\b(?:boil|cook|simmer)\b", text, re.I):
+        return "quinoa", "Cook quinoa"
+    return None
+
+
+def _display_context(texts: list[str], ingredients: list[dict]) -> dict[str, tuple[str, list[str]]]:
+    """Enrich presentation without changing the wording used by feedback/checkmarks.
+
+    Only resolve 'other half' when a preceding explicit split has one clear subject.
+    Unknown divisions remain labelled as recipe totals rather than invented amounts.
+    """
+    result = {}
+    split = None
+    for text in texts:
+        for sentence in step_sentences(text):
+            hits = mentioned(_prep_subject(sentence), ingredients)
+            display = sentence
+            divided = bool(re.search(r"\b(?:half|quarter|third|divided|remaining|rest)\b", sentence, re.I))
+            half = re.search(r"\b(?:the )?other half\b", sentence, re.I)
+            if half and split:
+                display = sentence[:half.start()] + f"half of the {split['name']}" + sentence[half.end():]
+                hits = [split] + [h for h in hits if h != split]
+            amounts = []
+            for ing in hits:
+                quantity = ing.get('quantity')
+                if not quantity:
+                    continue
+                if half and split == ing and parse_qty(quantity):
+                    amount = scale_quantity(quantity, Fraction(1, 2))
+                    amounts.append(f"{amount} {ing['name']} (half)")
+                elif half and split == ing:
+                    amounts.append(f"Half of {quantity} {ing['name']} (recipe total)")
+                else:
+                    amounts.append(f"{quantity} {ing['name']}" + (" (recipe total; divided)" if divided and not half else ""))
+            result[sentence] = (display, amounts)
+            if re.search(r"\b(?:set|reserve)\b.*\bhalf\b.*\baside\b", sentence, re.I):
+                split = hits[0] if len(hits) == 1 else None
+            elif half:
+                split = None
+    return result
+
+
+def _storage(task: dict, kind: str) -> str:
+    # Cooked food: foodsafety.gov/keep-food-safe/4-steps-to-food-safety.
+    # No invented shelf-life for arbitrary raw mixtures or cut produce.
+    if kind == 'cook':
+        return ('Refrigerate promptly in shallow covered containers at 40°F (4°C) or below, '
+                'within 2 hours (1 hour above 90°F/32°C). Use within 3–4 days or freeze.')
+    if task['section'] == 'sauce':
+        return 'Refrigerate in a covered container. Keep separate from salad vegetables until serving; follow the shortest ingredient storage limit.'
+    if task['section'] in ('veg', 'herbs'):
+        return 'Refrigerate in a covered container; keep washed greens and herbs dry and separate from dressing until serving.'
+    return ''
 
 
 def prep_from_slots(slots: list[dict]) -> list[dict]:
@@ -530,6 +612,8 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
         steps = slot.get('instructions') or []
         ingredients = slot.get('ingredients') or []
         texts = [(s.get('text') or s.get('step') or '').strip() for s in steps]
+        context = _display_context(texts, ingredients)
+        cooking = None
         tagged = any(s.get('prep') for s in steps)
         # Steps the household said were missing from prep (#21) come after the recipe's own,
         # listed even when the picker skipped them. Each is one sentence, matched by wording.
@@ -555,6 +639,20 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
             else:
                 seen.add((rid, i))
                 items = _auto_items(text, ingredients, rid, name)
+                # Keep the complete contiguous quinoa cooking sequence, including
+                # pronoun-only simmer/cover directions. New ingredients end it.
+                for sentence in step_sentences(text):
+                    target = _cooking_component(sentence)
+                    continuation = (cooking and cooking[0] == 'quinoa'
+                                    and not _excluded(sentence)
+                                    and re.search(r"\b(?:simmer|cover|reduce|absorb|fluff|stand)\b", sentence, re.I)
+                                    and all(re.search(r"\b(?:quinoa|broth|water|salt)\b", h['name'], re.I)
+                                            for h in mentioned(sentence, ingredients)))
+                    if target or continuation:
+                        cooking = target or cooking
+                        items.append((f'cook:{rid}:{cooking[0]}', cooking[1], sentence, None))
+                    else:
+                        cooking = None
                 auto = True
             for group, title, item_text, only in items:
                 task = groups.setdefault(group, {
@@ -573,15 +671,22 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
                 if item_text in meal['instructions']:
                     continue
                 meal['instructions'].append(item_text)
+                display, amounts = context.get(item_text, (item_text, []))
+                if only is not None:
+                    amounts = [a for a in amounts if any(n in a for n in only)]
                 meal['steps'].append({'key': step_key(item_text), 'text': item_text, 'auto': auto,
+                                      'display_text': display, 'quantities': amounts,
                                       **({'added': True} if forced else {})})
-                for ing in mentioned(item_text, ingredients):
+                for ing in mentioned(_prep_subject(display), ingredients):
                     if only is not None and ing['name'] not in only:
                         continue
                     # Once per meal: two sentences about the same potatoes are still one amount.
                     if ing.get('quantity') and (rid, ing['name']) not in task['_counted']:
                         task['_counted'].add((rid, ing['name']))
-                        task['_ingredients'].setdefault(ing['name'], []).append(ing['quantity'])
+                        quantity = ing['quantity']
+                        if f"half of the {ing['name']}" in display and parse_qty(quantity):
+                            quantity = scale_quantity(quantity, Fraction(1, 2))
+                        task['_ingredients'].setdefault(ing['name'], []).append(quantity)
     for task in groups.values():
         task.pop('_counted')
         task['quantities'] = [f"{combine_quantities(amounts)} {name}"
@@ -591,6 +696,7 @@ def prep_from_slots(slots: list[dict]) -> list[dict]:
         kind = task.pop('_kind')
         task['section'] = _section(kind, task['title'], task['quantities'])
         task['item'], task['action'] = _item(task['title'])
+        task['storage'] = _storage(task, kind)
         if task['auto'] and kind in ('chop', 'grate'):  # not "Prep mashed potatoes" or sauces
             action = _action(task)
             if action:

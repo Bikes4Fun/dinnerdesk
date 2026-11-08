@@ -2049,3 +2049,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 }
 .thumb-wrap .coming-soon-tag { font-size: 0.7rem; text-align: center; }
 .is-coming-soon .card-name, .is-coming-soon .recipe-copy { color: var(--muted, #888); }
+
+/* Coming soon list: their photos in a grid to scroll. */
+.photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+.photo-grid .card { width: auto; flex: none; }
