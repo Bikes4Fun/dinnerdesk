@@ -16,7 +16,7 @@ from pathlib import Path
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
 from app.domain.coming_soon import ComingSoon
-from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, withheld
+from app.domain.offering import Offering
 from app.domain.pantry_catalog import ingredient_name
 
 
@@ -45,8 +45,8 @@ def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     """Household recipes always. Public catalog recipes only when the steps are
     ours, a photo path is set, and the recipe isn't retired, pizza, breakfast, or a
     snack. The photo is shown only if that file is tagged usable."""
-    withheld_name = " AND ".join(f"{alias}.name NOT ILIKE ?" for _ in WITHHELD_LIKE)
-    exact = ", ".join("?" for _ in WITHHELD_EXACT)
+    withheld_name = " AND ".join(f"{alias}.name NOT ILIKE ?" for _ in Offering.LIKE)
+    exact = ", ".join("?" for _ in Offering.EXACT)
     sql = (
         f"({alias}.household_id IS NOT NULL OR ("
         f"{alias}.provenance_json LIKE ?"
@@ -55,14 +55,14 @@ def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
         f" AND {withheld_name}"
         f" AND LOWER(BTRIM({alias}.name)) NOT IN ({exact})))"
     )
-    return sql, [REWRITTEN_MARK, RETIRED_MARK, *WITHHELD_LIKE, *WITHHELD_EXACT]
+    return sql, [REWRITTEN_MARK, RETIRED_MARK, *Offering.LIKE, *Offering.EXACT]
 
 
 def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
     """Only recipes with our own steps and a photo go into the database. With `photos`
     (from catalog_photos), the photo must also be one of ours on the allowlist.
     Pizza, breakfast, and snacks are never ready."""
-    if withheld(str(data.get("name") or ""), data.get("tags")):
+    if Offering.withheld(str(data.get("name") or ""), data.get("tags")):
         return False
     if data.get("instructions_copied_from_third_party"):
         return False
@@ -103,7 +103,7 @@ def remove_withheld(conn) -> list:
     for row in conn.execute(
         "SELECT id, slug, name FROM recipes WHERE household_id IS NULL ORDER BY id"
     ):
-        if not withheld(row["name"]):
+        if not Offering.withheld(row["name"]):
             continue
         if conn.execute(f"SELECT 1 WHERE {used}", (row["id"], row["id"])).fetchone():
             kept.append(row)
@@ -424,7 +424,7 @@ def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) ->
     soon: set[str] = set()
     for data in catalog_records():
         data = with_photo(data, photos)
-        if withheld(str(data.get("name") or ""), data.get("tags")):
+        if Offering.withheld(str(data.get("name") or ""), data.get("tags")):
             continue
         if not ready(data, photos) and is_coming_soon(data, photos):
             data = coming_soon_record(data)

@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 
 private enum RecipeListKind: String, CaseIterable, Identifiable {
-  case suggestions, fav, tryLater, popular, mine, simple, sauces, comingSoon, hidden, all
+  case suggestions, fav, tryLater, popular, mine, simple, budget, pantry, sauces, comingSoon, hidden, all
   var id: String { rawValue }
 
   var title: String {
@@ -13,6 +13,8 @@ private enum RecipeListKind: String, CaseIterable, Identifiable {
     case .popular: "Most Popular"
     case .mine: "Your Recipes"
     case .simple: "Super simple"
+    case .budget: "Budget friendly"
+    case .pantry: "Uses pantry"
     case .sauces: "Sauces & dressings"
     case .comingSoon: "Coming soon"
     case .hidden: "Hidden"
@@ -127,6 +129,10 @@ struct RecipesView: View {
       .task {
         hiddenRecipes = await store.loadHiddenRecipes(onlyIfStale: true)
       }
+      .task {
+        // For the "Uses pantry" section and filter, as on web.
+        if let items = try? await KitchenAPI.pantry() { pantryHave = PantryMatch.have(items) }
+      }
       PlanStrip()
       }
     }
@@ -148,6 +154,12 @@ struct RecipesView: View {
     }
     if !simple.isEmpty {
       browseSection("Super simple", rows: simple, seeAll: .simple)
+    }
+    if !collections.budget.isEmpty {
+      browseSection("Budget friendly", rows: collections.budget, seeAll: .budget)
+    }
+    if !collections.pantry.isEmpty {
+      browseSection("Uses pantry", rows: collections.pantry, seeAll: .pantry)
     }
     if !sauces.isEmpty {
       browseSection("Sauces & dressings", rows: sauces, seeAll: .sauces)
@@ -284,7 +296,7 @@ struct RecipesView: View {
   }
 
   /// Every list comes from RecipeCollections, the same class (and rules) as on web and Android.
-  private var collections: RecipeCollections { RecipeCollections(store.recipes) }
+  private var collections: RecipeCollections { RecipeCollections(store.recipes, pantryHave: pantryHave) }
   private var favorites: [RecipeSummary] { collections.favorites }
   private var toTry: [RecipeSummary] { collections.toTry }
   private var popular: [RecipeSummary] { collections.popular }
@@ -301,6 +313,8 @@ struct RecipesView: View {
     case .popular: popular
     case .mine: mine
     case .simple: simple
+    case .budget: collections.budget
+    case .pantry: collections.pantry
     case .sauces: sauces
     case .comingSoon: comingSoon
     case .hidden: hiddenRecipes

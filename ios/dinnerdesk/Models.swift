@@ -572,10 +572,25 @@ nonisolated struct RecipeCollections: Sendable {
   let sauces: [RecipeSummary]
   let popular: [RecipeSummary]
   let simple: [RecipeSummary]
+  /// At most 8 ingredients besides staples (salt, oil, water).
+  let budget: [RecipeSummary]
+  /// Uses what's in the kitchen's pantry (PantryMatch). Empty until the pantry is loaded.
+  let pantry: [RecipeSummary]
   /// Every meal A–Z, then the coming-soon ones.
   let all: [RecipeSummary]
 
-  init(_ recipes: [RecipeSummary]) {
+  /// Salt, oil and water don't count toward a recipe's ingredient count.
+  static let staples: Set<String> = [
+    "salt", "black pepper", "pepper", "olive oil", "extra virgin olive oil", "vegetable oil",
+    "neutral cooking oil", "canola oil", "oil", "water", "cooking spray",
+  ]
+
+  static func isBudget(_ recipe: RecipeSummary) -> Bool {
+    let n = recipe.ingredients.map(PantryMatch.norm).filter { !$0.isEmpty && !staples.contains($0) }.count
+    return n > 0 && n <= 8
+  }
+
+  init(_ recipes: [RecipeSummary], pantryHave: Set<String> = []) {
     let byName: (RecipeSummary, RecipeSummary) -> Bool = {
       $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
     }
@@ -588,6 +603,8 @@ nonisolated struct RecipeCollections: Sendable {
     sauces = ready.filter(\.isExtra)
     popular = meals.filter { $0.tags.contains("popular") }
     simple = meals.filter { ($0.cookingMinutes ?? 99) <= 20 }
+    budget = meals.filter(Self.isBudget)
+    pantry = meals.filter { PantryMatch.uses($0.ingredients, have: pantryHave) }
     all = meals.sorted(by: byName) + comingSoon
   }
 
