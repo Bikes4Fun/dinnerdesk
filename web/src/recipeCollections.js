@@ -11,6 +11,16 @@ export function isExtra(r) {
   return tags.some((t) => t === "sauce" || t === "dressing" || t === "component");
 }
 
+// Salt, oil and water don't count toward a recipe's ingredient count.
+const STAPLE = /^(salt|black pepper|pepper|olive oil|extra virgin olive oil|vegetable oil|neutral cooking oil|canola oil|oil|water|cooking spray)$/;
+const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
+// Budget friendly: at most 8 ingredients besides staples.
+export function isBudget(r) {
+  const n = (r.ingredients || []).map(norm).filter((x) => x && !STAPLE.test(x)).length;
+  return n > 0 && n <= 8;
+}
+
 const byName = (a, b) => a.name.localeCompare(b.name);
 const has = (r, tag) => (r.tags || []).includes(tag);
 
@@ -38,6 +48,9 @@ export class RecipeCollections {
     this.sauces = this.ready.filter(isExtra);
     this.popular = this.meals.filter((r) => has(r, "popular"));
     this.simple = this.meals.filter((r) => (r.cooking_minutes || 99) <= 20);
+    this.budget = this.meals.filter(isBudget);
+    // Needs r.usesPantry, set by the page from the kitchen's pantry (same rule as PantryMatch).
+    this.pantry = this.meals.filter((r) => r.usesPantry);
     // Every meal A–Z, then the coming-soon ones.
     this.all = [...this.meals].sort(byName).concat(this.comingSoon);
   }

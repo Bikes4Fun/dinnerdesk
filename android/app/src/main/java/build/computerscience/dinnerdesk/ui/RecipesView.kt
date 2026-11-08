@@ -82,7 +82,7 @@ import java.time.LocalDate
 
 private enum class RecipeListKind(val title: String) {
     Suggestions("Suggestions"), Fav("Your Favorites"), TryLater("To try"), Popular("Most Popular"), Mine("Your Recipes"),
-    Simple("Super simple"), Sauces("Sauces & dressings"), ComingSoon("Coming soon"), Hidden("Hidden"), All("All recipes"),
+    Simple("Super simple"), Budget("Budget friendly"), Pantry("Uses pantry"), Sauces("Sauces & dressings"), ComingSoon("Coming soon"), Hidden("Hidden"), All("All recipes"),
 }
 
 @Composable
@@ -100,6 +100,8 @@ fun RecipesView() {
     val searching = query.isNotBlank() || filters.isNotEmpty()
 
     LaunchedEffect(Unit) {
+        // For the "Uses pantry" section and filter, as on web.
+        try { pantryHave = PantryMatch.have(KitchenApi.pantry()) } catch (e: Throwable) { if (Api.isCancellation(e)) throw e }
         hiddenRecipes = store.loadHiddenRecipes(onlyIfStale = true)
         try {
             suggestedIds = Api.get<RecipeSuggestions>("suggestions/recipes", reportErrors = false).recipeIds
@@ -110,7 +112,7 @@ fun RecipesView() {
 
     val recipes = store.recipes
     // Every list comes from RecipeCollections, the same class (and rules) as on web and iOS.
-    val collections = remember(recipes) { RecipeCollections(recipes) }
+    val collections = remember(recipes, pantryHave) { RecipeCollections(recipes, pantryHave) }
     val favorites = collections.favorites
     val toTry = collections.toTry
     val popular = collections.popular
@@ -126,6 +128,8 @@ fun RecipesView() {
         RecipeListKind.Popular -> popular
         RecipeListKind.Mine -> mine
         RecipeListKind.Simple -> simple
+        RecipeListKind.Budget -> collections.budget
+        RecipeListKind.Pantry -> collections.pantry
         RecipeListKind.Sauces -> sauces
         RecipeListKind.ComingSoon -> comingSoon
         RecipeListKind.Hidden -> hiddenRecipes
@@ -198,6 +202,8 @@ fun RecipesView() {
                     if (popular.isNotEmpty()) BrowseSection("Most popular", popular) { open(RecipeListKind.Popular) }
                     if (mine.isNotEmpty()) BrowseSection("Your recipes", mine) { open(RecipeListKind.Mine) }
                     if (simple.isNotEmpty()) BrowseSection("Super simple", simple) { open(RecipeListKind.Simple) }
+                    if (collections.budget.isNotEmpty()) BrowseSection("Budget friendly", collections.budget) { open(RecipeListKind.Budget) }
+                    if (collections.pantry.isNotEmpty()) BrowseSection("Uses pantry", collections.pantry) { open(RecipeListKind.Pantry) }
                     if (sauces.isNotEmpty()) BrowseSection("Sauces & dressings", sauces) { open(RecipeListKind.Sauces) }
                     if (comingSoon.isNotEmpty()) BrowseSection("Coming soon", comingSoon) { open(RecipeListKind.ComingSoon) }
                     BrowseSection("All recipes", rows(RecipeListKind.All), empty = "No recipes") { open(RecipeListKind.All) }

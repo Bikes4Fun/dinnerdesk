@@ -12,7 +12,7 @@ enum class RecipeSearchFilter(val label: String) {
  * Coming-soon recipes (our photo, steps not written yet) stay out of every themed list; they have
  * their own list and come last in [all].
  */
-class RecipeCollections(recipes: List<RecipeSummary>) {
+class RecipeCollections(recipes: List<RecipeSummary>, pantryHave: Set<String> = emptySet()) {
     private val byName = compareBy(String.CASE_INSENSITIVE_ORDER) { r: RecipeSummary -> r.name }
 
     val ready: List<RecipeSummary> = recipes.filter { !it.comingSoon }
@@ -24,6 +24,10 @@ class RecipeCollections(recipes: List<RecipeSummary>) {
     val sauces: List<RecipeSummary> = ready.filter { it.isExtra }
     val popular: List<RecipeSummary> = meals.filter { "popular" in it.tags }
     val simple: List<RecipeSummary> = meals.filter { (it.cookingMinutes ?: 99) <= 20 }
+    /** At most 8 ingredients besides staples (salt, oil, water). */
+    val budget: List<RecipeSummary> = meals.filter { isBudget(it) }
+    /** Uses what's in the kitchen's pantry ([PantryMatch]). Empty until the pantry is loaded. */
+    val pantry: List<RecipeSummary> = meals.filter { PantryMatch.uses(it.ingredients, pantryHave) }
     /** Every meal A–Z, then the coming-soon ones. */
     val all: List<RecipeSummary> = meals.sortedWith(byName) + comingSoon
 
@@ -36,5 +40,18 @@ class RecipeCollections(recipes: List<RecipeSummary>) {
         if (RecipeSearchFilter.Quick in filters) out = out.filter { (it.cookingMinutes ?: 99) <= 30 }
         if (RecipeSearchFilter.Pantry in filters) out = out.filter { PantryMatch.uses(it.ingredients, pantryHave) }
         return out
+    }
+
+    companion object {
+        /** Salt, oil and water don't count toward a recipe's ingredient count. */
+        val STAPLES = setOf(
+            "salt", "black pepper", "pepper", "olive oil", "extra virgin olive oil", "vegetable oil",
+            "neutral cooking oil", "canola oil", "oil", "water", "cooking spray",
+        )
+
+        fun isBudget(recipe: RecipeSummary): Boolean {
+            val n = recipe.ingredients.map(PantryMatch::norm).count { it.isNotEmpty() && it !in STAPLES }
+            return n in 1..8
+        }
     }
 }
