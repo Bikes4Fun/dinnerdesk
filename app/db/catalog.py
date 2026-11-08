@@ -13,6 +13,7 @@ from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
+from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, withheld
 from app.domain.pantry_catalog import ingredient_name
 
 
@@ -39,20 +40,27 @@ COMING_SOON_MARK = '%"coming_soon": true%'
 
 def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     """Household recipes always. Public catalog recipes only when the steps are
-    ours, a photo path is set, and the recipe isn't retired. The photo is shown
-    only if that file is tagged usable."""
+    ours, a photo path is set, and the recipe isn't retired, pizza, breakfast, or a
+    snack. The photo is shown only if that file is tagged usable."""
+    withheld_name = " AND ".join(f"{alias}.name NOT ILIKE ?" for _ in WITHHELD_LIKE)
+    exact = ", ".join("?" for _ in WITHHELD_EXACT)
     sql = (
         f"({alias}.household_id IS NOT NULL OR ("
         f"{alias}.provenance_json LIKE ?"
         f" AND {alias}.provenance_json NOT LIKE ?"
-        f" AND COALESCE({alias}.photo_path, '') <> ''))"
+        f" AND COALESCE({alias}.photo_path, '') <> ''"
+        f" AND {withheld_name}"
+        f" AND LOWER(BTRIM({alias}.name)) NOT IN ({exact})))"
     )
-    return sql, [REWRITTEN_MARK, RETIRED_MARK]
+    return sql, [REWRITTEN_MARK, RETIRED_MARK, *WITHHELD_LIKE, *WITHHELD_EXACT]
 
 
 def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
     """Only recipes with our own steps and a photo go into the database. With `photos`
-    (from catalog_photos), the photo must also be one of ours on the allowlist."""
+    (from catalog_photos), the photo must also be one of ours on the allowlist.
+    Pizza, breakfast, and snacks are never ready."""
+    if withheld(str(data.get("name") or ""), data.get("tags")):
+        return False
     if data.get("instructions_copied_from_third_party"):
         return False
     photo = (data.get("photo_path") or "").strip()
@@ -79,6 +87,26 @@ def remove_unready(conn) -> list:
     return conn.execute(
         f"SELECT id, slug, name FROM recipes WHERE {UNREADY_SQL} ORDER BY id", marks
     ).fetchall()
+
+
+def remove_withheld(conn) -> list:
+    """Delete catalog pizza, breakfast, and snacks. Rows a plan or a kitchen's copy still
+    uses are kept and returned. The catalog files are not touched."""
+    used = (
+        "(EXISTS (SELECT 1 FROM plan_slots s WHERE s.recipe_id = ?)"
+        " OR EXISTS (SELECT 1 FROM recipes c WHERE c.parent_recipe_id = ?))"
+    )
+    kept = []
+    for row in conn.execute(
+        "SELECT id, slug, name FROM recipes WHERE household_id IS NULL ORDER BY id"
+    ):
+        if not withheld(row["name"]):
+            continue
+        if conn.execute(f"SELECT 1 WHERE {used}", (row["id"], row["id"])).fetchone():
+            kept.append(row)
+            continue
+        conn.execute("DELETE FROM recipes WHERE id = ?", (row["id"],))
+    return kept
 
 
 SKIP_TAGS = {
@@ -369,6 +397,8 @@ def coming_soon_record(data: dict) -> dict:
 
 def is_coming_soon(data: dict, photos: dict[str, list[str]]) -> bool:
     """Has one of our photos, but its steps are still someone else's (or missing)."""
+    if withheld(str(data.get("name") or ""), data.get("tags")):
+        return False
     photo = Path((data.get("photo_path") or "").strip()).name
     return bool(photo) and photo in photos.get("*", []) and not data.get("retired") and bool(
         data.get("instructions_copied_from_third_party") or not data.get("instructions"))
@@ -444,6 +474,8 @@ def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) ->
     soon: set[str] = set()
     for data in catalog_records():
         data = with_photo(data, photos)
+        if withheld(str(data.get("name") or ""), data.get("tags")):
+            continue
         if not ready(data, photos) and is_coming_soon(data, photos):
             data = coming_soon_record(data)
             soon.add(str(data.get("slug") or data.get("id")))
@@ -498,6 +530,9 @@ def load_catalog(conn, report: dict | None = None) -> int:
     report = report if report is not None else {}
     seed_household(conn)
     n = import_recipes(conn, load_aliases(), report)
+    for row in remove_withheld(conn):
+        report.setdefault("withheld_kept", []).append({"id": row["id"], "slug": row["slug"], "name": row["name"]})
+        print(f"kept withheld recipe {row['id']} {row['slug']} ({row['name']}): still in use")
     for row in remove_unready(conn):
         report.setdefault("unready_kept", []).append({"id": row["id"], "slug": row["slug"], "name": row["name"]})
         print(f"kept unready recipe {row['id']} {row['slug']} ({row['name']}): still in use")
