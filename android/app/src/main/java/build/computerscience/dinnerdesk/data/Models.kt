@@ -70,13 +70,15 @@ data class RecipeSummary(
     val hidden: Boolean = false,
     val tags: List<String> = emptyList(),
     val ingredients: List<String> = emptyList(),
+    /** Rewritten recipe with no photo yet. The recipes list shows the photo only. */
+    @SerialName("coming_soon") val comingSoon: Boolean = false,
 ) {
     val isExtra: Boolean
         get() {
             if ("main_dish" in tags || "full_meal" in tags) return false
             return tags.any { it == "sauce" || it == "dressing" || it == "component" }
         }
-    val isMeal: Boolean get() = !isExtra
+    val isMeal: Boolean get() = !isExtra && !comingSoon
 }
 
 @Serializable

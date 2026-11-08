@@ -20,6 +20,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
+from app.domain.offering import withheld
 from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
@@ -302,7 +303,14 @@ def _upsert_recipe_edit(
 
 def _recipe_visible(row, household_id: int) -> bool:
     hid = row["household_id"]
-    return hid is None or hid == household_id
+    if hid is not None and hid != household_id:
+        return False
+    if hid is None and withheld(row["name"] or ""):
+        return False
+    # Coming soon: shown as a photo in Recipes only; not openable or plannable.
+    if _is_coming_soon(row):
+        return False
+    return True
 
 
 def _recipe_tags(db: PgConnection, recipe_id: int) -> list[str]:
@@ -765,7 +773,10 @@ def _coming_soon_rows(db: PgConnection, q: str = "") -> list:
     for tok in (hard_tokens(q) or search_tokens(q)) if q.strip() else []:
         sql += " AND r.name ILIKE ?"
         args.append(f"%{tok}%")
-    return [r for r in db.execute(sql + " ORDER BY r.name", args).fetchall() if usable_photo(r["photo_path"])]
+    return [
+        r for r in db.execute(sql + " ORDER BY r.name", args).fetchall()
+        if usable_photo(r["photo_path"]) and not withheld(r["name"] or "")
+    ]
 
 
 @router.get("/recipes")
@@ -1355,7 +1366,7 @@ def put_slots(
     resolved = []
     for slot in body.slots:
         rec = db.execute(
-            "SELECT id, household_id FROM recipes WHERE id = ?",
+            "SELECT id, household_id, name, provenance_json FROM recipes WHERE id = ?",
             (slot.recipe_id,),
         ).fetchone()
         if not rec or not _recipe_visible(rec, household_id):

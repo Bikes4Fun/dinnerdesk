@@ -13,6 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 
+from app.db.catalog import public_recipe_sql
 from app.db.database import ROOT
 from app.deps import AdminDep, DbDep, HhDep
 from app.domain.diet_filter import clean_filters, fold_profiles
@@ -77,9 +78,11 @@ def catalog_from_db(db: PgConnection) -> list[dict]:
     ):
         ings_by[int(x["recipe_id"])].append(x["canonical_name"])
     out = []
+    public_sql, public_args = public_recipe_sql("r")
     for r in db.execute(
-        """SELECT id, name, slug, servings, cooking_minutes, photo_path, source_url
-           FROM recipes WHERE household_id IS NULL"""
+        f"""SELECT id, name, slug, servings, cooking_minutes, photo_path, source_url
+           FROM recipes r WHERE r.household_id IS NULL AND {public_sql}""",
+        public_args,
     ):
         rid = int(r["id"])
         tags = tags_by[rid]
