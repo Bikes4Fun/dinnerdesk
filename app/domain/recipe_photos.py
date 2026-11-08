@@ -44,6 +44,30 @@ def our_photo_entries(data: dict) -> list[tuple[str, int | None]]:
     return out
 
 
+# Dinnerdesk's own AI photos count without being listed: any file in the photo folder named
+# "<recipe id>_<name>_ai-generated.png" (or .jpg/.webp). Files with REVIEW or REDO in the name are
+# still being judged and don't count yet. A "_PRIMARY_" photo is its recipe's first choice.
+AUTO_PHOTO = re.compile(r"^([A-Za-z0-9-]+?)_.+_ai-generated\.(?:png|jpe?g|webp)$")
+NOT_YET = re.compile(r"(?:^|_)(?:REVIEW|REDO)(?:_|$)")
+
+
+def found_ai_photos(folder: Path) -> list[tuple[str, int | None]]:
+    """(file name, archive recipe id) for each AI photo in `folder` that counts on its own,
+    _PRIMARY_ photos first."""
+    out = []
+    try:
+        names = sorted(p.name for p in folder.iterdir() if p.is_file())
+    except OSError:
+        return []
+    for name in names:
+        m = AUTO_PHOTO.match(name)
+        if not m or NOT_YET.search(name) or is_third_party_entry(name):
+            continue
+        prefix = m.group(1)
+        out.append((name, int(prefix) if prefix.isdigit() else None))
+    return sorted(out, key=lambda item: "_PRIMARY_" not in item[0])
+
+
 USE: dict[str, int | None] = {}
 # Photos made with AI: entries marked `"ai_generated": true`, or files named
 # `<id>_<name>_ai-generated.png`. Those recipes say so with a purple ★ tip (#33).
@@ -95,6 +119,18 @@ def reload() -> None:
             USE[name] = recipe_id
             if ai:
                 AI.add(name)
+    try:
+        folder = food_dir()
+    except RuntimeError:
+        return
+    for name, recipe_id in found_ai_photos(folder):
+        AI.add(name)
+        if name in USE:
+            continue
+        USE[name] = recipe_id
+        if recipe_id is not None:
+            listed = GALLERY.setdefault(str(recipe_id), [])
+            listed.insert(0, name) if "_PRIMARY_" in name else listed.append(name)
 
 
 reload()

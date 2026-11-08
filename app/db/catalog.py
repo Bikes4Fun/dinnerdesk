@@ -5,7 +5,9 @@ from __future__ import annotations
 from app.domain.recipe_normalize import normalize_recipe
 from app.assets import catalog_dir, food_dir
 from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
-from app.domain.recipe_photos import archive_id_of, catalog_gallery, is_uploaded_photo, our_photo_entries
+from app.domain.recipe_photos import (
+    archive_id_of, catalog_gallery, found_ai_photos, is_uploaded_photo, our_photo_entries,
+)
 
 import json
 import os
@@ -405,7 +407,8 @@ def is_coming_soon(data: dict, photos: dict[str, list[str]]) -> bool:
 
 
 def catalog_photos() -> dict[str, list[str]]:
-    """Our own photos that exist on disk, by archive recipe id, in allowlist order.
+    """Our own photos that exist on disk, by archive recipe id: listed ones in allowlist order,
+    then unlisted AI photos found in the folder (see recipe_photos.found_ai_photos).
     Key "*" holds every usable file name."""
     listed = catalog_dir() / "recipe_photos.json"
     raw = json.loads(listed.read_text()) if listed.is_file() else {}
@@ -417,6 +420,14 @@ def catalog_photos() -> dict[str, list[str]]:
         out["*"].append(name)
         if recipe_id is not None:
             out.setdefault(str(recipe_id), []).append(name)
+    # Our AI photos in the folder count without being listed; a _PRIMARY_ one goes first.
+    for name, recipe_id in found_ai_photos(folder):
+        if name in out["*"]:
+            continue
+        out["*"].append(name)
+        if recipe_id is not None:
+            mine = out.setdefault(str(recipe_id), [])
+            mine.insert(0, name) if "_PRIMARY_" in name else mine.append(name)
     return out
 
 
