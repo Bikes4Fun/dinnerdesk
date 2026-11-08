@@ -122,6 +122,7 @@
       <input id="find" type="search" autocomplete="off" placeholder="Search words, recipe, household or email"></label>
     <div class="chips" role="group" aria-label="Type" id="kinds"></div>
     <div class="chips" role="group" aria-label="Status" id="states"></div>
+    <button type="button" class="btn" id="download">Download filtered items (JSON)</button>
     <div class="hide-row">
       <span class="hide-label">Hide</span>
       <div class="chips" role="group" aria-label="Hide" id="hides"></div>
@@ -202,6 +203,32 @@ function searched() {
   if (!t) return DATA.items;
   return DATA.items.filter(i => [i.note, i.admin_note, i.recipe_name, i.household_name, i.email, i.step, title(i), `h${i.household_id}`]
     .some(v => String(v || "").toLowerCase().includes(t)));
+}
+
+function filteredItems() {
+  const stateTest = (STATES.find(s => s[0] === which) || STATES[0])[2];
+  return searched().filter(i => stateTest(i) && (kind === "all" || i.kind === kind) && kept(i));
+}
+
+function downloadItems() {
+  const items = filteredItems();
+  if (!items.length) return;
+  const exportedAt = new Date().toISOString();
+  const data = {
+    exported_at: exportedAt,
+    inbox_loaded_at: DATA.now,
+    filters: { type: kind, status: which, search: find.value, hidden: [...hidden] },
+    count: items.length,
+    items,
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2) + "\n"], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `inbox-${kind}-${which}-${exportedAt.slice(0, 10)}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Account numbers, kept quiet; new items show on the type chips below.
@@ -376,7 +403,11 @@ function render() {
   document.getElementById("closed").innerHTML = which === "closed"
     ? `Showing ${closed} done &amp; declined · <button type="button" class="link" data-s="open">Back to open</button>`
     : `<button type="button" class="link" data-s="closed">Show done &amp; declined (${closed})</button>`;
-  const shown = base.filter(i => stateTest(i) && (kind === "all" || i.kind === kind) && kept(i));
+  const shown = filteredItems();
+  const download = document.getElementById("download");
+  download.disabled = shown.length === 0;
+  download.textContent = `Download ${plural(shown.length, "item")} (JSON)`;
+  download.title = "All details for items matching the current type, status, search and Hide filters";
   prepSummary();
   document.getElementById("rows").innerHTML = shown.map(row).join("")
     || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
@@ -468,6 +499,7 @@ document.getElementById("states").addEventListener("click", e => {
   const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }
 });
 find.addEventListener("input", render);
+document.getElementById("download").addEventListener("click", downloadItems);
 window.matchMedia("(max-width: 900px)").addEventListener("change", render);
 render();
 </script>
