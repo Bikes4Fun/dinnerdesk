@@ -33,7 +33,7 @@ def test_record_drops_the_copied_steps():
 
 def test_one_class_holds_the_rules():
     from app.domain.coming_soon import ComingSoon
-    assert is_coming_soon is ComingSoon.is_candidate and coming_soon_record is ComingSoon.record
+    assert is_coming_soon == ComingSoon.is_candidate and coming_soon_record == ComingSoon.record
     assert ComingSoon.is_row({"household_id": None, "provenance_json": '{"coming_soon": true}'})
     assert not ComingSoon.is_row({"household_id": 5, "provenance_json": '{"coming_soon": true}'})
     assert not ComingSoon.is_row({"household_id": None, "provenance_json": '{"coming_soon": false}'})
