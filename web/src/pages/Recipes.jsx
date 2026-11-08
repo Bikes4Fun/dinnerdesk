@@ -287,12 +287,15 @@ export function Recipes() {
     setRecipes((cur) => cur.map((r) => (r.id === next.id ? { ...r, ...next } : r)));
   }
 
-  const yours = decorated.filter((r) => r.favorited);
-  const toTry = decorated.filter((r) => r.to_try);
-  const meals = decorated.filter(isMeal);
-  const sauces = decorated.filter(isExtra);
+  // Coming-soon recipes stay out of the themed rows; they get their own row and end the full list.
+  const ready = decorated.filter((r) => !r.coming_soon);
+  const comingSoon = decorated.filter((r) => r.coming_soon);
+  const yours = ready.filter((r) => r.favorited);
+  const toTry = ready.filter((r) => r.to_try);
+  const meals = ready.filter(isMeal);
+  const sauces = ready.filter(isExtra);
   const popular = meals.filter((r) => hasTag(r, "popular"));
-  const mine = decorated.filter((r) => !r.catalog);
+  const mine = ready.filter((r) => !r.catalog);
   const hiddenList = hiddenRecipes;
   const simple = meals.filter((r) => (r.cooking_minutes || 99) <= 20);
   const budget = meals.filter((r) => r.budget);
@@ -575,6 +578,9 @@ export function Recipes() {
             <Row title="Sauces & dressings" onSeeAll={() => setList("sauces")}>
               {sauces.length ? browseOrder(sauces).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
             </Row>
+            {comingSoon.length > 0 && <Row title="Coming soon">
+              {comingSoon.slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} />)}
+            </Row>}
             <div className="section-head flush">
               <h2>All recipes</h2>
             </div>
@@ -582,6 +588,7 @@ export function Recipes() {
               {meals
                 .slice()
                 .sort((a, b) => a.name.localeCompare(b.name))
+                .concat(comingSoon)
                 .map((r) => (
                   <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
                 ))}

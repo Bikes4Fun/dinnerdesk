@@ -62,6 +62,7 @@ data class RecipeSummary(
     val name: String,
     val servings: Int? = null,
     @SerialName("cooking_minutes") val cookingMinutes: Int? = null,
+    @SerialName("coming_soon") val comingSoon: Boolean = false,
     @SerialName("photo_path") val photoPath: String? = null,
     val favorited: Boolean = false,
     @SerialName("to_try") val toTry: Boolean = false,
