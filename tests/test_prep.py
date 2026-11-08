@@ -250,7 +250,7 @@ def test_tasks_get_a_section_and_an_item_name():
     by = {t['title']: (t['section'], t['item'], t['action']) for t in tasks}
     assert by['Dice onion'] == ('herbs', 'Onion', 'Dice')  # aromatics sit with herbs & citrus
     assert by['Mince garlic'] == ('herbs', 'Garlic', 'Mince')
-    assert by['Marinate turkey cutlets'] == ('protein', 'Turkey cutlets', 'Marinate')
+    assert 'Marinate turkey cutlets' not in by  # wait for day-specific prep scheduling
     assert by['Grate mozzarella'] == ('cheese', 'Mozzarella', 'Grate')
     assert by['Rinse canned chickpeas'][0] == 'protein'
     assert by['Make dressing'][0] == 'sauce'
@@ -381,3 +381,125 @@ def test_shape_nouns_and_split_do_not_end_the_cut():
     titles = {t['title'] for t in tasks}
     assert 'Trim and slice zucchini' in titles
     assert 'Trim and slice baby bok choy' in titles
+
+
+# Reviewed inbox export, 2026-11-08. Keep examples free of account data.
+def test_garlic_destination_does_not_become_bok_choy_prep():
+    tasks = prep_from_slots([{'recipe_id': 57, 'ingredients': [
+        {'name': 'garlic', 'quantity': '4 cloves'}, {'name': 'baby bok choy', 'quantity': '2'}],
+        'instructions': [
+            {'text': 'Peel and mince the garlic and set half aside for the bok choy.'},
+            {'text': 'Rinse the bok choy, trim the base, and pull it apart into individual leaves.'}]}])
+    by = {t['item']: t for t in tasks}
+    assert by['Garlic']['title'] == 'Peel and mince garlic'
+    assert by['Baby bok choy']['title'] == 'Rinse and trim baby bok choy'
+    assert by['Garlic']['quantities'] == ['4 cloves garlic']
+    assert by['Baby bok choy']['quantities'] == ['2 baby bok choy']
+    assert len(by['Baby bok choy']['meals'][0]['steps']) == 1
+
+
+def test_salad_assembly_and_meat_work_are_excluded_but_dressing_is_kept():
+    from app.domain.prep import likely_prep
+    for text in [
+        'Add the torn romaine, diced tomato, and cucumber to the dressing and mix the salad.',
+        'Cut the chicken into bite-size pieces and season with salt and pepper.',
+        'Marinate the turkey cutlets overnight.',
+        'About halfway, spoon the sauce from the dish back over the chicken.',
+        'Toss the lettuce with dressing.',
+    ]:
+        assert likely_prep(text) is None
+    tasks = prep_from_slots([{'recipe_id': 138, 'instructions': [
+        {'text': 'In a medium bowl, whisk the zest with the lemon juice, olive oil, honey, salt, and pepper to make the dressing.'}]}])
+    assert tasks[0]['title'] == 'Make dressing'
+    assert 'separate' in tasks[0]['storage']
+
+
+def test_other_half_gets_ingredient_and_amount_without_changing_feedback_identity():
+    from app.domain.prep import step_key
+    original = 'In a medium bowl, whisk the other half with the soy sauce, maple syrup, and rice vinegar to make the glaze.'
+    tasks = prep_from_slots([{'recipe_id': 57, 'ingredients': [
+        {'name': 'garlic', 'quantity': '4 cloves'}, {'name': 'soy sauce', 'quantity': '2 tbsp'},
+        {'name': 'maple syrup', 'quantity': '1 tbsp'}, {'name': 'rice vinegar', 'quantity': '1 tbsp'}],
+        'instructions': [{'text': 'Peel and mince the garlic and set half aside for the bok choy.'}, {'text': original}]}])
+    step = next(t for t in tasks if t['title'] == 'Make glaze')['meals'][0]['steps'][0]
+    assert 'half of the garlic' in step['display_text']
+    assert '2 cloves garlic (half)' in step['quantities']
+    assert step['text'] == original and step['key'] == step_key(original)
+    assert any('soy sauce' in q for q in step['quantities'])
+
+
+def test_unresolved_half_does_not_invent_an_ingredient():
+    tasks = prep_from_slots([{'recipe_id': 57, 'instructions': [
+        {'text': 'Whisk the other half with soy sauce to make the glaze.'}]}])
+    step = tasks[0]['meals'][0]['steps'][0]
+    assert step['display_text'] == step['text']
+
+
+def test_mixture_steps_keep_all_available_amounts():
+    tasks = prep_from_slots([{'recipe_id': 379, 'ingredients': [
+        {'name': 'plain greek yogurt', 'quantity': '1 cup'}, {'name': 'mayonnaise', 'quantity': '2 tbsp'},
+        {'name': 'curry powder', 'quantity': '1 tsp'}], 'instructions': [
+        {'text': 'In a medium bowl, stir together the yogurt, mayonnaise, curry powder, salt, pepper, and garlic powder.'}]}])
+    amounts = tasks[0]['meals'][0]['steps'][0]['quantities']
+    assert amounts == ['1 cup plain greek yogurt', '2 tbsp mayonnaise', '1 tsp curry powder']
+
+
+def test_beet_roasting_and_complete_quinoa_sequence_are_make_ahead():
+    tasks = prep_from_slots([{'recipe_id': 15, 'instructions': [
+        {'text': 'Roast about 20 minutes, until the beets are tender.'}]},
+        {'recipe_id': 51, 'ingredients': [{'name': 'quinoa', 'quantity': '1 cup'},
+         {'name': 'broth', 'quantity': '2 cups'}, {'name': 'mushrooms', 'quantity': '8 oz'}], 'instructions': [
+        {'text': 'Put the quinoa, broth, and water in a small saucepan and bring to a boil.'},
+        {'text': 'Reduce heat, cover and simmer until the liquid is absorbed.'},
+        {'text': 'Fluff with a fork.'},
+        {'text': 'Cook the mushrooms in a skillet.'},
+        {'text': 'Stir the quinoa into the mushrooms.'}]}])
+    by = {t['title']: t for t in tasks}
+    assert set(by) == {'Roast beets', 'Cook quinoa'}
+    assert len(by['Cook quinoa']['meals'][0]['steps']) == 3
+    assert '3–4 days' in by['Cook quinoa']['storage']
+    assert 'shallow' in by['Roast beets']['storage']
+
+
+def test_tofu_drain_and_cut_is_prep_without_inventing_marination():
+    tasks = prep_from_slots([{'recipe_id': 57, 'ingredients': [{'name': 'tofu', 'quantity': '1 block'}],
+        'instructions': [{'text': 'Drain the tofu, cut it into large cubes, and blot dry on paper towels.'}]}])
+    assert len(tasks) == 1
+    assert tasks[0]['title'] == 'Dice tofu'
+
+
+def test_explicit_household_and_recipe_choices_still_override_picker():
+    original = 'Marinate the chicken overnight.'
+    assert prep_from_slots([{'recipe_id': 1, 'added': [original]}])[0]['meals'][0]['steps'][0]['text'] == original
+    assert prep_from_slots([{'recipe_id': 2, 'instructions': [{'text': original, 'prep': True}]}])[0]['auto'] is False
+
+
+def test_stripping_and_mincing_herbs_is_one_job_with_storage_guidance():
+    tasks = prep_from_slots([{'recipe_id': 244, 'ingredients': [{'name': 'cilantro', 'quantity': '1 bunch'}],
+        'instructions': [{'text': 'Rinse and dry the cilantro.'},
+                         {'text': 'Strip the cilantro leaves and mince them into a medium bowl.'}]}])
+    assert len(tasks) == 1
+    assert len(tasks[0]['meals'][0]['steps']) == 2
+    assert 'Refrigerate' in tasks[0]['storage']
+
+
+def test_spice_powders_and_mayo_alias_do_not_lose_or_invent_amounts():
+    from app.domain.prep import mentioned
+    ingredients = [{'name': 'mayonnaise'}, {'name': 'garlic powder'}, {'name': 'curry powder'}]
+    assert mentioned('Mix the mayo and curry powder.', ingredients) == [ingredients[0], ingredients[2]]
+
+
+def test_shared_tasks_keep_per_meal_amounts_beside_original_instructions():
+    tasks = prep_from_slots([{'recipe_id': rid, 'ingredients': [{'name': 'onion', 'quantity': quantity}],
+        'instructions': [{'text': 'Dice the onion.'}]} for rid, quantity in [(1, '1'), (2, '2')]])
+    assert len(tasks) == 1
+    assert tasks[0]['quantities'] == ['3 onion']
+    assert [m['steps'][0]['quantities'] for m in tasks[0]['meals']] == [['1 onion'], ['2 onion']]
+
+
+def test_packaged_broth_is_not_excluded_as_meat_work():
+    tasks = prep_from_slots([{'recipe_id': 51, 'instructions': [
+        {'text': 'Put the quinoa and chicken broth in a saucepan and bring to a boil.'},
+        {'text': 'Cover and simmer until the quinoa is tender.'}]}])
+    assert [t['title'] for t in tasks] == ['Cook quinoa']
+    assert len(tasks[0]['meals'][0]['steps']) == 2
