@@ -34,22 +34,24 @@ export function Support() {
 
         <h2 id="ai">How we use AI</h2>
         <p>
-          <strong>Recipe photos are made with AI.</strong> Each one shows the kind of dish, not the exact plate a
-          recipe makes. A recipe whose photo was made with AI says so on its page.
+          <strong>Are these recipes AI-generated? No.</strong> These are real recipes developed by people and
+          shared publicly by reliable sources.
         </p>
         <p>
-          <strong>Recipes are not.</strong> Every recipe comes from a reliable source. AI doesn’t write them.
+          <strong>AI photos and wording.</strong> We use AI to create representative photos and rewrite
+          descriptions and instructions, rather than copy the source’s photos or exact wording.
         </p>
         <p>
-          <strong>Why AI photos?</strong> A recipe’s ingredients and method can’t be copyrighted, but a photo of the
-          dish can. We never copy anyone else’s photos, so until we have our own, we make them with AI.
+          <strong>The photos are inspiration.</strong> AI images show the kind of dish, not the exact result you
+          should expect. A recipe whose photo was made with AI says so on its page.
         </p>
         <p>
           <strong>Where the AI runs.</strong> Our AI images are made on a computer we own, not by an AI service in
           a data center.
         </p>
         <p>
-          <strong>What’s next.</strong> As we cook and test each recipe, we replace its AI photo with a real one.
+          <strong>Reviewed by our team.</strong> Our team reviews the AI-generated photos and wording. We’re
+          working through cooking the recipes, checking ingredients and steps, and replacing AI images with our own photos.
           A gold ★ marks recipes we’ve reviewed and tested. We’re also building a way for you to share your own
           photos of recipes you make.
         </p>
