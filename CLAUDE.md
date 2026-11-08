@@ -12,4 +12,7 @@
   did and why), then push. Rewriting your own unmerged branch is fine; use `git push --force-with-lease`.
   Never rewrite `main` or someone else's branch.
 - **Push regularly** so others always have the latest work. Don't leave finished commits only on your machine.
+- **Pull and merge `main` into your branch regularly** (`git fetch origin && git merge origin/main`),
+  and before opening a pull request, so conflicts with other work show up early and small.
+  Pull your own branch too (`git pull`): someone else may have pushed to it.
 - Open a pull request into `main` when the work is ready; don't merge to `main` directly.
