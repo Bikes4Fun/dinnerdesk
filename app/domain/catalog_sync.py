@@ -224,6 +224,9 @@ def merge_recipe_file(file_data: dict, server: dict, skip_tags: set[str]) -> tup
     if flags.get("photo") and not same_photo(file_data.get("photo_path"), server.get("photo_path")):
         out["photo_path"] = server.get("photo_path") or ""
         changed.append("photo_path")
+    if flags.get("retired") and bool(file_data.get("retired")) != bool(server.get("retired")):
+        out["retired"] = bool(server.get("retired"))  # removed from / brought back to the app
+        changed.append("retired")
     notes = (server.get("dev_notes") or "").strip()
     if notes != (file_data.get("dev_notes") or "").strip() and (notes or "dev_notes" in file_data):
         out["dev_notes"] = notes
