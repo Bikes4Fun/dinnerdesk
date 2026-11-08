@@ -19,7 +19,7 @@ from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
-from app.db.catalog import public_recipe_sql
+from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
 from app.perf import Laps
 from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
@@ -753,6 +753,21 @@ def _plan_out(db: PgConnection, plan_id: int, household_id: int) -> dict:
     }
 
 
+def _is_coming_soon(row) -> bool:
+    return row["household_id"] is None and '"coming_soon": true' in (row["provenance_json"] or "")
+
+
+def _coming_soon_rows(db: PgConnection, q: str = "") -> list:
+    """Catalog recipes waiting for rewritten steps that already have our photo, by name."""
+    sql = ("SELECT r.* FROM recipes r WHERE r.household_id IS NULL AND r.provenance_json LIKE ?"
+           " AND COALESCE(r.photo_path, '') <> ''")
+    args: list = [COMING_SOON_MARK]
+    for tok in (hard_tokens(q) or search_tokens(q)) if q.strip() else []:
+        sql += " AND r.name ILIKE ?"
+        args.append(f"%{tok}%")
+    return [r for r in db.execute(sql + " ORDER BY r.name", args).fetchall() if usable_photo(r["photo_path"])]
+
+
 @router.get("/recipes")
 def list_recipes(
     db: PgConnection = DbDep,
@@ -805,10 +820,15 @@ def list_recipes(
         # searched for. A search that the priority ones don't fill a page for gets the rest
         # after them; plain browsing never shows them, so a recipe just hidden stays gone.
         searching = bool(q.strip())
+        hidden_now = _hidden_recipe_ids(db, household_id)
         held = pool.demoted | downvoted | (frozenset() if searching else pool.variants)
         priority = [r for r in matches if r["id"] not in held]
         if searching and len(priority) < limit:
             priority += [r for r in matches if r["id"] in held]
+        # Recipes with our photo whose steps aren't rewritten yet come last, greyed out as
+        # "coming soon". They can't be opened or planned, so plain browsing and searches only.
+        if not tag.strip():
+            priority += [r for r in _coming_soon_rows(db, q) if r["id"] not in hidden_now]
         rows = priority[offset:offset + limit]
         laps.counts.update(pool="hit" if pool_hit else "built", matches=len(matches))
     laps.counts.update(results=len(rows), offset=offset)
@@ -820,6 +840,9 @@ def list_recipes(
         _recipe_card(db, r, household_id, r["id"] in favs, r["id"] in later, hidden_ids)
         for r in rows
     ]
+    for card, r in zip(cards, rows):
+        if _is_coming_soon(r):
+            card["coming_soon"] = True
     laps.lap("cards")
     laps.publish("recipes")
     _log.debug("recipes hh=%d q=%r tag=%r %s", household_id, q.strip() or None, tag.strip() or None, laps.fmt())

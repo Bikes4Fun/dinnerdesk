@@ -128,6 +128,10 @@ Database tests create and drop their own schema. They never fall back to `DATABA
   `recipe_photos.json` in `DINNERDESK_CATALOG_DIR`. Kitchens' own recipes always show.
 - Mark third-party steps with `instructions_copied_from_third_party`, `instructions_source`,
   and `instructions_reviewed`. Tag `tested` once Dinnerdesk has reviewed a recipe.
+- **Coming soon:** a recipe (including one only in `recipes/originals`) that has one of our
+  photos but no rewritten steps is imported without its steps and marked `coming_soon`. It
+  appears at the end of the recipe list with a dimmed photo and a "Coming soon" label, can't be
+  opened, planned or favorited, and becomes a normal recipe once its rewrite is imported.
 
 **Docs**
 - When a feature's behavior changes, update [`docs/DESIGN.md`](docs/DESIGN.md) and its step in

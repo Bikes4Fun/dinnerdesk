@@ -3,6 +3,8 @@ package build.computerscience.dinnerdesk.ui
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -284,6 +286,18 @@ fun RecipeGridPage(title: String, recipes: List<RecipeSummary>) {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecipeTile(recipe: RecipeSummary) {
+    if (recipe.comingSoon) {
+        // Our photo is in but the steps aren't written yet: dimmed, labelled, not clickable.
+        Column(Modifier.fillMaxWidth().semantics { contentDescription = "${recipe.name}, coming soon" },
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().alpha(0.55f)) { RecipePhoto(recipe.photoPath, fill = true, corner = 12.dp) }
+                Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+        }
+        return
+    }
     val store = LocalStore.current
     val nav = LocalNav.current
     var menu by remember { mutableStateOf(false) }

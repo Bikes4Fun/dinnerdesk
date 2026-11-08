@@ -63,10 +63,12 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   let hidden: Bool
   let tags: [String]
   let ingredients: [String]
+  /// Our photo is in but the steps aren't written yet: shown dimmed and can't be opened.
+  var comingSoon: Bool = false
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath
-    case favorited, toTry, catalog, hidden, tags, ingredients
+    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon
   }
 
   init(from decoder: Decoder) throws {
@@ -82,6 +84,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     hidden = try c.decode(Bool.self, forKey: .hidden)
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([String].self, forKey: .ingredients)
+    comingSoon = try c.decodeIfPresent(Bool.self, forKey: .comingSoon) ?? false
   }
 
   func withFavorited(_ on: Bool) -> RecipeSummary {
