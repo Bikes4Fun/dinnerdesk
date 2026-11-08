@@ -264,6 +264,7 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_admin_tags = flags.get("admin_tags_edited") is True
         keep_primary = flags.get("admin_photo_edited") is True
         keep_content = flags.get("admin_content_edited") is True
+        keep_retired = flags.get("admin_retired_edited") is True
 
         def settle(part: str, keep: bool, find_differences) -> bool:
             if not keep:
@@ -283,7 +284,13 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_primary = settle(
             "photo", keep_primary,
             lambda: [] if same_photo(incoming_photo, existing["photo_path"]) else ["photo_path"])
+        keep_retired = settle(
+            "retired", keep_retired,
+            lambda: [] if bool(data.get("retired")) == (flags.get("retired") is True) else ["retired"])
         incoming_provenance = json.loads(provenance)
+        if keep_retired:  # removed from (or brought back to) the app in the admin screen
+            incoming_provenance["retired"] = flags.get("retired") is True
+            incoming_provenance["admin_retired_edited"] = True
         if keep_admin_tags:
             incoming_provenance["admin_tags_edited"] = True
         if keep_primary:

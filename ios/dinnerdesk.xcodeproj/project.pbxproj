@@ -90,6 +90,7 @@
 				PantryView.swift,
 				PlanView.swift,
 				PrepView.swift,
+				RecipeCollections.swift,
 				PrivacyInfo.xcprivacy,
 				Quantity.swift,
 				RecipePhoto.swift,
