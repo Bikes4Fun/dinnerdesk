@@ -69,7 +69,7 @@ data class RecipeSummary(
     val hidden: Boolean = false,
     val tags: List<String> = emptyList(),
     val ingredients: List<String> = emptyList(),
-    /** Rewritten recipe with no photo yet. The recipes list shows the photo only. */
+    /** Our photo is in but our own steps aren't written yet: shown greyed out, can't be opened. */
     @SerialName("coming_soon") val comingSoon: Boolean = false,
 ) {
     val isExtra: Boolean

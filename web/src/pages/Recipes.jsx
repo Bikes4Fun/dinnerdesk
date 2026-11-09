@@ -1,26 +1,17 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api.js";
-import { RecipeCard, RecipeRow, hasTag } from "../cards.jsx";
+import { RecipeCard, RecipeRow } from "../cards.jsx";
 import { Icon } from "../icons.jsx";
 import { go } from "../nav.js";
 import { PlanStrip } from "../PlanStrip.jsx";
+import { RecipeCollections, isBudget } from "../recipeCollections.js";
 
-const FILTERS = [
-  ["all", "All"],
-  ["pantry", "Uses pantry"],
-  ["fav", "Your favorites"],
-  ["try", "To try"],
-  ["popular", "Popular"],
-  ["quick", "Quick"],
-  ["hidden", "Hidden"],
-  ["soon", "Coming soon"],
-];
+const FILTERS = RecipeCollections.FILTERS;
 const SORTS = [
   ["name", "A–Z"],
   ["time", "Time"],
 ];
-const STAPLE = /^(salt|black pepper|pepper|olive oil|extra virgin olive oil|vegetable oil|neutral cooking oil|canola oil|oil|water|cooking spray)$/;
 
 const LIST_TITLES = {
   suggestions: "Suggestions",
@@ -131,15 +122,6 @@ function suggestionPool(popular, meals, decorated) {
   return out;
 }
 
-function isExtra(r) {
-  const tags = r.tags || [];
-  if (tags.includes("main_dish") || tags.includes("full_meal")) return false;
-  return tags.some((t) => t === "sauce" || t === "dressing" || t === "component");
-}
-
-function isMeal(r) {
-  return !isExtra(r);
-}
 
 function nameHits(ingredient, pantryHave) {
   if (pantryHave.has(ingredient)) return true;
@@ -160,10 +142,6 @@ function usesPantry(r, pantryHave) {
   return hits >= 2 || (hits >= 1 && hits / ings.length >= 0.4);
 }
 
-function isBudget(r) {
-  const n = (r.ingredients || []).map(norm).filter((x) => x && !STAPLE.test(x)).length;
-  return n > 0 && n <= 8;
-}
 
 function browseOrder(rows) {
   const seed = Math.floor(Date.now() / 86400000);
@@ -289,19 +267,13 @@ export function Recipes() {
     setRecipes((cur) => cur.map((r) => (r.id === next.id ? { ...r, ...next } : r)));
   }
 
-  // Coming-soon recipes stay out of the themed rows; they get their own row and end the full list.
-  const ready = decorated.filter((r) => !r.coming_soon);
-  const comingSoon = decorated.filter((r) => r.coming_soon);
-  const yours = ready.filter((r) => r.favorited);
-  const toTry = ready.filter((r) => r.to_try);
-  const meals = ready.filter(isMeal);
-  const sauces = ready.filter(isExtra);
-  const popular = meals.filter((r) => hasTag(r, "popular"));
-  const mine = ready.filter((r) => !r.catalog);
+  // Every list comes from RecipeCollections, the same class (and rules) as on iOS and Android.
+  const collections = useMemo(() => new RecipeCollections(decorated), [decorated]);
+  const { comingSoon, toTry, meals, sauces, popular, mine, simple } = collections;
+  const yours = collections.favorites;
   const hiddenList = hiddenRecipes;
-  const simple = meals.filter((r) => (r.cooking_minutes || 99) <= 20);
-  const budget = meals.filter((r) => r.budget);
-  const pantryRow = meals.filter((r) => r.usesPantry);
+  const budget = collections.budget;
+  const pantryRow = collections.pantry;
 
   const inList = Boolean(list) || showSearch || Boolean(familyId);
 
@@ -319,7 +291,7 @@ export function Recipes() {
       sauces,
       hidden: hiddenList,
       soon: comingSoon,
-      all: meals,
+      all: collections.all,
     };
     let rows = meals;
     if (showSearch) {
@@ -331,12 +303,7 @@ export function Recipes() {
             budget: isBudget(r),
           }))
         : decorated;
-      if (filters.includes("soon")) rows = comingSoon;
-      if (filters.includes("fav")) rows = rows.filter((r) => r.favorited);
-      if (filters.includes("try")) rows = rows.filter((r) => r.to_try);
-      if (filters.includes("popular")) rows = rows.filter((r) => hasTag(r, "popular"));
-      if (filters.includes("pantry")) rows = rows.filter((r) => r.usesPantry);
-      if (filters.includes("quick")) rows = rows.filter((r) => (r.cooking_minutes || 99) <= 30);
+      rows = collections.filter(rows, filters);
     } else if (familyId) {
       rows = recipesForFamily(
         families.find((f) => f.id === familyId),
@@ -374,6 +341,7 @@ export function Recipes() {
     suggestedIds,
     recipes,
     decorated,
+    collections,
     yours,
     toTry,
     popular,
@@ -589,10 +557,7 @@ export function Recipes() {
               <h2>All recipes</h2>
             </div>
             <div className="recipe-list">
-              {meals
-                .slice()
-                .sort((a, b) => a.name.localeCompare(b.name))
-                .concat(comingSoon)
+              {collections.all
                 .map((r) => (
                   <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
                 ))}
