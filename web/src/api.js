@@ -187,6 +187,9 @@ export const api = {
   patchRecipe: (id, body) =>
     req(`/api/recipes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   restoreRecipe: (id) => req(`/api/recipes/${id}/edit`, { method: "DELETE" }),
+  // Admin: take a catalog recipe out of the app (on) or bring it back. Never deletes it.
+  retireRecipe: (id, on) =>
+    req(`/api/recipes/${id}/retired`, { method: "PUT", body: JSON.stringify({ on }) }),
   favorite: (id, on) =>
     req(`/api/recipes/${id}/favorite`, { method: "PUT", body: JSON.stringify({ on }) }),
   hideRecipe: (id, on) =>

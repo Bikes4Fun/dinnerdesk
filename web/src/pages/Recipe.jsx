@@ -271,6 +271,22 @@ export function Recipe({ id }) {
     }
   }
 
+  // Admin: hide a catalog recipe from everyone, or bring it back. Nothing is deleted; plans that
+  // already use it still open it.
+  async function toggleRetired() {
+    setShowMore(false);
+    const on = !recipe.retired;
+    if (on && !window.confirm(`Remove “${recipe.name}” from the app? No one will see it in recipes or suggestions. Plans that already use it keep it, and you can bring it back any time.`)) return;
+    setBusy(true);
+    try {
+      setRecipe(await api.retireRecipe(recipe.id, on));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function toggleCookPrep(i) {
     const instructions = (recipe.instructions || []).map((s, j) => ({
       text: s.text || s.step || "",
@@ -463,6 +479,11 @@ export function Recipe({ id }) {
                       Delete recipe
                     </button>
                   ) : null}
+                  {admin && recipe.catalog ? (
+                    <button type="button" role="menuitem" onClick={toggleRetired} disabled={busy}>
+                      {recipe.retired ? "Bring back to the app" : "Remove from app"}
+                    </button>
+                  ) : null}
                   {admin && recipe.catalog && recipe.edited ? (
                     <button type="button" role="menuitem" onClick={restoreOriginal} disabled={busy || photoLoading}>
                       Restore original
@@ -527,6 +548,11 @@ export function Recipe({ id }) {
         )}
         <div className="scroll pad recipe-body">
           {err && <p className="banner err">{err}</p>}
+          {recipe.retired && (
+            <p className="banner" role="status">
+              Removed from the app. Only plans that already use it can open it.
+            </p>
+          )}
           {editing && canEdit ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
               <label className="block-label" htmlFor="recipe-photo">Primary photo</label>
