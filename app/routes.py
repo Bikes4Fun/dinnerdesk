@@ -224,6 +224,7 @@ def _apply_recipe_edit(
     rid = out["id"]
     edit = _recipe_edit(db, household_id, rid)
     out["edited"] = bool(edit)
+    out["retired"] = row["household_id"] is None and json.loads(row["provenance_json"] or "{}").get("retired") is True
     hid = hidden if hidden is not None else _hidden_recipe_ids(db, household_id)
     out["hidden"] = rid in hid
     if not edit:
@@ -1039,6 +1040,33 @@ def put_hidden(
             )
     _invalidate_pool(household_id)
     return _recipe_out(db, row, household_id, admin is not None)
+
+
+@router.put("/recipes/{recipe_id}/retired")
+def put_retired(
+    recipe_id: int,
+    body: FavoritePut,
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+    _admin=AdminDep,  # catalog changes are for the Dinnerdesk admins only
+):
+    """Remove a catalog recipe from the app, or bring it back. Nothing is deleted: the recipe
+    stays in the database and its file (marked "retired"), plans and favorites that already use
+    it still open it, and no one is offered it again. The catalog sync writes it to the file."""
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    if not row or not _recipe_visible(row, household_id):
+        raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+    if row["household_id"] is not None:
+        raise HTTPException(400, {"error": "bad_request", "detail": "only catalog recipes can be removed from the app"})
+    provenance = json.loads(row["provenance_json"] or "{}")
+    provenance["retired"] = bool(body.on)
+    provenance["admin_retired_edited"] = True
+    with transaction(db):
+        db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
+                   (json.dumps(provenance), now(), recipe_id))
+    _invalidate_all_pools()
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, True)
 
 
 @router.delete("/recipes/{recipe_id}/edit")

@@ -44,10 +44,11 @@ Welcome, **How we use AI**, a short what-to-eat survey (diet, avoids, cook time,
 as Settings; saved when you leave it, so a later Skip keeps them), then one card each for
 Suggestions, Review and approve, Grocery, Weekend prep, Recipes and ★ tips, and Taste Lab. The
 last card offers **Start planning** or **Try Taste Lab**. The tour must not promise that tips fade
-until that is built. How we use AI says plainly: recipe photos are AI-generated; recipes
-are not (they come from reliable sources); photos can be copyrighted and recipes can't, so we
-never copy photos; the AI runs on our own computer, not in a data center; and real photos will
-replace AI ones over time.
+until that is built. How we use AI explains that real recipes were developed by people and
+shared publicly by reliable sources. AI supplies representative photos and rewritten wording;
+the team reviews these and is working through cooking the recipes, checking ingredients and
+steps, and taking real photos. The tour descriptions on web, iPhone and Android read the same
+keys in `ios/dinnerdesk/copy.json`.
 
 - **Must:** offer Quick start or Skip on first visit; never block the app; replay from
   Settings and More. Offer it once more to everyone after a major update: raise
@@ -419,6 +420,28 @@ builds → shop → prep → cook.
 ---
 
 ## Architecture
+
+### Shared systems and platform consistency (#288)
+
+The API owns household permissions and food/planning rules. Clients own presentation,
+navigation, cache and operating-system integration through reusable services, models and
+components. Class-based services, native value types, React hooks and pure domain functions
+are used according to their responsibilities. See `PLATFORM_CONSISTENCY.md` for the source
+inventory, confirmed gaps and intentional platform exceptions (admin is web-only).
+
+`shared/filter-options.json` is the only editable catalog of diets, allergens, avoids,
+cuisines, proteins, cook times and diet-specific protein choices. Run
+`python scripts/sync_filter_options.py` after changing it. It generates the Python catalog,
+web `FilterOptions` adapter, iOS `FilterOptions` model, Android `FilterOptions` object, and
+Taste Lab's filter lists. Generated sources are committed so normal app builds and startup
+do not require the generator or a network request. `--check` and pytest detect drift.
+
+All filter editors offer the same choices. Protein preferences include seafood and plant
+proteins for pescatarians, plant proteins and eggs for vegetarians, and plant proteins for
+vegans. The strictest saved exclusive diet determines the available proteins; gluten-free
+and dairy-free remain additive. Every client offers Any time, 20, 30 and 45 minutes. Legacy
+Asian/Seafood preferences are still expanded by the server, and saved custom allergies are
+retained even though poultry and red meat are no longer offered as allergy chips.
 
 ### Stack
 
