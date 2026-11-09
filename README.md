@@ -106,6 +106,10 @@ for current recipes and photos) and uploads and imports them. See
 
 ## Test
 
+GitHub runs everything on each pull request and each push to `main` (`.github/workflows/tests.yml`):
+the Python tests against a throwaway PostgreSQL, the web build and tests, and the Android and iOS
+builds. A PR shows a green check, or which part broke, before it's merged.
+
 ```bash
 # Pure logic tests (no database needed)
 python -m pytest -q tests/test_prep.py tests/test_suggest.py tests/test_taste_rank.py

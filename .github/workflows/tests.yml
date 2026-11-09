@@ -1,0 +1,97 @@
+# Runs every test and builds every app on each pull request and each push to main, so a PR shows
+# a green check (or what broke) before it's merged. Nothing here touches Railway or its database:
+# the Python tests get a throwaway PostgreSQL that GitHub starts for the run and then discards.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Server tests (Python + PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dinnerdesk
+          POSTGRES_PASSWORD: dinnerdesk
+          POSTGRES_DB: dinnerdesk_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U dinnerdesk" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      # Each test gets its own schema in this database (see tests/conftest.py).
+      TEST_DATABASE_URL: postgresql://dinnerdesk:dinnerdesk@localhost:5432/dinnerdesk_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+
+  web:
+    name: Web build and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: node --test src/*.test.js
+
+  android:
+    name: Android build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      # App icons and images are Git LFS files; without them the build packs placeholders.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew --no-daemon assembleDebug
+
+  ios:
+    name: iOS build
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      # App icons and images are Git LFS files; without them the build packs placeholders.
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      # Simulator build, no signing: checks that the app compiles.
+      - run: >-
+          xcodebuild build -project ios/dinnerdesk.xcodeproj -target dinnerdesk -sdk iphonesimulator
+          -configuration Debug CODE_SIGNING_ALLOWED=NO
