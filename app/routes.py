@@ -223,7 +223,9 @@ def _apply_recipe_edit(
     rid = out["id"]
     edit = _recipe_edit(db, household_id, rid)
     out["edited"] = bool(edit)
-    out["retired"] = row["household_id"] is None and json.loads(row["provenance_json"] or "{}").get("retired") is True
+    src = db.execute("SELECT household_id, provenance_json FROM recipes WHERE id = ?", (rid,)).fetchone()
+    out["retired"] = bool(src) and src["household_id"] is None and (
+        json.loads(src["provenance_json"] or "{}").get("retired") is True)
     hid = hidden if hidden is not None else _hidden_recipe_ids(db, household_id)
     out["hidden"] = rid in hid
     if not edit:
