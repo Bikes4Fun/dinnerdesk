@@ -18,6 +18,9 @@
   Seafood preferences expand to their individual choices without dropping other settings.
 - [ ] Replay Quick start on all three clients. The AI explanation and feature descriptions
   match, remain readable at large text sizes, and Skip/Back/filter saving still work.
+- [ ] On each client, submit a recipe, grocery and prep report with a reason and note. The
+  reason choices match across clients; admin Inbox shows those same labels and all notes.
+  Plain prep votes still work without a reason. Missing prep steps use their separate action.
 
 - [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
 - [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.

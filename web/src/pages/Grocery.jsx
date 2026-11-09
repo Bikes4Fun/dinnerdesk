@@ -476,15 +476,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
   );
 }
 
-// Why a grocery item is wrong. Same ids as app/models.py INGREDIENT_REPORT_REASONS and the iOS app.
-const INGREDIENT_REPORT_REASONS = [
-  ["name", "Wrong name or spelling"],
-  ["aisle", "In the wrong aisle"],
-  ["amount", "Amount or unit is wrong"],
-  ["photo", "Photo doesn't match"],
-  ["duplicate", "Listed twice / should be combined"],
-  ["other", "Something else"],
-];
+import { INGREDIENT_REPORT_REASONS } from "../reportOptions.js";
 
 /** "Report a problem with this item": a reason and a note, saved with the line as they saw it. */
 function ItemReport({ item }) {

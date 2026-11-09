@@ -428,6 +428,14 @@ and dairy-free remain additive. Every client offers Any time, 20, 30 and 45 minu
 Asian/Seafood preferences are still expanded by the server, and saved custom allergies are
 retained even though poultry and red meat are no longer offered as allergy chips.
 
+Report reasons for recipes, grocery items and prep have a single definition in
+`shared/report-options.json`. `python scripts/sync_report_options.py` generates the server
+`ReportCatalog`, web `ReportCatalog`, and native typed reason enums. The request models
+derive validation from that vocabulary. Admin inbox recipe/grocery labels come from the
+same server catalog, and prep labels use it too. Missing-prep-step reports remain a separate
+action, not an extra downvote choice. Existing reason ids, optional prep reasons, note limits
+and admin authorization remain unchanged. Tests and `--check` reject drift.
+
 ### Stack
 
 | Layer | Choice | Why |

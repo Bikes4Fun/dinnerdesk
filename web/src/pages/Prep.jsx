@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Icon } from "../icons.jsx";
+import { PREP_REASONS } from "../reportOptions.js";
+export { PREP_REASONS } from "../reportOptions.js";
 import "./prep.css";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
@@ -17,14 +19,6 @@ const SECTIONS = [
   ["sauce", "Sauces & dressings"],
   ["other", "More prep"],
 ];
-export const PREP_REASONS = [
-  ["day_of", "Better done day-of"],
-  ["kept_badly", "Didn’t keep well"],
-  ["too_small", "Too small to bother"],
-  ["prep_differently", "Prep it differently"],
-  ["not_prep", "Not a prep step"],
-];
-
 const store = {
   get(key, fallback) {
     try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; }
