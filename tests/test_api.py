@@ -2412,7 +2412,7 @@ def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
             assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
             state = client.get('/api/catalog-sync/state', headers=auth).json()
             soup = next(r for r in state['recipes'] if r['slug'] == 'soup')
-            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False}
+            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False}
             assert soup['content']['name'] == 'Better soup' and soup['tags'] == ['tested']
             assert state['files']['data/recipe_photos.json'] == hashlib.sha256(
                 (data / 'recipe_photos.json').read_bytes()).hexdigest()
