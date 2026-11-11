@@ -165,3 +165,13 @@ def test_pull_writes_an_admin_retire_into_the_file():
     assert out2["retired"] is False and changed2 == ["retired"]
     # Not admin-edited: the file's own value stays.
     assert merge_recipe_file(f, {**server, "admin_edited": {}}, SKIP) == (f, [])
+
+
+@pytest.mark.parametrize("reviewed", [True, False])
+def test_pull_preserves_admin_recipe_review(reviewed):
+    file_data = {**_file(), 'reviewed': not reviewed}
+    server = {'admin_edited': {'reviewed': True}, 'reviewed': reviewed}
+    out, changed = merge_recipe_file(file_data, server, SKIP)
+    assert out['reviewed'] is reviewed and changed == ['reviewed']
+    assert merge_recipe_file(out, server, SKIP) == (out, [])
+    assert merge_recipe_file(file_data, {**server, 'admin_edited': {}}, SKIP) == (file_data, [])

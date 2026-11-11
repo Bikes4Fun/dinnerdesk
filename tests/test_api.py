@@ -1066,6 +1066,11 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert noted.json()["note"] == "Make the sauce the night before"
         shown = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert (shown["reason"], shown["reason_note"]) == ("prep_differently", "Make the sauce the night before")
+        inbox = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
+        feedback = [item for item in inbox["items"] if item["source"] == "prep" and item["recipe_id"] == recipe["id"]]
+        assert feedback
+        assert all((item["reason"], item["note"]) == ("Prep it differently", "Make the sauce the night before")
+                   for item in feedback)
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "note": "x" * 501}).status_code == 422
         client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 1, "note": "ignored"})
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["reason_note"] == ""
@@ -1852,6 +1857,9 @@ def test_report_a_grocery_item_keeps_the_line_as_they_saw_it(tmp_path):
 
         data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
         item = next(i for i in data["items"] if i["source"] == "ingredient")
+        from app.domain.report_options import ReportCatalog
+        assert data["report_reasons"] == {kind: ReportCatalog.labels(kind) for kind in ("recipe", "ingredient")}
+        assert data["report_reasons"]["ingredient"][item["reason"]] == "In the wrong aisle"
         assert (item["kind"], item["reason"], item["note"]) == ("ingredient", "aisle", "It's produce")
         assert "onion" in item["item_name"] and item["snapshot"]["line"]["id"] == onion["id"]
         assert client.get("/admin/inbox/count").json() == {"new": 1}
@@ -2254,6 +2262,8 @@ def test_inbox_gathers_reports_and_saves_triage(tmp_path):
         assert 'aria-label="Hide"' in page and '["photo", "Photo reports"' in page
         data = json.loads(page.split("const DATA = ")[1].split(";\n")[0])
         items = {(i["source"], i["kind"]): i for i in data["items"]}
+        assert data["report_reasons"]["recipe"][items[("recipe", "recipe")]["reason"]] == "Steps are wrong or confusing"
+        assert items[("recipe", "recipe")]["note"] == "Step 3 is missing"
         # 👍 prep votes only count in the overview; the 👎 is an item.
         assert set(items) == {("feedback", "bug"), ("recipe", "recipe"), ("plan", "plan"), ("prep", "prep")}
         assert data["overview"]["prep_votes"] == {"up": 1, "down": 1, "missing": 0}
@@ -2418,7 +2428,7 @@ def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
             assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
             state = client.get('/api/catalog-sync/state', headers=auth).json()
             soup = next(r for r in state['recipes'] if r['slug'] == 'soup')
-            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False}
+            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False, 'reviewed': False}
             assert soup['content']['name'] == 'Better soup' and soup['tags'] == ['tested']
             assert state['files']['data/recipe_photos.json'] == hashlib.sha256(
                 (data / 'recipe_photos.json').read_bytes()).hexdigest()
@@ -2535,3 +2545,51 @@ def test_admin_removes_a_recipe_from_the_app_and_brings_it_back(tmp_path):
         back = client.put("/api/recipes/1/retired", json={"on": False})
         assert back.json()["retired"] is False
         assert any(r["id"] == 1 for r in client.get("/api/recipes").json()["recipes"])
+
+
+def test_admin_review_marker_persists_in_lists_and_copies_need_review(tmp_path):
+    with _client(tmp_path) as client:
+        assert client.get('/api/recipes/1').json()['reviewed'] is False
+        marked = client.put('/api/recipes/1/reviewed', json={'on': True})
+        assert marked.status_code == 200 and marked.json()['reviewed'] is True
+        assert client.get('/api/recipes/1').json()['reviewed'] is True
+        rows = client.get('/api/recipes').json()['recipes']
+        assert next(r for r in rows if r['id'] == 1)['reviewed'] is True
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'name': 'New copy'}).json()
+        assert copied['reviewed'] is False
+        assert client.put(f"/api/recipes/{copied['id']}/reviewed", json={'on': True}).json()['reviewed'] is True
+        assert client.put('/api/recipes/1/reviewed', json={'on': False}).json()['reviewed'] is False
+        assert client.put('/api/recipes/2/reviewed', json={'on': True}).status_code == 404
+        assert client.put('/api/recipes/999999/reviewed', json={'on': True}).status_code == 404
+
+
+def test_review_marker_is_admin_only_and_cannot_be_forged_as_a_tag(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        for on in (True, False):
+            assert client.put('/api/recipes/1/reviewed', json={'on': on}).status_code == 403
+        own = client.post('/api/recipes', json={'name': 'Ours', 'tags': ['reviewed'], 'reviewed': True}).json()
+        assert own['reviewed'] is False
+        assert client.put(f"/api/recipes/{own['id']}/reviewed", json={'on': True}).status_code == 403
+
+
+def test_catalog_review_survives_import_until_sync_matches(tmp_path):
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        assert client.put('/api/recipes/1/reviewed', json={'on': True}).status_code == 200
+        incoming = {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20}
+        with connect() as db:
+            report = {}
+            upsert_catalog_recipe(db, incoming, {}, report)
+            db.commit()
+            assert any(c['part'] == 'reviewed' for c in report['conflicts'])
+        assert client.get('/api/recipes/1').json()['reviewed'] is True
+        with connect() as db:
+            upsert_catalog_recipe(db, {**incoming, 'reviewed': True}, {})
+            db.commit()
+            flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+            assert flags.get('admin_reviewed_edited') is not True
+        assert client.put('/api/recipes/1/reviewed', json={'on': False}).status_code == 200
+        with connect() as db:
+            upsert_catalog_recipe(db, {**incoming, 'reviewed': True}, {})
+            db.commit()
+        assert client.get('/api/recipes/1').json()['reviewed'] is False
