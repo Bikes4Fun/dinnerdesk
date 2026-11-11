@@ -518,7 +518,7 @@ export function Recipe({ id }) {
           </div>
         )}
       </header>
-      {!editing && <ReviewedBadge reviewed={recipe.reviewed} />}
+      {!editing && tab === "cook" && !both && <ReviewedBadge reviewed={recipe.reviewed} />}
       {!editing && admin && (
         <label className="recipe-review-control">
           <input type="checkbox" checked={Boolean(recipe.reviewed)} disabled={busy}

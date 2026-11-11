@@ -86,6 +86,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
 
   return (
     <section className="recipe-gallery" aria-label="Recipe photos">
+      {photos.length === 0 && <ReviewedBadge reviewed={recipe.reviewed} />}
       {photos.length > 0 && <>
         <div className="recipe-gallery-track" ref={track} onScroll={event => {
           const el = event.currentTarget;

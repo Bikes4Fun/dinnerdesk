@@ -28,7 +28,6 @@ export function RecipeCard({ recipe, onChange, admin = false }) {
           {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
         </div>
         <p className="card-name">{recipe.name}</p>
-        <ReviewedBadge reviewed={recipe.reviewed} />
       </div>
     );
   }
@@ -74,7 +73,6 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
       </div>
       <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
         <p className="card-name">{recipe.name}</p>
-        <ReviewedBadge reviewed={recipe.reviewed} />
       </button>
     </div>
   );
@@ -87,7 +85,7 @@ export function RecipeRow({ recipe, onChange, admin = false }) {
         <div className="thumb-wrap"><ComingSoonPhoto className="thumb-sq" path={recipe.photo_path} />
           {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
         </div>
-        <div className="recipe-copy"><strong>{recipe.name}</strong><ReviewedBadge reviewed={recipe.reviewed} />
+        <div className="recipe-copy"><strong>{recipe.name}</strong>
           {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} inline />}
         </div>
       </div>
@@ -127,7 +125,6 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
       <div className="recipe-copy">
       <button type="button" className="recipe-open-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
         <strong>{recipe.name}</strong>
-        <ReviewedBadge reviewed={recipe.reviewed} />
       </button>
       {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} inline />}
       </div>
