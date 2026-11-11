@@ -47,6 +47,12 @@ class RecipePhotoAdd(BaseModel):
     photo_data: str = Field(min_length=1, max_length=7_000_000)
 
 
+class RecipeWorkflowPut(BaseModel):
+    model_config = {"extra": "forbid"}
+    to_edit: bool | None = None
+    delete_requested: bool | None = None
+
+
 class RecipePhotoPrimary(BaseModel):
     path: str = Field(min_length=1, max_length=2000)
 

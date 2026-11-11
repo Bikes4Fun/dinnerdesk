@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
 from app.domain.coming_soon import ComingSoon
+from app.domain.catalog_sync import RECIPE_WORKFLOW_FIELDS
 from app.domain.offering import Offering
 from app.perf import Laps
 from app.db.seed import pantry_catalog
@@ -35,7 +36,7 @@ from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import (
     archive_id_of, catalog_gallery, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested,
-    photo_name, usable_photo,
+    photo_name, usable_photo, unique_gallery, photo_identity,
 )
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -95,6 +96,7 @@ from app.models import (
     RecipeCreate,
     RecipeImport,
     RecipePatch,
+    RecipeWorkflowPut,
     SlotPatch,
     SlotsPut,
     SubmissionCreate,
@@ -412,7 +414,7 @@ def _is_favorited(db: PgConnection, household_id: int, recipe_id: int) -> bool:
     )
 
 
-def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
+def _recipe_photo_gallery(db: PgConnection, row, *, deduplicate: bool = True) -> list[dict]:
     primary = _shown_photo(row)
     provenance = json.loads(row["provenance_json"] or "{}")
     imported_link = _web_link(provenance.get("photo_url")) if row["household_id"] is not None else ""
@@ -442,7 +444,7 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
             credit = {"credit": "Imported recipe photo", "source_url": source}
         photos.append({"path": path, "primary": path == primary, "ai": photo_is_ai(path),
                        "shared": photo_is_borrowed(path, archive_id), "tested": photo_is_tested(path), **credit})
-    return photos
+    return unique_gallery(photos) if deduplicate else photos
 
 
 def _remember_recipe_photo(db: PgConnection, recipe_id: int, path: str) -> None:
@@ -524,21 +526,22 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
                         household_id: int = HhDep, admin=OptionalAdminDep):
     with transaction(db):
         row = _editable_photo_recipe(db, recipe_id, household_id, admin)
-        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row)]
+        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row, deduplicate=False)]
         if body.path not in paths:
             raise HTTPException(400, "Choose a photo from this recipe's gallery.")
-        db.execute(
-            "DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?",
-            (recipe_id, body.path),
-        )
-        if row["household_id"] is None and body.path in catalog_gallery(archive_id_of(row["source_url"], row["slug"])):
+        identity = photo_identity(body.path)
+        removed = {path for path in paths if photo_identity(path) == identity}
+        for path in removed:
+            db.execute("DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?", (recipe_id, path))
+        catalog_paths = set(catalog_gallery(archive_id_of(row["source_url"], row["slug"])))
+        if row["household_id"] is None and removed & catalog_paths:
             # A photo listed in recipe_photos.json would come straight back; remember it's gone.
             provenance = json.loads(row["provenance_json"] or "{}")
-            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | {body.path})
+            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | (removed & catalog_paths))
             db.execute("UPDATE recipes SET provenance_json = ? WHERE id = ?", (json.dumps(provenance), recipe_id))
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-        if _shown_photo(row) == body.path:
-            remaining = [path for path in paths if path != body.path]
+        if _shown_photo(row) in removed:
+            remaining = [path for path in paths if path not in removed]
             nxt = remaining[0] if remaining else ""
             db.execute(
                 "UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?",
@@ -553,7 +556,8 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
                 )
         else:
             db.execute("UPDATE recipes SET updated_at = ? WHERE id = ?", (now(), recipe_id))
-        _drop_unused_upload(db, body.path)
+        for path in removed:
+            _drop_unused_upload(db, path)
     if row["household_id"] is None:
         _invalidate_all_pools()
     else:
@@ -668,6 +672,7 @@ def _recipe_out(db: PgConnection, row, household_id: int, admin: bool = False) -
     }
     if admin:
         out["dev_notes"] = row["dev_notes"] if "dev_notes" in row.keys() else ""
+        out.update({field: provenance.get(field) is True for field in RECIPE_WORKFLOW_FIELDS})
     return _apply_recipe_edit(db, out, household_id)
 
 
@@ -1046,6 +1051,24 @@ def put_hidden(
     return _recipe_out(db, row, household_id, admin is not None)
 
 
+@router.put("/recipes/{recipe_id}/workflow")
+def put_recipe_workflow(recipe_id: int, body: RecipeWorkflowPut, db: PgConnection = DbDep,
+                        household_id: int = HhDep, _admin=AdminDep):
+    with transaction(db):
+        row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+        if not row or not _recipe_visible(row, household_id):
+            raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+        provenance = json.loads(row["provenance_json"] or "{}")
+        for field, value in body.model_dump(exclude_none=True).items():
+            provenance[field] = value
+            if row["household_id"] is None:
+                provenance[f"admin_{field}_edited"] = True
+        db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
+                   (json.dumps(provenance), now(), recipe_id))
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, True)
+
+
 @router.put("/recipes/{recipe_id}/reviewed")
 def put_reviewed(recipe_id: int, body: FavoritePut, db: PgConnection = DbDep,
                  household_id: int = HhDep, _admin=AdminDep):
@@ -1075,15 +1098,15 @@ def put_retired(
     """Remove a catalog recipe from the app, or bring it back. Nothing is deleted: the recipe
     stays in the database and its file (marked "retired"), plans and favorites that already use
     it still open it, and no one is offered it again. The catalog sync writes it to the file."""
-    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-    if not row or not _recipe_visible(row, household_id):
-        raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
-    if row["household_id"] is not None:
-        raise HTTPException(400, {"error": "bad_request", "detail": "only catalog recipes can be removed from the app"})
-    provenance = json.loads(row["provenance_json"] or "{}")
-    provenance["retired"] = bool(body.on)
-    provenance["admin_retired_edited"] = True
     with transaction(db):
+        row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+        if not row or not _recipe_visible(row, household_id):
+            raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+        if row["household_id"] is not None:
+            raise HTTPException(400, {"error": "bad_request", "detail": "only catalog recipes can be removed from the app"})
+        provenance = json.loads(row["provenance_json"] or "{}")
+        provenance["retired"] = bool(body.on)
+        provenance["admin_retired_edited"] = True
         db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
                    (json.dumps(provenance), now(), recipe_id))
     _invalidate_all_pools()
@@ -1194,6 +1217,9 @@ def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
     provenance = json.loads(row["provenance_json"] or "{}")
     provenance.pop("reviewed", None)
     provenance.pop("admin_reviewed_edited", None)
+    for field in RECIPE_WORKFLOW_FIELDS:
+        provenance.pop(field, None)
+        provenance.pop(f"admin_{field}_edited", None)
     ts = now()
     cur = db.execute(
         """INSERT INTO recipes (
@@ -3061,14 +3087,26 @@ def get_ingredient_review(db: PgConnection = DbDep, _admin=AdminDep):
 
 
 @router.get("/dev/ingredient-review/flagged")
-def get_flagged_recipes(_admin=AdminDep):
+def get_flagged_recipes(db: PgConnection = DbDep, household_id: int = HhDep, _admin=AdminDep):
     rows = collect_flagged_recipes(ROOT)
     save_flagged_recipes(ROOT, rows)
+    _attach_catalog_recipe_ids(db, [{"recipes": rows}])
+    queues = {"to_edit": [], "hidden": [], "delete_requested": []}
+    for recipe in db.execute(
+        "SELECT id, name, household_id, provenance_json FROM recipes "
+        "WHERE household_id IS NULL OR household_id = ? ORDER BY name, id", (household_id,)
+    ):
+        provenance = json.loads(recipe["provenance_json"] or "{}")
+        item = {"id": recipe["id"], "name": recipe["name"], "catalog": recipe["household_id"] is None}
+        for queue, field in (("to_edit", "to_edit"), ("hidden", "retired"), ("delete_requested", "delete_requested")):
+            if provenance.get(field) is True and (queue != "hidden" or item["catalog"]):
+                queues[queue].append(item)
     grouped: dict[str, list[dict]] = {}
     for row in rows:
         grouped.setdefault(row["reason"], []).append(row)
     return {
         "count": len(rows),
+        "queues": queues,
         "proposal_only": True,
         "reasons": [
             {"reason": reason, "count": len(items), "recipes": items}
