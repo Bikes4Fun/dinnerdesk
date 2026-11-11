@@ -1066,6 +1066,11 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         assert noted.json()["note"] == "Make the sauce the night before"
         shown = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
         assert (shown["reason"], shown["reason_note"]) == ("prep_differently", "Make the sauce the night before")
+        inbox = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
+        feedback = [item for item in inbox["items"] if item["source"] == "prep" and item["recipe_id"] == recipe["id"]]
+        assert feedback
+        assert all((item["reason"], item["note"]) == ("Prep it differently", "Make the sauce the night before")
+                   for item in feedback)
         assert client.put(f"/api/prep/{task['id']}/feedback", json={"rating": -1, "note": "x" * 501}).status_code == 422
         client.put(f"/api/prep/{task['id']}/feedback", json={"rating": 1, "note": "ignored"})
         assert client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]["reason_note"] == ""
@@ -1852,6 +1857,9 @@ def test_report_a_grocery_item_keeps_the_line_as_they_saw_it(tmp_path):
 
         data = json.loads(client.get("/admin/inbox").text.split("const DATA = ")[1].split(";\n")[0])
         item = next(i for i in data["items"] if i["source"] == "ingredient")
+        from app.domain.report_options import ReportCatalog
+        assert data["report_reasons"] == {kind: ReportCatalog.labels(kind) for kind in ("recipe", "ingredient")}
+        assert data["report_reasons"]["ingredient"][item["reason"]] == "In the wrong aisle"
         assert (item["kind"], item["reason"], item["note"]) == ("ingredient", "aisle", "It's produce")
         assert "onion" in item["item_name"] and item["snapshot"]["line"]["id"] == onion["id"]
         assert client.get("/admin/inbox/count").json() == {"new": 1}
@@ -2254,6 +2262,8 @@ def test_inbox_gathers_reports_and_saves_triage(tmp_path):
         assert 'aria-label="Hide"' in page and '["photo", "Photo reports"' in page
         data = json.loads(page.split("const DATA = ")[1].split(";\n")[0])
         items = {(i["source"], i["kind"]): i for i in data["items"]}
+        assert data["report_reasons"]["recipe"][items[("recipe", "recipe")]["reason"]] == "Steps are wrong or confusing"
+        assert items[("recipe", "recipe")]["note"] == "Step 3 is missing"
         # 👍 prep votes only count in the overview; the 👎 is an item.
         assert set(items) == {("feedback", "bug"), ("recipe", "recipe"), ("plan", "plan"), ("prep", "prep")}
         assert data["overview"]["prep_votes"] == {"up": 1, "down": 1, "missing": 0}
