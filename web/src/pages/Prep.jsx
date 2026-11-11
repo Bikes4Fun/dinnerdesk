@@ -4,6 +4,7 @@ import { go } from "../nav.js";
 import { Icon } from "../icons.jsx";
 import { PREP_REASONS } from "../reportOptions.js";
 export { PREP_REASONS } from "../reportOptions.js";
+import { PrepTaskPresentation } from "../PrepTaskPresentation.js";
 import "./prep.css";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
@@ -198,20 +199,7 @@ export function Prep() {
 function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onReport, onSend }) {
   const [note, setNote] = useState(t.reason_note || "");
   const amount = (t.quantities || []).filter(Boolean).join(" · ");
-  // Each different step once (several meals often share the same words).
-  const how = [];
-  for (const meal of t.meals || []) {
-    for (const step of meal.steps?.length ? meal.steps : (meal.instructions || []).map((text) => ({ text }))) {
-      const text = (step.display_text || step.text).trim();
-      const quantities = (step.quantities || []).join(" · ");
-      const shared = how.find((h) => h.text.toLowerCase() === text.toLowerCase() && h.quantities === quantities);
-      if (shared) {
-        shared.meal += `, ${meal.name}`;
-      } else {
-        how.push({ text, quantities, meal: meal.name, added: Boolean(step.added) });
-      }
-    }
-  }
+  const how = new PrepTaskPresentation(t).instructionGroups;
   return (
     <div className={`pz-step-item${open ? " open" : ""}${t.done ? " done" : ""}`}>
       <div className="pz-step-head">
@@ -227,8 +215,8 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
       {open && (
         <div className="pz-step-body" id={`pz-step-${t.id}`}>
           {how.map((h, i) => (
-            <p key={i} className="pz-how">{t.meals.length > 1 && <strong>{h.meal}: </strong>}{h.text}
-              {h.quantities && <span className="pz-amount">{h.quantities}</span>}
+            <p key={i} className="pz-how">{t.meals.length > 1 && <strong>{h.meals.map((m) => m.name).join(", ")}: </strong>}{h.text}
+              {h.quantities?.length > 0 && <span className="pz-amount">{h.quantities.join(" · ")}</span>}
               {h.added && <span className="pz-added">Added by you</span>}</p>
           ))}
           {t.storage && <p className="pz-how">{t.storage}</p>}

@@ -358,7 +358,9 @@ private fun PrepRow(
             if (open) {
                 // #78 D: the cook day on the left, the step, then each meal as a light pill link.
                 Column(Modifier.padding(start = 14.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    for ((text, meals) in stepGroups(task)) {
+                    for (group in build.computerscience.dinnerdesk.data.PrepTaskPresentation(task).instructionGroups) {
+                        val text = group.text
+                        val meals = group.meals
                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             Text(
                                 (meals.firstOrNull()?.day ?: "").uppercase(), style = Theme.count.copy(fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp),
@@ -366,7 +368,8 @@ private fun PrepRow(
                             )
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(text, style = Theme.stepText, color = Theme.bodyInk)
-                                if (isAdded(task, text)) Text("Added by you", style = Theme.count, color = Theme.muted)
+                                if (group.quantities.isNotEmpty()) Text(group.quantities.joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
+                                if (group.added) Text("Added by you", style = Theme.count, color = Theme.muted)
                                 for (meal in meals) {
                                     Row(
                                         Modifier.heightIn(min = 32.dp).clip(CircleShape).background(Theme.pill).clickable { openRecipe(meal.id) }
@@ -380,6 +383,9 @@ private fun PrepRow(
                                 }
                             }
                         }
+                    }
+                    task.storage?.takeIf { it.isNotEmpty() }?.let {
+                        Text(it, style = Theme.subtitle, color = Theme.muted)
                     }
                 }
             }
@@ -409,23 +415,6 @@ private fun MissingButton(onClick: () -> Unit) {
             Text("Pick a step from this week’s recipes.", style = Theme.subtitle, color = Theme.muted)
         }
     }
-}
-
-private fun isAdded(task: PrepTask, text: String) =
-    task.meals.any { meal -> (meal.steps ?: emptyList()).any { it.added == true && it.text == text } }
-
-/** The open row's steps, each distinct text once with the meals that use it, in meal order. */
-private fun stepGroups(task: PrepTask): List<Pair<String, List<PrepMeal>>> {
-    val out = mutableListOf<Pair<String, MutableList<PrepMeal>>>()
-    for (meal in task.meals) {
-        val texts = (meal.steps ?: emptyList()).map { it.text }.ifEmpty { meal.instructions }
-        for (text in texts) {
-            val key = text.trim()
-            val i = out.indexOfFirst { it.first.equals(key, ignoreCase = true) }
-            if (i >= 0) { if (out[i].second.none { it.id == meal.id }) out[i].second.add(meal) } else out.add(key to mutableListOf(meal))
-        }
-    }
-    return out
 }
 
 /** "Missing a prep step?": pick the meal, then the step that should have been prep, optionally say why. */

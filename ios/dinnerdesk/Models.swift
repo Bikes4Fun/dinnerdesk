@@ -330,6 +330,10 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   /// The user's own words on a 👎, like the note on a missing prep step.
   var reasonNote: String?
 
+  /// Shared server guidance and grouped display instructions (optional for older caches).
+  var storage: String?
+  var instructionGroups: [PrepInstructionGroup]?
+
   /// What the row says: "Peel and mince garlic". The server names it from the recipe steps.
   var name: String { title }
 }
@@ -353,6 +357,56 @@ nonisolated struct PrepStep: Decodable, Identifiable, Sendable {
   var done: Bool?
   /// The household added this step with "Missing a prep step?" (the app had skipped it).
   let added: Bool?
+  let displayText: String?
+  let quantities: [String]?
+}
+
+nonisolated struct PrepInstructionMeal: Decodable, Identifiable, Sendable {
+  let id: Int
+  let name: String
+  let day: String?
+}
+
+nonisolated struct PrepInstructionGroup: Decodable, Sendable {
+  let text: String
+  let quantities: [String]
+  let added: Bool
+  var meals: [PrepInstructionMeal]
+}
+
+/// API presentation is canonical; fallback keeps previously cached plans readable.
+nonisolated final class PrepTaskPresentation: Sendable {
+  let task: PrepTask
+
+  init(_ task: PrepTask) { self.task = task }
+
+  var instructionGroups: [PrepInstructionGroup] {
+    if let groups = task.instructionGroups { return groups }
+    var groups: [PrepInstructionGroup] = []
+    for meal in task.meals {
+      let steps = meal.steps ?? []
+      let rows: [(String, [String], Bool)] = steps.isEmpty
+        ? meal.instructions.map { ($0, [], false) }
+        : steps.map { step in
+          let display = step.displayText ?? ""
+          return (display.isEmpty ? step.text : display, step.quantities ?? [], step.added == true)
+        }
+      for (rawText, rawQuantities, added) in rows {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { continue }
+        let quantities = rawQuantities.filter { !$0.isEmpty }
+        let link = PrepInstructionMeal(id: meal.id, name: meal.name, day: meal.day)
+        if let index = groups.firstIndex(where: {
+          $0.text.caseInsensitiveCompare(text) == .orderedSame && $0.quantities == quantities && $0.added == added
+        }) {
+          if !groups[index].meals.contains(where: { $0.id == meal.id }) { groups[index].meals.append(link) }
+        } else {
+          groups.append(PrepInstructionGroup(text: text, quantities: quantities, added: added, meals: [link]))
+        }
+      }
+    }
+    return groups
+  }
 }
 
 /// Recipe steps not in Weekend prep yet, by meal: what "Missing a prep step?" offers (#21).
