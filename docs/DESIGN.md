@@ -258,13 +258,31 @@ entry listed for its archive id, so it can have several different photos. Entrie
 the recipe source is never assumed to be the photo source. Gallery paths and credits are
 included in household data exports.
 
+The Developer tested label is an overlay, never written onto the image. Exact duplicate
+gallery images (including copies with different filenames or embedded metadata) share one
+display entry and retain tested/AI/shared attribution. The primary path is kept; source
+files are unchanged. Deleting that gallery entry removes its duplicate references too,
+so the same photo cannot immediately return under another filename.
+
 Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on its detail page
 on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
-Recipes search offers a Reviewed filter that combines with other filters. This is an explicit
+Recipes search offers a Reviewed filter that combines with other filters. Web admins can
+also toggle review directly on recipe thumbnails beside the plan and favorite controls.
+This changes recipe approval only, without uploading or changing any photos. This is an explicit
 recipe approval, not a claim about its photo or that it was cooked. Photo credits and the
 Developer tested photo badge are unchanged. Only the admin review endpoint may change this
 status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
 are pulled into recipe files by sync and preserved across imports until the file agrees.
+
+Web admins manage recipes from the Edit area: Tag as To edit, Hide from everyone
+(catalog recipes), and Delete — send for review. The last action only queues a request;
+it never deletes or automatically hides a recipe. Admin → Recipes to edit consolidates
+To edit, Hidden from everyone, Deletion review and existing Ingredient fixes. Each queue
+links back to the recipe; admins can clear edit tags, show hidden recipes again, or keep
+a recipe by cancelling its deletion request. Hidden catalog recipes leave browsing and
+suggestions but remain openable from existing plans. Workflow flags are admin-only,
+persist through catalog sync/import, and do not transfer to recipe copies. Private
+recipes in other households never appear in these queues.
 
 
 Recipe detail add controls reflect membership in the current plan: already included recipes

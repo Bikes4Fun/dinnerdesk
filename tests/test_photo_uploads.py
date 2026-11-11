@@ -39,3 +39,39 @@ def test_photo_credit_uses_recorded_owner_and_source(monkeypatch):
     monkeypatch.setattr("app.domain.recipe_photos.AI", AI | {"credited.jpg"})
     assert photo_credit("food/credited.jpg")["credit"] == "AI-generated photo · Dinnerdesk"
     assert photo_credit("food/unrecorded.jpg")["credit"] == "Photo source not recorded"
+
+
+def test_identical_photos_share_one_gallery_entry_and_keep_tested_overlay(tmp_path, monkeypatch):
+    from app.domain.recipe_photos import unique_gallery
+    from PIL.PngImagePlugin import PngInfo
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    image = Image.new('RGB', (20, 30), 'red')
+    image.save(tmp_path / 'original.png')
+    metadata = PngInfo()
+    metadata.add_text('Description', 'Developer tested')
+    image.save(tmp_path / 'tested-copy.png', pnginfo=metadata)
+    Image.new('RGB', (20, 30), 'blue').save(tmp_path / 'different.png')
+    before = {file.name: file.read_bytes() for file in tmp_path.iterdir()}
+    photos = [
+        {'path': 'food/original.png', 'primary': True, 'tested': False, 'ai': False, 'shared': False},
+        {'path': 'food/tested-copy.png', 'primary': False, 'tested': True, 'ai': False, 'shared': False},
+        {'path': 'food/different.png', 'primary': False, 'tested': False, 'ai': False, 'shared': False},
+    ]
+    out = unique_gallery(photos)
+    assert [p['path'] for p in out] == ['food/original.png', 'food/different.png']
+    assert out[0]['primary'] and out[0]['tested']
+    assert photos[0]['tested'] is False
+    assert before == {file.name: file.read_bytes() for file in tmp_path.iterdir()}
+    Image.new('RGB', (21, 30), 'green').save(tmp_path / 'tested-copy.png')
+    assert len(unique_gallery(photos)) == 3
+
+
+def test_gallery_dedup_handles_aliases_missing_files_and_remote_photos(tmp_path, monkeypatch):
+    from app.domain.recipe_photos import unique_gallery
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    photos = [{'path': 'food/missing.jpg', 'tested': False},
+              {'path': '/food/missing.jpg', 'tested': True},
+              {'path': 'https://example.test/missing.jpg', 'tested': False}]
+    out = unique_gallery(photos)
+    assert len(out) == 2 and out[0]['tested'] is True
+    assert out[1]['path'] == 'https://example.test/missing.jpg'

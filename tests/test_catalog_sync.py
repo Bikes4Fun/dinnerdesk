@@ -175,3 +175,14 @@ def test_pull_preserves_admin_recipe_review(reviewed):
     assert out['reviewed'] is reviewed and changed == ['reviewed']
     assert merge_recipe_file(out, server, SKIP) == (out, [])
     assert merge_recipe_file(file_data, {**server, 'admin_edited': {}}, SKIP) == (file_data, [])
+
+
+@pytest.mark.parametrize('field', ['to_edit', 'delete_requested'])
+@pytest.mark.parametrize('value', [True, False])
+def test_pull_preserves_admin_workflow_fields(field, value):
+    original = {**_file(), field: not value}
+    server = {'admin_edited': {field: True}, field: value}
+    merged, changed = merge_recipe_file(original, server, SKIP)
+    assert merged[field] is value and changed == [field]
+    assert merge_recipe_file(merged, server, SKIP) == (merged, [])
+    assert merge_recipe_file(original, {**server, 'admin_edited': {}}, SKIP) == (original, [])

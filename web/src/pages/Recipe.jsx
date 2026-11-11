@@ -277,7 +277,7 @@ export function Recipe({ id }) {
   async function toggleRetired() {
     setShowMore(false);
     const on = !recipe.retired;
-    if (on && !window.confirm(`Remove “${recipe.name}” from the app? No one will see it in recipes or suggestions. Plans that already use it keep it, and you can bring it back any time.`)) return;
+    if (on && !window.confirm(`Hide “${recipe.name}” from everyone’s recipe lists and suggestions? Existing plans keep it. You can show it again from Recipes to edit.`)) return;
     setBusy(true);
     try {
       setRecipe(await api.retireRecipe(recipe.id, on));
@@ -286,6 +286,14 @@ export function Recipe({ id }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function updateWorkflow(changes) {
+    setBusy(true);
+    setErr("");
+    try { setRecipe(await api.recipeWorkflow(recipe.id, changes)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
   }
 
   async function toggleCookPrep(i) {
@@ -475,14 +483,14 @@ export function Recipe({ id }) {
                   >
                     {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
                   </button>
-                  {!recipe.catalog ? (
+                  {!admin && !recipe.catalog ? (
                     <button type="button" role="menuitem" onClick={deleteOwn} disabled={busy}>
                       Delete recipe
                     </button>
                   ) : null}
                   {admin && recipe.catalog ? (
                     <button type="button" role="menuitem" onClick={toggleRetired} disabled={busy}>
-                      {recipe.retired ? "Bring back to the app" : "Remove from app"}
+                      {recipe.retired ? "Show to everyone" : "Hide from everyone"}
                     </button>
                   ) : null}
                   {admin && recipe.catalog && recipe.edited ? (
@@ -569,6 +577,22 @@ export function Recipe({ id }) {
           )}
           {editing && canEdit ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
+              {admin && (
+                <fieldset className="recipe-admin-actions" disabled={busy || photoLoading}>
+                  <legend>Recipe management</legend>
+                  <button type="button" onClick={() => updateWorkflow({ to_edit: !recipe.to_edit })}>
+                    {recipe.to_edit ? "Remove To edit tag" : "Tag as To edit"}
+                  </button>
+                  {recipe.catalog && <button type="button" onClick={toggleRetired}>
+                    {recipe.retired ? "Show to everyone" : "Hide from everyone"}
+                  </button>}
+                  <button type="button" onClick={() => updateWorkflow({ delete_requested: !recipe.delete_requested })}>
+                    {recipe.delete_requested ? "Cancel deletion request" : "Delete — send for review"}
+                  </button>
+                  <p className="help">Deletion requests go to review; nothing is deleted. Hidden recipes stay in existing plans.</p>
+                  <button type="button" onClick={() => go("/settings/recipe-flags")}>Open Recipes to edit</button>
+                </fieldset>
+              )}
               <label className="block-label" htmlFor="recipe-photo">Primary photo</label>
               <FoodPhoto path={recipe.photo_path} hideUnavailable />
               <input id="recipe-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || photoLoading} onChange={selectPhoto} />

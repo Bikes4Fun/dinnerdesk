@@ -202,6 +202,8 @@ export const api = {
     req(`/api/recipes/${id}/dev-notes`, { method: "PUT", body: JSON.stringify({ text }) }),
   ingredientReview: () => req("/api/dev/ingredient-review"),
   flaggedRecipes: () => req("/api/dev/ingredient-review/flagged"),
+  recipeWorkflow: (id, body) =>
+    req(`/api/recipes/${id}/workflow`, { method: "PUT", body: JSON.stringify(body) }),
   putIngredientReviewNotes: (groupId, notes) =>
     req(`/api/dev/ingredient-review/${groupId}/notes`, {
       method: "PUT",

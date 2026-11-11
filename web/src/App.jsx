@@ -368,7 +368,7 @@ export function App() {
         </Notice>}
         <WhatsNew />
         {page === "plan" && <Plan />}
-        {page === "recipes" && <Recipes />}
+        {page === "recipes" && <Recipes admin={admin} />}
         {page === "recipe" && <Recipe id={route.id} />}
         {page === "new-recipe" && <NewRecipe />}
         {page === "grocery" && <Grocery />}

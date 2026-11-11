@@ -1395,12 +1395,12 @@ def test_download_recipes_include_ingredients_and_tags_only_for_this_household(t
         assert recipes[empty['id']]['tags'] == []
         assert 'private-tag' not in exported.text
         assert 'secret-quantity' not in exported.text
-def _upload_photo_data():
+def _upload_photo_data(color="green"):
     import base64
     from io import BytesIO
     from PIL import Image
     image = BytesIO()
-    Image.new('RGB', (24, 24), 'green').save(image, 'PNG')
+    Image.new('RGB', (24, 24), color).save(image, 'PNG')
     return 'data:image/png;base64,' + base64.b64encode(image.getvalue()).decode()
 
 
@@ -2301,13 +2301,13 @@ def test_recipe_gallery_keeps_original_and_selects_primary(tmp_path, monkeypatch
     monkeypatch.setenv('FOOD_DIR', str(tmp_path))
     with _client(tmp_path) as client:
         original = client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).json()['photo_path']
-        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()})
+        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data('red')})
         assert added.status_code == 200
         first = added.json()
         upload = next(p['path'] for p in first['photos'] if p['path'] != original)
         assert first['photo_path'] == original
         assert len(first['photos']) == 2
-        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()}).json()
+        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data('blue')}).json()
         assert len(again['photos']) == 3
         selected = client.put('/api/recipes/1/photos/primary', json={'path': upload})
         assert selected.status_code == 200
@@ -2345,7 +2345,7 @@ def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypa
         first = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
         assert first['photo_path'] == first['photos'][0]['path']
         assert first['photos'][0]['primary']
-        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
+        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data('red')}).json()
         path = next(p['path'] for p in second['photos'] if not p['primary'])
         assert client.put(f'/api/recipes/{rid}/photos/primary', json={'path': path}).json()['photo_path'] == path
         assert client.post(f'/api/recipes/{rid}/photos', json={'photo_data': 'invalid'}).status_code == 400
@@ -2428,7 +2428,8 @@ def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
             assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
             state = client.get('/api/catalog-sync/state', headers=auth).json()
             soup = next(r for r in state['recipes'] if r['slug'] == 'soup')
-            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False, 'reviewed': False}
+            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False,
+                                            'reviewed': False, 'to_edit': False, 'delete_requested': False}
             assert soup['content']['name'] == 'Better soup' and soup['tags'] == ['tested']
             assert state['files']['data/recipe_photos.json'] == hashlib.sha256(
                 (data / 'recipe_photos.json').read_bytes()).hexdigest()
@@ -2593,3 +2594,112 @@ def test_catalog_review_survives_import_until_sync_matches(tmp_path):
             upsert_catalog_recipe(db, {**incoming, 'reviewed': True}, {})
             db.commit()
         assert client.get('/api/recipes/1').json()['reviewed'] is False
+
+
+def test_admin_recipe_queues_are_reversible_and_preserve_recipes(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, 'collect_flagged_recipes', lambda root: [
+        {'name': 'Soup', 'reason': 'Check amount', 'raw': 'lots', 'source': 'example', 'ingredient_name': 'onion'}])
+    monkeypatch.setattr(routes, 'save_flagged_recipes', lambda *args: None)
+    with _client(tmp_path) as client:
+        endpoint = '/api/dev/ingredient-review/flagged'
+        initial = client.get(endpoint).json()
+        assert initial['queues'] == {'to_edit': [], 'hidden': [], 'delete_requested': []}
+        assert initial['reasons'][0]['recipes'][0]['recipe_id'] == 1
+        plan = client.get('/api/plans/current').json()
+        assert client.put(f"/api/plans/{plan['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 4}]}).status_code == 200
+        assert client.put('/api/recipes/1/workflow', json={'to_edit': True}).json()['to_edit'] is True
+        pending = client.put('/api/recipes/1/workflow', json={'delete_requested': True}).json()
+        assert pending['delete_requested'] is True and pending['to_edit'] is True
+        assert not pending['retired']
+        assert any(r['id'] == 1 for r in client.get('/api/recipes').json()['recipes'])
+        assert client.put('/api/recipes/1/retired', json={'on': True}).status_code == 200
+        queues = client.get(endpoint).json()['queues']
+        assert all([r['id'] for r in queues[key]] == [1] for key in queues)
+        assert not any(r['id'] == 1 for r in client.get('/api/recipes').json()['recipes'])
+        assert client.get('/api/recipes/1').status_code == 200
+        assert client.get('/api/plans/current').json()['slots'][0]['recipe_id'] == 1
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'name': 'Independent copy'}).json()
+        assert not copied['to_edit'] and not copied['delete_requested']
+        assert client.put('/api/recipes/1/workflow', json={'to_edit': False, 'delete_requested': False}).status_code == 200
+        assert client.put('/api/recipes/1/retired', json={'on': False}).status_code == 200
+        assert all(not rows for rows in client.get(endpoint).json()['queues'].values())
+        assert any(r['id'] == 1 for r in client.get('/api/recipes').json()['recipes'])
+
+
+def test_admin_recipe_workflow_enforces_permissions_and_household_privacy(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, 'collect_flagged_recipes', lambda root: [])
+    monkeypatch.setattr(routes, 'save_flagged_recipes', lambda *args: None)
+    with _client(tmp_path) as client:
+        assert client.put('/api/recipes/2/workflow', json={'to_edit': True}).status_code == 404
+        assert client.put('/api/recipes/999999/workflow', json={'delete_requested': True}).status_code == 404
+        assert client.put('/api/recipes/1/workflow', json={'retired': True}).status_code == 422
+        with connect() as db:
+            db.execute('UPDATE recipes SET provenance_json = ? WHERE id = 2',
+                       (json.dumps({'to_edit': True, 'delete_requested': True}),))
+            db.commit()
+        assert all(not rows for rows in client.get('/api/dev/ingredient-review/flagged').json()['queues'].values())
+        assert client.put('/api/recipes/1/workflow', json={'to_edit': True}).status_code == 200
+        overrides = client.app.dependency_overrides.copy()
+        client.app.dependency_overrides.clear()
+        try:
+            assert client.put('/api/recipes/1/workflow', json={'to_edit': False}).status_code == 403
+            assert client.get('/api/dev/ingredient-review/flagged').status_code == 403
+            ordinary = client.get('/api/recipes/1').json()
+            assert 'to_edit' not in ordinary and 'delete_requested' not in ordinary
+        finally:
+            client.app.dependency_overrides.update(overrides)
+
+
+@pytest.mark.parametrize('field', ['to_edit', 'delete_requested'])
+def test_admin_workflow_survives_catalog_import_and_clears_synced_flags(tmp_path, field):
+    from app.db.catalog import upsert_catalog_recipe
+    from app.catalog_sync_routes import _recipe_state
+    with _client(tmp_path) as client:
+        assert client.put('/api/recipes/1/workflow', json={field: True}).status_code == 200
+        incoming = {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20}
+        with connect() as db:
+            report = {}
+            upsert_catalog_recipe(db, incoming, {}, report)
+            db.commit()
+            assert any(c['part'] == field for c in report['conflicts'])
+            state = _recipe_state(db, db.execute('SELECT * FROM recipes WHERE id = 1').fetchone(), {}, {})
+            assert state[field] is True and state['admin_edited'][field] is True
+            upsert_catalog_recipe(db, {**incoming, field: True}, {})
+            db.commit()
+            flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+            assert flags[field] is True and not flags.get(f'admin_{field}_edited')
+        assert client.put('/api/recipes/1/workflow', json={field: False}).status_code == 200
+        with connect() as db:
+            upsert_catalog_recipe(db, {**incoming, field: True}, {})
+            db.commit()
+        assert client.get('/api/recipes/1').json()[field] is False
+
+
+def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path, monkeypatch):
+    from PIL import Image
+    from app.domain import recipe_photos
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    names = ['original.png', 'tested-copy.png', 'different.png']
+    for name, color in zip(names, ['red', 'red', 'blue']):
+        Image.new('RGB', (24, 24), color).save(tmp_path / name)
+        monkeypatch.setitem(recipe_photos.USE, name, 77)
+    monkeypatch.setitem(recipe_photos.GALLERY, '77', names)
+    monkeypatch.setattr(recipe_photos, 'TESTED', {'tested-copy.png'})
+    before = {name: (tmp_path / name).read_bytes() for name in names}
+    with _client(tmp_path) as client:
+        with connect() as db:
+            db.execute("UPDATE recipes SET photo_path = 'food/original.png', source_url = 'https://example.test/recipes/77' WHERE id = 1")
+            db.commit()
+        shown = client.get('/api/recipes/1').json()
+        assert [photo['path'] for photo in shown['photos']] == ['food/original.png', 'food/different.png']
+        assert shown['photos'][0]['tested'] is True
+        marked = client.put('/api/recipes/1/reviewed', json={'on': True}).json()
+        assert marked['photo_path'] == shown['photo_path'] and marked['photos'] == shown['photos']
+        assert before == {name: (tmp_path / name).read_bytes() for name in names}
+        after = client.request('DELETE', '/api/recipes/1/photos', json={'path': shown['photo_path']}).json()
+        assert [photo['path'] for photo in after['photos']] == ['food/different.png']
+        assert after['photo_path'] == 'food/different.png'
+        assert [photo['path'] for photo in client.get('/api/recipes/1').json()['photos']] == ['food/different.png']
+        assert before == {name: (tmp_path / name).read_bytes() for name in names}
