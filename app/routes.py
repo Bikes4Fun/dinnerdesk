@@ -801,6 +801,7 @@ def list_recipes(
     mine: bool = False,
     limit: int = Query(default=60, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
+    admin=OptionalAdminDep,
 ):
     sql = """SELECT DISTINCT r.* FROM recipes r
              LEFT JOIN recipe_tags t ON t.recipe_id = r.id
@@ -864,6 +865,8 @@ def list_recipes(
         for r in rows
     ]
     for card, r in zip(cards, rows):
+        if admin is not None:
+            card["to_edit"] = json.loads(r["provenance_json"] or "{}").get("to_edit") is True
         if _is_coming_soon(r):
             card["coming_soon"] = True
     laps.lap("cards")

@@ -5,7 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 import { fileURLToPath } from "node:url";
 
-test("thumbnail review controls are admin-only and expose the saved state", async () => {
+test("thumbnail admin controls and Coming soon previews expose the correct states", async () => {
   const previousWindow = globalThis.window;
   globalThis.window = { location: { pathname: "/recipes", search: "" }, addEventListener() {} };
   const server = await createServer({ root: fileURLToPath(new URL("../", import.meta.url)),
@@ -15,15 +15,22 @@ test("thumbnail review controls are admin-only and expose the saved state", asyn
     const { WeekProvider } = await server.ssrLoadModule("/src/week.jsx");
     for (const Card of [RecipeCard, RecipeRow]) {
       for (const coming_soon of [false, true]) {
-        const recipe = { id: 1, name: "Soup", reviewed: true, coming_soon };
+        const recipe = { id: 1, name: "Soup", reviewed: true, to_edit: true, coming_soon };
         const render = (admin) => renderToStaticMarkup(createElement(WeekProvider, null,
           createElement(Card, { recipe, admin, onChange() {} })));
         assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove review from Soup"/);
         assert.doesNotMatch(render(false), /Remove review from Soup/);
+        assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove from To edit: Soup"/);
+        assert.doesNotMatch(render(false), /Remove from To edit: Soup/);
         assert.match(render(false), /Reviewed by Dinnerdesk/);
         assert.match(render(false), /class="reviewed-badge photo-reviewed-badge"/);
       }
     }
+    const { TemplateCard } = await server.ssrLoadModule("/src/pages/Recipes.jsx");
+    const template = renderToStaticMarkup(createElement(TemplateCard, { family: { id: "bowls", name: "Bowls" } }));
+    assert.match(template, /aria-disabled="true"/);
+    assert.match(template, /Coming soon/);
+    assert.doesNotMatch(template, /<button|<a /);
     const { RecipeGallery } = await server.ssrLoadModule("/src/RecipeGallery.jsx");
     for (const reviewed of [false, true]) {
       for (const tested of [false, true]) {

@@ -27,6 +27,10 @@
 - [ ] Web admin: toggle Review on the main recipe thumbnail without opening it. The badge,
   Reviewed filter and detail checkbox update together; heart/plan controls still work.
   Regular users see only the badge, never the Review button.
+- [ ] Toggle To edit beside Review, refresh, and check Admin → Recipes to edit. Toggle it
+  off to remove it from the queue. Regular users see neither admin button.
+- [ ] Create from a template is faded, labelled Coming soon, and cannot open a creation
+  flow from its cards, add menu, template list or an old family link.
 - [ ] A tested photo with an exact duplicate shows once, with Developer tested overlaid.
   Review toggles do not create photos. Distinct photos remain separate; deleting the displayed
   duplicate group does not bring back another identical copy.
