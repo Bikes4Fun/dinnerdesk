@@ -152,3 +152,16 @@ def test_photo_list_reloads_in_place(tmp_path, monkeypatch):
     finally:
         monkeypatch.undo()
         recipe_photos.reload()
+
+
+def test_pull_writes_an_admin_retire_into_the_file():
+    f = _file()
+    server = {"admin_edited": {"retired": True}, "retired": True, "content": {}, "tags": [],
+              "photo_path": "", "dev_notes": ""}
+    out, changed = merge_recipe_file(f, server, SKIP)
+    assert out["retired"] is True and changed == ["retired"]
+    back = {**server, "retired": False}
+    out2, changed2 = merge_recipe_file(out, back, SKIP)
+    assert out2["retired"] is False and changed2 == ["retired"]
+    # Not admin-edited: the file's own value stays.
+    assert merge_recipe_file(f, {**server, "admin_edited": {}}, SKIP) == (f, [])

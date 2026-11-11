@@ -81,7 +81,9 @@ def _recipe_state(db: PgConnection, row, tags: dict, gallery: dict) -> dict:
             "content": flags.get("admin_content_edited") is True,
             "tags": flags.get("admin_tags_edited") is True,
             "photo": flags.get("admin_photo_edited") is True,
+            "retired": flags.get("admin_retired_edited") is True,
         },
+        "retired": flags.get("retired") is True,
         "content": {
             "name": row["name"],
             "servings": row["servings"],

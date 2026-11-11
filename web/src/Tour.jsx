@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { go } from "./nav.js";
-import { AVOIDS, DIETS, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
+import { AVOIDS, DIETS, TIMES, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
 import { TourPicture } from "./TourPicture.jsx";
 import { Sparkle, Tip } from "./Tip.jsx";
 import { Notice } from "./Notice.jsx";
+import { Copy } from "./Copy.js";
 // Real iPhone screenshots for how-to cards, by card index; the others use TourPicture.
 import suggestionsShot from "./images/tour-suggestions.jpg";
 import storesShot from "./images/tour-stores.jpg";
@@ -17,29 +18,9 @@ const DRAWINGS = { 1: 0, 3: 3 };
 // The recipes and tips card shows a real tip instead of a picture.
 const TIPS_CARD = 4;
 
-const TIMES = [
-  ["any", "Any time"],
-  ["20", "≤20 min"],
-  ["30", "≤30 min"],
-  ["45", "≤45 min"],
-];
-// Same words as tour.how.* in ios/dinnerdesk/copy.json.
-const HOW = [
-  { title: "Suggestions", body: "Get four dinners matched to your household’s tastes and diet. No browsing needed." },
-  { title: "Review and approve", body: "Swap any meal you don’t want, then approve. Your current plan stays until you do." },
-  { title: "Grocery", body: "Your list is built from the plan, with amounts combined. Pantry items can start checked off. Tap a store at the top to shop one store at a time." },
-  { title: "Weekend prep", body: "When you have time, chop, measure and make sauces ahead. On weeknights, just cook." },
-  { title: "Recipes and tips", body: "Browse recipes or add your own. Purple cards with a ★ explain a feature right where you use it." },
-  { title: "Taste Lab", body: "Swipe meals you’d cook or pass on to sharpen your suggestions. Find it anytime under More." },
-];
-
-// Same words as tour.ai.* in ios/dinnerdesk/copy.json.
-const AI = [
-  ["Are these recipes AI-generated?", "No. These are real recipes developed by people and shared publicly by reliable sources."],
-  ["AI photos and wording", "We use AI to create representative photos and rewrite descriptions and instructions, rather than copy the source’s photos or exact wording. The photos are inspiration, not the exact result."],
-  ["Made on our own computer", "Our AI runs on a machine we own, not in a data center."],
-  ["Reviewed by our team", "Our team reviews the AI-generated photos and wording. We’re working through cooking the recipes, checking ingredients and steps, and replacing AI images with our own photos."],
-];
+// One wording source for web, iOS and Android.
+const HOW = Copy.steps("tour.how", 6);
+const AI = Copy.steps("tour.ai", 4).map(({ title, body }) => [title, body]);
 
 // One line for the notice; Details shows the rest.
 const UPDATE_SHORT = "More varied meal plans, cuisine and protein filters, and 58 new recipes.";

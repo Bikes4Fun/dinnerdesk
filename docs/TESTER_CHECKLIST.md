@@ -6,6 +6,19 @@
 
 ## Daily essentials
 
+### Shared filters and tour wording (#288, November 8, 2026)
+
+- [ ] On web, iPhone and Android, compare Settings filters: diet, allergy, avoids, cuisine,
+  protein and cook time choices agree. Android includes 20 minutes and the individual
+  cuisines/proteins rather than only Asian/Seafood.
+- [ ] Choose pescatarian: salmon, shrimp, white fish, scallops and plant proteins remain;
+  meat choices disappear. Vegetarian offers tofu, tempeh, beans and eggs; vegan omits eggs.
+  Gluten-free/dairy-free combine with the chosen diet. Save and reopen on another platform.
+- [ ] Existing saved poultry/red-meat allergies remain as custom values; legacy Asian and
+  Seafood preferences expand to their individual choices without dropping other settings.
+- [ ] Replay Quick start on all three clients. The AI explanation and feature descriptions
+  match, remain readable at large text sizes, and Skip/Back/filter saving still work.
+
 - [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
 - [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.
 - [ ] **Suggestions preserve your plan:** request four meals and swap one. The current plan/groceries stay unchanged until approval. Approve and confirm the reviewed meals become the plan.

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Icon } from "../icons.jsx";
+import { PrepTaskPresentation } from "../PrepTaskPresentation.js";
 import "./prep.css";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
@@ -204,15 +205,7 @@ export function Prep() {
 function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onReport, onSend }) {
   const [note, setNote] = useState(t.reason_note || "");
   const amount = (t.quantities || []).filter(Boolean).join(" · ");
-  // Each different step once (several meals often share the same words).
-  const how = [];
-  for (const meal of t.meals || []) {
-    for (const text of meal.steps?.length ? meal.steps.map((s) => s.text) : meal.instructions || []) {
-      if (!how.some((h) => h.text.toLowerCase() === text.trim().toLowerCase())) {
-        how.push({ text: text.trim(), added: Boolean(meal.steps?.some((st) => st.added && st.text.trim() === text.trim())) });
-      }
-    }
-  }
+  const how = new PrepTaskPresentation(t).instructionGroups;
   return (
     <div className={`pz-step-item${open ? " open" : ""}${t.done ? " done" : ""}`}>
       <div className="pz-step-head">
@@ -228,8 +221,11 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
       {open && (
         <div className="pz-step-body" id={`pz-step-${t.id}`}>
           {how.map((h, i) => (
-            <p key={i} className="pz-how">{h.text}{h.added && <span className="pz-added">Added by you</span>}</p>
+            <p key={i} className="pz-how">{t.meals.length > 1 && <strong>{h.meals.map((m) => m.name).join(", ")}: </strong>}{h.text}
+              {h.quantities?.length > 0 && <span className="pz-amount">{h.quantities.join(" · ")}</span>}
+              {h.added && <span className="pz-added">Added by you</span>}</p>
           ))}
+          {t.storage && <p className="pz-how">{t.storage}</p>}
           {t.meals?.length > 0 && (
             <div>
               <p className="pz-meals-label">{t.meals.length > 1 ? "Split between" : "For"}</p>

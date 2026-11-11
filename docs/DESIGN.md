@@ -44,10 +44,11 @@ Welcome, **How we use AI**, a short what-to-eat survey (diet, avoids, cook time,
 as Settings; saved when you leave it, so a later Skip keeps them), then one card each for
 Suggestions, Review and approve, Grocery, Weekend prep, Recipes and ★ tips, and Taste Lab. The
 last card offers **Start planning** or **Try Taste Lab**. The tour must not promise that tips fade
-until that is built. How we use AI says plainly: recipe photos are AI-generated; recipes
-are not (they come from reliable sources); photos can be copyrighted and recipes can't, so we
-never copy photos; the AI runs on our own computer, not in a data center; and real photos will
-replace AI ones over time.
+until that is built. How we use AI explains that real recipes were developed by people and
+shared publicly by reliable sources. AI supplies representative photos and rewritten wording;
+the team reviews these and is working through cooking the recipes, checking ingredients and
+steps, and taking real photos. The tour descriptions on web, iPhone and Android read the same
+keys in `ios/dinnerdesk/copy.json`.
 
 - **Must:** offer Quick start or Skip on first visit; never block the app; replay from
   Settings and More. Offer it once more to everyone after a major update: raise
@@ -131,8 +132,23 @@ Plan; not in Plan → ⋯) opens a
 4. Part of a Taste Lab plan the household approved.
 
 A pass or 👎 drops the meal. One to three liked meals can pull in others with similar
-ingredients. Refusing a whole plan is a weaker signal than swapping one meal and approving the
-rest. Diet and avoid filters are hard rules (see 5).
+ingredients; To try meals pull in similar meals the same way.
+
+A plan is mostly new ideas, not the same few meals they liked. At most 40% of it (1 of 1–2
+meals, 2 of 3–5) is meals the household already knows: liked, hearted, cooked, approved or To
+try. The rest are new to them, ranked by how close they are to what they liked and by pantry and
+grocery reuse. Familiar meals fill in only when too few new meals fit. A meal in the last three
+suggested plans ranks lower each time it was in one, so liked meals take turns instead of
+showing up in every plan.
+
+Declining a whole plan doesn't lower its meals: they sit out the next three suggested plans (or
+come back sooner as a backup when nothing else fits). Swapping a meal out does lower it. Diet
+and avoid filters are hard rules (see 5).
+
+- **Bug if:** more than 40% of a suggested plan is meals the household already knows while
+  new meals fit.
+- **Bug if:** a meal from a declined plan is in one of the next three suggested plans while
+  other meals fit.
 
 ### 4. Your plan (This week)
 
@@ -404,6 +420,28 @@ builds → shop → prep → cook.
 ---
 
 ## Architecture
+
+### Shared systems and platform consistency (#288)
+
+The API owns household permissions and food/planning rules. Clients own presentation,
+navigation, cache and operating-system integration through reusable services, models and
+components. Class-based services, native value types, React hooks and pure domain functions
+are used according to their responsibilities. See `PLATFORM_CONSISTENCY.md` for the source
+inventory, confirmed gaps and intentional platform exceptions (admin is web-only).
+
+`shared/filter-options.json` is the only editable catalog of diets, allergens, avoids,
+cuisines, proteins, cook times and diet-specific protein choices. Run
+`python scripts/sync_filter_options.py` after changing it. It generates the Python catalog,
+web `FilterOptions` adapter, iOS `FilterOptions` model, Android `FilterOptions` object, and
+Taste Lab's filter lists. Generated sources are committed so normal app builds and startup
+do not require the generator or a network request. `--check` and pytest detect drift.
+
+All filter editors offer the same choices. Protein preferences include seafood and plant
+proteins for pescatarians, plant proteins and eggs for vegetarians, and plant proteins for
+vegans. The strictest saved exclusive diet determines the available proteins; gluten-free
+and dairy-free remain additive. Every client offers Any time, 20, 30 and 45 minutes. Legacy
+Asian/Seafood preferences are still expanded by the server, and saved custom allergies are
+retained even though poultry and red meat are no longer offered as allergy chips.
 
 ### Stack
 
