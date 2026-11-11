@@ -1,4 +1,5 @@
 import FoodPhoto from "./FoodPhoto.jsx";
+import { ReviewedBadge } from "./ReviewedBadge.jsx";
 import { api } from "./api.js";
 import { go } from "./nav.js";
 import { useWeek } from "./week.jsx";
@@ -23,6 +24,7 @@ export function RecipeCard({ recipe, onChange }) {
       <div className="card is-coming-soon" aria-disabled="true">
         <div className="card-img"><ComingSoonPhoto path={recipe.photo_path} /></div>
         <p className="card-name">{recipe.name}</p>
+        <ReviewedBadge reviewed={recipe.reviewed} />
       </div>
     );
   }
@@ -66,6 +68,7 @@ function ReadyRecipeCard({ recipe, onChange }) {
       </div>
       <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
         <p className="card-name">{recipe.name}</p>
+        <ReviewedBadge reviewed={recipe.reviewed} />
       </button>
     </div>
   );
@@ -76,7 +79,7 @@ export function RecipeRow({ recipe, onChange }) {
     return (
       <div className="recipe-row is-coming-soon" aria-disabled="true">
         <div className="thumb-wrap"><ComingSoonPhoto className="thumb-sq" path={recipe.photo_path} /></div>
-        <div className="recipe-copy"><strong>{recipe.name}</strong></div>
+        <div className="recipe-copy"><strong>{recipe.name}</strong><ReviewedBadge reviewed={recipe.reviewed} /></div>
       </div>
     );
   }
@@ -112,6 +115,7 @@ function ReadyRecipeRow({ recipe, onChange }) {
       </div>
       <button type="button" className="recipe-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
         <strong>{recipe.name}</strong>
+        <ReviewedBadge reviewed={recipe.reviewed} />
       </button>
       <button
         type="button"

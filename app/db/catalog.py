@@ -176,6 +176,7 @@ def _provenance_json(data: dict) -> str:
             # Kept in the catalog files for reference, but no longer offered anywhere. Plans
             # and favorites that already point at it still open it.
             "retired": bool(data.get("retired")),
+            "reviewed": data.get("reviewed") is True,
             "coming_soon": bool(data.get("coming_soon")),
         }
     )
@@ -265,6 +266,7 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_primary = flags.get("admin_photo_edited") is True
         keep_content = flags.get("admin_content_edited") is True
         keep_retired = flags.get("admin_retired_edited") is True
+        keep_reviewed = flags.get("admin_reviewed_edited") is True
 
         def settle(part: str, keep: bool, find_differences) -> bool:
             if not keep:
@@ -288,6 +290,12 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
             "retired", keep_retired,
             lambda: [] if bool(data.get("retired")) == (flags.get("retired") is True) else ["retired"])
         incoming_provenance = json.loads(provenance)
+        keep_reviewed = settle(
+            "reviewed", keep_reviewed,
+            lambda: [] if (data.get("reviewed") is True) == (flags.get("reviewed") is True) else ["reviewed"])
+        if keep_reviewed:
+            incoming_provenance["reviewed"] = flags.get("reviewed") is True
+            incoming_provenance["admin_reviewed_edited"] = True
         if keep_retired:  # removed from (or brought back to) the app in the admin screen
             incoming_provenance["retired"] = flags.get("retired") is True
             incoming_provenance["admin_retired_edited"] = True

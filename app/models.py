@@ -6,6 +6,7 @@ from datetime import date
 from typing import Annotated
 
 from pydantic import BaseModel, Field
+from app.domain.report_options import ReportCatalog
 
 
 class RecipeCreate(BaseModel):
@@ -186,23 +187,23 @@ class PrepStepFeedbackPut(BaseModel):
 
 
 # Why a prep item isn't worth doing ahead (#21). Logged with the 👎 for review.
-PREP_REASONS = ("day_of", "kept_badly", "too_small", "prep_differently", "not_prep")
+PREP_REASONS = ReportCatalog.ids("prep")
 
 
 class PrepTaskFeedbackPut(BaseModel):
     """👍/👎 on a whole prep item (every meal's step in it), with an optional reason and note for a 👎."""
     rating: int = Field(ge=-1, le=1)
-    reason: str = Field(default="", pattern="^(|day_of|kept_badly|too_small|prep_differently|not_prep)$")
+    reason: str = Field(default="", pattern="^(|" + "|".join(PREP_REASONS) + ")$")
     note: str = Field(default="", max_length=500)
 
 
 # Why a cook reports a recipe. Same ids in web/src/pages/Recipe.jsx and ios RecipeReportReason.
-RECIPE_REPORT_REASONS = ("ingredients", "steps", "diet", "photo", "duplicate", "turned_out", "other")
+RECIPE_REPORT_REASONS = ReportCatalog.ids("recipe")
 
 
 class RecipeReportCreate(BaseModel):
     """A cook reporting a problem with a recipe, with a reason and their own words."""
-    reason: str = Field(pattern="^(ingredients|steps|diet|photo|duplicate|turned_out|other)$")
+    reason: str = Field(pattern="^(" + "|".join(RECIPE_REPORT_REASONS) + ")$")
     note: str = Field(default="", max_length=1000)
 
 
@@ -229,7 +230,7 @@ class FeedbackStatusPut(BaseModel):
 
 
 # Why a grocery item is wrong. Same ids in web/src/pages/Grocery.jsx and ios IngredientReportReason.
-INGREDIENT_REPORT_REASONS = ("name", "aisle", "amount", "photo", "duplicate", "other")
+INGREDIENT_REPORT_REASONS = ReportCatalog.ids("ingredient")
 
 
 class IngredientReportCreate(BaseModel):
