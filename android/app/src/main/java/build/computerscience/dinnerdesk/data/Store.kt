@@ -253,12 +253,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         }
     }
 
-    suspend fun setReviewed(id: Int, on: Boolean): RecipeDetail? = try {
-        val next: RecipeDetail = Api.send("recipes/$id/reviewed", "PUT", mapOf("on" to on), cacheAs = "recipes/$id")
-        recipes = recipes.map { if (it.id == id) it.copy(reviewed = next.reviewed) else it }
-        next
-    } catch (e: Throwable) { fail(e); null }
-
     suspend fun toggleTryLater(recipe: RecipeSummary) {
         val on = !recipe.toTry
         recipes = recipes.map { if (it.id == recipe.id) it.copy(toTry = on) else it }

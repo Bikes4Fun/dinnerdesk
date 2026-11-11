@@ -6,6 +6,15 @@
 
 ## Daily essentials
 
+### User-visible recipe status parity (#288, November 11)
+
+- [ ] Open the same reviewed recipe on web/iPhone/Android. Its main photo and thumbnail show
+  Reviewed. A tested photo also shows its tested badge. Approval controls remain web-only.
+- [ ] Page between distinct photos: credit/source and AI/shared/tested notes follow the
+  displayed photo. Android's info button opens the recorded credit and safe source link.
+- [ ] Compare the Reviewed filter, deduplicated gallery and prep amounts/storage/feedback
+  on all clients. Test existing cached recipes too; missing metadata must not imply testing.
+
 ### Admin recipe management (#167)
 
 - [ ] Web admin: open a catalog recipe. Without selecting Edit, tag as To edit; hide it from everyone;

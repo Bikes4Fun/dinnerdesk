@@ -10,11 +10,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import build.computerscience.dinnerdesk.data.Copy
 
 @Composable
 fun ReviewedBadge() {
-    Text("✓ Reviewed", style = Theme.count, color = Theme.ink,
+    Text("✓ ${Copy.text("recipe.reviewed")}", style = Theme.count, color = Theme.ink,
         modifier = Modifier.background(Color(0xFFFFF0BC), RoundedCornerShape(8.dp))
             .padding(horizontal = 8.dp, vertical = 4.dp)
-            .semantics { contentDescription = "Reviewed by Dinnerdesk" })
+            .semantics { contentDescription = Copy.text("recipe.reviewed.description") })
 }

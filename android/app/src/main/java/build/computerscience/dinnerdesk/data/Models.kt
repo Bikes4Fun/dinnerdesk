@@ -104,7 +104,12 @@ data class RecipeDetail(
     /** Where a kitchen's own recipe came from, when it has a web link. */
     @SerialName("source_url") val sourceUrl: String? = null,
     val reviewed: Boolean = false,
+    val photos: List<RecipeGalleryPhoto>? = null,
 ) {
+    val galleryPhotos: List<RecipeGalleryPhoto>
+        get() = photos ?: photoPath?.takeIf { it.isNotBlank() }?.let {
+            listOf(RecipeGalleryPhoto(it, primary = true, ai = photoAI, shared = photoShared))
+        }.orEmpty()
     val sourceLink: String?
         get() {
             if (catalog) return null
@@ -115,6 +120,20 @@ data class RecipeDetail(
     val instructionsCustomized: Boolean
         get() = instructionsSource == "dinnerdesk" && instructionsCopiedFromThirdParty == false
     val prettyTags: String get() = tags.joinToString(" · ") { it.replace("_", " ") }
+}
+
+@Serializable
+data class RecipeGalleryPhoto(
+    val path: String,
+    val primary: Boolean = false,
+    val ai: Boolean = false,
+    val shared: Boolean = false,
+    val tested: Boolean = false,
+    val credit: String? = null,
+    @SerialName("source_url") val sourceUrl: String? = null,
+) {
+    val sourceLink: String?
+        get() = sourceUrl?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 }
 
 @Serializable

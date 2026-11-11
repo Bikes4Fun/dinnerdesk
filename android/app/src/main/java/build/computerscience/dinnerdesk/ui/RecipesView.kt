@@ -43,7 +43,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -62,6 +61,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.Api
+import build.computerscience.dinnerdesk.data.Copy
 import build.computerscience.dinnerdesk.data.Freshness
 import build.computerscience.dinnerdesk.data.IngredientLine
 import build.computerscience.dinnerdesk.data.InstructionStep
@@ -200,6 +200,9 @@ fun RecipesView() {
                     if (suggestedIds.isNotEmpty()) BrowseSection("Suggestions", rows(RecipeListKind.Suggestions)) { open(RecipeListKind.Suggestions) }
                     BrowseSection("Your favorites", favorites, empty = "Heart a recipe to keep it here.") { open(RecipeListKind.Fav) }
                     if (toTry.isNotEmpty()) BrowseSection("To try", toTry) { open(RecipeListKind.TryLater) }
+                    Column(Modifier.alpha(0.65f)) {
+                        BrowseSection("Create from a template", emptyList(), empty = "Coming soon") {}
+                    }
                     if (popular.isNotEmpty()) BrowseSection("Most popular", popular) { open(RecipeListKind.Popular) }
                     if (mine.isNotEmpty()) BrowseSection("Your recipes", mine) { open(RecipeListKind.Mine) }
                     if (simple.isNotEmpty()) BrowseSection("Super simple", simple) { open(RecipeListKind.Simple) }
@@ -292,10 +295,14 @@ fun RecipeGridPage(title: String, recipes: List<RecipeSummary>) {
 fun RecipeTile(recipe: RecipeSummary) {
     if (recipe.comingSoon) {
         // Our photo is in but the steps aren't written yet: dimmed, labelled, not clickable.
-        Column(Modifier.fillMaxWidth().semantics { contentDescription = "${recipe.name}, coming soon" },
+        Column(Modifier.fillMaxWidth().semantics {
+            contentDescription = listOfNotNull(recipe.name, "Coming soon",
+                if (recipe.reviewed) Copy.text("recipe.reviewed.description") else null).joinToString(", ")
+        },
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                 Box(Modifier.fillMaxSize().alpha(0.55f)) { RecipePhoto(recipe.photoPath, fill = true, corner = 12.dp) }
+                if (recipe.reviewed) Box(Modifier.align(Alignment.BottomStart).padding(6.dp)) { ReviewedBadge() }
                 Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
@@ -327,9 +334,9 @@ fun RecipeTile(recipe: RecipeSummary) {
                         tint = if (onWeek) Theme.accent else Color.Black.copy(alpha = 0.35f), modifier = Modifier.size(34.dp),
                     )
                 }
+                if (recipe.reviewed) Box(Modifier.align(Alignment.BottomStart).padding(6.dp)) { ReviewedBadge() }
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
-            if (recipe.reviewed) ReviewedBadge()
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Theme.surface) {
             DropdownMenuItem({ Text(if (recipe.favorited) "Unfavorite" else "Favorite", style = Theme.body) }, { menu = false; store.launch { toggleFavorite(recipe) } })
@@ -357,7 +364,6 @@ fun RecipeDetailView(id: Int) {
     var adding by remember { mutableStateOf(false) }
     var planNotice by remember { mutableStateOf<String?>(null) }
     var showingMenu by remember { mutableStateOf(false) }
-    var reviewing by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableStateOf(RecipePageTab.Overview) }
     var nameExpanded by remember { mutableStateOf(false) }
     var draftServings by remember { mutableStateOf<Int?>(null) }
@@ -444,9 +450,7 @@ fun RecipeDetailView(id: Int) {
                     error?.let { ErrorBanner(it) }
                     Segmented(listOf(RecipePageTab.Overview to "Overview", RecipePageTab.Cook to "Cook"), tab) { tab = it }
                     if (tab == RecipePageTab.Overview) {
-                        RecipePhoto(r.photoPath, large = true)
-                        if (r.photoAI && r.photoPath != null) StarTip("recipes.ai-photo")
-                        else if (r.photoShared && r.photoPath != null) StarTip("recipes.shared-photo")
+                        RecipeGallery(r)
                     }
                     // Long names at large text sizes pushed everything else off screen. Cap at 3 lines; tap to see it all.
                     Text(
@@ -456,17 +460,6 @@ fun RecipeDetailView(id: Int) {
                     )
                     ServingsRow(mealServings, r.cookingMinutes, ::bumpServings)
                     if (r.reviewed) ReviewedBadge()
-                    if (admin) Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = r.reviewed, enabled = !reviewing, onCheckedChange = { on ->
-                            reviewing = true
-                            scope.launch {
-                                val next = store.setReviewed(id, on)
-                                if (next != null) recipe = next else error = store.error
-                                reviewing = false
-                            }
-                        }, modifier = Modifier.semantics { contentDescription = "Reviewed by Dinnerdesk" })
-                        Text("Reviewed by Dinnerdesk", style = Theme.body)
-                    }
                     if (tab == RecipePageTab.Overview && r.prettyTags.isNotEmpty()) Text(r.prettyTags, style = Theme.subtitle, color = Theme.muted)
                     if (tab == RecipePageTab.Overview) {
                         Text("Ingredients", style = Theme.title, color = Theme.ink)
