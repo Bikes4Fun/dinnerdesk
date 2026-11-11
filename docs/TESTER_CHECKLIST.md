@@ -10,6 +10,7 @@
 
 - [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
   Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.
+  With iPhone VoiceOver, a reviewed Coming soon tile also announces “Reviewed by Dinnerdesk.”
 - [ ] As a regular user, see the badge and use the Reviewed filter, including with Favorites;
   there is no review checkbox. Unchecking as admin removes the badge and filtered result.
 - [ ] A copied recipe starts unreviewed. Photo credits and Developer tested photo badges

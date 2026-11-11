@@ -495,7 +495,7 @@ struct RecipeTile: View {
       if recipe.reviewed { ReviewedBadge() }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(recipe.name), coming soon")
+    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Reviewed by Dinnerdesk" : "")")
   }
 
   private var readyTile: some View {
