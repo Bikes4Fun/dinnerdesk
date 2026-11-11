@@ -6,6 +6,16 @@
 
 ## Daily essentials
 
+### Admin recipe management (#167)
+
+- [ ] Web admin: open a catalog recipe → Edit. Tag as To edit; hide it from everyone;
+  request deletion. Settings → Recipes to edit shows it in each matching list after refresh.
+- [ ] Hidden recipes leave normal browsing/search, but existing plans still open them.
+  Show to everyone restores them. Deletion review keeps the recipe intact; Keep recipe
+  cancels the request. Remove To edit tag clears only that tag.
+- [ ] Ingredient fixes still appear and link to the in-app recipe when matched. Regular
+  users cannot access these controls/lists; another household's private recipes stay private.
+
 ### Admin recipe review (#167, November 11, 2026)
 
 - [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its

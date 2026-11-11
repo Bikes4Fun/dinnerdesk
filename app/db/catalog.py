@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.domain.recipe_normalize import RecipeNormalizer
 from app.assets import catalog_dir, food_dir
-from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
+from app.domain.catalog_sync import RECIPE_WORKFLOW_FIELDS, content_differences, same_photo, steps_from_db, tags_match
 from app.domain.recipe_photos import (
     archive_id_of, catalog_gallery, found_ai_photos, is_uploaded_photo, our_photo_entries,
 )
@@ -177,6 +177,7 @@ def _provenance_json(data: dict) -> str:
             # and favorites that already point at it still open it.
             "retired": bool(data.get("retired")),
             "reviewed": data.get("reviewed") is True,
+            **{field: data.get(field) is True for field in RECIPE_WORKFLOW_FIELDS},
             "coming_soon": bool(data.get("coming_soon")),
         }
     )
@@ -290,6 +291,13 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
             "retired", keep_retired,
             lambda: [] if bool(data.get("retired")) == (flags.get("retired") is True) else ["retired"])
         incoming_provenance = json.loads(provenance)
+        for field in RECIPE_WORKFLOW_FIELDS:
+            keep = settle(
+                field, flags.get(f"admin_{field}_edited") is True,
+                lambda field=field: [] if (data.get(field) is True) == (flags.get(field) is True) else [field])
+            if keep:
+                incoming_provenance[field] = flags.get(field) is True
+                incoming_provenance[f"admin_{field}_edited"] = True
         keep_reviewed = settle(
             "reviewed", keep_reviewed,
             lambda: [] if (data.get("reviewed") is True) == (flags.get("reviewed") is True) else ["reviewed"])

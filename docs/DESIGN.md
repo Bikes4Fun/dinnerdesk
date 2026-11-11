@@ -266,6 +266,16 @@ Developer tested photo badge are unchanged. Only the admin review endpoint may c
 status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
 are pulled into recipe files by sync and preserved across imports until the file agrees.
 
+Web admins manage recipes from the Edit area: Tag as To edit, Hide from everyone
+(catalog recipes), and Delete — send for review. The last action only queues a request;
+it never deletes or automatically hides a recipe. Settings → Recipes to edit consolidates
+To edit, Hidden from everyone, Deletion review and existing Ingredient fixes. Each queue
+links back to the recipe; admins can clear edit tags, show hidden recipes again, or keep
+a recipe by cancelling its deletion request. Hidden catalog recipes leave browsing and
+suggestions but remain openable from existing plans. Workflow flags are admin-only,
+persist through catalog sync/import, and do not transfer to recipe copies. Private
+recipes in other households never appear in these queues.
+
 
 Recipe detail add controls reflect membership in the current plan: already included recipes
 show "Remove from this plan". Successful adds/removals show a brief confirmation popup.
