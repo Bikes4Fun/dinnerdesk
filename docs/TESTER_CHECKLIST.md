@@ -6,6 +6,53 @@
 
 ## Daily essentials
 
+### Admin recipe management (#167)
+
+- [ ] Web admin: open a catalog recipe → Edit. Tag as To edit; hide it from everyone;
+  request deletion. Admin → Recipes to edit shows it in each matching list after refresh.
+- [ ] Hidden recipes leave normal browsing/search, but existing plans still open them.
+  Show to everyone restores them. Deletion review keeps the recipe intact; Keep recipe
+  cancels the request. Remove To edit tag clears only that tag.
+- [ ] Ingredient fixes still appear and link to the in-app recipe when matched. Regular
+  users cannot access these controls/lists; another household's private recipes stay private.
+
+### Admin recipe review (#167, November 11, 2026)
+
+- [ ] Web admin: toggle Review on the main recipe thumbnail without opening it. The badge,
+  Reviewed filter and detail checkbox update together; heart/plan controls still work.
+  Regular users see only the badge, never the Review button.
+- [ ] A tested photo with an exact duplicate shows once, with Developer tested overlaid.
+  Review toggles do not create photos. Distinct photos remain separate; deleting the displayed
+  duplicate group does not bring back another identical copy.
+
+- [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
+  Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.
+  With iPhone VoiceOver, a reviewed Coming soon tile also announces “Reviewed by Dinnerdesk.”
+- [ ] As a regular user, see the badge and use the Reviewed filter, including with Favorites;
+  there is no review checkbox. Unchecking as admin removes the badge and filtered result.
+- [ ] A copied recipe starts unreviewed. Photo credits and Developer tested photo badges
+  are independent of recipe approval. Failed review saves show an error and keep the old state.
+
+### Shared filters and tour wording (#288, November 8, 2026)
+
+- [ ] On web, iPhone and Android, compare Settings filters: diet, allergy, avoids, cuisine,
+  protein and cook time choices agree. Android includes 20 minutes and the individual
+  cuisines/proteins rather than only Asian/Seafood.
+- [ ] Choose pescatarian: salmon, shrimp, white fish, scallops and plant proteins remain;
+  meat choices disappear. Vegetarian offers tofu, tempeh, beans and eggs; vegan omits eggs.
+  Gluten-free/dairy-free combine with the chosen diet. Save and reopen on another platform.
+- [ ] Existing saved poultry/red-meat allergies remain as custom values; legacy Asian and
+  Seafood preferences expand to their individual choices without dropping other settings.
+- [ ] Replay Quick start on all three clients. The AI explanation and feature descriptions
+  match, remain readable at large text sizes, and Skip/Back/filter saving still work.
+- [ ] On each client, submit a recipe, grocery and prep report with a reason and note. The
+  reason choices match across clients; admin Inbox shows those same labels and all notes.
+  Plain prep votes still work without a reason. Missing prep steps use their separate action.
+- [ ] On web, downvote an expanded prep task without checking it off: choose a reason,
+  add a note, send, and reload. Both remain visible. Retry with networking disabled:
+  the editor keeps the draft and shows an error; restoring networking allows retry.
+  Prep feedback uses only thumbs up/down; there is no separate flag button.
+
 - [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
 - [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.
 - [ ] **Suggestions preserve your plan:** request four meals and swap one. The current plan/groceries stay unchanged until approval. Approve and confirm the reviewed meals become the plan.

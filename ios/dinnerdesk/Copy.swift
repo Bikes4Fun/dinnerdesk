@@ -1,7 +1,7 @@
 import Foundation
 
-/// Shared user-facing text. The words live in `shared/copy.json` at the repo root (also used by the website),
-/// bundled into the app through the "shared" folder in the Xcode project. Edit text there, not in Swift.
+/// Shared user-facing text lives in `ios/dinnerdesk/copy.json`, used by the web and Android apps too.
+/// Xcode bundles it from this source folder. Edit the JSON, not a platform-specific copy.
 /// `{app}` becomes the app name.
 enum Copy {
   private static let table: [String: String] = {

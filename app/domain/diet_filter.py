@@ -12,7 +12,7 @@ import re
 from .taste_rank import AVOID_ALIAS, DIET_BLOCKS, KEYS, hits, recipe_text
 
 # Diets that rule each other out. Picking one clears the others in Settings.
-EXCLUSIVE_DIETS = ("omnivore", "pescatarian", "vegetarian", "vegan")
+from .filter_options import ALLERGENS, AVOIDS, CUISINES, DIETS, EXCLUSIVE_DIETS, PROTEINS, STRICTEST, WHO
 
 # Meat words the shared list misses. Added for every diet that blocks meat.
 MORE_MEAT = [
@@ -85,33 +85,11 @@ def matched_words(name: str, ingredients: list[str], groups: list[list[str]]) ->
     return sorted({word.strip() for group in groups for word in group if hits(blob, [word])})
 
 
-# The one list of choices. Settings → Filters, the Quick start tour and Taste Lab all show these
-# (web/src/diet.js, tastelab/web/app.js and ios FiltersView copy them; a test keeps them equal).
-DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
-# Soft preferences. They rank suggestions; they do not hide recipes.
-WHO = ["beginner", "family", "kids", "entertaining"]
-CUISINES = [
-    "italian", "mexican", "american", "chinese", "thai", "indian", "japanese", "mediterranean",
-    "korean", "vietnamese", "greek", "middle-eastern", "french", "spanish", "southern", "cajun",
-    "caribbean", "latin-american",
-]
-PROTEINS = [
-    "chicken", "beef", "pork", "salmon", "shrimp", "tofu", "turkey", "white-fish", "lamb", "sausage",
-    "tempeh", "beans", "eggs", "scallops",
-]
-# Poultry and red meat were allergies once; they're preferences now (Proteins). Saved ones
-# still hide meals until the household removes them.
-ALLERGENS = ["soy", "peanut", "tree-nuts", "dairy", "egg", "gluten", "sesame", "fish", "shellfish"]
-AVOIDS = [
-    "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
-    "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
-]
 # Older Settings saved these allergies under Avoid.
 AVOID_TO_ALLERGEN = {"peanuts": "peanut", "peanut": "peanut", "shellfish": "shellfish"}
 # Older Filters had one Asian cuisine and one Seafood protein; they became these.
 SPLIT_CUISINES = {"asian": ["chinese", "thai", "japanese", "korean", "vietnamese"]}
 SPLIT_PROTEINS = {"seafood": ["salmon", "shrimp", "white-fish", "scallops"]}
-STRICTEST = ("vegan", "vegetarian", "pescatarian", "omnivore")
 
 
 def _words_list(items) -> list[str]:

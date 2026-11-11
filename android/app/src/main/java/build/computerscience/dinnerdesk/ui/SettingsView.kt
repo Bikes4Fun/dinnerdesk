@@ -125,39 +125,6 @@ fun SettingsView() {
 }
 
 /** What you eat: diet, allergies, things to avoid, cook time. Saved to household prefs.filters. */
-object FilterOptions {
-    val diets = listOf("omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free")
-    /** Pick one of these. The others (gluten-free, dairy-free) combine with it. */
-    val exclusiveDiets = setOf("omnivore", "pescatarian", "vegetarian", "vegan")
-    val allergens = listOf(
-        "soy" to "Soy", "peanut" to "Peanut", "tree-nuts" to "Tree nuts", "dairy" to "Dairy", "egg" to "Egg",
-        "gluten" to "Gluten", "sesame" to "Sesame", "fish" to "Fish", "shellfish" to "Shellfish",
-        "poultry" to "Poultry", "red-meat" to "Red meat",
-    )
-    val avoids = listOf(
-        "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
-        "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
-    )
-    val who = listOf("beginner" to "Beginner", "family" to "Family", "kids" to "Kids", "entertaining" to "Entertaining")
-    val cuisines = listOf("italian" to "Italian", "mexican" to "Mexican", "asian" to "Asian", "american" to "American", "mediterranean" to "Mediterranean")
-    val proteins = listOf("chicken" to "Chicken", "beef" to "Beef", "pork" to "Pork", "seafood" to "Seafood", "turkey" to "Turkey")
-    val times = listOf("any" to "Any time", "30" to "30 min or less", "45" to "45 min or less")
-    val dietLabels = mapOf(
-        "omnivore" to "Omnivore", "pescatarian" to "Pescatarian", "vegetarian" to "Vegetarian", "vegan" to "Vegan",
-        "gluten-free" to "Gluten-free", "dairy-free" to "Dairy-free",
-    )
-
-    /** Omnivore, pescatarian, vegetarian and vegan rule each other out; the others toggle on their own. */
-    fun toggled(diets: Set<String>, item: String): Set<String> =
-        if (item in exclusiveDiets) diets - exclusiveDiets + item else if (item in diets) diets - item else diets + item
-
-    /** Older saves could hold several of omnivore / vegetarian / vegan; keep the strictest. */
-    fun cleaned(saved: List<String>): Set<String> {
-        val picked = listOf("vegan", "vegetarian", "pescatarian", "omnivore").firstOrNull { it in saved }
-        return saved.toSet() - exclusiveDiets + listOfNotNull(picked)
-    }
-}
-
 @Composable
 fun FiltersView() {
     val store = LocalStore.current
@@ -309,8 +276,8 @@ fun FiltersView() {
                 ChipSection("Who it's for") {
                     for ((id, label) in o.who) ChoiceChip(label, id in who) { who = if (id in who) who - id else who + id; save() }
                 }
-                if ("omnivore" in diets || "pescatarian" in diets) {
-                    val choices = o.proteins.filter { "omnivore" in diets || it.first == "seafood" }
+                if (o.proteinsFor(diets).isNotEmpty()) {
+                    val choices = o.proteinsFor(diets)
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text("Proteins", style = Theme.body, color = Theme.ink)
                         for (row in choices.chunked(2)) {

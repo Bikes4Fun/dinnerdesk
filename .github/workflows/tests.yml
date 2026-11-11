@@ -38,7 +38,8 @@ jobs:
           python-version: "3.13"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: python -m pytest -q
+      # Stop after a few failures and print them, so a broken main shows why within minutes.
+      - run: python -m pytest -q -ra --maxfail=5 --durations=10
 
   web:
     name: Web build and tests
@@ -91,6 +92,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+      - run: python3 ios/tests/test_prep_presentation.py
       # Simulator build, no signing: checks that the app compiles.
       - run: >-
           xcodebuild build -project ios/dinnerdesk.xcodeproj -target dinnerdesk -sdk iphonesimulator

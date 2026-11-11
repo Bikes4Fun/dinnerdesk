@@ -21,6 +21,7 @@ from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
 from app.domain.coming_soon import ComingSoon
+from app.domain.catalog_sync import RECIPE_WORKFLOW_FIELDS
 from app.domain.offering import Offering
 from app.perf import Laps
 from app.db.seed import pantry_catalog
@@ -35,7 +36,7 @@ from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import (
     archive_id_of, catalog_gallery, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested,
-    photo_name, usable_photo,
+    photo_name, usable_photo, unique_gallery, photo_identity,
 )
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -49,12 +50,15 @@ from app.domain.ingredient_review import (
 )
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import collapse_catalog_names, ingredient_name, in_grocery_catalog, item_key, preferred_grocery_name
-from app.domain.prep import prep_from_slots, step_key, step_sentences
+from app.domain.prep import SemanticPrepEngine, step_key, step_sentences
+from app.domain.prep_presentation import PrepTaskPresentation
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
-from app.domain.suggest import norm_pantry
-from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, suggestion_note, suggestion_penalties
+from app.domain.suggest import familiar_cap, norm_pantry
+from app.domain.taste_rank import (
+    held_back, learn, pick_meals, promote, reasons_summary, recent_suggestions, suggestion_note, suggestion_penalties,
+)
 from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
@@ -92,6 +96,7 @@ from app.models import (
     RecipeCreate,
     RecipeImport,
     RecipePatch,
+    RecipeWorkflowPut,
     SlotPatch,
     SlotsPut,
     SubmissionCreate,
@@ -222,7 +227,10 @@ def _apply_recipe_edit(
     rid = out["id"]
     edit = _recipe_edit(db, household_id, rid)
     out["edited"] = bool(edit)
-    out["retired"] = row["household_id"] is None and json.loads(row["provenance_json"] or "{}").get("retired") is True
+    src = db.execute("SELECT household_id, provenance_json FROM recipes WHERE id = ?", (rid,)).fetchone()
+    out["reviewed"] = bool(src) and json.loads(src["provenance_json"] or "{}").get("reviewed") is True
+    out["retired"] = bool(src) and src["household_id"] is None and (
+        json.loads(src["provenance_json"] or "{}").get("retired") is True)
     hid = hidden if hidden is not None else _hidden_recipe_ids(db, household_id)
     out["hidden"] = rid in hid
     if not edit:
@@ -406,7 +414,7 @@ def _is_favorited(db: PgConnection, household_id: int, recipe_id: int) -> bool:
     )
 
 
-def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
+def _recipe_photo_gallery(db: PgConnection, row, *, deduplicate: bool = True) -> list[dict]:
     primary = _shown_photo(row)
     provenance = json.loads(row["provenance_json"] or "{}")
     imported_link = _web_link(provenance.get("photo_url")) if row["household_id"] is not None else ""
@@ -436,7 +444,7 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
             credit = {"credit": "Imported recipe photo", "source_url": source}
         photos.append({"path": path, "primary": path == primary, "ai": photo_is_ai(path),
                        "shared": photo_is_borrowed(path, archive_id), "tested": photo_is_tested(path), **credit})
-    return photos
+    return unique_gallery(photos) if deduplicate else photos
 
 
 def _remember_recipe_photo(db: PgConnection, recipe_id: int, path: str) -> None:
@@ -518,21 +526,22 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
                         household_id: int = HhDep, admin=OptionalAdminDep):
     with transaction(db):
         row = _editable_photo_recipe(db, recipe_id, household_id, admin)
-        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row)]
+        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row, deduplicate=False)]
         if body.path not in paths:
             raise HTTPException(400, "Choose a photo from this recipe's gallery.")
-        db.execute(
-            "DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?",
-            (recipe_id, body.path),
-        )
-        if row["household_id"] is None and body.path in catalog_gallery(archive_id_of(row["source_url"], row["slug"])):
+        identity = photo_identity(body.path)
+        removed = {path for path in paths if photo_identity(path) == identity}
+        for path in removed:
+            db.execute("DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?", (recipe_id, path))
+        catalog_paths = set(catalog_gallery(archive_id_of(row["source_url"], row["slug"])))
+        if row["household_id"] is None and removed & catalog_paths:
             # A photo listed in recipe_photos.json would come straight back; remember it's gone.
             provenance = json.loads(row["provenance_json"] or "{}")
-            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | {body.path})
+            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | (removed & catalog_paths))
             db.execute("UPDATE recipes SET provenance_json = ? WHERE id = ?", (json.dumps(provenance), recipe_id))
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-        if _shown_photo(row) == body.path:
-            remaining = [path for path in paths if path != body.path]
+        if _shown_photo(row) in removed:
+            remaining = [path for path in paths if path not in removed]
             nxt = remaining[0] if remaining else ""
             db.execute(
                 "UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?",
@@ -547,7 +556,8 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
                 )
         else:
             db.execute("UPDATE recipes SET updated_at = ? WHERE id = ?", (now(), recipe_id))
-        _drop_unused_upload(db, body.path)
+        for path in removed:
+            _drop_unused_upload(db, path)
     if row["household_id"] is None:
         _invalidate_all_pools()
     else:
@@ -662,6 +672,7 @@ def _recipe_out(db: PgConnection, row, household_id: int, admin: bool = False) -
     }
     if admin:
         out["dev_notes"] = row["dev_notes"] if "dev_notes" in row.keys() else ""
+        out.update({field: provenance.get(field) is True for field in RECIPE_WORKFLOW_FIELDS})
     return _apply_recipe_edit(db, out, household_id)
 
 
@@ -1040,6 +1051,42 @@ def put_hidden(
     return _recipe_out(db, row, household_id, admin is not None)
 
 
+@router.put("/recipes/{recipe_id}/workflow")
+def put_recipe_workflow(recipe_id: int, body: RecipeWorkflowPut, db: PgConnection = DbDep,
+                        household_id: int = HhDep, _admin=AdminDep):
+    with transaction(db):
+        row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+        if not row or not _recipe_visible(row, household_id):
+            raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+        provenance = json.loads(row["provenance_json"] or "{}")
+        for field, value in body.model_dump(exclude_none=True).items():
+            provenance[field] = value
+            if row["household_id"] is None:
+                provenance[f"admin_{field}_edited"] = True
+        db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
+                   (json.dumps(provenance), now(), recipe_id))
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, True)
+
+
+@router.put("/recipes/{recipe_id}/reviewed")
+def put_reviewed(recipe_id: int, body: FavoritePut, db: PgConnection = DbDep,
+                 household_id: int = HhDep, _admin=AdminDep):
+    with transaction(db):
+        row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+        if not row or not _recipe_visible(row, household_id):
+            raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+        provenance = json.loads(row["provenance_json"] or "{}")
+        provenance["reviewed"] = body.on
+        if row["household_id"] is None:
+            provenance["admin_reviewed_edited"] = True
+        db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
+                   (json.dumps(provenance), now(), recipe_id))
+    _invalidate_all_pools()
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, True)
+
+
 @router.put("/recipes/{recipe_id}/retired")
 def put_retired(
     recipe_id: int,
@@ -1051,15 +1098,15 @@ def put_retired(
     """Remove a catalog recipe from the app, or bring it back. Nothing is deleted: the recipe
     stays in the database and its file (marked "retired"), plans and favorites that already use
     it still open it, and no one is offered it again. The catalog sync writes it to the file."""
-    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-    if not row or not _recipe_visible(row, household_id):
-        raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
-    if row["household_id"] is not None:
-        raise HTTPException(400, {"error": "bad_request", "detail": "only catalog recipes can be removed from the app"})
-    provenance = json.loads(row["provenance_json"] or "{}")
-    provenance["retired"] = bool(body.on)
-    provenance["admin_retired_edited"] = True
     with transaction(db):
+        row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+        if not row or not _recipe_visible(row, household_id):
+            raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+        if row["household_id"] is not None:
+            raise HTTPException(400, {"error": "bad_request", "detail": "only catalog recipes can be removed from the app"})
+        provenance = json.loads(row["provenance_json"] or "{}")
+        provenance["retired"] = bool(body.on)
+        provenance["admin_retired_edited"] = True
         db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
                    (json.dumps(provenance), now(), recipe_id))
     _invalidate_all_pools()
@@ -1167,6 +1214,12 @@ def put_dev_notes(
 
 def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
     shown = _recipe_out(db, row, household_id)
+    provenance = json.loads(row["provenance_json"] or "{}")
+    provenance.pop("reviewed", None)
+    provenance.pop("admin_reviewed_edited", None)
+    for field in RECIPE_WORKFLOW_FIELDS:
+        provenance.pop(field, None)
+        provenance.pop(f"admin_{field}_edited", None)
     ts = now()
     cur = db.execute(
         """INSERT INTO recipes (
@@ -1183,7 +1236,7 @@ def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
             json.dumps(shown.get("instructions") or []),
             json.dumps(shown.get("cookware") or []),
             row["source_url"],
-            row["provenance_json"],
+            json.dumps(provenance),
             row["photo_path"],
             row["id"],
             ts,
@@ -2254,7 +2307,7 @@ def _refresh_prep(db: PgConnection, plan_id: int, household_id: int) -> None:
         completed.update(json.loads(row["completed_steps_json"]))
     retained = set()
     # Completion follows recipe and step identity, even when tasks regroup.
-    for index, task in enumerate(prep_from_slots(slots)):
+    for index, task in enumerate(SemanticPrepEngine().build(slots)):
         linked = json.dumps(task["recipe_ids"])
         # Section and item name drive the Weekend prep layout (#21); without them every row
         # lands in "More prep" as "Prep garlic".
@@ -2318,6 +2371,7 @@ def list_prep(
         reason = next((why for value, why, _ in votes if value == rating and why), "") if rating < 0 else ""
         # The cook's own words on a 👎 ("notes" is the task's recipe summary).
         reason_note = next((n for value, _, n in votes if value == rating and n), "") if rating < 0 else ""
+        details['instruction_groups'] = PrepTaskPresentation(details).instruction_groups()
         tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
                       "rating": rating, "reason": reason, "reason_note": reason_note, "section": "other", "item": r["title"],
                       "action": "", **details})
@@ -3033,14 +3087,26 @@ def get_ingredient_review(db: PgConnection = DbDep, _admin=AdminDep):
 
 
 @router.get("/dev/ingredient-review/flagged")
-def get_flagged_recipes(_admin=AdminDep):
+def get_flagged_recipes(db: PgConnection = DbDep, household_id: int = HhDep, _admin=AdminDep):
     rows = collect_flagged_recipes(ROOT)
     save_flagged_recipes(ROOT, rows)
+    _attach_catalog_recipe_ids(db, [{"recipes": rows}])
+    queues = {"to_edit": [], "hidden": [], "delete_requested": []}
+    for recipe in db.execute(
+        "SELECT id, name, household_id, provenance_json FROM recipes "
+        "WHERE household_id IS NULL OR household_id = ? ORDER BY name, id", (household_id,)
+    ):
+        provenance = json.loads(recipe["provenance_json"] or "{}")
+        item = {"id": recipe["id"], "name": recipe["name"], "catalog": recipe["household_id"] is None}
+        for queue, field in (("to_edit", "to_edit"), ("hidden", "retired"), ("delete_requested", "delete_requested")):
+            if provenance.get(field) is True and (queue != "hidden" or item["catalog"]):
+                queues[queue].append(item)
     grouped: dict[str, list[dict]] = {}
     for row in rows:
         grouped.setdefault(row["reason"], []).append(row)
     return {
         "count": len(rows),
+        "queues": queues,
         "proposal_only": True,
         "reasons": [
             {"reason": reason, "count": len(items), "recipes": items}
@@ -3386,7 +3452,10 @@ def _rank_inputs(db: PgConnection, household_id: int, kept: set[int], laps: Laps
     }
 
 
-def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
+def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None,
+                   plan_id: int | None = None) -> tuple[list[dict], str, dict]:
+    """plan_id is a proposal being re-ranked: it isn't a plan before itself, so it's left out
+    of the recent plans its meals rotate out of."""
     kept = kept_recipe_ids or set()
     laps = Laps()
     inputs = _rank_inputs(db, household_id, kept, laps)
@@ -3419,6 +3488,9 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         skip=ignored,
     )
     taste.suggestion_penalties = suggestion_penalties(history)
+    earlier = _earlier_plans(inputs["history"], plan_id)
+    taste.held_back = held_back(earlier)
+    taste.recent = recent_suggestions(earlier)
     taste.diets = diets
     filters = household_filters(db, household_id)
     taste.soft = {
@@ -3446,7 +3518,8 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     )
     if len(picked) < want:
         # Not enough meals keep every preference. Fill the rest from the backup tier: avoided,
-        # hidden and downvoted meals and variants, still never breaking a diet or allergy.
+        # hidden, downvoted and lately declined meals and variants, still never breaking a diet
+        # or allergy.
         # Every priority meal not picked by now was rejected as downvoted.
         chosen = {row["id"] for row in picked}
         fallback = backup + [recipe for recipe in recipes if recipe["id"] not in chosen]
@@ -3464,6 +3537,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
             plan_ings=norm_pantry(selected_ingredients + [i for row in picked for i in row["ingredients"]], aliases, swaps),
             laps=laps,
             allow_downvoted=True,
+            prior=picked,
         )
         for row in extra:
             row["reasons"] = [BACKUP_REASON, *row.get("reasons", [])]
@@ -3532,8 +3606,27 @@ def _suggestion_stamp(db: PgConnection, household_id: int, kept: set[int], curre
         "ignored": sorted(inputs["ignored"]), "snapshots": inputs["snapshots"],
         "rated": sorted(inputs["rated"].items()), "history": history, "favorites": sorted(inputs["favorites"]),
         "to_try": sorted(inputs["to_try"]), "cooked": sorted(inputs["cooked"]),
+        # These depend on how many plans came after, which history above doesn't show.
+        "held_back": sorted(held_back(_earlier_plans(inputs["history"], plan_id))),
+        "recent": sorted(recent_suggestions(_earlier_plans(inputs["history"], plan_id)).items()),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _earlier_plans(history: list[tuple[int, dict]], plan_id: int | None) -> list[dict]:
+    """The household's plans other than the proposal being ranked, oldest first."""
+    return [h for pid, h in history if pid != plan_id]
+
+
+def _keep_familiar_share(ranked: list[dict], count: int) -> list[dict]:
+    """The first count meals, with no more familiar ones than familiar_cap allows, unless too
+    few new meals are left to fill the plan. Ranked order is kept."""
+    cap = familiar_cap(count)
+    known = [m["id"] for m in ranked if m.get("familiar")]
+    fresh = [m["id"] for m in ranked if not m.get("familiar")]
+    chosen = set(known[:cap]) | set(fresh[:count - min(cap, len(known))])
+    chosen |= set(known[cap:cap + count - len(chosen)])
+    return [m for m in ranked if m["id"] in chosen]
 
 
 def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[int], current_ids: set[int],
@@ -3547,11 +3640,12 @@ def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[in
     _SUGGEST_CONTEXT.set(None)
     # The ranker is greedy, so its first picks don't depend on how many it ranks. Rank
     # enough to fill the plan even if every meal already this week goes to the back.
-    candidates, note, reasons = _suggest_meals(db, household_id, count + len(current_ids - kept), kept)
+    candidates, note, reasons = _suggest_meals(db, household_id, count + len(current_ids - kept), kept, plan_id)
     available = [m for m in candidates if m["id"] not in kept]
     # Prefer a fresh proposal; retain eligible familiar meals if the catalog is small.
     available.sort(key=lambda meal: meal["id"] in current_ids)
-    picked = available[:count]
+    # Moving this week's meals back can move meals the household knows forward.
+    picked = _keep_familiar_share(available, count)
     # Keep reasons and the note to the meals actually picked.
     reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
     note = _proposal_note(reasons, [m["id"] for m in picked])

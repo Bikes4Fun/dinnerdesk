@@ -25,7 +25,7 @@ from app.assets import catalog_dir, food_dir
 from app.db.database import PgConnection
 from app.deps import get_db
 from app.domain import recipe_photos
-from app.domain.catalog_sync import BadPath, check_upload, file_hashes, safe_rel, steps_from_db
+from app.domain.catalog_sync import RECIPE_WORKFLOW_FIELDS, BadPath, check_upload, file_hashes, safe_rel, steps_from_db
 from app.domain.recipe_photos import archive_id_of, is_uploaded_photo
 
 router = APIRouter(prefix="/catalog-sync")
@@ -82,8 +82,12 @@ def _recipe_state(db: PgConnection, row, tags: dict, gallery: dict) -> dict:
             "tags": flags.get("admin_tags_edited") is True,
             "photo": flags.get("admin_photo_edited") is True,
             "retired": flags.get("admin_retired_edited") is True,
+            "reviewed": flags.get("admin_reviewed_edited") is True,
+            **{field: flags.get(f"admin_{field}_edited") is True for field in RECIPE_WORKFLOW_FIELDS},
         },
         "retired": flags.get("retired") is True,
+        "reviewed": flags.get("reviewed") is True,
+        **{field: flags.get(field) is True for field in RECIPE_WORKFLOW_FIELDS},
         "content": {
             "name": row["name"],
             "servings": row["servings"],
