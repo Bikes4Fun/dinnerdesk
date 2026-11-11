@@ -187,8 +187,13 @@ export const api = {
   patchRecipe: (id, body) =>
     req(`/api/recipes/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
   restoreRecipe: (id) => req(`/api/recipes/${id}/edit`, { method: "DELETE" }),
+  // Admin: take a catalog recipe out of the app (on) or bring it back. Never deletes it.
+  retireRecipe: (id, on) =>
+    req(`/api/recipes/${id}/retired`, { method: "PUT", body: JSON.stringify({ on }) }),
   favorite: (id, on) =>
     req(`/api/recipes/${id}/favorite`, { method: "PUT", body: JSON.stringify({ on }) }),
+  reviewRecipe: (id, on) =>
+    req(`/api/recipes/${id}/reviewed`, { method: "PUT", body: JSON.stringify({ on }) }),
   hideRecipe: (id, on) =>
     req(`/api/recipes/${id}/hidden`, { method: "PUT", body: JSON.stringify({ on }) }),
   tryLater: (id, on) =>
@@ -197,6 +202,8 @@ export const api = {
     req(`/api/recipes/${id}/dev-notes`, { method: "PUT", body: JSON.stringify({ text }) }),
   ingredientReview: () => req("/api/dev/ingredient-review"),
   flaggedRecipes: () => req("/api/dev/ingredient-review/flagged"),
+  recipeWorkflow: (id, body) =>
+    req(`/api/recipes/${id}/workflow`, { method: "PUT", body: JSON.stringify(body) }),
   putIngredientReviewNotes: (groupId, notes) =>
     req(`/api/dev/ingredient-review/${groupId}/notes`, {
       method: "PUT",

@@ -1,5 +1,6 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { RecipeGallery } from "../RecipeGallery.jsx";
+import { ReviewedBadge } from "../ReviewedBadge.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,23 +26,13 @@ import { StepText, amountLines } from "../stepText.jsx";
 // Far-future feature: inline recipe timers are disabled.
 // import { StepTimers } from "../StepTimers.jsx";
 import { Tip } from "../Tip.jsx";
+import { REPORT_REASONS } from "../reportOptions.js";
 
 function ingLines(recipe) {
   return (recipe.ingredients || [])
     .map((ing) => `${ing.quantity ? `${ing.quantity} ` : ""}${ing.name}`)
     .join("\n");
 }
-
-// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
-const REPORT_REASONS = [
-  ["ingredients", "Ingredients are wrong or missing"],
-  ["steps", "Steps are wrong or confusing"],
-  ["diet", "Shows up despite my diet or allergies"],
-  ["photo", "Photo doesn't match"],
-  ["duplicate", "Duplicate of another recipe"],
-  ["turned_out", "Didn't turn out well"],
-  ["other", "Something else"],
-];
 
 /** The site a kitchen recipe came from, for its credit link; only http(s) links count. */
 function sourceHost(url) {
@@ -281,6 +272,30 @@ export function Recipe({ id }) {
     }
   }
 
+  // Admin: hide a catalog recipe from everyone, or bring it back. Nothing is deleted; plans that
+  // already use it still open it.
+  async function toggleRetired() {
+    setShowMore(false);
+    const on = !recipe.retired;
+    if (on && !window.confirm(`Hide “${recipe.name}” from everyone’s recipe lists and suggestions? Existing plans keep it. You can show it again from Recipes to edit.`)) return;
+    setBusy(true);
+    try {
+      setRecipe(await api.retireRecipe(recipe.id, on));
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateWorkflow(changes) {
+    setBusy(true);
+    setErr("");
+    try { setRecipe(await api.recipeWorkflow(recipe.id, changes)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
   async function toggleCookPrep(i) {
     const instructions = (recipe.instructions || []).map((s, j) => ({
       text: s.text || s.step || "",
@@ -468,9 +483,14 @@ export function Recipe({ id }) {
                   >
                     {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
                   </button>
-                  {!recipe.catalog ? (
+                  {!admin && !recipe.catalog ? (
                     <button type="button" role="menuitem" onClick={deleteOwn} disabled={busy}>
                       Delete recipe
+                    </button>
+                  ) : null}
+                  {admin && recipe.catalog ? (
+                    <button type="button" role="menuitem" onClick={toggleRetired} disabled={busy}>
+                      {recipe.retired ? "Show to everyone" : "Hide from everyone"}
                     </button>
                   ) : null}
                   {admin && recipe.catalog && recipe.edited ? (
@@ -484,6 +504,19 @@ export function Recipe({ id }) {
           </div>
         )}
       </header>
+      {!editing && <ReviewedBadge reviewed={recipe.reviewed} />}
+      {!editing && admin && (
+        <label className="recipe-review-control">
+          <input type="checkbox" checked={Boolean(recipe.reviewed)} disabled={busy}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setBusy(true);
+              try { setRecipe(await api.reviewRecipe(recipe.id, on)); }
+              catch (e) { setErr(e.message); }
+              finally { setBusy(false); }
+            }} /> Reviewed by Dinnerdesk
+        </label>
+      )}
       {!editing && (
         <div className="tabs">
           {["overview", "cook"].map((t) => (
@@ -537,8 +570,29 @@ export function Recipe({ id }) {
         )}
         <div className="scroll pad recipe-body">
           {err && <p className="banner err">{err}</p>}
+          {recipe.retired && (
+            <p className="banner" role="status">
+              Removed from the app. Only plans that already use it can open it.
+            </p>
+          )}
           {editing && canEdit ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
+              {admin && (
+                <fieldset className="recipe-admin-actions" disabled={busy || photoLoading}>
+                  <legend>Recipe management</legend>
+                  <button type="button" onClick={() => updateWorkflow({ to_edit: !recipe.to_edit })}>
+                    {recipe.to_edit ? "Remove To edit tag" : "Tag as To edit"}
+                  </button>
+                  {recipe.catalog && <button type="button" onClick={toggleRetired}>
+                    {recipe.retired ? "Show to everyone" : "Hide from everyone"}
+                  </button>}
+                  <button type="button" onClick={() => updateWorkflow({ delete_requested: !recipe.delete_requested })}>
+                    {recipe.delete_requested ? "Cancel deletion request" : "Delete — send for review"}
+                  </button>
+                  <p className="help">Deletion requests go to review; nothing is deleted. Hidden recipes stay in existing plans.</p>
+                  <button type="button" onClick={() => go("/settings/recipe-flags")}>Open Recipes to edit</button>
+                </fieldset>
+              )}
               <label className="block-label" htmlFor="recipe-photo">Primary photo</label>
               <FoodPhoto path={recipe.photo_path} hideUnavailable />
               <input id="recipe-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || photoLoading} onChange={selectPhoto} />

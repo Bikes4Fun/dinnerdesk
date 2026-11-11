@@ -53,47 +53,15 @@ struct FiltersView: View {
   var onDone: (() async -> Void)? = nil
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
-  static let diets = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"]
-  /// Pick one of these. The others (gluten-free, dairy-free) combine with it.
-  static let exclusiveDiets: Set<String> = ["omnivore", "pescatarian", "vegetarian", "vegan"]
-  static let allergens = [
-    ("soy", "Soy"), ("peanut", "Peanut"), ("tree-nuts", "Tree nuts"), ("dairy", "Dairy"), ("egg", "Egg"),
-    ("gluten", "Gluten"), ("sesame", "Sesame"), ("fish", "Fish"), ("shellfish", "Shellfish"),
-  ]
-  static let avoids = [
-    "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
-    "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
-  ]
-  static let who = [("beginner", "Beginner"), ("family", "Family"), ("kids", "Kid-friendly"), ("entertaining", "Entertaining")]
-  static let cuisines = [
-    ("italian", "Italian"), ("mexican", "Mexican"), ("american", "American"), ("chinese", "Chinese"),
-    ("thai", "Thai"), ("indian", "Indian"), ("japanese", "Japanese"), ("mediterranean", "Mediterranean"),
-    ("korean", "Korean"), ("vietnamese", "Vietnamese"), ("greek", "Greek"), ("middle-eastern", "Middle Eastern"),
-    ("french", "French"), ("spanish", "Spanish"), ("southern", "Southern"), ("cajun", "Cajun & Creole"),
-    ("caribbean", "Caribbean"), ("latin-american", "Latin American"),
-  ]
-  static let proteins = [
-    ("chicken", "Chicken"), ("beef", "Beef"), ("pork", "Pork"), ("salmon", "Salmon"), ("shrimp", "Shrimp"),
-    ("tofu", "Tofu"), ("turkey", "Turkey"), ("white-fish", "White fish"), ("lamb", "Lamb"), ("sausage", "Sausage"),
-    ("tempeh", "Tempeh"), ("beans", "Beans & lentils"), ("eggs", "Eggs"), ("scallops", "Scallops"),
-  ]
-  /// Proteins each diet can eat; omnivore gets them all.
-  static let proteinDiets: [String: Set<String>] = [
-    "pescatarian": ["salmon", "shrimp", "white-fish", "scallops", "tofu", "tempeh", "beans", "eggs"],
-    "vegetarian": ["tofu", "tempeh", "beans", "eggs"],
-    "vegan": ["tofu", "tempeh", "beans"],
-  ]
-  struct TimeOption: Identifiable {
-    let id: String
-    let label: String
-  }
-
-  static let times = [
-    TimeOption(id: "any", label: "Any time"),
-    TimeOption(id: "20", label: "20 min or less"),
-    TimeOption(id: "30", label: "30 min or less"),
-    TimeOption(id: "45", label: "45 min or less"),
-  ]
+  static let diets = FilterOptions.diets
+  static let exclusiveDiets = FilterOptions.exclusiveDiets
+  static let allergens = FilterOptions.allergens
+  static let avoids = FilterOptions.avoids
+  static let who = FilterOptions.who
+  static let cuisines = FilterOptions.cuisines
+  static let proteins = FilterOptions.proteins
+  static let proteinDiets = FilterOptions.proteinDiets
+  static let times = FilterOptions.times
 
   @State private var confirmingReset = false
   @State private var diets: Set<String> = ["omnivore"]
@@ -118,10 +86,7 @@ struct FiltersView: View {
   @State private var saveTask: Task<Void, Never>?
   @State private var saveFailed = false
 
-  static let dietLabels = [
-    "omnivore": "Omnivore", "pescatarian": "Pescatarian", "vegetarian": "Vegetarian", "vegan": "Vegan",
-    "gluten-free": "Gluten-free", "dairy-free": "Dairy-free",
-  ]
+  static let dietLabels = FilterOptions.dietLabels
 
   private var filterCount: Int {
     var n = diets == ["omnivore"] ? 0 : 1
@@ -325,11 +290,7 @@ struct FiltersView: View {
   }
 
   /// The proteins this kitchen's diet allows.
-  private var proteinChoices: [(String, String)] {
-    let diet = ["vegan", "vegetarian", "pescatarian"].first { diets.contains($0) }
-    guard let diet, let allowed = Self.proteinDiets[diet] else { return Self.proteins }
-    return Self.proteins.filter { allowed.contains($0.0) }
-  }
+  private var proteinChoices: [(String, String)] { FilterOptions.proteinsFor(diets) }
 
   private var proteinRows: some View {
     let choices = proteinChoices
@@ -638,7 +599,7 @@ struct FiltersView: View {
   /// Older saves could hold several of omnivore / vegetarian / vegan; keep the strictest.
   static func cleaned(_ saved: [String]) -> Set<String> {
     var next = Set(saved)
-    let picked = ["vegan", "vegetarian", "pescatarian", "omnivore"].first { next.contains($0) }
+    let picked = FilterOptions.strictest.first { next.contains($0) }
     next.subtract(exclusiveDiets)
     if let picked { next.insert(picked) }
     return next

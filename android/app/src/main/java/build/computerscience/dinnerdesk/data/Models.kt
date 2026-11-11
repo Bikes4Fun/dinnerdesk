@@ -71,6 +71,7 @@ data class RecipeSummary(
     val ingredients: List<String> = emptyList(),
     /** Our photo is in but our own steps aren't written yet: shown greyed out, can't be opened. */
     @SerialName("coming_soon") val comingSoon: Boolean = false,
+    val reviewed: Boolean = false,
 ) {
     val isExtra: Boolean
         get() {
@@ -102,6 +103,7 @@ data class RecipeDetail(
     @SerialName("instructions_copied_from_third_party") val instructionsCopiedFromThirdParty: Boolean? = null,
     /** Where a kitchen's own recipe came from, when it has a web link. */
     @SerialName("source_url") val sourceUrl: String? = null,
+    val reviewed: Boolean = false,
 ) {
     val sourceLink: String?
         get() {
@@ -192,43 +194,11 @@ data class PrepTask(
     val rating: Int? = null,
     val reason: String? = null,
     @SerialName("reason_note") val reasonNote: String? = null,
+    val storage: String? = null,
+    @SerialName("instruction_groups") val instructionGroups: List<PrepInstructionGroup>? = null,
 ) {
     /** What the row says: "Peel and mince garlic". */
     val name: String get() = title
-}
-
-/** Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS. */
-enum class RecipeReportReason(val id: String, val label: String) {
-    Ingredients("ingredients", "Ingredients are wrong or missing"),
-    Steps("steps", "Steps are wrong or confusing"),
-    Diet("diet", "Shows up despite my diet or allergies"),
-    Photo("photo", "Photo doesn't match"),
-    Duplicate("duplicate", "Duplicate of another recipe"),
-    TurnedOut("turned_out", "Didn't turn out well"),
-    Other("other", "Something else"),
-}
-
-/** Why a grocery item is wrong. Ids match app/models.py INGREDIENT_REPORT_REASONS. */
-enum class IngredientReportReason(val id: String, val label: String) {
-    Name("name", "Wrong name or spelling"),
-    Aisle("aisle", "In the wrong aisle"),
-    Amount("amount", "Amount or unit is wrong"),
-    Photo("photo", "Photo doesn't match"),
-    Duplicate("duplicate", "Listed twice / should be combined"),
-    Other("other", "Something else"),
-}
-
-/** Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS. */
-enum class PrepReason(val id: String, val label: String) {
-    DayOf("day_of", "Better done day-of"),
-    KeptBadly("kept_badly", "Didn't keep well"),
-    TooSmall("too_small", "Too small to bother"),
-    PrepDifferently("prep_differently", "Prep it differently"),
-    NotPrep("not_prep", "Not a prep step");
-
-    companion object {
-        fun of(id: String?) = entries.firstOrNull { it.id == id }
-    }
 }
 
 @Serializable
@@ -250,7 +220,43 @@ data class PrepStep(
     val done: Boolean? = null,
     /** The household added this step with "Missing a prep step?". */
     val added: Boolean? = null,
+    @SerialName("display_text") val displayText: String? = null,
+    val quantities: List<String> = emptyList(),
 )
+
+@Serializable
+data class PrepInstructionMeal(val id: Int, val name: String = "", val day: String? = null)
+
+@Serializable
+data class PrepInstructionGroup(
+    val text: String,
+    val quantities: List<String> = emptyList(),
+    val added: Boolean = false,
+    val meals: List<PrepInstructionMeal> = emptyList(),
+)
+
+/** Server grouping is canonical. Older cached payloads use the same fallback rules. */
+class PrepTaskPresentation(private val task: PrepTask) {
+    val instructionGroups: List<PrepInstructionGroup>
+        get() {
+            task.instructionGroups?.let { return it }
+            val groups = mutableListOf<PrepInstructionGroup>()
+            for (meal in task.meals) {
+                val steps = meal.steps.orEmpty().ifEmpty { meal.instructions.map { PrepStep(key = "", text = it) } }
+                for (step in steps) {
+                    val text = (step.displayText?.takeIf { it.isNotEmpty() } ?: step.text).trim()
+                    if (text.isEmpty()) continue
+                    val quantities = step.quantities.filter { it.isNotEmpty() }
+                    val added = step.added == true
+                    val link = PrepInstructionMeal(meal.id, meal.name, meal.day)
+                    val index = groups.indexOfFirst { it.text.equals(text, ignoreCase = true) && it.quantities == quantities && it.added == added }
+                    if (index < 0) groups.add(PrepInstructionGroup(text, quantities, added, listOf(link)))
+                    else if (groups[index].meals.none { it.id == meal.id }) groups[index] = groups[index].copy(meals = groups[index].meals + link)
+                }
+            }
+            return groups
+        }
+}
 
 @Serializable
 data class MissingPrepList(val meals: List<MissingPrepMeal> = emptyList())

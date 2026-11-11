@@ -43,6 +43,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.Checkbox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -298,6 +299,7 @@ fun RecipeTile(recipe: RecipeSummary) {
                 Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+            if (recipe.reviewed) ReviewedBadge()
         }
         return
     }
@@ -327,6 +329,7 @@ fun RecipeTile(recipe: RecipeSummary) {
                 }
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+            if (recipe.reviewed) ReviewedBadge()
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Theme.surface) {
             DropdownMenuItem({ Text(if (recipe.favorited) "Unfavorite" else "Favorite", style = Theme.body) }, { menu = false; store.launch { toggleFavorite(recipe) } })
@@ -354,6 +357,7 @@ fun RecipeDetailView(id: Int) {
     var adding by remember { mutableStateOf(false) }
     var planNotice by remember { mutableStateOf<String?>(null) }
     var showingMenu by remember { mutableStateOf(false) }
+    var reviewing by remember { mutableStateOf(false) }
     var tab by rememberSaveable { mutableStateOf(RecipePageTab.Overview) }
     var nameExpanded by remember { mutableStateOf(false) }
     var draftServings by remember { mutableStateOf<Int?>(null) }
@@ -451,6 +455,18 @@ fun RecipeDetailView(id: Int) {
                         modifier = Modifier.fillMaxWidth().clickable { nameExpanded = !nameExpanded }.semantics { heading(); contentDescription = r.name },
                     )
                     ServingsRow(mealServings, r.cookingMinutes, ::bumpServings)
+                    if (r.reviewed) ReviewedBadge()
+                    if (admin) Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = r.reviewed, enabled = !reviewing, onCheckedChange = { on ->
+                            reviewing = true
+                            scope.launch {
+                                val next = store.setReviewed(id, on)
+                                if (next != null) recipe = next else error = store.error
+                                reviewing = false
+                            }
+                        }, modifier = Modifier.semantics { contentDescription = "Reviewed by Dinnerdesk" })
+                        Text("Reviewed by Dinnerdesk", style = Theme.body)
+                    }
                     if (tab == RecipePageTab.Overview && r.prettyTags.isNotEmpty()) Text(r.prettyTags, style = Theme.subtitle, color = Theme.muted)
                     if (tab == RecipePageTab.Overview) {
                         Text("Ingredients", style = Theme.title, color = Theme.ink)
