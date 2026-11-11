@@ -167,18 +167,15 @@ function Row({ title, onSeeAll, children, empty }) {
   );
 }
 
-function TemplateCard({ family, onOpen }) {
+export function TemplateCard({ family }) {
   return (
-    <div className="card">
-      <div className="card-img">
-        <button type="button" className="card-open" onClick={() => onOpen(family)}>
-          <FoodPhoto path={family.photo_path} />
-        </button>
+    <div className="card is-coming-soon" aria-disabled="true">
+      <div className="card-img coming-soon">
+        <FoodPhoto path={family.photo_path} />
+        <span className="coming-soon-tag">Coming soon</span>
       </div>
-      <button type="button" className="card-open" onClick={() => onOpen(family)}>
-        <p className="card-name">{prettyFamily(family.name || family.id)}</p>
-        <p className="card-meta">Template</p>
-      </button>
+      <p className="card-name">{prettyFamily(family.name || family.id)}</p>
+      <p className="card-meta">Template · Coming soon</p>
     </div>
   );
 }
@@ -207,8 +204,8 @@ export function Recipes({ admin = false }) {
     function apply() {
       const { list: listParam, family } = browseQuery();
       if (family) {
-        setFamilyId(family);
-        setList(null);
+        setFamilyId(null);
+        setList("templates");
         setShowSearch(false);
         return;
       }
@@ -390,22 +387,6 @@ export function Recipes({ admin = false }) {
     go("/recipes");
   }
 
-  function openFamily(family) {
-    setShowSearch(false);
-    setShowAdd(false);
-    setList(null);
-    setFamilyId(family.id);
-    go(`/recipes?family=${encodeURIComponent(family.id)}`);
-  }
-
-  function openTemplates() {
-    setShowSearch(false);
-    setShowAdd(false);
-    setFamilyId(null);
-    setList("templates");
-    go("/recipes?list=templates");
-  }
-
   return (
     <section className="screen">
       <header className="top between">
@@ -458,12 +439,9 @@ export function Recipes({ admin = false }) {
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
-                    setShowAdd(false);
-                    openTemplates();
-                  }}
+                  disabled
                 >
-                  From a template
+                  From a template · Coming soon
                 </button>
               </div>
             )}
@@ -526,11 +504,11 @@ export function Recipes({ admin = false }) {
             <Row title="To try" onSeeAll={() => setList("try")}>
               {toTry.length ? browseOrder(toTry).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="Create from a template" onSeeAll={openTemplates}>
+            <Row title="Create from a template · Coming soon" empty="Coming soon.">
               {families.some((f) => (f.recipes || []).length)
                 ? families
                     .filter((f) => (f.recipes || []).length)
-                    .map((f) => <TemplateCard key={f.id} family={f} onOpen={openFamily} />)
+                    .map((f) => <TemplateCard key={f.id} family={f} />)
                 : null}
             </Row>
             <Row title="Most Popular" onSeeAll={() => setList("popular")}>
@@ -575,9 +553,8 @@ export function Recipes({ admin = false }) {
         {inList && list === "templates" && (
           <div>
             {families.map((f) => (
-              <button key={f.id} type="button" className="list-link" onClick={() => openFamily(f)}>
-                {prettyFamily(f.name || f.id)}
-                <em>{(f.recipes || []).length}</em>
+              <button key={f.id} type="button" className="list-link template-coming-soon" disabled>
+                {prettyFamily(f.name || f.id)} · Coming soon
               </button>
             ))}
           </div>

@@ -2609,6 +2609,8 @@ def test_admin_recipe_queues_are_reversible_and_preserve_recipes(tmp_path, monke
         plan = client.get('/api/plans/current').json()
         assert client.put(f"/api/plans/{plan['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 4}]}).status_code == 200
         assert client.put('/api/recipes/1/workflow', json={'to_edit': True}).json()['to_edit'] is True
+        cards = client.get('/api/recipes').json()['recipes']
+        assert next(r for r in cards if r['id'] == 1)['to_edit'] is True
         pending = client.put('/api/recipes/1/workflow', json={'delete_requested': True}).json()
         assert pending['delete_requested'] is True and pending['to_edit'] is True
         assert not pending['retired']
@@ -2648,6 +2650,7 @@ def test_admin_recipe_workflow_enforces_permissions_and_household_privacy(tmp_pa
             assert client.get('/api/dev/ingredient-review/flagged').status_code == 403
             ordinary = client.get('/api/recipes/1').json()
             assert 'to_edit' not in ordinary and 'delete_requested' not in ordinary
+            assert all('to_edit' not in row for row in client.get('/api/recipes').json()['recipes'])
         finally:
             client.app.dependency_overrides.update(overrides)
 

@@ -268,6 +268,8 @@ Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on i
 on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
 Recipes search offers a Reviewed filter that combines with other filters. Web admins can
 also toggle review directly on recipe thumbnails beside the plan and favorite controls.
+An admin-only To edit toggle sits beside Review and adds/removes the recipe from the
+existing editing queue. Its saved state is included only in admin recipe-list responses.
 This changes recipe approval only, without uploading or changing any photos. On web it also
 overlays the main photo and regular-user thumbnails, independently of whether a photo is
 Developer tested. Both overlays can appear together. Approval does not claim that the recipe
@@ -451,6 +453,8 @@ builds → shop → prep → cook.
 
 **Not built yet:** template dinners (pick format, protein, base, sauce → generate a recipe) and
 "make this a meal" (attach sides to any recipe). See #88 and #89.
+Template previews remain faded and labelled Coming soon; creation/menu/list controls are
+disabled, including old family links, until the template workflow is ready.
 
 ---
 
