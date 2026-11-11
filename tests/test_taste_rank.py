@@ -477,3 +477,42 @@ def test_to_try_meals_count_as_liked_when_finding_similar_meals():
     taste = learn([], recipes)
     picked = pick_meals([recipes[1], recipes[2]], taste, set(), set(), {}, 1, to_try={1})
     assert picked[0]["id"] == 2
+
+
+def test_a_to_try_meal_outside_the_candidates_still_finds_similar_meals():
+    # The marked meal is in the backup tier: taste learned from it, but it isn't a candidate.
+    recipes = [
+        meal(1, "Thai green curry", ["coconut milk", "green curry paste", "basil"]),
+        meal(2, "Thai red curry", ["coconut milk", "red curry paste", "basil"]),
+        meal(3, "Meatloaf", ["ground beef", "ketchup", "breadcrumbs"]),
+    ]
+    taste = learn([], recipes)
+    pick_meals([recipes[1], recipes[2]], taste, set(), set(), {}, 1, to_try={1})
+    assert "1" in taste.to_try
+
+
+def test_a_backup_pass_keeps_the_plans_familiar_cap():
+    # The first pass already picked two familiar meals for a plan of five, the most allowed,
+    # so the backup pass picks new meals while there are any.
+    liked = [meal(1, "Pasta bolognese", ["spaghetti", "ground beef", "tomato"]),
+             meal(2, "Salmon and asparagus", ["salmon", "asparagus", "lemon"])]
+    new = [meal(10, "Baked ziti", ["ziti", "ground beef", "tomato"]),
+           meal(11, "Lemon cod", ["cod", "asparagus", "lemon"]),
+           meal(12, "Tofu curry", ["tofu", "curry paste", "coconut milk"])]
+    recipes = liked + new
+    taste = learn([snap("a", swipes=[{"recipe_id": str(i), "liked": True} for i in (1, 2)])], recipes)
+    prior = [{"id": 90, "familiar": True}, {"id": 91, "familiar": True}]
+    extra = pick_meals(recipes, taste, set(), set(), {}, 3, allow_downvoted=True, prior=prior)
+    assert sorted(row["id"] for row in extra) == [10, 11, 12]
+    # Without the earlier picks, the same pass would take a liked meal.
+    taste = learn([snap("a", swipes=[{"recipe_id": str(i), "liked": True} for i in (1, 2)])], recipes)
+    alone = pick_meals(recipes, taste, set(), set(), {}, 3, allow_downvoted=True)
+    assert any(row["familiar"] for row in alone)
+
+
+def test_held_back_only_checks_the_last_few_plans():
+    from app.domain.taste_rank import held_back
+    declined = {"decision": "decline", "suggested_recipe_ids": [1], "changes": []}
+    later = {"suggested_recipe_ids": [3]}
+    assert held_back([declined] + [later] * 500) == set()
+    assert held_back([later] * 500 + [declined, later]) == {1}

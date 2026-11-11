@@ -343,8 +343,11 @@ def _apply_household(taste: Taste, recipes: list[dict], favorites: set[int], coo
     """
     by_id = {int(recipe["id"]): recipe for recipe in recipes}
     done = {int(rid) for rid in cooked}
+    # A To try meal may be outside these candidates (in the backup tier), so look in every
+    # meal taste learned from too.
+    learned = {int(recipe["id"]): recipe for recipe in taste.recipes}
     for rid in to_try or set():
-        recipe = by_id.get(int(rid))
+        recipe = by_id.get(int(rid)) or learned.get(int(rid))
         if recipe and not _keys(recipe) & taste.passed:
             taste.to_try |= _keys(recipe)
     for rid in favorites:
@@ -617,9 +620,13 @@ def pick_meals(
     laps: Laps | None = None,
     allow_downvoted: bool = False,
     weights: SuggestionWeights = DEFAULT_WEIGHTS,
+    prior: list[dict] | None = None,
 ) -> list[dict]:
     """allow_downvoted keeps meals the household passed on, rated 👎 or declined lately, for a
-    backup pick."""
+    backup pick.
+
+    prior are meals already picked for this plan by an earlier pass; their familiar ones count
+    toward the familiar cap."""
     swaps = overrides or {}
     ignored = skip or set()
     _apply_household(taste, recipes, favorites, cooked or set(), to_try)
@@ -647,6 +654,8 @@ def pick_meals(
         laps=laps,
         weights=weights,
         familiar=_familiar(recipes, taste, to_try, cooked),
+        prior_picks=len(prior or []),
+        prior_familiar=sum(1 for row in prior or [] if row.get("familiar")),
     )
 
 
@@ -711,9 +720,9 @@ def held_back(history: list[dict], plans: int = DECLINE_HOLD_PLANS) -> set[int]:
     suggested = [h for h in history if h.get("suggested_recipe_ids")]
     held: set[int] = set()
     for i, plan in enumerate(suggested):
-        later = suggested[i + 1:]
-        if plan.get("decision") != "decline" or len(later) >= plans:
+        if plan.get("decision") != "decline" or len(suggested) - i - 1 >= plans:
             continue
+        later = suggested[i + 1:]
         approved = {int(rid) for h in later if h.get("decision") == "approve" for rid in h["suggested_recipe_ids"]}
         held |= {int(rid) for rid in plan["suggested_recipe_ids"]} - approved
     return held

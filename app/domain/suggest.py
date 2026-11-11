@@ -258,6 +258,8 @@ def pick_suggestions(
     laps: Laps | None = None,
     weights: SuggestionWeights = DEFAULT_WEIGHTS,
     familiar: set[int] | None = None,
+    prior_picks: int = 0,
+    prior_familiar: int = 0,
 ) -> list[dict]:
     """Greedy: each pick updates the plan's ingredient pool so add-ons reuse groceries.
 
@@ -267,7 +269,8 @@ def pick_suggestions(
 
     familiar are meals the household already knows. While new meals are left, no run of picks
     from the start holds more than familiar_cap of them, so a plan cut short keeps the mix.
-    Each picked row says whether it was familiar.
+    Each picked row says whether it was familiar. prior_picks meals (prior_familiar of them
+    familiar) were already picked for this plan by an earlier pass and count toward the cap.
 
     laps, if given, gets "filter" and "greedy" phases and a filtered_out count.
     """
@@ -296,13 +299,13 @@ def pick_suggestions(
     pool = set(plan_ings)
     used_kinds: dict[str, int] = {}
     known = familiar or set()
-    familiar_picks = 0
+    familiar_picks = prior_familiar
     id_to_rec = {rec["id"]: rec for rec in recipes if rec["id"] in pre}
     remaining = list(pre.keys())
     picked = []
 
     while remaining and len(picked) < want:
-        only_new = familiar_picks >= familiar_cap(len(picked) + 1, weights) and any(
+        only_new = familiar_picks >= familiar_cap(prior_picks + len(picked) + 1, weights) and any(
             rid not in known for rid in remaining)
         best_id = None
         best_key: tuple | None = None

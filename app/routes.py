@@ -3475,6 +3475,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
             plan_ings=norm_pantry(selected_ingredients + [i for row in picked for i in row["ingredients"]], aliases, swaps),
             laps=laps,
             allow_downvoted=True,
+            prior=picked,
         )
         for row in extra:
             row["reasons"] = [BACKUP_REASON, *row.get("reasons", [])]
