@@ -1,0 +1,39 @@
+{
+  "task": {
+    "id": 1,
+    "title": "Make glaze",
+    "notes": "",
+    "done": false,
+    "quantities": ["8 cloves garlic"],
+    "storage": "Refrigerate in a covered container.",
+    "meals": [
+      {"id": 57, "name": "Tofu", "day": "Mon", "instructions": [], "steps": [
+        {"key": "source57", "text": "Whisk the other half to make the glaze.", "display_text": "Whisk half of the garlic to make the glaze.", "quantities": ["2 cloves garlic (half)"], "added": false}
+      ]},
+      {"id": 58, "name": "Bowls", "day": "Tue", "instructions": [], "steps": [
+        {"key": "source58", "text": "Whisk the garlic to make the glaze.", "display_text": "Whisk half of the garlic to make the glaze.", "quantities": ["4 cloves garlic (half)"], "added": false}
+      ]},
+      {"id": 59, "name": "Vegetables", "day": "Wed", "instructions": [], "steps": [
+        {"key": "source59", "text": "Whisk the other half to make the glaze.", "display_text": "Whisk half of the garlic to make the glaze.", "quantities": ["2 cloves garlic (half)"], "added": false}
+      ]},
+      {"id": 60, "name": "Added meal", "day": null, "instructions": [], "steps": [
+        {"key": "source60", "text": "Whisk the other half to make the glaze.", "display_text": "Whisk half of the garlic to make the glaze.", "quantities": ["2 cloves garlic (half)"], "added": true}
+      ]},
+      {"id": 61, "name": "Legacy meal", "day": null, "instructions": ["Mince garlic."], "steps": []}
+    ]
+  },
+  "expected": [
+    {"text": "Whisk half of the garlic to make the glaze.", "quantities": ["2 cloves garlic (half)"], "added": false, "meals": [
+      {"id": 57, "name": "Tofu", "day": "Mon"}, {"id": 59, "name": "Vegetables", "day": "Wed"}
+    ]},
+    {"text": "Whisk half of the garlic to make the glaze.", "quantities": ["4 cloves garlic (half)"], "added": false, "meals": [
+      {"id": 58, "name": "Bowls", "day": "Tue"}
+    ]},
+    {"text": "Whisk half of the garlic to make the glaze.", "quantities": ["2 cloves garlic (half)"], "added": true, "meals": [
+      {"id": 60, "name": "Added meal", "day": null}
+    ]},
+    {"text": "Mince garlic.", "quantities": [], "added": false, "meals": [
+      {"id": 61, "name": "Legacy meal", "day": null}
+    ]}
+  ]
+}

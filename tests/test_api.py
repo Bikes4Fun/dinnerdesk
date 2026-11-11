@@ -1152,6 +1152,11 @@ def test_prep_meals_carry_their_cook_day_and_missing_steps_can_be_added(tmp_path
         day = (date.fromisoformat(plan["start_date"][:10]) + timedelta(days=1)).strftime("%a")
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
         assert tasks["Dice onion"]["meals"][0]["day"] == day  # #78: day label beside the step
+        group = tasks["Dice onion"]["instruction_groups"][0]
+        assert group["text"] == "Dice the onion."
+        assert group["meals"][0]["day"] == day
+        assert group["added"] is False
+        assert "Refrigerate" in tasks["Dice onion"]["storage"]
         assert "Soak the beans overnight" not in tasks
 
         missing = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"]
@@ -1164,6 +1169,7 @@ def test_prep_meals_carry_their_cook_day_and_missing_steps_can_be_added(tmp_path
         assert added.status_code == 200
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
         assert tasks["Soak the beans overnight"]["meals"][0]["steps"][0]["added"] is True
+        assert tasks["Soak the beans overnight"]["instruction_groups"][0]["added"] is True
         again = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"][0]["steps"]
         assert next(s for s in again if s["key"] == soak["key"])["note"] == "takes all night"
 
