@@ -628,7 +628,7 @@ struct RecipeDetailView: View {
             .accessibilityAddTraits(.isHeader)
             .accessibilityRemoveTraits(.isButton)
             servingsRow(recipe)
-            if recipe.reviewed { ReviewedBadge() }
+            if tab == .cook && recipe.reviewed { ReviewedBadge() }
             if tab == .overview, !recipe.prettyTags.isEmpty {
               Text(recipe.prettyTags).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }

@@ -306,7 +306,6 @@ fun RecipeTile(recipe: RecipeSummary) {
                 Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
-            if (recipe.reviewed) ReviewedBadge()
         }
         return
     }
@@ -459,7 +458,7 @@ fun RecipeDetailView(id: Int) {
                         modifier = Modifier.fillMaxWidth().clickable { nameExpanded = !nameExpanded }.semantics { heading(); contentDescription = r.name },
                     )
                     ServingsRow(mealServings, r.cookingMinutes, ::bumpServings)
-                    if (r.reviewed) ReviewedBadge()
+                    if (tab == RecipePageTab.Cook && r.reviewed) ReviewedBadge()
                     if (tab == RecipePageTab.Overview && r.prettyTags.isNotEmpty()) Text(r.prettyTags, style = Theme.subtitle, color = Theme.muted)
                     if (tab == RecipePageTab.Overview) {
                         Text("Ingredients", style = Theme.title, color = Theme.ink)

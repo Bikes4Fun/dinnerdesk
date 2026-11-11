@@ -23,7 +23,8 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
         assert.doesNotMatch(render(false), /Remove review from Soup/);
         assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove from To edit: Soup"/);
         assert.doesNotMatch(render(false), /Remove from To edit: Soup/);
-        assert.match(render(false), /Reviewed by Dinnerdesk/);
+        assert.equal((render(false).match(/aria-label="Reviewed by Dinnerdesk"/g) || []).length, 1);
+        assert.equal((render(true).match(/aria-label="Reviewed by Dinnerdesk"/g) || []).length, 0);
         assert.match(render(false), /class="reviewed-badge photo-reviewed-badge"/);
       }
     }
@@ -38,6 +39,8 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
     assert.match(gallery, /Reviewed by Dinnerdesk/);
     assert.match(gallery, /Developer tested:/);
     assert.equal((gallery.match(/<img /g) || []).length, shared.photos.length);
+    const noPhoto = renderToStaticMarkup(createElement(RecipeGallery, { recipe: { ...shared, photos: [] }, canEdit: false }));
+    assert.equal((noPhoto.match(/aria-label="Reviewed by Dinnerdesk"/g) || []).length, 1);
     for (const reviewed of [false, true]) {
       for (const tested of [false, true]) {
         const recipe = { id: 1, name: "Soup", reviewed,
