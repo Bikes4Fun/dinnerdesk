@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.domain.recipe_normalize import normalize_recipe  # noqa: E402
+from app.domain.recipe_normalize import RecipeNormalizer  # noqa: E402
 
 FOLDERS = ("catalog/dinnerdesk/data/recipes", "recipes/originals", "recipes/rewritten")
 
@@ -39,7 +39,7 @@ def main() -> int:
                 continue
             if not isinstance(data, dict):
                 continue
-            new, notes = normalize_recipe(data)
+            new, notes = RecipeNormalizer.normalize(data)
             if not notes:
                 continue
             changed += 1
