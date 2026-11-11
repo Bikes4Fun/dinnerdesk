@@ -71,9 +71,11 @@ export function Prep() {
     patchLocal(task.id, { rating, reason: down ? reason : "", reason_note: down ? note : "" });
     try {
       await api.ratePrepTask(task.id, { rating, reason: down ? reason : "", note: down ? note : "" });
+      return true;
     } catch (e) {
       patchLocal(task.id, before);
       setErr(e.message);
+      return false;
     }
   }
 
@@ -158,7 +160,9 @@ export function Prep() {
                       onSkip={() => openNext(t)}
                       onRate={(next) => { rate(t, next, next < 0 ? t.reason : ""); setReport(next < 0 ? t.id : null); }}
                       onReport={() => setReport(report === t.id ? null : t.id)}
-                      onSend={(note) => { rate(t, -1, t.reason || "", note); setReport(null); }} />
+                      onSend={async (reason, note) => {
+                        if (await rate(t, -1, reason, note)) setReport(null);
+                      }} />
                   ))}
               </section>
             ))}
@@ -197,7 +201,12 @@ export function Prep() {
 }
 
 function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onReport, onSend }) {
+  const [reason, setReason] = useState(t.reason || "");
   const [note, setNote] = useState(t.reason_note || "");
+  const [sending, setSending] = useState(false);
+  useEffect(() => {
+    if (!reporting) { setReason(t.reason || ""); setNote(t.reason_note || ""); }
+  }, [reporting, t.reason, t.reason_note]);
   const amount = (t.quantities || []).filter(Boolean).join(" · ");
   const how = new PrepTaskPresentation(t).instructionGroups;
   return (
@@ -249,10 +258,25 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
           </div>
           {reporting && (
             <div className="pz-report">
+              <div className="pz-chips" role="group" aria-label="Why not worth prepping ahead?">
+                {PREP_REASONS.map(([id, label]) => (
+                  <button key={id} type="button" aria-pressed={reason === id} disabled={sending}
+                    onClick={() => setReason(reason === id ? "" : id)}>{label}</button>
+                ))}
+              </div>
               <label htmlFor={`pz-report-${t.id}`}>What's wrong with this step?</label>
               <textarea id={`pz-report-${t.id}`} rows={2} maxLength={500} value={note}
-                placeholder="Wrong amount, unclear step, missing ingredient…" onChange={(e) => setNote(e.target.value)} />
-              <button type="button" onClick={() => onSend(note.trim())}>Send feedback</button>
+                disabled={sending} placeholder="Wrong amount, unclear step, missing ingredient…" onChange={(e) => setNote(e.target.value)} />
+              <button type="button" disabled={sending} onClick={async () => {
+                setSending(true);
+                try { await onSend(reason, note.trim()); } finally { setSending(false); }
+              }}>{sending ? "Sending…" : "Send feedback"}</button>
+            </div>
+          )}
+          {!reporting && t.rating < 0 && (
+            <div className="pz-saved-feedback">
+              {t.reason && <p>{PREP_REASONS.find(([id]) => id === t.reason)?.[1] || t.reason}</p>}
+              {t.reason_note && <p>{t.reason_note}</p>}
             </div>
           )}
         </div>

@@ -21,6 +21,9 @@
 - [ ] On each client, submit a recipe, grocery and prep report with a reason and note. The
   reason choices match across clients; admin Inbox shows those same labels and all notes.
   Plain prep votes still work without a reason. Missing prep steps use their separate action.
+- [ ] On web, downvote an expanded prep task without checking it off: choose a reason,
+  add a note, send, and reload. Both remain visible. Retry with networking disabled:
+  the editor keeps the draft and shows an error; restoring networking allows retry.
 
 - [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
 - [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.
