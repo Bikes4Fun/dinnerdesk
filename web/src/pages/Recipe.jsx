@@ -1,5 +1,6 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { RecipeGallery } from "../RecipeGallery.jsx";
+import { ReviewedBadge } from "../ReviewedBadge.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,23 +26,13 @@ import { StepText, amountLines } from "../stepText.jsx";
 // Far-future feature: inline recipe timers are disabled.
 // import { StepTimers } from "../StepTimers.jsx";
 import { Tip } from "../Tip.jsx";
+import { REPORT_REASONS } from "../reportOptions.js";
 
 function ingLines(recipe) {
   return (recipe.ingredients || [])
     .map((ing) => `${ing.quantity ? `${ing.quantity} ` : ""}${ing.name}`)
     .join("\n");
 }
-
-// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
-const REPORT_REASONS = [
-  ["ingredients", "Ingredients are wrong or missing"],
-  ["steps", "Steps are wrong or confusing"],
-  ["diet", "Shows up despite my diet or allergies"],
-  ["photo", "Photo doesn't match"],
-  ["duplicate", "Duplicate of another recipe"],
-  ["turned_out", "Didn't turn out well"],
-  ["other", "Something else"],
-];
 
 /** The site a kitchen recipe came from, for its credit link; only http(s) links count. */
 function sourceHost(url) {
@@ -505,6 +496,19 @@ export function Recipe({ id }) {
           </div>
         )}
       </header>
+      {!editing && <ReviewedBadge reviewed={recipe.reviewed} />}
+      {!editing && admin && (
+        <label className="recipe-review-control">
+          <input type="checkbox" checked={Boolean(recipe.reviewed)} disabled={busy}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setBusy(true);
+              try { setRecipe(await api.reviewRecipe(recipe.id, on)); }
+              catch (e) { setErr(e.message); }
+              finally { setBusy(false); }
+            }} /> Reviewed by Dinnerdesk
+        </label>
+      )}
       {!editing && (
         <div className="tabs">
           {["overview", "cook"].map((t) => (

@@ -35,7 +35,7 @@ Cross-platform reuse means sharing data/contracts, not trying to run SwiftUI in 
 | Recipe search, favorites, To try, hidden recipes | Recipes/Recipe pages | `RecipesView.swift` | `RecipesView.kt` | Implementations present; compare all list and detail actions |
 | Own recipes, import, edit, restore/copy | MyRecipes/Recipe | `MyRecipesView.swift`, Recipes | `MyRecipesView.kt`, Recipes | Implementations present; compare editing and ownership boundaries |
 | Recipe photo gallery and uploads | `RecipeGallery.jsx` | Recipes gallery | Recipes gallery | Compare primary/delete/upload and failure handling |
-| Recipe, grocery and prep reports | Recipe/Grocery/Prep | Model enums and views | Model enums, Store and views | IDs/labels duplicated; consolidation pending |
+| Recipe, grocery and prep reports | Recipe/Grocery/Prep | Generated report enums and views | Generated report enums, Store and views | One `shared/report-options.json` vocabulary; device checks remain |
 | Shopping, store/aisle, custom lines | Grocery/Stores | Grocery/GroceryStore | Grocery/GroceryStore | Implementations present; compare edits, ordering and persistence |
 | Pantry, staples, substitutions, kitchen | Kitchen/Pantry pages | Kitchen/Pantry | Kitchen views and KitchenApi | Implementations present; compare all actions |
 | Prep check-offs, votes, missing steps | Prep page | `PrepView.swift` | `PrepView.kt` | Another session owns #116 changes; coordinate before editing |
@@ -51,7 +51,8 @@ Cross-platform reuse means sharing data/contracts, not trying to run SwiftUI in 
 - [x] Establish shared-system ownership and source inventory.
 - [x] Centralize filter definitions; include Android in drift checks.
 - [x] Match diet-specific protein selection on all clients.
-- [ ] Consolidate shared copy and report choices.
+- [x] Consolidate tour descriptions and recipe/grocery/prep report choices.
+- [ ] Audit remaining screen copy and other shared choices for duplication.
 - [ ] Audit every user action, including empty, error and offline states.
 - [ ] Close remaining confirmed gaps with focused tests.
 - [ ] Complete web, iOS and Android device verification.

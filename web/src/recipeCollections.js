@@ -33,6 +33,7 @@ export class RecipeCollections {
     ["try", "To try"],
     ["popular", "Popular"],
     ["quick", "Quick"],
+    ["reviewed", "Reviewed"],
     ["hidden", "Hidden"],
     ["soon", "Coming soon"],
   ];
@@ -60,6 +61,7 @@ export class RecipeCollections {
   filter(rows, filters) {
     let out = filters.includes("soon") ? rows.filter((r) => r.coming_soon) : rows;
     if (filters.includes("fav")) out = out.filter((r) => r.favorited);
+    if (filters.includes("reviewed")) out = out.filter((r) => r.reviewed === true);
     if (filters.includes("try")) out = out.filter((r) => r.to_try);
     if (filters.includes("popular")) out = out.filter((r) => has(r, "popular"));
     if (filters.includes("pantry")) out = out.filter((r) => r.usesPantry);

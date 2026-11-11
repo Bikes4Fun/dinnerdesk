@@ -258,6 +258,14 @@ entry listed for its archive id, so it can have several different photos. Entrie
 the recipe source is never assumed to be the photo source. Gallery paths and credits are
 included in household data exports.
 
+Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on its detail page
+on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
+Recipes search offers a Reviewed filter that combines with other filters. This is an explicit
+recipe approval, not a claim about its photo or that it was cooked. Photo credits and the
+Developer tested photo badge are unchanged. Only the admin review endpoint may change this
+status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
+are pulled into recipe files by sync and preserved across imports until the file agrees.
+
 
 Recipe detail add controls reflect membership in the current plan: already included recipes
 show "Remove from this plan". Successful adds/removals show a brief confirmation popup.
@@ -442,6 +450,14 @@ vegans. The strictest saved exclusive diet determines the available proteins; gl
 and dairy-free remain additive. Every client offers Any time, 20, 30 and 45 minutes. Legacy
 Asian/Seafood preferences are still expanded by the server, and saved custom allergies are
 retained even though poultry and red meat are no longer offered as allergy chips.
+
+Report reasons for recipes, grocery items and prep have a single definition in
+`shared/report-options.json`. `python scripts/sync_report_options.py` generates the server
+`ReportCatalog`, web `ReportCatalog`, and native typed reason enums. The request models
+derive validation from that vocabulary. Admin inbox recipe/grocery labels come from the
+same server catalog, and prep labels use it too. Missing-prep-step reports remain a separate
+action, not an extra downvote choice. Existing reason ids, optional prep reasons, note limits
+and admin authorization remain unchanged. Tests and `--check` reject drift.
 
 ### Stack
 

@@ -17,6 +17,7 @@ from app.assets import catalog_dir
 from app.db.database import PgConnection, now
 from app.deps import AdminDep, DbDep
 from app.domain.recipe_photos import usable_photo
+from app.domain.report_options import ReportCatalog
 from app.routes import _app_versions
 from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 
@@ -24,15 +25,8 @@ router = APIRouter()
 PAGES = Path(__file__).resolve().parent / "admin_pages"
 VOCABULARY = Path(__file__).resolve().parent / "domain" / "recipe_tag_vocabulary.json"
 
-# Same wording the app shows (web/src/pages/Prep.jsx PREP_REASONS).
-PREP_REASONS = {
-    "day_of": "Better done day-of",
-    "kept_badly": "Didn't keep well",
-    "too_small": "Too small to bother",
-    "prep_differently": "Prep it differently",
-    "not_prep": "Not a prep step",
-    "missing": "Missing prep step",
-}
+# Same vocabulary as client report models; missing-step reports are a separate action.
+PREP_REASONS = {**ReportCatalog.labels("prep"), "missing": "Missing prep step"}
 
 
 def _page(name: str, data: dict) -> HTMLResponse:
@@ -259,7 +253,8 @@ def _inbox(db: PgConnection) -> dict:
                       COUNT(*) FILTER (WHERE rating > 0 AND reason <> 'missing') AS up, COUNT(*) FILTER (WHERE rating < 0) AS down
                FROM prep_step_feedback GROUP BY 1 ORDER BY 3 DESC, 2 DESC""")},
     }
-    return {"items": items, "overview": overview, "now": now()}
+    return {"items": items, "overview": overview, "now": now(),
+            "report_reasons": {kind: ReportCatalog.labels(kind) for kind in ("recipe", "ingredient")}}
 
 
 @router.get("/admin/inbox/count")

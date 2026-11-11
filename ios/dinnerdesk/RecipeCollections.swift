@@ -4,7 +4,7 @@ import Foundation
 
 /// Search filter chips on the Recipes screen. Same keys and labels as web and Android.
 nonisolated enum RecipeSearchFilter: String, CaseIterable, Identifiable, Sendable {
-  case fav, tryLater, popular, quick, pantry, hidden, comingSoon
+  case fav, tryLater, popular, quick, pantry, hidden, comingSoon, reviewed
   var id: String { rawValue }
 
   var label: String {
@@ -16,6 +16,7 @@ nonisolated enum RecipeSearchFilter: String, CaseIterable, Identifiable, Sendabl
     case .pantry: "Uses pantry"
     case .hidden: "Hidden"
     case .comingSoon: "Coming soon"
+    case .reviewed: "Reviewed"
     }
   }
 }
@@ -77,6 +78,7 @@ nonisolated struct RecipeCollections: Sendable {
   {
     var out = filters.contains(.comingSoon) ? rows.filter(\.comingSoon) : rows
     if filters.contains(.fav) { out = out.filter(\.favorited) }
+    if filters.contains(.reviewed) { out = out.filter(\.reviewed) }
     if filters.contains(.tryLater) { out = out.filter(\.toTry) }
     if filters.contains(.popular) { out = out.filter { $0.tags.contains("popular") } }
     if filters.contains(.quick) { out = out.filter { ($0.cookingMinutes ?? 99) <= 30 } }
