@@ -2061,3 +2061,9 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .recipe-admin-actions .help { flex-basis: 100%; }
 .card-review { position: absolute; z-index: 3; bottom: 4px; left: 4px; min-height: 44px; padding: 4px 8px; border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 0.75rem; font-weight: 700; border: 1px solid var(--line); }
 .card-review[aria-pressed="true"] { background: #fff0bc; color: #654b00; }
+.photo-status-badges { position: absolute; bottom: 8px; left: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; max-width: calc(100% - 52px); }
+.photo-status-badges .photo-tested-badge { position: static; }
+.photo-reviewed-badge { position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: none; }
+.recipe-edit-fields { min-width: 0; padding: 0; border: 0; }
+.recipe-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.step-remove { min-height: 44px; padding: 0 8px; color: var(--heart); }

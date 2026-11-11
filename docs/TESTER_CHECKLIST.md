@@ -8,13 +8,19 @@
 
 ### Admin recipe management (#167)
 
-- [ ] Web admin: open a catalog recipe → Edit. Tag as To edit; hide it from everyone;
+- [ ] Web admin: open a catalog recipe. Without selecting Edit, tag as To edit; hide it from everyone;
   request deletion. Admin → Recipes to edit shows it in each matching list after refresh.
 - [ ] Hidden recipes leave normal browsing/search, but existing plans still open them.
   Show to everyone restores them. Deletion review keeps the recipe intact; Keep recipe
   cancels the request. Remove To edit tag clears only that tag.
 - [ ] Ingredient fixes still appear and link to the in-app recipe when matched. Regular
   users cannot access these controls/lists; another household's private recipes stay private.
+- [ ] Web admin: in Overview, edit recipe fields directly and Save changes. Refresh and
+  confirm persistence. Discard changes restores the saved recipe; a failed save retains the
+  draft. The photo gallery appears once, and Cook, review, queue and plan controls still work.
+- [ ] Remove unwanted steps, including empty ones. The remaining steps renumber and keep
+  their own amounts/Prep flags. Save and refresh: removed steps stay gone. Discard restores
+  unsaved removals, and Add step still works.
 
 ### Admin recipe review (#167, November 11, 2026)
 
@@ -24,6 +30,9 @@
 - [ ] A tested photo with an exact duplicate shows once, with Developer tested overlaid.
   Review toggles do not create photos. Distinct photos remain separate; deleting the displayed
   duplicate group does not bring back another identical copy.
+- [ ] On web, an approved recipe shows Reviewed over the main photo and regular-user
+  thumbnails, even when its photo has no Developer tested metadata. A photo that is also
+  tested shows both overlays without adding an image; unchecking review removes only Reviewed.
 
 - [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
   Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.

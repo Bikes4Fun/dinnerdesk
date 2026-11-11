@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
+import { fileURLToPath } from "node:url";
 
 test("thumbnail review controls are admin-only and expose the saved state", async () => {
   const previousWindow = globalThis.window;
   globalThis.window = { location: { pathname: "/recipes", search: "" }, addEventListener() {} };
-  const server = await createServer({ server: { middlewareMode: true }, appType: "custom" });
+  const server = await createServer({ root: fileURLToPath(new URL("../", import.meta.url)),
+    server: { middlewareMode: true }, appType: "custom" });
   try {
     const { RecipeCard, RecipeRow } = await server.ssrLoadModule("/src/cards.jsx");
     const { WeekProvider } = await server.ssrLoadModule("/src/week.jsx");
@@ -19,6 +21,19 @@ test("thumbnail review controls are admin-only and expose the saved state", asyn
         assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove review from Soup"/);
         assert.doesNotMatch(render(false), /Remove review from Soup/);
         assert.match(render(false), /Reviewed by Dinnerdesk/);
+        assert.match(render(false), /class="reviewed-badge photo-reviewed-badge"/);
+      }
+    }
+    const { RecipeGallery } = await server.ssrLoadModule("/src/RecipeGallery.jsx");
+    for (const reviewed of [false, true]) {
+      for (const tested of [false, true]) {
+        const recipe = { id: 1, name: "Soup", reviewed,
+          photos: [{ path: "food/soup.jpg", primary: true, tested, ai: false, shared: false }] };
+        const markup = renderToStaticMarkup(createElement(RecipeGallery, { recipe, canEdit: false }));
+        assert.equal(markup.includes('aria-label="Reviewed by Dinnerdesk"'), reviewed);
+        assert.equal(markup.includes('aria-label="Developer tested:'), tested);
+        assert.equal((markup.match(/<img /g) || []).length, 1);
+        if (reviewed || tested) assert.match(markup, /photo-status-badges/);
       }
     }
   } finally {
