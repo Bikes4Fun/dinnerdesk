@@ -36,7 +36,7 @@ from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import (
     archive_id_of, catalog_gallery, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested,
-    photo_name, usable_photo, unique_gallery, photo_identity,
+    photo_name, usable_photo, unique_gallery, same_photo,
 )
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -529,8 +529,7 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
         paths = [photo["path"] for photo in _recipe_photo_gallery(db, row, deduplicate=False)]
         if body.path not in paths:
             raise HTTPException(400, "Choose a photo from this recipe's gallery.")
-        identity = photo_identity(body.path)
-        removed = {path for path in paths if photo_identity(path) == identity}
+        removed = {path for path in paths if same_photo(path, body.path)}
         for path in removed:
             db.execute("DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?", (recipe_id, path))
         catalog_paths = set(catalog_gallery(archive_id_of(row["source_url"], row["slug"])))
