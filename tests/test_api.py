@@ -1395,12 +1395,12 @@ def test_download_recipes_include_ingredients_and_tags_only_for_this_household(t
         assert recipes[empty['id']]['tags'] == []
         assert 'private-tag' not in exported.text
         assert 'secret-quantity' not in exported.text
-def _upload_photo_data():
+def _upload_photo_data(color="green"):
     import base64
     from io import BytesIO
     from PIL import Image
     image = BytesIO()
-    Image.new('RGB', (24, 24), 'green').save(image, 'PNG')
+    Image.new('RGB', (24, 24), color).save(image, 'PNG')
     return 'data:image/png;base64,' + base64.b64encode(image.getvalue()).decode()
 
 
@@ -2301,13 +2301,13 @@ def test_recipe_gallery_keeps_original_and_selects_primary(tmp_path, monkeypatch
     monkeypatch.setenv('FOOD_DIR', str(tmp_path))
     with _client(tmp_path) as client:
         original = client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).json()['photo_path']
-        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()})
+        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data('red')})
         assert added.status_code == 200
         first = added.json()
         upload = next(p['path'] for p in first['photos'] if p['path'] != original)
         assert first['photo_path'] == original
         assert len(first['photos']) == 2
-        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()}).json()
+        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data('blue')}).json()
         assert len(again['photos']) == 3
         selected = client.put('/api/recipes/1/photos/primary', json={'path': upload})
         assert selected.status_code == 200
@@ -2345,7 +2345,7 @@ def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypa
         first = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
         assert first['photo_path'] == first['photos'][0]['path']
         assert first['photos'][0]['primary']
-        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
+        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data('red')}).json()
         path = next(p['path'] for p in second['photos'] if not p['primary'])
         assert client.put(f'/api/recipes/{rid}/photos/primary', json={'path': path}).json()['photo_path'] == path
         assert client.post(f'/api/recipes/{rid}/photos', json={'photo_data': 'invalid'}).status_code == 400
@@ -2675,3 +2675,31 @@ def test_admin_workflow_survives_catalog_import_and_clears_synced_flags(tmp_path
             upsert_catalog_recipe(db, {**incoming, field: True}, {})
             db.commit()
         assert client.get('/api/recipes/1').json()[field] is False
+
+
+def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path, monkeypatch):
+    from PIL import Image
+    from app.domain import recipe_photos
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    names = ['original.png', 'tested-copy.png', 'different.png']
+    for name, color in zip(names, ['red', 'red', 'blue']):
+        Image.new('RGB', (24, 24), color).save(tmp_path / name)
+        monkeypatch.setitem(recipe_photos.USE, name, 77)
+    monkeypatch.setitem(recipe_photos.GALLERY, '77', names)
+    monkeypatch.setattr(recipe_photos, 'TESTED', {'tested-copy.png'})
+    before = {name: (tmp_path / name).read_bytes() for name in names}
+    with _client(tmp_path) as client:
+        with connect() as db:
+            db.execute("UPDATE recipes SET photo_path = 'food/original.png', source_url = 'https://example.test/recipes/77' WHERE id = 1")
+            db.commit()
+        shown = client.get('/api/recipes/1').json()
+        assert [photo['path'] for photo in shown['photos']] == ['food/original.png', 'food/different.png']
+        assert shown['photos'][0]['tested'] is True
+        marked = client.put('/api/recipes/1/reviewed', json={'on': True}).json()
+        assert marked['photo_path'] == shown['photo_path'] and marked['photos'] == shown['photos']
+        assert before == {name: (tmp_path / name).read_bytes() for name in names}
+        after = client.request('DELETE', '/api/recipes/1/photos', json={'path': shown['photo_path']}).json()
+        assert [photo['path'] for photo in after['photos']] == ['food/different.png']
+        assert after['photo_path'] == 'food/different.png'
+        assert [photo['path'] for photo in client.get('/api/recipes/1').json()['photos']] == ['food/different.png']
+        assert before == {name: (tmp_path / name).read_bytes() for name in names}

@@ -36,7 +36,7 @@ from app.domain.ingredient_photos import photo_path as ingredient_photo_path
 from app.domain.recipe_import import RecipeImportError, fetch_image, import_recipe
 from app.domain.recipe_photos import (
     archive_id_of, catalog_gallery, is_uploaded_photo, photo_credit, photo_is_ai, photo_is_borrowed, photo_is_tested,
-    photo_name, usable_photo,
+    photo_name, usable_photo, unique_gallery, photo_identity,
 )
 from app.domain.grocery import coerce_qty_name, combine_quantities, merge_grocery, scale_quantity
 from app.domain.ingredient_review import (
@@ -414,7 +414,7 @@ def _is_favorited(db: PgConnection, household_id: int, recipe_id: int) -> bool:
     )
 
 
-def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
+def _recipe_photo_gallery(db: PgConnection, row, *, deduplicate: bool = True) -> list[dict]:
     primary = _shown_photo(row)
     provenance = json.loads(row["provenance_json"] or "{}")
     imported_link = _web_link(provenance.get("photo_url")) if row["household_id"] is not None else ""
@@ -444,7 +444,7 @@ def _recipe_photo_gallery(db: PgConnection, row) -> list[dict]:
             credit = {"credit": "Imported recipe photo", "source_url": source}
         photos.append({"path": path, "primary": path == primary, "ai": photo_is_ai(path),
                        "shared": photo_is_borrowed(path, archive_id), "tested": photo_is_tested(path), **credit})
-    return photos
+    return unique_gallery(photos) if deduplicate else photos
 
 
 def _remember_recipe_photo(db: PgConnection, recipe_id: int, path: str) -> None:
@@ -526,21 +526,22 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
                         household_id: int = HhDep, admin=OptionalAdminDep):
     with transaction(db):
         row = _editable_photo_recipe(db, recipe_id, household_id, admin)
-        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row)]
+        paths = [photo["path"] for photo in _recipe_photo_gallery(db, row, deduplicate=False)]
         if body.path not in paths:
             raise HTTPException(400, "Choose a photo from this recipe's gallery.")
-        db.execute(
-            "DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?",
-            (recipe_id, body.path),
-        )
-        if row["household_id"] is None and body.path in catalog_gallery(archive_id_of(row["source_url"], row["slug"])):
+        identity = photo_identity(body.path)
+        removed = {path for path in paths if photo_identity(path) == identity}
+        for path in removed:
+            db.execute("DELETE FROM recipe_photo_gallery WHERE recipe_id = ? AND path = ?", (recipe_id, path))
+        catalog_paths = set(catalog_gallery(archive_id_of(row["source_url"], row["slug"])))
+        if row["household_id"] is None and removed & catalog_paths:
             # A photo listed in recipe_photos.json would come straight back; remember it's gone.
             provenance = json.loads(row["provenance_json"] or "{}")
-            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | {body.path})
+            provenance["removed_photos"] = sorted(set(provenance.get("removed_photos") or []) | (removed & catalog_paths))
             db.execute("UPDATE recipes SET provenance_json = ? WHERE id = ?", (json.dumps(provenance), recipe_id))
             row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
-        if _shown_photo(row) == body.path:
-            remaining = [path for path in paths if path != body.path]
+        if _shown_photo(row) in removed:
+            remaining = [path for path in paths if path not in removed]
             nxt = remaining[0] if remaining else ""
             db.execute(
                 "UPDATE recipes SET photo_path = ?, updated_at = ? WHERE id = ?",
@@ -555,7 +556,8 @@ def delete_recipe_photo(recipe_id: int, body: RecipePhotoPrimary, db: PgConnecti
                 )
         else:
             db.execute("UPDATE recipes SET updated_at = ? WHERE id = ?", (now(), recipe_id))
-        _drop_unused_upload(db, body.path)
+        for path in removed:
+            _drop_unused_upload(db, path)
     if row["household_id"] is None:
         _invalidate_all_pools()
     else:

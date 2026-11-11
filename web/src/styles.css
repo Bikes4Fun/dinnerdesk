@@ -2059,3 +2059,5 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .recipe-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
 .recipe-admin-actions button { min-height: 44px; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
 .recipe-admin-actions .help { flex-basis: 100%; }
+.card-review { position: absolute; z-index: 3; bottom: 4px; left: 4px; min-height: 44px; padding: 4px 8px; border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 0.75rem; font-weight: 700; border: 1px solid var(--line); }
+.card-review[aria-pressed="true"] { background: #fff0bc; color: #654b00; }

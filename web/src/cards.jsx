@@ -1,5 +1,6 @@
 import FoodPhoto from "./FoodPhoto.jsx";
 import { ReviewedBadge } from "./ReviewedBadge.jsx";
+import { RecipeReviewButton } from "./RecipeReviewButton.jsx";
 import { api } from "./api.js";
 import { go } from "./nav.js";
 import { useWeek } from "./week.jsx";
@@ -18,20 +19,22 @@ function ComingSoonPhoto({ path, className }) {
   );
 }
 
-export function RecipeCard({ recipe, onChange }) {
+export function RecipeCard({ recipe, onChange, admin = false }) {
   if (recipe.coming_soon) {
     return (
-      <div className="card is-coming-soon" aria-disabled="true">
-        <div className="card-img"><ComingSoonPhoto path={recipe.photo_path} /></div>
+      <div className="card is-coming-soon" aria-disabled={admin ? undefined : true}>
+        <div className="card-img"><ComingSoonPhoto path={recipe.photo_path} />
+          {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
+        </div>
         <p className="card-name">{recipe.name}</p>
         <ReviewedBadge reviewed={recipe.reviewed} />
       </div>
     );
   }
-  return <ReadyRecipeCard recipe={recipe} onChange={onChange} />;
+  return <ReadyRecipeCard recipe={recipe} onChange={onChange} admin={admin} />;
 }
 
-function ReadyRecipeCard({ recipe, onChange }) {
+function ReadyRecipeCard({ recipe, onChange, admin }) {
   const { weekIds, toggleRecipe } = useWeek();
   const on = weekIds.has(recipe.id);
 
@@ -65,6 +68,7 @@ function ReadyRecipeCard({ recipe, onChange }) {
         >
           {on ? "✓" : "+"}
         </button>
+        {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
       </div>
       <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
         <p className="card-name">{recipe.name}</p>
@@ -74,19 +78,21 @@ function ReadyRecipeCard({ recipe, onChange }) {
   );
 }
 
-export function RecipeRow({ recipe, onChange }) {
+export function RecipeRow({ recipe, onChange, admin = false }) {
   if (recipe.coming_soon) {
     return (
-      <div className="recipe-row is-coming-soon" aria-disabled="true">
-        <div className="thumb-wrap"><ComingSoonPhoto className="thumb-sq" path={recipe.photo_path} /></div>
+      <div className="recipe-row is-coming-soon" aria-disabled={admin ? undefined : true}>
+        <div className="thumb-wrap"><ComingSoonPhoto className="thumb-sq" path={recipe.photo_path} />
+          {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
+        </div>
         <div className="recipe-copy"><strong>{recipe.name}</strong><ReviewedBadge reviewed={recipe.reviewed} /></div>
       </div>
     );
   }
-  return <ReadyRecipeRow recipe={recipe} onChange={onChange} />;
+  return <ReadyRecipeRow recipe={recipe} onChange={onChange} admin={admin} />;
 }
 
-function ReadyRecipeRow({ recipe, onChange }) {
+function ReadyRecipeRow({ recipe, onChange, admin }) {
   const { weekIds, toggleRecipe } = useWeek();
   const on = weekIds.has(recipe.id);
 
@@ -112,6 +118,7 @@ function ReadyRecipeRow({ recipe, onChange }) {
         >
           {on ? "✓" : "+"}
         </button>
+        {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
       </div>
       <button type="button" className="recipe-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
         <strong>{recipe.name}</strong>

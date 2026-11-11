@@ -9,7 +9,7 @@
 ### Admin recipe management (#167)
 
 - [ ] Web admin: open a catalog recipe → Edit. Tag as To edit; hide it from everyone;
-  request deletion. Settings → Recipes to edit shows it in each matching list after refresh.
+  request deletion. Admin → Recipes to edit shows it in each matching list after refresh.
 - [ ] Hidden recipes leave normal browsing/search, but existing plans still open them.
   Show to everyone restores them. Deletion review keeps the recipe intact; Keep recipe
   cancels the request. Remove To edit tag clears only that tag.
@@ -17,6 +17,13 @@
   users cannot access these controls/lists; another household's private recipes stay private.
 
 ### Admin recipe review (#167, November 11, 2026)
+
+- [ ] Web admin: toggle Review on the main recipe thumbnail without opening it. The badge,
+  Reviewed filter and detail checkbox update together; heart/plan controls still work.
+  Regular users see only the badge, never the Review button.
+- [ ] A tested photo with an exact duplicate shows once, with Developer tested overlaid.
+  Review toggles do not create photos. Distinct photos remain separate; deleting the displayed
+  duplicate group does not bring back another identical copy.
 
 - [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
   Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.
