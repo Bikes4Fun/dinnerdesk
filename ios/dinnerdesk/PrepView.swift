@@ -335,7 +335,7 @@ struct PrepView: View {
         if open {
           // #78 D: the cook day on the left, the step, then each meal as a light pill link.
           VStack(alignment: .leading, spacing: 14) {
-            ForEach(Array(Self.stepGroups(task).enumerated()), id: \.offset) { _, group in
+            ForEach(Array(PrepTaskPresentation(task).instructionGroups.enumerated()), id: \.offset) { _, group in
               HStack(alignment: .firstTextBaseline, spacing: 12) {
                 Text((group.meals.first?.day ?? "").uppercased())
                   .font(Theme.count.weight(.bold)).tracking(0.5)
@@ -345,7 +345,11 @@ struct PrepView: View {
                 VStack(alignment: .leading, spacing: 6) {
                   Text(group.text).font(Self.stepFont).foregroundStyle(Self.bodyInk)
                     .fixedSize(horizontal: false, vertical: true)
-                  if Self.isAdded(task, group.text) {
+                  if !group.quantities.isEmpty {
+                    Text(group.quantities.joined(separator: " · ")).font(Theme.subtitle).foregroundStyle(Theme.muted)
+                      .fixedSize(horizontal: false, vertical: true)
+                  }
+                  if group.added {
                     Text("Added by you").font(Theme.count).foregroundStyle(Theme.muted)
                   }
                   ForEach(group.meals) { meal in
@@ -370,6 +374,11 @@ struct PrepView: View {
             }
           }
           .padding(.leading, 14)
+          if let storage = task.storage, !storage.isEmpty {
+            Text(storage).font(Theme.subtitle).foregroundStyle(Theme.muted)
+              .fixedSize(horizontal: false, vertical: true)
+              .padding(.leading, 14)
+          }
         }
       }
       .padding(.trailing, 14)
@@ -398,27 +407,6 @@ struct PrepView: View {
     }
     .buttonStyle(.plain)
     .accessibilityAddTraits(on ? .isSelected : [])
-  }
-
-  private static func isAdded(_ task: PrepTask, _ text: String) -> Bool {
-    task.meals.contains { meal in (meal.steps ?? []).contains { $0.added == true && $0.text == text } }
-  }
-
-  /// The open row's steps, each distinct text once with the meals that use it, in meal order.
-  private static func stepGroups(_ task: PrepTask) -> [(text: String, meals: [PrepMeal])] {
-    var out: [(text: String, meals: [PrepMeal])] = []
-    for meal in task.meals {
-      let texts = (meal.steps ?? []).map(\.text).nilIfEmpty ?? meal.instructions
-      for text in texts {
-        let key = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let i = out.firstIndex(where: { $0.text.caseInsensitiveCompare(key) == .orderedSame }) {
-          if !out[i].meals.contains(where: { $0.id == meal.id }) { out[i].meals.append(meal) }
-        } else {
-          out.append((key, [meal]))
-        }
-      }
-    }
-    return out
   }
 
   // MARK: Check-off bar

@@ -859,7 +859,7 @@ def test_catalog_lists_only_rewritten_recipes_with_real_photos(tmp_path):
 def test_suggestions_require_approval_and_keep_feedback(tmp_path, monkeypatch):
     import app.routes as routes
 
-    def suggestions(db, household_id, want, kept=None):
+    def suggestions(db, household_id, want, kept=None, plan_id=None):
         return ([{"id": 1, "reasons": []}], "Suggested dinners", {"1": []})
 
     monkeypatch.setattr(routes, "_suggest_meals", suggestions)
@@ -1152,6 +1152,11 @@ def test_prep_meals_carry_their_cook_day_and_missing_steps_can_be_added(tmp_path
         day = (date.fromisoformat(plan["start_date"][:10]) + timedelta(days=1)).strftime("%a")
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
         assert tasks["Dice onion"]["meals"][0]["day"] == day  # #78: day label beside the step
+        group = tasks["Dice onion"]["instruction_groups"][0]
+        assert group["text"] == "Dice the onion."
+        assert group["meals"][0]["day"] == day
+        assert group["added"] is False
+        assert "Refrigerate" in tasks["Dice onion"]["storage"]
         assert "Soak the beans overnight" not in tasks
 
         missing = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"]
@@ -1164,6 +1169,7 @@ def test_prep_meals_carry_their_cook_day_and_missing_steps_can_be_added(tmp_path
         assert added.status_code == 200
         tasks = {t["title"]: t for t in client.get(f"/api/plans/{pid}/prep").json()["tasks"]}
         assert tasks["Soak the beans overnight"]["meals"][0]["steps"][0]["added"] is True
+        assert tasks["Soak the beans overnight"]["instruction_groups"][0]["added"] is True
         again = client.get(f"/api/plans/{pid}/prep/missing").json()["meals"][0]["steps"]
         assert next(s for s in again if s["key"] == soak["key"])["note"] == "takes all night"
 
@@ -2412,7 +2418,7 @@ def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
             assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
             state = client.get('/api/catalog-sync/state', headers=auth).json()
             soup = next(r for r in state['recipes'] if r['slug'] == 'soup')
-            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False}
+            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False}
             assert soup['content']['name'] == 'Better soup' and soup['tags'] == ['tested']
             assert state['files']['data/recipe_photos.json'] == hashlib.sha256(
                 (data / 'recipe_photos.json').read_bytes()).hexdigest()
@@ -2500,6 +2506,18 @@ def test_catalog_sync_merge_writes_admin_edits_into_the_repo_files(tmp_path, mon
     finally:
         monkeypatch.undo()
         recipe_photos.reload()
+
+
+def test_a_proposal_keeps_the_familiar_share_after_this_weeks_meals_move_back():
+    from app.routes import _keep_familiar_share
+    ranked = [{"id": i, "familiar": i < 4} for i in range(1, 9)]
+    # 3 familiar meals first: a plan of 5 keeps 2 of them and fills the rest with new meals.
+    assert [m["id"] for m in _keep_familiar_share(ranked, 5)] == [1, 2, 4, 5, 6]
+    # Too few new meals left: familiar ones fill in.
+    few = [{"id": 1, "familiar": True}, {"id": 2, "familiar": True}, {"id": 3, "familiar": True},
+           {"id": 4, "familiar": False}]
+    assert [m["id"] for m in _keep_familiar_share(few, 4)] == [1, 2, 3, 4]
+    assert [m["id"] for m in _keep_familiar_share(few, 3)] == [1, 2, 4]
 
 
 def test_admin_removes_a_recipe_from_the_app_and_brings_it_back(tmp_path):
