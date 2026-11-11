@@ -2680,11 +2680,12 @@ def test_admin_workflow_survives_catalog_import_and_clears_synced_flags(tmp_path
         assert client.get('/api/recipes/1').json()[field] is False
 
 
-def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path, monkeypatch):
+@pytest.mark.parametrize("extension", ["png", "jpg"])
+def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path, monkeypatch, extension):
     from PIL import Image
     from app.domain import recipe_photos
     monkeypatch.setenv('FOOD_DIR', str(tmp_path))
-    names = ['original.png', 'tested-copy.png', 'different.png']
+    names = [f'original.{extension}', 'tested-copy.png', 'different.png']
     for name, color in zip(names, ['red', 'red', 'blue']):
         Image.new('RGB', (24, 24), color).save(tmp_path / name)
         monkeypatch.setitem(recipe_photos.USE, name, 77)
@@ -2693,10 +2694,10 @@ def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path,
     before = {name: (tmp_path / name).read_bytes() for name in names}
     with _client(tmp_path) as client:
         with connect() as db:
-            db.execute("UPDATE recipes SET photo_path = 'food/original.png', source_url = 'https://example.test/recipes/77' WHERE id = 1")
+            db.execute("UPDATE recipes SET photo_path = ?, source_url = 'https://example.test/recipes/77' WHERE id = 1", (f"food/{names[0]}",))
             db.commit()
         shown = client.get('/api/recipes/1').json()
-        assert [photo['path'] for photo in shown['photos']] == ['food/original.png', 'food/different.png']
+        assert [photo['path'] for photo in shown['photos']] == [f'food/{names[0]}', 'food/different.png']
         assert shown['photos'][0]['tested'] is True
         marked = client.put('/api/recipes/1/reviewed', json={'on': True}).json()
         assert marked['photo_path'] == shown['photo_path'] and marked['photos'] == shown['photos']
