@@ -25,6 +25,7 @@ export function RecipeCard({ recipe, onChange, admin = false }) {
       <div className="card is-coming-soon" aria-disabled={admin ? undefined : true}>
         <div className="card-img"><ComingSoonPhoto path={recipe.photo_path} />
           {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
+          {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
         </div>
         <p className="card-name">{recipe.name}</p>
         <ReviewedBadge reviewed={recipe.reviewed} />
@@ -69,6 +70,7 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
           {on ? "✓" : "+"}
         </button>
         {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
+        {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
       </div>
       <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
         <p className="card-name">{recipe.name}</p>
@@ -84,6 +86,7 @@ export function RecipeRow({ recipe, onChange, admin = false }) {
       <div className="recipe-row is-coming-soon" aria-disabled={admin ? undefined : true}>
         <div className="thumb-wrap"><ComingSoonPhoto className="thumb-sq" path={recipe.photo_path} />
           {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
+          {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
         </div>
         <div className="recipe-copy"><strong>{recipe.name}</strong><ReviewedBadge reviewed={recipe.reviewed} /></div>
       </div>
@@ -119,6 +122,7 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
           {on ? "✓" : "+"}
         </button>
         {admin && <RecipeReviewButton recipe={recipe} onChange={onChange} />}
+        {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
       </div>
       <button type="button" className="recipe-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
         <strong>{recipe.name}</strong>

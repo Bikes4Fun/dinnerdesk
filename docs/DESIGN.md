@@ -268,8 +268,10 @@ Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on i
 on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
 Recipes search offers a Reviewed filter that combines with other filters. Web admins can
 also toggle review directly on recipe thumbnails beside the plan and favorite controls.
-This changes recipe approval only, without uploading or changing any photos. This is an explicit
-recipe approval, not a claim about its photo or that it was cooked. Photo credits and the
+This changes recipe approval only, without uploading or changing any photos. On web it also
+overlays the main photo and regular-user thumbnails, independently of whether a photo is
+Developer tested. Both overlays can appear together. Approval does not claim that the recipe
+was cooked. Photo credits and the
 Developer tested photo badge are unchanged. Only the admin review endpoint may change this
 status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
 are pulled into recipe files by sync and preserved across imports until the file agrees.

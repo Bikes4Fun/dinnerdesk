@@ -24,6 +24,9 @@
 - [ ] A tested photo with an exact duplicate shows once, with Developer tested overlaid.
   Review toggles do not create photos. Distinct photos remain separate; deleting the displayed
   duplicate group does not bring back another identical copy.
+- [ ] On web, an approved recipe shows Reviewed over the main photo and regular-user
+  thumbnails, even when its photo has no Developer tested metadata. A photo that is also
+  tested shows both overlays without adding an image; unchecking review removes only Reviewed.
 
 - [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
   Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.
