@@ -6,6 +6,15 @@
 
 ## Daily essentials
 
+### Admin recipe review (#167, November 11, 2026)
+
+- [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
+  Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.
+- [ ] As a regular user, see the badge and use the Reviewed filter, including with Favorites;
+  there is no review checkbox. Unchecking as admin removes the badge and filtered result.
+- [ ] A copied recipe starts unreviewed. Photo credits and Developer tested photo badges
+  are independent of recipe approval. Failed review saves show an error and keep the old state.
+
 ### Shared filters and tour wording (#288, November 8, 2026)
 
 - [ ] On web, iPhone and Android, compare Settings filters: diet, allergy, avoids, cuisine,

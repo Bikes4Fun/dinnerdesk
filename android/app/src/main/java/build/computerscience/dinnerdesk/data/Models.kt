@@ -71,6 +71,7 @@ data class RecipeSummary(
     val ingredients: List<String> = emptyList(),
     /** Our photo is in but our own steps aren't written yet: shown greyed out, can't be opened. */
     @SerialName("coming_soon") val comingSoon: Boolean = false,
+    val reviewed: Boolean = false,
 ) {
     val isExtra: Boolean
         get() {
@@ -102,6 +103,7 @@ data class RecipeDetail(
     @SerialName("instructions_copied_from_third_party") val instructionsCopiedFromThirdParty: Boolean? = null,
     /** Where a kitchen's own recipe came from, when it has a web link. */
     @SerialName("source_url") val sourceUrl: String? = null,
+    val reviewed: Boolean = false,
 ) {
     val sourceLink: String?
         get() {

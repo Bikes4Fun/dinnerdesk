@@ -256,6 +256,14 @@ final class Store: ObservableObject {
     }
   }
 
+  func setReviewed(id: Int, on: Bool) async -> RecipeDetail? {
+    do {
+      let next: RecipeDetail = try await API.send("recipes/\(id)/reviewed", method: "PUT", body: ["on": on], cacheAs: "recipes/\(id)")
+      recipes = recipes.map { $0.id == id ? RecipeSummary(next) : $0 }
+      return next
+    } catch { fail(error); return nil }
+  }
+
   func toggleTryLater(_ recipe: RecipeSummary) async {
     let on = !recipe.toTry
     recipes = recipes.map { $0.id == recipe.id ? $0.withToTry(on) : $0 }

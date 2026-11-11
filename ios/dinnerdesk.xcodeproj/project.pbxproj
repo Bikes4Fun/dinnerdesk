@@ -91,6 +91,7 @@
 				PlanView.swift,
 				PrepView.swift,
 				RecipeCollections.swift,
+				ReviewedBadge.swift,
 				PrivacyInfo.xcprivacy,
 				Quantity.swift,
 				RecipePhoto.swift,

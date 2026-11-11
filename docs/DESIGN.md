@@ -258,6 +258,14 @@ entry listed for its archive id, so it can have several different photos. Entrie
 the recipe source is never assumed to be the photo source. Gallery paths and credits are
 included in household data exports.
 
+Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on its detail page
+on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
+Recipes search offers a Reviewed filter that combines with other filters. This is an explicit
+recipe approval, not a claim about its photo or that it was cooked. Photo credits and the
+Developer tested photo badge are unchanged. Only the admin review endpoint may change this
+status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
+are pulled into recipe files by sync and preserved across imports until the file agrees.
+
 
 Recipe detail add controls reflect membership in the current plan: already included recipes
 show "Remove from this plan". Successful adds/removals show a brief confirmation popup.

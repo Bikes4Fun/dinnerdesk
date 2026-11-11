@@ -3,7 +3,7 @@ package build.computerscience.dinnerdesk.data
 /** Search filter chips on the Recipes screen. Same keys and labels as web and iOS. */
 enum class RecipeSearchFilter(val label: String) {
     Fav("Your favorites"), TryLater("To try"), Popular("Popular"), Quick("Quick"), Pantry("Uses pantry"),
-    Hidden("Hidden"), ComingSoon("Coming soon"),
+    Hidden("Hidden"), ComingSoon("Coming soon"), Reviewed("Reviewed"),
 }
 
 /**
@@ -35,6 +35,7 @@ class RecipeCollections(recipes: List<RecipeSummary>, pantryHave: Set<String> = 
     fun filter(rows: List<RecipeSummary>, filters: Set<RecipeSearchFilter>, pantryHave: Set<String>): List<RecipeSummary> {
         var out = if (RecipeSearchFilter.ComingSoon in filters) rows.filter { it.comingSoon } else rows
         if (RecipeSearchFilter.Fav in filters) out = out.filter { it.favorited }
+        if (RecipeSearchFilter.Reviewed in filters) out = out.filter { it.reviewed }
         if (RecipeSearchFilter.TryLater in filters) out = out.filter { it.toTry }
         if (RecipeSearchFilter.Popular in filters) out = out.filter { "popular" in it.tags }
         if (RecipeSearchFilter.Quick in filters) out = out.filter { (it.cookingMinutes ?: 99) <= 30 }

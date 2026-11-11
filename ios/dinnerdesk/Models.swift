@@ -65,10 +65,11 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   let ingredients: [String]
   /// Our photo is in but the steps aren't written yet: shown dimmed and can't be opened.
   var comingSoon: Bool = false
+  var reviewed: Bool = false
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath
-    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon
+    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon, reviewed
   }
 
   init(from decoder: Decoder) throws {
@@ -85,6 +86,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([String].self, forKey: .ingredients)
     comingSoon = try c.decodeIfPresent(Bool.self, forKey: .comingSoon) ?? false
+    reviewed = try c.decodeIfPresent(Bool.self, forKey: .reviewed) ?? false
   }
 
   func withFavorited(_ on: Bool) -> RecipeSummary {
@@ -96,6 +98,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   /// The list row for a recipe just saved from somewhere else (a Taste Lab meal that isn't in
   /// the loaded recipe list yet).
   init(_ detail: RecipeDetail) {
+    reviewed = detail.reviewed
     id = detail.id
     name = detail.name
     servings = detail.servings
@@ -140,6 +143,7 @@ nonisolated struct RecipeGalleryPhoto: Decodable, Identifiable, Sendable {
 }
 
 nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
+  var reviewed: Bool = false
   let id: Int
   var name: String
   let servings: Int?
@@ -173,7 +177,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath, photos, photoAi, photoShared
-    case favorited, toTry, hidden, catalog, tags, ingredients, instructions
+    case favorited, toTry, hidden, catalog, tags, ingredients, instructions, reviewed
     case instructionsSource, instructionsCopiedFromThirdParty, sourceUrl
   }
 
@@ -185,6 +189,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     cookingMinutes = try c.decodeIfPresent(Int.self, forKey: .cookingMinutes)
     photoPath = try c.decodeIfPresent(String.self, forKey: .photoPath)
     photoAI = try c.decodeIfPresent(Bool.self, forKey: .photoAi) ?? false
+    reviewed = try c.decodeIfPresent(Bool.self, forKey: .reviewed) ?? false
     photoShared = try c.decodeIfPresent(Bool.self, forKey: .photoShared) ?? false
     if let gallery = try c.decodeIfPresent([RecipeGalleryPhoto].self, forKey: .photos) {
       photos = gallery

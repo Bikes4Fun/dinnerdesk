@@ -226,6 +226,7 @@ def _apply_recipe_edit(
     edit = _recipe_edit(db, household_id, rid)
     out["edited"] = bool(edit)
     src = db.execute("SELECT household_id, provenance_json FROM recipes WHERE id = ?", (rid,)).fetchone()
+    out["reviewed"] = bool(src) and json.loads(src["provenance_json"] or "{}").get("reviewed") is True
     out["retired"] = bool(src) and src["household_id"] is None and (
         json.loads(src["provenance_json"] or "{}").get("retired") is True)
     hid = hidden if hidden is not None else _hidden_recipe_ids(db, household_id)
@@ -1045,6 +1046,24 @@ def put_hidden(
     return _recipe_out(db, row, household_id, admin is not None)
 
 
+@router.put("/recipes/{recipe_id}/reviewed")
+def put_reviewed(recipe_id: int, body: FavoritePut, db: PgConnection = DbDep,
+                 household_id: int = HhDep, _admin=AdminDep):
+    with transaction(db):
+        row = db.execute("SELECT * FROM recipes WHERE id = ? FOR UPDATE", (recipe_id,)).fetchone()
+        if not row or not _recipe_visible(row, household_id):
+            raise HTTPException(404, {"error": "not_found", "detail": "recipe"})
+        provenance = json.loads(row["provenance_json"] or "{}")
+        provenance["reviewed"] = body.on
+        if row["household_id"] is None:
+            provenance["admin_reviewed_edited"] = True
+        db.execute("UPDATE recipes SET provenance_json = ?, updated_at = ? WHERE id = ?",
+                   (json.dumps(provenance), now(), recipe_id))
+    _invalidate_all_pools()
+    row = db.execute("SELECT * FROM recipes WHERE id = ?", (recipe_id,)).fetchone()
+    return _recipe_out(db, row, household_id, True)
+
+
 @router.put("/recipes/{recipe_id}/retired")
 def put_retired(
     recipe_id: int,
@@ -1172,6 +1191,9 @@ def put_dev_notes(
 
 def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
     shown = _recipe_out(db, row, household_id)
+    provenance = json.loads(row["provenance_json"] or "{}")
+    provenance.pop("reviewed", None)
+    provenance.pop("admin_reviewed_edited", None)
     ts = now()
     cur = db.execute(
         """INSERT INTO recipes (
@@ -1188,7 +1210,7 @@ def _copy_recipe(db: PgConnection, row, household_id: int) -> int:
             json.dumps(shown.get("instructions") or []),
             json.dumps(shown.get("cookware") or []),
             row["source_url"],
-            row["provenance_json"],
+            json.dumps(provenance),
             row["photo_path"],
             row["id"],
             ts,

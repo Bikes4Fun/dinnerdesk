@@ -492,6 +492,7 @@ struct RecipeTile: View {
         .font(Theme.recipeCardServing)
         .foregroundStyle(Theme.muted)
         .lineLimit(3)
+      if recipe.reviewed { ReviewedBadge() }
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel("\(recipe.name), coming soon")
@@ -533,6 +534,7 @@ struct RecipeTile: View {
           }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
+        if recipe.reviewed { ReviewedBadge() }
       }
     }
     .buttonStyle(.plain)
@@ -568,6 +570,7 @@ struct RecipeDetailView: View {
   @State private var error: String?
   private var added: Bool { store.onWeek(id) }
   @State private var adding = false
+  @State private var reviewing = false
   @State private var planNotice: String?
   @State private var showingMenu = false
   @State private var tab: RecipePageTab = .overview
@@ -624,6 +627,20 @@ struct RecipeDetailView: View {
             .accessibilityAddTraits(.isHeader)
             .accessibilityRemoveTraits(.isButton)
             servingsRow(recipe)
+            if recipe.reviewed { ReviewedBadge() }
+            if admin {
+              Toggle("Reviewed by Dinnerdesk", isOn: Binding(
+                get: { recipe.reviewed },
+                set: { on in
+                  reviewing = true
+                  Task {
+                    if let next = await store.setReviewed(id: id, on: on) { self.recipe = next }
+                    else { error = store.error }
+                    reviewing = false
+                  }
+                }))
+                .disabled(reviewing)
+            }
             if tab == .overview, !recipe.prettyTags.isEmpty {
               Text(recipe.prettyTags).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
