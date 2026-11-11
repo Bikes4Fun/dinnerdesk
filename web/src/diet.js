@@ -1,45 +1,6 @@
-// Kitchen diet and avoid choices, shared by Settings → Filters and the Quick start tour.
-// The server applies the same rules (app/domain/diet_filter.py) to Recipes and suggestions.
-
-// One filter system: Taste Lab edits these same household filters. Keep the lists equal to
-// app/domain/diet_filter.py (tests/test_diet_filter.py checks).
-export const DIETS = ["omnivore", "pescatarian", "vegetarian", "vegan", "gluten-free", "dairy-free"];
-export const ALLERGENS = [
-  ["soy", "Soy"],
-  ["peanut", "Peanut"],
-  ["tree-nuts", "Tree nuts"],
-  ["dairy", "Dairy"],
-  ["egg", "Egg"],
-  ["gluten", "Gluten"],
-  ["sesame", "Sesame"],
-  ["fish", "Fish"],
-  ["shellfish", "Shellfish"],
-];
-export const AVOIDS = [
-  "fish", "cilantro", "mushrooms", "onions", "bell peppers", "olives", "goat cheese", "nuts",
-  "beans", "tofu", "eggplant", "brussels sprouts", "coconut", "spicy",
-];
-export const WHO = [
-  ["beginner", "Beginner"],
-  ["family", "Family"],
-  ["kids", "Kid-friendly"],
-  ["entertaining", "Entertaining"],
-];
-export const CUISINES = [
-  ["italian", "Italian"], ["mexican", "Mexican"], ["american", "American"], ["chinese", "Chinese"],
-  ["thai", "Thai"], ["indian", "Indian"], ["japanese", "Japanese"], ["mediterranean", "Mediterranean"],
-  ["korean", "Korean"], ["vietnamese", "Vietnamese"], ["greek", "Greek"], ["middle-eastern", "Middle Eastern"],
-  ["french", "French"], ["spanish", "Spanish"], ["southern", "Southern"], ["cajun", "Cajun & Creole"],
-  ["caribbean", "Caribbean"], ["latin-american", "Latin American"],
-];
-export const PROTEINS = [
-  ["chicken", "Chicken"], ["beef", "Beef"], ["pork", "Pork"], ["salmon", "Salmon"], ["shrimp", "Shrimp"],
-  ["tofu", "Tofu"], ["turkey", "Turkey"], ["white-fish", "White fish"], ["lamb", "Lamb"], ["sausage", "Sausage"],
-  ["tempeh", "Tempeh"], ["beans", "Beans & lentils"], ["eggs", "Eggs"], ["scallops", "Scallops"],
-];
-
-// Pick one of these; gluten-free and dairy-free combine with it.
-const EXCLUSIVE = ["omnivore", "pescatarian", "vegetarian", "vegan"];
+// Shared filter choices and per-platform selection adapter.
+import { DIETS, ALLERGENS, AVOIDS, WHO, CUISINES, PROTEINS, TIMES, DIET_LABELS, FilterOptions, EXCLUSIVE, STRICTEST } from "./filterOptions.js";
+export { DIETS, ALLERGENS, AVOIDS, WHO, CUISINES, PROTEINS, TIMES, DIET_LABELS, FilterOptions };
 
 /** Tap a diet: switch between the exclusive diets, toggle the others. */
 export function toggleDiet(diets, item) {
@@ -52,7 +13,7 @@ export function toggleDiet(diets, item) {
 
 /** Older saves could hold several exclusive diets; keep the strictest. */
 export function cleanDiets(diets) {
-  const picked = ["vegan", "vegetarian", "pescatarian", "omnivore"].find((d) => diets.includes(d));
+  const picked = STRICTEST.find((d) => diets.includes(d));
   const rest = diets.filter((d) => !EXCLUSIVE.includes(d));
   return picked ? [picked, ...rest] : rest;
 }

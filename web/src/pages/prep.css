@@ -108,4 +108,6 @@
 .prep-screen .pz-report label { font-size: 13px; font-weight: 600; color: var(--muted); }
 .prep-screen .pz-report textarea { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid #ddd2ce; background: #fbf6ee; font: inherit; font-size: 15px; color: var(--ink); resize: vertical; }
 .prep-screen .pz-report button { align-self: flex-start; min-height: 36px; padding: 0 14px; border-radius: 999px; background: #f0e9e6; color: var(--ink); font-size: 14px; font-weight: 600; }
+.prep-screen .pz-report button[aria-pressed="true"] { background: var(--coral); }
+.prep-screen .pz-saved-feedback { font-size: 14px; color: var(--muted); }
 @media print { .prep-screen .pz-feedback, .prep-screen .pz-actions, .prep-screen .more-btn { display: none; } }

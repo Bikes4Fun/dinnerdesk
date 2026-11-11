@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.domain.recipe_normalize import normalize_recipe
+from app.domain.recipe_normalize import RecipeNormalizer
 from app.assets import catalog_dir, food_dir
 from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
 from app.domain.recipe_photos import (
@@ -15,7 +15,8 @@ from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
 from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
-from app.domain.offering import WITHHELD_EXACT, WITHHELD_LIKE, withheld
+from app.domain.coming_soon import ComingSoon
+from app.domain.offering import Offering
 from app.domain.pantry_catalog import ingredient_name
 
 
@@ -37,15 +38,15 @@ REWRITTEN_MARK = '%"instructions_copied_from_third_party": false%'
 RETIRED_MARK = '%"retired": true%'
 # A recipe that has one of our photos but whose steps aren't in our own words yet. It's stored
 # without steps and stays out of every list but Recipes, where it shows greyed out as coming soon.
-COMING_SOON_MARK = '%"coming_soon": true%'
+COMING_SOON_MARK = ComingSoon.MARK_SQL
 
 
 def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
     """Household recipes always. Public catalog recipes only when the steps are
     ours, a photo path is set, and the recipe isn't retired, pizza, breakfast, or a
     snack. The photo is shown only if that file is tagged usable."""
-    withheld_name = " AND ".join(f"{alias}.name NOT ILIKE ?" for _ in WITHHELD_LIKE)
-    exact = ", ".join("?" for _ in WITHHELD_EXACT)
+    withheld_name = " AND ".join(f"{alias}.name NOT ILIKE ?" for _ in Offering.LIKE)
+    exact = ", ".join("?" for _ in Offering.EXACT)
     sql = (
         f"({alias}.household_id IS NOT NULL OR ("
         f"{alias}.provenance_json LIKE ?"
@@ -54,14 +55,14 @@ def public_recipe_sql(alias: str = "r") -> tuple[str, list]:
         f" AND {withheld_name}"
         f" AND LOWER(BTRIM({alias}.name)) NOT IN ({exact})))"
     )
-    return sql, [REWRITTEN_MARK, RETIRED_MARK, *WITHHELD_LIKE, *WITHHELD_EXACT]
+    return sql, [REWRITTEN_MARK, RETIRED_MARK, *Offering.LIKE, *Offering.EXACT]
 
 
 def ready(data: dict, photos: dict[str, list[str]] | None = None) -> bool:
     """Only recipes with our own steps and a photo go into the database. With `photos`
     (from catalog_photos), the photo must also be one of ours on the allowlist.
     Pizza, breakfast, and snacks are never ready."""
-    if withheld(str(data.get("name") or ""), data.get("tags")):
+    if Offering.withheld(str(data.get("name") or ""), data.get("tags")):
         return False
     if data.get("instructions_copied_from_third_party"):
         return False
@@ -102,7 +103,7 @@ def remove_withheld(conn) -> list:
     for row in conn.execute(
         "SELECT id, slug, name FROM recipes WHERE household_id IS NULL ORDER BY id"
     ):
-        if not withheld(row["name"]):
+        if not Offering.withheld(row["name"]):
             continue
         if conn.execute(f"SELECT 1 WHERE {used}", (row["id"], row["id"])).fetchone():
             kept.append(row)
@@ -175,6 +176,7 @@ def _provenance_json(data: dict) -> str:
             # Kept in the catalog files for reference, but no longer offered anywhere. Plans
             # and favorites that already point at it still open it.
             "retired": bool(data.get("retired")),
+            "reviewed": data.get("reviewed") is True,
             "coming_soon": bool(data.get("coming_soon")),
         }
     )
@@ -263,6 +265,8 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_admin_tags = flags.get("admin_tags_edited") is True
         keep_primary = flags.get("admin_photo_edited") is True
         keep_content = flags.get("admin_content_edited") is True
+        keep_retired = flags.get("admin_retired_edited") is True
+        keep_reviewed = flags.get("admin_reviewed_edited") is True
 
         def settle(part: str, keep: bool, find_differences) -> bool:
             if not keep:
@@ -282,7 +286,19 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_primary = settle(
             "photo", keep_primary,
             lambda: [] if same_photo(incoming_photo, existing["photo_path"]) else ["photo_path"])
+        keep_retired = settle(
+            "retired", keep_retired,
+            lambda: [] if bool(data.get("retired")) == (flags.get("retired") is True) else ["retired"])
         incoming_provenance = json.loads(provenance)
+        keep_reviewed = settle(
+            "reviewed", keep_reviewed,
+            lambda: [] if (data.get("reviewed") is True) == (flags.get("reviewed") is True) else ["reviewed"])
+        if keep_reviewed:
+            incoming_provenance["reviewed"] = flags.get("reviewed") is True
+            incoming_provenance["admin_reviewed_edited"] = True
+        if keep_retired:  # removed from (or brought back to) the app in the admin screen
+            incoming_provenance["retired"] = flags.get("retired") is True
+            incoming_provenance["admin_retired_edited"] = True
         if keep_admin_tags:
             incoming_provenance["admin_tags_edited"] = True
         if keep_primary:
@@ -360,22 +376,9 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
     return "insert"
 
 
-def coming_soon_record(data: dict) -> dict:
-    """The parts of a not-yet-rewritten recipe the app may keep: everything but its steps."""
-    keep = ("id", "slug", "name", "servings", "cooking_minutes", "ingredients", "cookware",
-            "source_url", "tags", "photo_path", "variant_of")
-    out = {k: data[k] for k in keep if k in data}
-    out.update({"instructions": [], "instructions_copied_from_third_party": True, "coming_soon": True})
-    return out
-
-
-def is_coming_soon(data: dict, photos: dict[str, list[str]]) -> bool:
-    """Has one of our photos, but its steps are still someone else's (or missing)."""
-    if withheld(str(data.get("name") or ""), data.get("tags")):
-        return False
-    photo = Path((data.get("photo_path") or "").strip()).name
-    return bool(photo) and photo in photos.get("*", []) and not data.get("retired") and bool(
-        data.get("instructions_copied_from_third_party") or not data.get("instructions"))
+# Kept as names here so existing callers and tests read the same; the rules are in ComingSoon.
+coming_soon_record = ComingSoon.record
+is_coming_soon = ComingSoon.is_candidate
 
 
 def catalog_photos() -> dict[str, list[str]]:
@@ -426,7 +429,7 @@ def catalog_records() -> list[dict]:
             data = {**data, "slug": path.stem}
         records[str(data.get("id") or data.get("slug"))] = data
     # Files should already be normalized (scripts/normalize_catalog.py); this catches any that aren't.
-    return [normalize_recipe(r)[0] for r in records.values()]
+    return [RecipeNormalizer.normalize(r)[0] for r in records.values()]
 
 
 def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) -> int:
@@ -436,7 +439,7 @@ def import_recipes(conn, aliases: dict[str, str], report: dict | None = None) ->
     soon: set[str] = set()
     for data in catalog_records():
         data = with_photo(data, photos)
-        if withheld(str(data.get("name") or ""), data.get("tags")):
+        if Offering.withheld(str(data.get("name") or ""), data.get("tags")):
             continue
         if not ready(data, photos) and is_coming_soon(data, photos):
             data = coming_soon_record(data)

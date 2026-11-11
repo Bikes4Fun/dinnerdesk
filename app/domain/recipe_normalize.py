@@ -97,3 +97,18 @@ def normalize_recipe(data: dict) -> tuple[dict, list[str]]:
     if not notes:
         return data, []
     return {**data, "ingredients": ings, "instructions": steps}, notes
+
+
+class RecipeNormalizer:
+    """The one way a recipe is put in shape. Use RecipeNormalizer.normalize(recipe); the import,
+    scripts/normalize_catalog.py and anything new should go through this class, so every recipe
+    gets the same rules. The module functions above are its steps."""
+
+    split_ingredients = staticmethod(normalize_ingredients)
+    fill_step_ingredients = staticmethod(fill_step_ingredients)
+    ingredient_line = staticmethod(ingredient_line)
+
+    @staticmethod
+    def normalize(data: dict) -> tuple[dict, list[str]]:
+        """The recipe in normalized shape, and a short note for each kind of change made."""
+        return normalize_recipe(data)

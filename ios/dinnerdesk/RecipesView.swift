@@ -2,7 +2,7 @@ import SwiftUI
 import PhotosUI
 
 private enum RecipeListKind: String, CaseIterable, Identifiable {
-  case suggestions, fav, tryLater, popular, mine, simple, sauces, hidden, all
+  case suggestions, fav, tryLater, popular, mine, simple, budget, pantry, sauces, comingSoon, hidden, all
   var id: String { rawValue }
 
   var title: String {
@@ -13,25 +13,12 @@ private enum RecipeListKind: String, CaseIterable, Identifiable {
     case .popular: "Most Popular"
     case .mine: "Your Recipes"
     case .simple: "Super simple"
+    case .budget: "Budget friendly"
+    case .pantry: "Uses pantry"
     case .sauces: "Sauces & dressings"
+    case .comingSoon: "Coming soon"
     case .hidden: "Hidden"
     case .all: "All recipes"
-    }
-  }
-}
-
-private enum RecipeSearchFilter: String, CaseIterable, Identifiable {
-  case fav, tryLater, popular, quick, pantry, hidden
-  var id: String { rawValue }
-
-  var label: String {
-    switch self {
-    case .fav: "Your favorites"
-    case .tryLater: "To try"
-    case .popular: "Popular"
-    case .quick: "Quick"
-    case .pantry: "Uses pantry"
-    case .hidden: "Hidden"
     }
   }
 }
@@ -142,6 +129,10 @@ struct RecipesView: View {
       .task {
         hiddenRecipes = await store.loadHiddenRecipes(onlyIfStale: true)
       }
+      .task {
+        // For the "Uses pantry" section and filter, as on web.
+        if let items = try? await KitchenAPI.pantry() { pantryHave = PantryMatch.have(items) }
+      }
       PlanStrip()
       }
     }
@@ -164,8 +155,17 @@ struct RecipesView: View {
     if !simple.isEmpty {
       browseSection("Super simple", rows: simple, seeAll: .simple)
     }
+    if !collections.budget.isEmpty {
+      browseSection("Budget friendly", rows: collections.budget, seeAll: .budget)
+    }
+    if !collections.pantry.isEmpty {
+      browseSection("Uses pantry", rows: collections.pantry, seeAll: .pantry)
+    }
     if !sauces.isEmpty {
       browseSection("Sauces & dressings", rows: sauces, seeAll: .sauces)
+    }
+    if !comingSoon.isEmpty {
+      browseSection("Coming soon", rows: comingSoon, seeAll: .comingSoon)
     }
     browseSection("All recipes", rows: rows(for: .all), seeAll: .all, empty: "No recipes")
   }
@@ -295,13 +295,15 @@ struct RecipesView: View {
     return rows.sorted { score($0) < score($1) }
   }
 
-  private var favorites: [RecipeSummary] { store.recipes.filter(\.favorited) }
-  private var toTry: [RecipeSummary] { store.recipes.filter(\.toTry) }
-  private var meals: [RecipeSummary] { store.recipes.filter(\.isMeal) }
-  private var popular: [RecipeSummary] { meals.filter { $0.tags.contains("popular") } }
-  private var mine: [RecipeSummary] { store.recipes.filter { !$0.catalog } }
-  private var simple: [RecipeSummary] { meals.filter { ($0.cookingMinutes ?? 99) <= 20 } }
-  private var sauces: [RecipeSummary] { store.recipes.filter(\.isExtra) }
+  /// Every list comes from RecipeCollections, the same class (and rules) as on web and Android.
+  private var collections: RecipeCollections { RecipeCollections(store.recipes, pantryHave: pantryHave) }
+  private var favorites: [RecipeSummary] { collections.favorites }
+  private var toTry: [RecipeSummary] { collections.toTry }
+  private var popular: [RecipeSummary] { collections.popular }
+  private var mine: [RecipeSummary] { collections.mine }
+  private var simple: [RecipeSummary] { collections.simple }
+  private var sauces: [RecipeSummary] { collections.sauces }
+  private var comingSoon: [RecipeSummary] { collections.comingSoon }
 
   private func rows(for list: RecipeListKind) -> [RecipeSummary] {
     switch list {
@@ -311,10 +313,12 @@ struct RecipesView: View {
     case .popular: popular
     case .mine: mine
     case .simple: simple
+    case .budget: collections.budget
+    case .pantry: collections.pantry
     case .sauces: sauces
+    case .comingSoon: comingSoon
     case .hidden: hiddenRecipes
-    case .all:
-      meals.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    case .all: collections.all
     }
   }
 
@@ -327,14 +331,7 @@ struct RecipesView: View {
           || recipe.ingredients.contains { $0.lowercased().contains(q) }
       }
     }
-    if filters.contains(.fav) { rows = rows.filter(\.favorited) }
-    if filters.contains(.tryLater) { rows = rows.filter(\.toTry) }
-    if filters.contains(.popular) { rows = rows.filter { $0.tags.contains("popular") } }
-    if filters.contains(.quick) { rows = rows.filter { ($0.cookingMinutes ?? 99) <= 30 } }
-    if filters.contains(.pantry) {
-      rows = rows.filter { PantryMatch.uses($0.ingredients, have: pantryHave) }
-    }
-    return rows
+    return collections.filter(rows, filters, pantryHave: pantryHave)
   }
 }
 
@@ -495,9 +492,10 @@ struct RecipeTile: View {
         .font(Theme.recipeCardServing)
         .foregroundStyle(Theme.muted)
         .lineLimit(3)
+      if recipe.reviewed { ReviewedBadge() }
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(recipe.name), coming soon")
+    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Reviewed by Dinnerdesk" : "")")
   }
 
   private var readyTile: some View {
@@ -536,6 +534,7 @@ struct RecipeTile: View {
           }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
+        if recipe.reviewed { ReviewedBadge() }
       }
     }
     .buttonStyle(.plain)
@@ -571,6 +570,7 @@ struct RecipeDetailView: View {
   @State private var error: String?
   private var added: Bool { store.onWeek(id) }
   @State private var adding = false
+  @State private var reviewing = false
   @State private var planNotice: String?
   @State private var showingMenu = false
   @State private var tab: RecipePageTab = .overview
@@ -627,6 +627,20 @@ struct RecipeDetailView: View {
             .accessibilityAddTraits(.isHeader)
             .accessibilityRemoveTraits(.isButton)
             servingsRow(recipe)
+            if recipe.reviewed { ReviewedBadge() }
+            if admin {
+              Toggle("Reviewed by Dinnerdesk", isOn: Binding(
+                get: { recipe.reviewed },
+                set: { on in
+                  reviewing = true
+                  Task {
+                    if let next = await store.setReviewed(id: id, on: on) { self.recipe = next }
+                    else { error = store.error }
+                    reviewing = false
+                  }
+                }))
+                .disabled(reviewing)
+            }
             if tab == .overview, !recipe.prettyTags.isEmpty {
               Text(recipe.prettyTags).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
