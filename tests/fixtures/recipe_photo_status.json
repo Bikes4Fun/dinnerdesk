@@ -1,0 +1,34 @@
+{
+  "id": 77,
+  "name": "Reviewed gallery fixture",
+  "servings": 4,
+  "photo_path": "food/tested.jpg",
+  "reviewed": true,
+  "favorited": false,
+  "to_try": false,
+  "hidden": false,
+  "catalog": true,
+  "tags": [],
+  "ingredients": [],
+  "instructions": [],
+  "photos": [
+    {
+      "path": "food/tested.jpg",
+      "primary": true,
+      "ai": false,
+      "shared": false,
+      "tested": true,
+      "credit": "Photo: Dinnerdesk",
+      "source_url": "https://example.test/photos/tested"
+    },
+    {
+      "path": "food/alternative.jpg",
+      "primary": false,
+      "ai": true,
+      "shared": false,
+      "tested": false,
+      "credit": "AI-generated photo",
+      "source_url": ""
+    }
+  ]
+}

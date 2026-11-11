@@ -146,6 +146,8 @@ struct RecipesView: View {
     if !toTry.isEmpty {
       browseSection("To try", rows: toTry, seeAll: .tryLater)
     }
+    browseSection("Create from a template", rows: [], seeAll: .all, empty: "Coming soon")
+      .opacity(0.65)
     if !popular.isEmpty {
       browseSection("Most popular", rows: popular, seeAll: .popular)
     }
@@ -488,11 +490,11 @@ struct RecipeTile: View {
         }
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(alignment: .bottomLeading) { if recipe.reviewed { ReviewedBadge().padding(6) } }
       Text(recipe.name)
         .font(Theme.recipeCardServing)
         .foregroundStyle(Theme.muted)
         .lineLimit(3)
-      if recipe.reviewed { ReviewedBadge() }
     }
     .accessibilityElement(children: .combine)
     .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Reviewed by Dinnerdesk" : "")")
@@ -532,9 +534,9 @@ struct RecipeTile: View {
             .accessibilityLabel(
               store.onWeek(recipe.id) ? "Remove from this plan" : "Add to this plan")
           }
+          .overlay(alignment: .bottomLeading) { if recipe.reviewed { ReviewedBadge().padding(6) } }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
-        if recipe.reviewed { ReviewedBadge() }
       }
     }
     .buttonStyle(.plain)
@@ -570,7 +572,6 @@ struct RecipeDetailView: View {
   @State private var error: String?
   private var added: Bool { store.onWeek(id) }
   @State private var adding = false
-  @State private var reviewing = false
   @State private var planNotice: String?
   @State private var showingMenu = false
   @State private var tab: RecipePageTab = .overview
@@ -628,19 +629,6 @@ struct RecipeDetailView: View {
             .accessibilityRemoveTraits(.isButton)
             servingsRow(recipe)
             if recipe.reviewed { ReviewedBadge() }
-            if admin {
-              Toggle("Reviewed by Dinnerdesk", isOn: Binding(
-                get: { recipe.reviewed },
-                set: { on in
-                  reviewing = true
-                  Task {
-                    if let next = await store.setReviewed(id: id, on: on) { self.recipe = next }
-                    else { error = store.error }
-                    reviewing = false
-                  }
-                }))
-                .disabled(reviewing)
-            }
             if tab == .overview, !recipe.prettyTags.isEmpty {
               Text(recipe.prettyTags).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
@@ -1051,7 +1039,12 @@ private struct RecipeGalleryView: View {
               ForEach(recipe.photos) { photo in
                 RecipePhoto(path: photo.path, large: true)
                   .overlay(alignment: .bottomTrailing) { RecipePhotoCredit(photo: photo) }
-                  .overlay(alignment: .bottomLeading) { if photo.tested == true { DeveloperTestedBadge() } }
+                  .overlay(alignment: .bottomLeading) {
+                    VStack(alignment: .leading, spacing: 4) {
+                      if recipe.reviewed { ReviewedBadge() }
+                      if photo.tested == true { DeveloperTestedBadge() }
+                    }.padding(10)
+                  }
                   .tag(photo.path)
               }
             }
@@ -1202,16 +1195,15 @@ private struct DeveloperTestedBadge: View {
   var body: some View {
     HStack(spacing: 4) {
       Image(systemName: "star.fill").foregroundStyle(Color(red: 0.54, green: 0.38, blue: 0))
-      Text("Developer tested")
+      Text(Copy.text("recipe.tested"))
     }
     .font(.caption.weight(.semibold))
     .foregroundStyle(Theme.ink)
     .padding(.horizontal, 9)
     .padding(.vertical, 4)
     .background(.regularMaterial, in: Capsule())
-    .padding(10)
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("Developer tested: photo of this recipe as we cooked it")
+    .accessibilityLabel(Copy.text("recipe.tested.description"))
   }
 }
 

@@ -4,6 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 
 test("thumbnail admin controls and Coming soon previews expose the correct states", async () => {
   const previousWindow = globalThis.window;
@@ -32,6 +33,11 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
     assert.match(template, /Coming soon/);
     assert.doesNotMatch(template, /<button|<a /);
     const { RecipeGallery } = await server.ssrLoadModule("/src/RecipeGallery.jsx");
+    const shared = JSON.parse(readFileSync(new URL("../../tests/fixtures/recipe_photo_status.json", import.meta.url), "utf8"));
+    const gallery = renderToStaticMarkup(createElement(RecipeGallery, { recipe: shared, canEdit: false }));
+    assert.match(gallery, /Reviewed by Dinnerdesk/);
+    assert.match(gallery, /Developer tested:/);
+    assert.equal((gallery.match(/<img /g) || []).length, shared.photos.length);
     for (const reviewed of [false, true]) {
       for (const tested of [false, true]) {
         const recipe = { id: 1, name: "Soup", reviewed,
