@@ -582,8 +582,6 @@ struct RecipeDetailView: View {
   @State private var reportNote = ""
   @State private var reportSending = false
   @State private var reported = false
-  /// Tagging steps as Prep edits the recipe, which only Dinnerdesk admins may do.
-  private var admin: Bool { store.isAdmin }
 
   private var mealServings: Int {
     if let slot = store.plan?.slots.first(where: { $0.recipeId == id }) {
@@ -604,7 +602,7 @@ struct RecipeDetailView: View {
             .pickerStyle(.segmented)
 
             if tab == .overview {
-              RecipeGalleryView(recipe: recipe, canEdit: admin || !recipe.catalog) { updated in
+              RecipeGalleryView(recipe: recipe, canEdit: !recipe.catalog) { updated in
                 self.recipe = updated
               }
             }
@@ -656,7 +654,7 @@ struct RecipeDetailView: View {
                 }
               }
               ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
-                CookStepRow(index: i, step: step, onPrep: admin ? { Task { await togglePrep(at: i) } } : nil)
+                CookStepRow(index: i, step: step)
               }
             }
 
@@ -756,7 +754,6 @@ struct RecipeDetailView: View {
       }
       await store.loadGroceryPrefs(onlyIfStale: true)
     }
-    .task { await store.loadAdmin() }
   }
 
   /// Why the recipe is wrong, in the user's words. The server keeps it with the recipe as they saw it.
@@ -926,49 +923,16 @@ struct RecipeDetailView: View {
       planNotice = removing ? "Removed from this plan" : "Added to this plan"
     } else { error = store.error }
   }
-
-  private func togglePrep(at index: Int) async {
-    guard var recipe else { return }
-    guard recipe.instructions.indices.contains(index) else { return }
-    recipe.instructions[index].prep = !(recipe.instructions[index].prep ?? false)
-    self.recipe = recipe
-    do {
-      let next: RecipeDetail = try await API.send(
-        "recipes/\(id)",
-        method: "PATCH",
-        body: [
-          "in_place": true,
-          "instructions": recipe.instructions.map { $0.asBody() },
-        ],
-        cacheAs: "recipes/\(id)"
-      )
-      self.recipe = next
-    } catch {
-      self.error = error.localizedDescription
-    }
-  }
 }
 
 private struct CookStepRow: View {
   let index: Int
   let step: InstructionStep
-  /// Only set for admins; everyone else just sees the step.
-  let onPrep: (() -> Void)?
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 8) {
         Text("\(index + 1).").foregroundStyle(Theme.accent)
-        if let onPrep { Button(action: onPrep) {
-          Text("Prep")
-            .font(Theme.chipLabel)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background((step.prep ?? false) ? Theme.accent : Theme.surface)
-            .foregroundStyle((step.prep ?? false) ? Color.white : Theme.muted)
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain) }
       }
       stepBody
         .frame(maxWidth: .infinity, alignment: .leading)
