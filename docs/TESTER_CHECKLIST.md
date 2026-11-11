@@ -24,6 +24,7 @@
 - [ ] On web, downvote an expanded prep task without checking it off: choose a reason,
   add a note, send, and reload. Both remain visible. Retry with networking disabled:
   the editor keeps the draft and shows an error; restoring networking allows retry.
+  Prep feedback uses only thumbs up/down; there is no separate flag button.
 
 - [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
 - [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.

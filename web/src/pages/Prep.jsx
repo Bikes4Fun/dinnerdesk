@@ -159,7 +159,6 @@ export function Prep() {
                       onDone={() => { if (!t.done) toggle(t); openNext(t); }}
                       onSkip={() => openNext(t)}
                       onRate={(next) => { rate(t, next, next < 0 ? t.reason : ""); setReport(next < 0 ? t.id : null); }}
-                      onReport={() => setReport(report === t.id ? null : t.id)}
                       onSend={async (reason, note) => {
                         if (await rate(t, -1, reason, note)) setReport(null);
                       }} />
@@ -200,7 +199,7 @@ export function Prep() {
   );
 }
 
-function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onReport, onSend }) {
+function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onSend }) {
   const [reason, setReason] = useState(t.reason || "");
   const [note, setNote] = useState(t.reason_note || "");
   const [sending, setSending] = useState(false);
@@ -251,9 +250,6 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
             </button>
             <button type="button" className="pz-fb-btn" aria-label="No, not worth it" aria-pressed={t.rating < 0} onClick={() => onRate(t.rating < 0 ? 0 : -1)}>
               <Icon name="thumbs-down" size={18} />
-            </button>
-            <button type="button" className="pz-fb-btn" aria-label="Report a problem or send feedback" aria-expanded={reporting} onClick={onReport}>
-              <Icon name="flag" size={18} />
             </button>
           </div>
           {reporting && (
