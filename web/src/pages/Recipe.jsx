@@ -1,5 +1,6 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { RecipeGallery } from "../RecipeGallery.jsx";
+import { ReviewedBadge } from "../ReviewedBadge.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
 
@@ -495,6 +496,19 @@ export function Recipe({ id }) {
           </div>
         )}
       </header>
+      {!editing && <ReviewedBadge reviewed={recipe.reviewed} />}
+      {!editing && admin && (
+        <label className="recipe-review-control">
+          <input type="checkbox" checked={Boolean(recipe.reviewed)} disabled={busy}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setBusy(true);
+              try { setRecipe(await api.reviewRecipe(recipe.id, on)); }
+              catch (e) { setErr(e.message); }
+              finally { setBusy(false); }
+            }} /> Reviewed by Dinnerdesk
+        </label>
+      )}
       {!editing && (
         <div className="tabs">
           {["overview", "cook"].map((t) => (

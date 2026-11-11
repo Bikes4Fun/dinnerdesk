@@ -228,6 +228,9 @@ def merge_recipe_file(file_data: dict, server: dict, skip_tags: set[str]) -> tup
         out["retired"] = bool(server.get("retired"))  # removed from / brought back to the app
         changed.append("retired")
     notes = (server.get("dev_notes") or "").strip()
+    if flags.get("reviewed") and (file_data.get("reviewed") is True) != (server.get("reviewed") is True):
+        out["reviewed"] = server.get("reviewed") is True
+        changed.append("reviewed")
     if notes != (file_data.get("dev_notes") or "").strip() and (notes or "dev_notes" in file_data):
         out["dev_notes"] = notes
         changed.append("dev_notes")
