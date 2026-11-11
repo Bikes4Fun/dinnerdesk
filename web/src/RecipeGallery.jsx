@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import FoodPhoto from "./FoodPhoto.jsx";
 import { api } from "./api.js";
 import { Tip } from "./Tip.jsx";
+import { ReviewedBadge } from "./ReviewedBadge.jsx";
 
 export function RecipeGallery({ recipe, canEdit, onChange }) {
   const photos = recipe.photos ?? (recipe.photo_path ? [{ path: recipe.photo_path, primary: true, ai: recipe.photo_ai, shared: recipe.photo_shared }] : []);
@@ -91,7 +92,10 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
         }}>
           {photos.map((item, index) => <div className="recipe-gallery-slide" key={item.path} role="group" aria-label={`Photo ${index + 1} of ${photos.length}`}>
             <FoodPhoto className="hero" path={item.path} alt={`${recipe.name}, photo ${index + 1}`} />
-            {item.tested && <span className="photo-tested-badge" aria-label="Developer tested: photo of this recipe as we cooked it"><span aria-hidden="true">★</span> Developer tested</span>}
+            <div className="photo-status-badges">
+              <ReviewedBadge reviewed={recipe.reviewed} />
+              {item.tested && <span className="photo-tested-badge" aria-label="Developer tested: photo of this recipe as we cooked it"><span aria-hidden="true">★</span> Developer tested</span>}
+            </div>
             <PhotoCredit photo={item} />
           </div>)}
         </div>

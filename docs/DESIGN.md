@@ -268,13 +268,15 @@ Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on i
 on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
 Recipes search offers a Reviewed filter that combines with other filters. Web admins can
 also toggle review directly on recipe thumbnails beside the plan and favorite controls.
-This changes recipe approval only, without uploading or changing any photos. This is an explicit
-recipe approval, not a claim about its photo or that it was cooked. Photo credits and the
+This changes recipe approval only, without uploading or changing any photos. On web it also
+overlays the main photo and regular-user thumbnails, independently of whether a photo is
+Developer tested. Both overlays can appear together. Approval does not claim that the recipe
+was cooked. Photo credits and the
 Developer tested photo badge are unchanged. Only the admin review endpoint may change this
 status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
 are pulled into recipe files by sync and preserved across imports until the file agrees.
 
-Web admins manage recipes from the Edit area: Tag as To edit, Hide from everyone
+Web admins manage recipes directly on the main recipe view: Tag as To edit, Hide from everyone
 (catalog recipes), and Delete — send for review. The last action only queues a request;
 it never deletes or automatically hides a recipe. Admin → Recipes to edit consolidates
 To edit, Hidden from everyone, Deletion review and existing Ingredient fixes. Each queue
@@ -283,6 +285,13 @@ a recipe by cancelling its deletion request. Hidden catalog recipes leave browsi
 suggestions but remain openable from existing plans. Workflow flags are admin-only,
 persist through catalog sync/import, and do not transfer to recipe copies. Private
 recipes in other households never appear in these queues.
+Admins also edit tags, name, servings, time, ingredients and steps directly in Overview,
+with inline Save changes, Discard changes and Save as copy controls. There is no separate
+admin Edit mode. The gallery and management controls remain available; failed saves keep
+the draft, and saved changes show a confirmation. Ordinary users retain their existing view.
+The step editor has a Remove button for each step. Removing a row also removes its amounts
+and Prep flag; remaining steps renumber automatically. Save persists the removal, while
+Discard changes restores the saved steps.
 
 
 Recipe detail add controls reflect membership in the current plan: already included recipes

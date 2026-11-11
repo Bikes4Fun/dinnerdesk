@@ -2703,3 +2703,15 @@ def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path,
         assert after['photo_path'] == 'food/different.png'
         assert [photo['path'] for photo in client.get('/api/recipes/1').json()['photos']] == ['food/different.png']
         assert before == {name: (tmp_path / name).read_bytes() for name in names}
+
+
+def test_saving_recipe_step_removals_preserves_remaining_amounts_and_prep(tmp_path):
+    with _client(tmp_path) as client:
+        steps = [{'text': f'Step {i}', 'ings': f'{i} tbsp olive oil', 'prep': i % 2 == 0} for i in range(1, 11)]
+        assert client.patch('/api/recipes/1', json={'instructions': steps}).status_code == 200
+        kept = steps[::2]
+        saved = client.patch('/api/recipes/1', json={'instructions': kept})
+        assert saved.status_code == 200
+        actual = client.get('/api/recipes/1').json()['instructions']
+        assert len(actual) == 5
+        assert [(s['text'], s['ings'], s['prep']) for s in actual] == [(s['text'], s['ings'], s['prep']) for s in kept]
