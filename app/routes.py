@@ -54,8 +54,10 @@ from app.domain.prep_presentation import PrepTaskPresentation
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
-from app.domain.suggest import norm_pantry
-from app.domain.taste_rank import learn, pick_meals, promote, reasons_summary, suggestion_note, suggestion_penalties
+from app.domain.suggest import familiar_cap, norm_pantry
+from app.domain.taste_rank import (
+    held_back, learn, pick_meals, promote, reasons_summary, recent_suggestions, suggestion_note, suggestion_penalties,
+)
 from app.taste_lab import SKIP as TASTE_SKIP
 from app.taste_lab import archive_id, household_filters, snapshots_for_accounts
 from app.models import (
@@ -3390,7 +3392,10 @@ def _rank_inputs(db: PgConnection, household_id: int, kept: set[int], laps: Laps
     }
 
 
-def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None) -> tuple[list[dict], str, dict]:
+def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_ids: set[int] | None = None,
+                   plan_id: int | None = None) -> tuple[list[dict], str, dict]:
+    """plan_id is a proposal being re-ranked: it isn't a plan before itself, so it's left out
+    of the recent plans its meals rotate out of."""
     kept = kept_recipe_ids or set()
     laps = Laps()
     inputs = _rank_inputs(db, household_id, kept, laps)
@@ -3423,6 +3428,9 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
         skip=ignored,
     )
     taste.suggestion_penalties = suggestion_penalties(history)
+    earlier = _earlier_plans(inputs["history"], plan_id)
+    taste.held_back = held_back(earlier)
+    taste.recent = recent_suggestions(earlier)
     taste.diets = diets
     filters = household_filters(db, household_id)
     taste.soft = {
@@ -3450,7 +3458,8 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
     )
     if len(picked) < want:
         # Not enough meals keep every preference. Fill the rest from the backup tier: avoided,
-        # hidden and downvoted meals and variants, still never breaking a diet or allergy.
+        # hidden, downvoted and lately declined meals and variants, still never breaking a diet
+        # or allergy.
         # Every priority meal not picked by now was rejected as downvoted.
         chosen = {row["id"] for row in picked}
         fallback = backup + [recipe for recipe in recipes if recipe["id"] not in chosen]
@@ -3468,6 +3477,7 @@ def _suggest_meals(db: PgConnection, household_id: int, want: int, kept_recipe_i
             plan_ings=norm_pantry(selected_ingredients + [i for row in picked for i in row["ingredients"]], aliases, swaps),
             laps=laps,
             allow_downvoted=True,
+            prior=picked,
         )
         for row in extra:
             row["reasons"] = [BACKUP_REASON, *row.get("reasons", [])]
@@ -3536,8 +3546,27 @@ def _suggestion_stamp(db: PgConnection, household_id: int, kept: set[int], curre
         "ignored": sorted(inputs["ignored"]), "snapshots": inputs["snapshots"],
         "rated": sorted(inputs["rated"].items()), "history": history, "favorites": sorted(inputs["favorites"]),
         "to_try": sorted(inputs["to_try"]), "cooked": sorted(inputs["cooked"]),
+        # These depend on how many plans came after, which history above doesn't show.
+        "held_back": sorted(held_back(_earlier_plans(inputs["history"], plan_id))),
+        "recent": sorted(recent_suggestions(_earlier_plans(inputs["history"], plan_id)).items()),
     }
     return hashlib.sha256(json.dumps(payload, sort_keys=True, default=str).encode()).hexdigest()
+
+
+def _earlier_plans(history: list[tuple[int, dict]], plan_id: int | None) -> list[dict]:
+    """The household's plans other than the proposal being ranked, oldest first."""
+    return [h for pid, h in history if pid != plan_id]
+
+
+def _keep_familiar_share(ranked: list[dict], count: int) -> list[dict]:
+    """The first count meals, with no more familiar ones than familiar_cap allows, unless too
+    few new meals are left to fill the plan. Ranked order is kept."""
+    cap = familiar_cap(count)
+    known = [m["id"] for m in ranked if m.get("familiar")]
+    fresh = [m["id"] for m in ranked if not m.get("familiar")]
+    chosen = set(known[:cap]) | set(fresh[:count - min(cap, len(known))])
+    chosen |= set(known[cap:cap + count - len(chosen)])
+    return [m for m in ranked if m["id"] in chosen]
 
 
 def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[int], current_ids: set[int],
@@ -3551,11 +3580,12 @@ def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[in
     _SUGGEST_CONTEXT.set(None)
     # The ranker is greedy, so its first picks don't depend on how many it ranks. Rank
     # enough to fill the plan even if every meal already this week goes to the back.
-    candidates, note, reasons = _suggest_meals(db, household_id, count + len(current_ids - kept), kept)
+    candidates, note, reasons = _suggest_meals(db, household_id, count + len(current_ids - kept), kept, plan_id)
     available = [m for m in candidates if m["id"] not in kept]
     # Prefer a fresh proposal; retain eligible familiar meals if the catalog is small.
     available.sort(key=lambda meal: meal["id"] in current_ids)
-    picked = available[:count]
+    # Moving this week's meals back can move meals the household knows forward.
+    picked = _keep_familiar_share(available, count)
     # Keep reasons and the note to the meals actually picked.
     reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
     note = _proposal_note(reasons, [m["id"] for m in picked])

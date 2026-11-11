@@ -859,7 +859,7 @@ def test_catalog_lists_only_rewritten_recipes_with_real_photos(tmp_path):
 def test_suggestions_require_approval_and_keep_feedback(tmp_path, monkeypatch):
     import app.routes as routes
 
-    def suggestions(db, household_id, want, kept=None):
+    def suggestions(db, household_id, want, kept=None, plan_id=None):
         return ([{"id": 1, "reasons": []}], "Suggested dinners", {"1": []})
 
     monkeypatch.setattr(routes, "_suggest_meals", suggestions)
@@ -2506,6 +2506,18 @@ def test_catalog_sync_merge_writes_admin_edits_into_the_repo_files(tmp_path, mon
     finally:
         monkeypatch.undo()
         recipe_photos.reload()
+
+
+def test_a_proposal_keeps_the_familiar_share_after_this_weeks_meals_move_back():
+    from app.routes import _keep_familiar_share
+    ranked = [{"id": i, "familiar": i < 4} for i in range(1, 9)]
+    # 3 familiar meals first: a plan of 5 keeps 2 of them and fills the rest with new meals.
+    assert [m["id"] for m in _keep_familiar_share(ranked, 5)] == [1, 2, 4, 5, 6]
+    # Too few new meals left: familiar ones fill in.
+    few = [{"id": 1, "familiar": True}, {"id": 2, "familiar": True}, {"id": 3, "familiar": True},
+           {"id": 4, "familiar": False}]
+    assert [m["id"] for m in _keep_familiar_share(few, 4)] == [1, 2, 3, 4]
+    assert [m["id"] for m in _keep_familiar_share(few, 3)] == [1, 2, 4]
 
 
 def test_admin_removes_a_recipe_from_the_app_and_brings_it_back(tmp_path):
