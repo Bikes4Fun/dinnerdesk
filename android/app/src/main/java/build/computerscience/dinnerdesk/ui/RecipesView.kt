@@ -368,7 +368,6 @@ fun RecipeDetailView(id: Int) {
     var draftServings by remember { mutableStateOf<Int?>(null) }
     var reporting by remember { mutableStateOf(false) }
     var reported by remember { mutableStateOf(false) }
-    val admin = store.isAdmin
 
     val mealServings = store.plan?.slots?.firstOrNull { it.recipeId == id }?.servings
         ?: draftServings ?: store.familyPortions ?: recipe?.servings ?: 4
@@ -388,7 +387,6 @@ fun RecipeDetailView(id: Int) {
         }
         store.loadGroceryPrefs(onlyIfStale = true)
     }
-    LaunchedEffect(Unit) { store.loadAdmin() }
     LaunchedEffect(planNotice) {
         if (planNotice == null) return@LaunchedEffect
         delay(2000)
@@ -415,21 +413,6 @@ fun RecipeDetailView(id: Int) {
         if (store.onWeek(id)) store.launch { setServingsForRecipe(id, next) } else draftServings = next
     }
 
-    fun togglePrep(index: Int) {
-        val current = recipe ?: return
-        if (index !in current.instructions.indices) return
-        val steps = current.instructions.toMutableList()
-        steps[index] = steps[index].copy(prep = !(steps[index].prep ?: false))
-        val next = current.copy(instructions = steps)
-        recipe = next
-        scope.launch {
-            try {
-                recipe = Api.send<RecipeDetail>("recipes/$id", "PATCH", mapOf("in_place" to true, "instructions" to steps.map { it.asBody() }), cacheAs = "recipes/$id")
-            } catch (e: Throwable) {
-                error = Api.message(e)
-            }
-        }
-    }
 
     Box(Modifier.fillMaxSize().background(Theme.bg)) {
         Column(Modifier.fillMaxSize()) {
@@ -478,7 +461,7 @@ fun RecipeDetailView(id: Int) {
                                 modifier = Modifier.clickable { openUrl(link) },
                             )
                         }
-                        r.instructions.forEachIndexed { i, step -> CookStepRow(i, step, if (admin) ({ togglePrep(i) }) else null) }
+                        r.instructions.forEachIndexed { i, step -> CookStepRow(i, step) }
                     }
                     FilledButton(
                         if (added) "Remove from this plan" else "Add to this plan", color = Theme.accent, textColor = Color.White,
@@ -545,17 +528,11 @@ private fun IngredientRow(ing: IngredientLine, qty: String) {
 }
 
 @Composable
-private fun CookStepRow(index: Int, step: InstructionStep, onPrep: (() -> Unit)?) {
+private fun CookStepRow(index: Int, step: InstructionStep) {
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${index + 1}.", style = Theme.body, color = Theme.accent)
-            if (onPrep != null) {
-                val on = step.prep ?: false
-                Text(
-                    "Prep", style = Theme.chipLabel, color = if (on) Color.White else Theme.muted,
-                    modifier = Modifier.clip(CircleShape).background(if (on) Theme.accent else Theme.surface).clickable(onClick = onPrep).padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-            }
+
         }
         val text = step.displayText
         val lines = text.split("\n")

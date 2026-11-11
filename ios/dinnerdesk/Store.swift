@@ -29,8 +29,6 @@ final class Store: ObservableObject {
   }
   /// Household default servings, for recipes not yet on the plan.
   @Published private(set) var familyPortions: Int?
-  /// Dinnerdesk admins can tag recipe steps as Prep.
-  @Published private(set) var isAdmin = false
   @Published var stores: [ShopStore] = ShopStore.defaults
   @Published var aisles: [ShopAisle] = ShopAisle.defaults
   @Published var groupByStore = false
@@ -136,7 +134,6 @@ final class Store: ObservableObject {
     prepTasks = []
     hiddenRecipes = nil
     familyPortions = nil
-    isAdmin = false
     groceryPrefsLoaded = false
     if load { await loadAll() }
   }
@@ -182,15 +179,6 @@ final class Store: ObservableObject {
       await PhotoCache.prefetch(photo)
       #endif
     }
-  }
-
-  /// Signed-in status for admin-only controls, fetched once per launch.
-  func loadAdmin() async {
-    if Freshness.isFresh(Freshness.auth, within: .greatestFiniteMagnitude) { return }
-    let gen = generation
-    guard let status = try? await AuthAPI.status(), gen == generation else { return }
-    isAdmin = status.admin == true
-    Freshness.mark(Freshness.auth)
   }
 
   func searchRecipes(_ q: String) async {

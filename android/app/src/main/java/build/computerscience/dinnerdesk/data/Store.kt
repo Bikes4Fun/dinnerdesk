@@ -53,9 +53,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     /** Household default servings, for recipes not yet on the plan. */
     var familyPortions by mutableStateOf<Int?>(null)
         private set
-    /** Dinnerdesk admins can tag recipe steps as Prep. */
-    var isAdmin by mutableStateOf(false)
-        private set
     var stores by mutableStateOf(ShopStore.defaults)
     var aisles by mutableStateOf(ShopAisle.defaults)
     var groupByStore by mutableStateOf(false)
@@ -153,7 +150,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         prepTasks = emptyList()
         hiddenRecipes = null
         familyPortions = null
-        isAdmin = false
         groceryPrefsLoaded = false
         if (load) loadAll()
     }
@@ -190,16 +186,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
             }
             Api.photoUrl(photo)?.let { context.imageLoader.execute(ImageRequest.Builder(context).data(it).build()) }
         }
-    }
-
-    /** Signed-in status for admin-only controls, fetched once per launch. */
-    suspend fun loadAdmin() {
-        if (Freshness.isFresh(Freshness.AUTH, Double.MAX_VALUE)) return
-        val gen = generation
-        val status = try { AuthApi.status() } catch (e: CancellationException) { throw e } catch (_: Exception) { return }
-        if (gen != generation) return
-        isAdmin = status.admin == true
-        Freshness.mark(Freshness.AUTH)
     }
 
     suspend fun searchRecipes(q: String) {
