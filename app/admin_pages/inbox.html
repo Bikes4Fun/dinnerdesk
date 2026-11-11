@@ -166,13 +166,8 @@ const STATUSES = [["new", "New"], ["planned", "Planned"], ["done", "Done"], ["de
 const STATUS_LABEL = Object.fromEntries(STATUSES);
 const STATES = [["open", "Open", i => i.status === "new" || i.status === "planned"], ["new", "New", i => i.status === "new"],
                 ["planned", "Planned", i => i.status === "planned"], ["closed", "Done & declined", i => i.status === "done" || i.status === "declined"]];
-// Same wording the app shows (web/src/pages/Recipe.jsx REPORT_REASONS).
-const REASONS = { ingredients: "Ingredients are wrong or missing", steps: "Steps are wrong or confusing",
-  diet: "Shows up despite my diet or allergies", photo: "Photo doesn't match", duplicate: "Duplicate of another recipe",
-  turned_out: "Didn't turn out well", other: "Something else" };
-// Same wording the app shows (web/src/pages/Grocery.jsx INGREDIENT_REPORT_REASONS).
-const ITEM_REASONS = { name: "Wrong name or spelling", aisle: "In the wrong aisle", amount: "Amount or unit is wrong",
-  photo: "Photo doesn't match", duplicate: "Listed twice / should be combined", other: "Something else" };
+const REASONS = DATA.report_reasons.recipe;
+const ITEM_REASONS = DATA.report_reasons.ingredient;
 
 const key = i => `${i.source}/${i.id}`;
 const state = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));

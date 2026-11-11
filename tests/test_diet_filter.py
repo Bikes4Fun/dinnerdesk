@@ -136,35 +136,19 @@ def test_allergens_block_meals_like_avoids():
 
 
 def test_every_screen_offers_the_same_choices():
-    """Settings (web, iOS), the tour and Taste Lab copy these lists; keep them equal."""
-    import re
+    """All clients, including Android, must match the shared catalog exactly."""
+    import json
     from pathlib import Path
 
-    from app.domain.diet_filter import ALLERGENS, AVOIDS, DIETS
+    from app.domain import diet_filter
+    from scripts.sync_filter_options import FilterCatalog
 
     root = Path(__file__).resolve().parents[1]
-
-    def quoted(text: str) -> set[str]:
-        return set(re.findall(r'"([^"]+)"', text))
-
-    def block(text: str, start: str, end: str) -> str:
-        i = text.index(start)
-        return text[i:text.index(end, i)]
-
-    web = (root / "web/src/diet.js").read_text()
-    assert quoted(block(web, "export const DIETS", ";")) == set(DIETS)
-    assert quoted(block(web, "export const ALLERGENS", "];")) & set(ALLERGENS) == set(ALLERGENS)
-    assert quoted(block(web, "export const AVOIDS", "];")) == set(AVOIDS)
-
-    lab = (root / "tastelab/web/app.js").read_text()
-    assert quoted(block(lab, "const AVOIDS", "];")) == set(AVOIDS)
-    assert quoted(block(lab, "const ALLERGENS", "];")) & set(ALLERGENS) == set(ALLERGENS)
-    assert quoted(block(lab, "const DIETS", "];")) & set(DIETS) == set(DIETS)
-
-    ios = (root / "ios/dinnerdesk/SettingsView.swift").read_text()
-    assert quoted(block(ios, "static let diets", "\n")) == set(DIETS)
-    assert quoted(block(ios, "static let allergens", "]\n")) & set(ALLERGENS) == set(ALLERGENS)
-    assert quoted(block(ios, "static let avoids", "]\n")) == set(AVOIDS)
+    catalog = FilterCatalog(json.loads((root / "shared/filter-options.json").read_text(encoding="utf-8")))
+    for group in ("diets", "allergens", "avoids", "who", "cuisines", "proteins"):
+        assert getattr(diet_filter, group.upper()) == catalog.ids(group)
+    for path, expected in catalog.outputs(root).items():
+        assert path.read_text(encoding="utf-8") == expected, f"Regenerate {path.relative_to(root)}"
 
 
 def test_soft_filters_are_kept_and_unknown_words_drop():

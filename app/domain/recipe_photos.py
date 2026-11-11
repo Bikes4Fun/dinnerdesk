@@ -11,8 +11,11 @@ from __future__ import annotations
 from app.assets import catalog_dir, food_dir
 
 import json
+import hashlib
 import re
+from functools import lru_cache
 from pathlib import Path
+from PIL import Image, ImageOps
 
 
 # Photos from recipe sites are never ours to show, even if one is listed by mistake.
@@ -193,6 +196,40 @@ def photo_is_borrowed(path: str, archive_id: str | None) -> bool:
 def photo_is_tested(path: str) -> bool:
     """True when the developer took this photo of the recipe as cooked."""
     return photo_name(path) in TESTED
+
+
+@lru_cache(maxsize=256)
+def _photo_pixels(path: str, size: int, modified: int) -> tuple:
+    with Image.open(path) as image:
+        image = ImageOps.exif_transpose(image).convert("RGBA")
+        return image.size, hashlib.sha256(image.tobytes()).hexdigest()
+
+
+def unique_gallery(photos: list[dict]) -> list[dict]:
+    """Collapse exact image copies, retaining the primary path and all attribution flags."""
+    unique: dict[tuple, dict] = {}
+    for photo in photos:
+        key = photo_identity(photo["path"])
+        if key not in unique:
+            unique[key] = dict(photo)
+        else:
+            kept = unique[key]
+            for flag in ("primary", "tested", "ai", "shared"):
+                kept[flag] = bool(kept.get(flag) or photo.get(flag))
+            if kept.get("credit") == "Photo source not recorded" and photo.get("credit"):
+                kept.update({field: photo.get(field, "") for field in ("credit", "source_url")})
+    return list(unique.values())
+
+
+def photo_identity(path: str) -> tuple:
+    if path.startswith(("https://", "http://")):
+        return "url", path
+    try:
+        file = food_dir() / photo_name(path)
+        stat = file.stat()
+        return "pixels", *_photo_pixels(str(file), stat.st_size, stat.st_mtime_ns)
+    except (OSError, RuntimeError, ValueError, Image.DecompressionBombError):
+        return "file", photo_name(path)
 
 
 def catalog_gallery(archive_id: str | None) -> list[str]:

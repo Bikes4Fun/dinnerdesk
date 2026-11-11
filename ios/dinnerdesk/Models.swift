@@ -65,10 +65,11 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   let ingredients: [String]
   /// Our photo is in but the steps aren't written yet: shown dimmed and can't be opened.
   var comingSoon: Bool = false
+  var reviewed: Bool = false
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath
-    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon
+    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon, reviewed
   }
 
   init(from decoder: Decoder) throws {
@@ -85,6 +86,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([String].self, forKey: .ingredients)
     comingSoon = try c.decodeIfPresent(Bool.self, forKey: .comingSoon) ?? false
+    reviewed = try c.decodeIfPresent(Bool.self, forKey: .reviewed) ?? false
   }
 
   func withFavorited(_ on: Bool) -> RecipeSummary {
@@ -96,6 +98,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   /// The list row for a recipe just saved from somewhere else (a Taste Lab meal that isn't in
   /// the loaded recipe list yet).
   init(_ detail: RecipeDetail) {
+    reviewed = detail.reviewed
     id = detail.id
     name = detail.name
     servings = detail.servings
@@ -140,6 +143,7 @@ nonisolated struct RecipeGalleryPhoto: Decodable, Identifiable, Sendable {
 }
 
 nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
+  var reviewed: Bool = false
   let id: Int
   var name: String
   let servings: Int?
@@ -173,7 +177,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath, photos, photoAi, photoShared
-    case favorited, toTry, hidden, catalog, tags, ingredients, instructions
+    case favorited, toTry, hidden, catalog, tags, ingredients, instructions, reviewed
     case instructionsSource, instructionsCopiedFromThirdParty, sourceUrl
   }
 
@@ -185,6 +189,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     cookingMinutes = try c.decodeIfPresent(Int.self, forKey: .cookingMinutes)
     photoPath = try c.decodeIfPresent(String.self, forKey: .photoPath)
     photoAI = try c.decodeIfPresent(Bool.self, forKey: .photoAi) ?? false
+    reviewed = try c.decodeIfPresent(Bool.self, forKey: .reviewed) ?? false
     photoShared = try c.decodeIfPresent(Bool.self, forKey: .photoShared) ?? false
     if let gallery = try c.decodeIfPresent([RecipeGalleryPhoto].self, forKey: .photos) {
       photos = gallery
@@ -330,58 +335,12 @@ nonisolated struct PrepTask: Decodable, Identifiable, Sendable {
   /// The user's own words on a 👎, like the note on a missing prep step.
   var reasonNote: String?
 
+  /// Shared server guidance and grouped display instructions (optional for older caches).
+  var storage: String?
+  var instructionGroups: [PrepInstructionGroup]?
+
   /// What the row says: "Peel and mince garlic". The server names it from the recipe steps.
   var name: String { title }
-}
-
-/// Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS.
-enum RecipeReportReason: String, CaseIterable, Identifiable, Sendable {
-  case ingredients, steps, diet, photo, duplicate
-  case turnedOut = "turned_out", other
-  var id: String { rawValue }
-  var label: String {
-    switch self {
-    case .ingredients: return "Ingredients are wrong or missing"
-    case .steps: return "Steps are wrong or confusing"
-    case .diet: return "Shows up despite my diet or allergies"
-    case .photo: return "Photo doesn't match"
-    case .duplicate: return "Duplicate of another recipe"
-    case .turnedOut: return "Didn't turn out well"
-    case .other: return "Something else"
-    }
-  }
-}
-
-/// Why a grocery item is wrong. Ids match app/models.py INGREDIENT_REPORT_REASONS.
-enum IngredientReportReason: String, CaseIterable, Identifiable, Sendable {
-  case name, aisle, amount, photo, duplicate, other
-  var id: String { rawValue }
-  var label: String {
-    switch self {
-    case .name: return "Wrong name or spelling"
-    case .aisle: return "In the wrong aisle"
-    case .amount: return "Amount or unit is wrong"
-    case .photo: return "Photo doesn't match"
-    case .duplicate: return "Listed twice / should be combined"
-    case .other: return "Something else"
-    }
-  }
-}
-
-/// Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS.
-enum PrepReason: String, CaseIterable, Identifiable, Sendable {
-  case dayOf = "day_of", keptBadly = "kept_badly", tooSmall = "too_small"
-  case prepDifferently = "prep_differently", notPrep = "not_prep"
-  var id: String { rawValue }
-  var label: String {
-    switch self {
-    case .dayOf: return "Better done day-of"
-    case .keptBadly: return "Didn't keep well"
-    case .tooSmall: return "Too small to bother"
-    case .prepDifferently: return "Prep it differently"
-    case .notPrep: return "Not a prep step"
-    }
-  }
 }
 
 nonisolated struct PrepMeal: Decodable, Identifiable, Sendable {
@@ -403,6 +362,56 @@ nonisolated struct PrepStep: Decodable, Identifiable, Sendable {
   var done: Bool?
   /// The household added this step with "Missing a prep step?" (the app had skipped it).
   let added: Bool?
+  let displayText: String?
+  let quantities: [String]?
+}
+
+nonisolated struct PrepInstructionMeal: Decodable, Identifiable, Sendable {
+  let id: Int
+  let name: String
+  let day: String?
+}
+
+nonisolated struct PrepInstructionGroup: Decodable, Sendable {
+  let text: String
+  let quantities: [String]
+  let added: Bool
+  var meals: [PrepInstructionMeal]
+}
+
+/// API presentation is canonical; fallback keeps previously cached plans readable.
+nonisolated final class PrepTaskPresentation: Sendable {
+  let task: PrepTask
+
+  init(_ task: PrepTask) { self.task = task }
+
+  var instructionGroups: [PrepInstructionGroup] {
+    if let groups = task.instructionGroups { return groups }
+    var groups: [PrepInstructionGroup] = []
+    for meal in task.meals {
+      let steps = meal.steps ?? []
+      let rows: [(String, [String], Bool)] = steps.isEmpty
+        ? meal.instructions.map { ($0, [], false) }
+        : steps.map { step in
+          let display = step.displayText ?? ""
+          return (display.isEmpty ? step.text : display, step.quantities ?? [], step.added == true)
+        }
+      for (rawText, rawQuantities, added) in rows {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { continue }
+        let quantities = rawQuantities.filter { !$0.isEmpty }
+        let link = PrepInstructionMeal(id: meal.id, name: meal.name, day: meal.day)
+        if let index = groups.firstIndex(where: {
+          $0.text.caseInsensitiveCompare(text) == .orderedSame && $0.quantities == quantities && $0.added == added
+        }) {
+          if !groups[index].meals.contains(where: { $0.id == meal.id }) { groups[index].meals.append(link) }
+        } else {
+          groups.append(PrepInstructionGroup(text: text, quantities: quantities, added: added, meals: [link]))
+        }
+      }
+    }
+    return groups
+  }
 }
 
 /// Recipe steps not in Weekend prep yet, by meal: what "Missing a prep step?" offers (#21).
@@ -539,86 +548,3 @@ nonisolated struct SwapOption: Decodable, Identifiable, Sendable {
 }
 nonisolated struct SwapOptions: Decodable, Sendable { let recipes: [SwapOption] }
 
-
-/// Search filter chips on the Recipes screen. Same keys and labels as web and Android.
-nonisolated enum RecipeSearchFilter: String, CaseIterable, Identifiable, Sendable {
-  case fav, tryLater, popular, quick, pantry, hidden, comingSoon
-  var id: String { rawValue }
-
-  var label: String {
-    switch self {
-    case .fav: "Your favorites"
-    case .tryLater: "To try"
-    case .popular: "Popular"
-    case .quick: "Quick"
-    case .pantry: "Uses pantry"
-    case .hidden: "Hidden"
-    case .comingSoon: "Coming soon"
-    }
-  }
-}
-
-/// The recipe lists every Recipes screen shows, built one way. Web (recipeCollections.js) and
-/// Android (RecipeCollections.kt) have the same class with the same members and rules.
-/// Coming-soon recipes (our photo, steps not written yet) stay out of every themed list; they
-/// have their own list and come last in `all`.
-nonisolated struct RecipeCollections: Sendable {
-  let ready: [RecipeSummary]
-  let comingSoon: [RecipeSummary]
-  let favorites: [RecipeSummary]
-  let toTry: [RecipeSummary]
-  let mine: [RecipeSummary]
-  let meals: [RecipeSummary]
-  let sauces: [RecipeSummary]
-  let popular: [RecipeSummary]
-  let simple: [RecipeSummary]
-  /// At most 8 ingredients besides staples (salt, oil, water).
-  let budget: [RecipeSummary]
-  /// Uses what's in the kitchen's pantry (PantryMatch). Empty until the pantry is loaded.
-  let pantry: [RecipeSummary]
-  /// Every meal A–Z, then the coming-soon ones.
-  let all: [RecipeSummary]
-
-  /// Salt, oil and water don't count toward a recipe's ingredient count.
-  static let staples: Set<String> = [
-    "salt", "black pepper", "pepper", "olive oil", "extra virgin olive oil", "vegetable oil",
-    "neutral cooking oil", "canola oil", "oil", "water", "cooking spray",
-  ]
-
-  static func isBudget(_ recipe: RecipeSummary) -> Bool {
-    let n = recipe.ingredients.map(PantryMatch.norm).filter { !$0.isEmpty && !staples.contains($0) }.count
-    return n > 0 && n <= 8
-  }
-
-  init(_ recipes: [RecipeSummary], pantryHave: Set<String> = []) {
-    let byName: (RecipeSummary, RecipeSummary) -> Bool = {
-      $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-    }
-    ready = recipes.filter { !$0.comingSoon }
-    comingSoon = recipes.filter(\.comingSoon).sorted(by: byName)
-    favorites = ready.filter(\.favorited)
-    toTry = ready.filter(\.toTry)
-    mine = ready.filter { !$0.catalog }
-    meals = ready.filter(\.isMeal)
-    sauces = ready.filter(\.isExtra)
-    popular = meals.filter { $0.tags.contains("popular") }
-    simple = meals.filter { ($0.cookingMinutes ?? 99) <= 20 }
-    budget = meals.filter(Self.isBudget)
-    pantry = meals.filter { PantryMatch.uses($0.ingredients, have: pantryHave) }
-    all = meals.sorted(by: byName) + comingSoon
-  }
-
-  /// `rows` narrowed by the search filters that are on. `.hidden` picks the source list, so the
-  /// screen handles that one.
-  func filter(_ rows: [RecipeSummary], _ filters: Set<RecipeSearchFilter>, pantryHave: Set<String>)
-    -> [RecipeSummary]
-  {
-    var out = filters.contains(.comingSoon) ? rows.filter(\.comingSoon) : rows
-    if filters.contains(.fav) { out = out.filter(\.favorited) }
-    if filters.contains(.tryLater) { out = out.filter(\.toTry) }
-    if filters.contains(.popular) { out = out.filter { $0.tags.contains("popular") } }
-    if filters.contains(.quick) { out = out.filter { ($0.cookingMinutes ?? 99) <= 30 } }
-    if filters.contains(.pantry) { out = out.filter { PantryMatch.uses($0.ingredients, have: pantryHave) } }
-    return out
-  }
-}

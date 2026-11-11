@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from app.domain.recipe_normalize import RecipeNormalizer
 from app.assets import catalog_dir, food_dir
-from app.domain.catalog_sync import content_differences, same_photo, steps_from_db, tags_match
+from app.domain.catalog_sync import RECIPE_WORKFLOW_FIELDS, content_differences, same_photo, steps_from_db, tags_match
 from app.domain.recipe_photos import (
     archive_id_of, catalog_gallery, found_ai_photos, is_uploaded_photo, our_photo_entries,
 )
@@ -176,6 +176,8 @@ def _provenance_json(data: dict) -> str:
             # Kept in the catalog files for reference, but no longer offered anywhere. Plans
             # and favorites that already point at it still open it.
             "retired": bool(data.get("retired")),
+            "reviewed": data.get("reviewed") is True,
+            **{field: data.get(field) is True for field in RECIPE_WORKFLOW_FIELDS},
             "coming_soon": bool(data.get("coming_soon")),
         }
     )
@@ -264,6 +266,8 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_admin_tags = flags.get("admin_tags_edited") is True
         keep_primary = flags.get("admin_photo_edited") is True
         keep_content = flags.get("admin_content_edited") is True
+        keep_retired = flags.get("admin_retired_edited") is True
+        keep_reviewed = flags.get("admin_reviewed_edited") is True
 
         def settle(part: str, keep: bool, find_differences) -> bool:
             if not keep:
@@ -283,7 +287,26 @@ def upsert_catalog_recipe(conn, data: dict, aliases: dict[str, str], report: dic
         keep_primary = settle(
             "photo", keep_primary,
             lambda: [] if same_photo(incoming_photo, existing["photo_path"]) else ["photo_path"])
+        keep_retired = settle(
+            "retired", keep_retired,
+            lambda: [] if bool(data.get("retired")) == (flags.get("retired") is True) else ["retired"])
         incoming_provenance = json.loads(provenance)
+        for field in RECIPE_WORKFLOW_FIELDS:
+            keep = settle(
+                field, flags.get(f"admin_{field}_edited") is True,
+                lambda field=field: [] if (data.get(field) is True) == (flags.get(field) is True) else [field])
+            if keep:
+                incoming_provenance[field] = flags.get(field) is True
+                incoming_provenance[f"admin_{field}_edited"] = True
+        keep_reviewed = settle(
+            "reviewed", keep_reviewed,
+            lambda: [] if (data.get("reviewed") is True) == (flags.get("reviewed") is True) else ["reviewed"])
+        if keep_reviewed:
+            incoming_provenance["reviewed"] = flags.get("reviewed") is True
+            incoming_provenance["admin_reviewed_edited"] = True
+        if keep_retired:  # removed from (or brought back to) the app in the admin screen
+            incoming_provenance["retired"] = flags.get("retired") is True
+            incoming_provenance["admin_retired_edited"] = True
         if keep_admin_tags:
             incoming_provenance["admin_tags_edited"] = True
         if keep_primary:

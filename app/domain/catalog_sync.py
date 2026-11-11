@@ -36,6 +36,7 @@ LFS_POINTER = b"version https://git-lfs"
 
 # Recipe fields an admin can edit, grouped the way the provenance flags group them.
 CONTENT_FIELDS = ("name", "servings", "cooking_minutes", "instructions", "cookware", "ingredients")
+RECIPE_WORKFLOW_FIELDS = ("to_edit", "delete_requested")
 
 
 class BadPath(ValueError):
@@ -224,7 +225,17 @@ def merge_recipe_file(file_data: dict, server: dict, skip_tags: set[str]) -> tup
     if flags.get("photo") and not same_photo(file_data.get("photo_path"), server.get("photo_path")):
         out["photo_path"] = server.get("photo_path") or ""
         changed.append("photo_path")
+    if flags.get("retired") and bool(file_data.get("retired")) != bool(server.get("retired")):
+        out["retired"] = bool(server.get("retired"))  # removed from / brought back to the app
+        changed.append("retired")
     notes = (server.get("dev_notes") or "").strip()
+    for field in RECIPE_WORKFLOW_FIELDS:
+        if flags.get(field) and (file_data.get(field) is True) != (server.get(field) is True):
+            out[field] = server.get(field) is True
+            changed.append(field)
+    if flags.get("reviewed") and (file_data.get("reviewed") is True) != (server.get("reviewed") is True):
+        out["reviewed"] = server.get("reviewed") is True
+        changed.append("reviewed")
     if notes != (file_data.get("dev_notes") or "").strip() and (notes or "dev_notes" in file_data):
         out["dev_notes"] = notes
         changed.append("dev_notes")

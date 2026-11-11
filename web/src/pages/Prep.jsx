@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Icon } from "../icons.jsx";
+import { PREP_REASONS } from "../reportOptions.js";
+export { PREP_REASONS } from "../reportOptions.js";
+import { PrepTaskPresentation } from "../PrepTaskPresentation.js";
 import "./prep.css";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
@@ -17,14 +20,6 @@ const SECTIONS = [
   ["sauce", "Sauces & dressings"],
   ["other", "More prep"],
 ];
-export const PREP_REASONS = [
-  ["day_of", "Better done day-of"],
-  ["kept_badly", "Didn’t keep well"],
-  ["too_small", "Too small to bother"],
-  ["prep_differently", "Prep it differently"],
-  ["not_prep", "Not a prep step"],
-];
-
 const store = {
   get(key, fallback) {
     try { const v = localStorage.getItem(key); return v == null ? fallback : JSON.parse(v); } catch { return fallback; }
@@ -76,9 +71,11 @@ export function Prep() {
     patchLocal(task.id, { rating, reason: down ? reason : "", reason_note: down ? note : "" });
     try {
       await api.ratePrepTask(task.id, { rating, reason: down ? reason : "", note: down ? note : "" });
+      return true;
     } catch (e) {
       patchLocal(task.id, before);
       setErr(e.message);
+      return false;
     }
   }
 
@@ -162,8 +159,9 @@ export function Prep() {
                       onDone={() => { if (!t.done) toggle(t); openNext(t); }}
                       onSkip={() => openNext(t)}
                       onRate={(next) => { rate(t, next, next < 0 ? t.reason : ""); setReport(next < 0 ? t.id : null); }}
-                      onReport={() => setReport(report === t.id ? null : t.id)}
-                      onSend={(note) => { rate(t, -1, t.reason || "", note); setReport(null); }} />
+                      onSend={async (reason, note) => {
+                        if (await rate(t, -1, reason, note)) setReport(null);
+                      }} />
                   ))}
               </section>
             ))}
@@ -201,23 +199,15 @@ export function Prep() {
   );
 }
 
-function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onReport, onSend }) {
+function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, onRate, onSend }) {
+  const [reason, setReason] = useState(t.reason || "");
   const [note, setNote] = useState(t.reason_note || "");
+  const [sending, setSending] = useState(false);
+  useEffect(() => {
+    if (!reporting) { setReason(t.reason || ""); setNote(t.reason_note || ""); }
+  }, [reporting, t.reason, t.reason_note]);
   const amount = (t.quantities || []).filter(Boolean).join(" · ");
-  // Each different step once (several meals often share the same words).
-  const how = [];
-  for (const meal of t.meals || []) {
-    for (const step of meal.steps?.length ? meal.steps : (meal.instructions || []).map((text) => ({ text }))) {
-      const text = (step.display_text || step.text).trim();
-      const quantities = (step.quantities || []).join(" · ");
-      const shared = how.find((h) => h.text.toLowerCase() === text.toLowerCase() && h.quantities === quantities);
-      if (shared) {
-        shared.meal += `, ${meal.name}`;
-      } else {
-        how.push({ text, quantities, meal: meal.name, added: Boolean(step.added) });
-      }
-    }
-  }
+  const how = new PrepTaskPresentation(t).instructionGroups;
   return (
     <div className={`pz-step-item${open ? " open" : ""}${t.done ? " done" : ""}`}>
       <div className="pz-step-head">
@@ -233,8 +223,8 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
       {open && (
         <div className="pz-step-body" id={`pz-step-${t.id}`}>
           {how.map((h, i) => (
-            <p key={i} className="pz-how">{t.meals.length > 1 && <strong>{h.meal}: </strong>}{h.text}
-              {h.quantities && <span className="pz-amount">{h.quantities}</span>}
+            <p key={i} className="pz-how">{t.meals.length > 1 && <strong>{h.meals.map((m) => m.name).join(", ")}: </strong>}{h.text}
+              {h.quantities?.length > 0 && <span className="pz-amount">{h.quantities.join(" · ")}</span>}
               {h.added && <span className="pz-added">Added by you</span>}</p>
           ))}
           {t.storage && <p className="pz-how">{t.storage}</p>}
@@ -261,16 +251,28 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
             <button type="button" className="pz-fb-btn" aria-label="No, not worth it" aria-pressed={t.rating < 0} onClick={() => onRate(t.rating < 0 ? 0 : -1)}>
               <Icon name="thumbs-down" size={18} />
             </button>
-            <button type="button" className="pz-fb-btn" aria-label="Report a problem or send feedback" aria-expanded={reporting} onClick={onReport}>
-              <Icon name="flag" size={18} />
-            </button>
           </div>
           {reporting && (
             <div className="pz-report">
+              <div className="pz-chips" role="group" aria-label="Why not worth prepping ahead?">
+                {PREP_REASONS.map(([id, label]) => (
+                  <button key={id} type="button" aria-pressed={reason === id} disabled={sending}
+                    onClick={() => setReason(reason === id ? "" : id)}>{label}</button>
+                ))}
+              </div>
               <label htmlFor={`pz-report-${t.id}`}>What's wrong with this step?</label>
               <textarea id={`pz-report-${t.id}`} rows={2} maxLength={500} value={note}
-                placeholder="Wrong amount, unclear step, missing ingredient…" onChange={(e) => setNote(e.target.value)} />
-              <button type="button" onClick={() => onSend(note.trim())}>Send feedback</button>
+                disabled={sending} placeholder="Wrong amount, unclear step, missing ingredient…" onChange={(e) => setNote(e.target.value)} />
+              <button type="button" disabled={sending} onClick={async () => {
+                setSending(true);
+                try { await onSend(reason, note.trim()); } finally { setSending(false); }
+              }}>{sending ? "Sending…" : "Send feedback"}</button>
+            </div>
+          )}
+          {!reporting && t.rating < 0 && (
+            <div className="pz-saved-feedback">
+              {t.reason && <p>{PREP_REASONS.find(([id]) => id === t.reason)?.[1] || t.reason}</p>}
+              {t.reason_note && <p>{t.reason_note}</p>}
             </div>
           )}
         </div>
