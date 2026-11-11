@@ -5,7 +5,7 @@ import tempfile
 
 root = Path(__file__).resolve().parents[2]
 models = (root / 'ios/dinnerdesk/Models.swift').read_text(encoding='utf-8')
-task = models.split('nonisolated struct PrepTask:', 1)[1].split('/// Why a cook reports', 1)[0]
+task = models.split('nonisolated struct PrepTask:', 1)[1].split('nonisolated struct PrepMeal:', 1)[0]
 presentation = models.split('nonisolated struct PrepMeal:', 1)[1].split('/// Recipe steps not in Weekend prep', 1)[0]
 source = 'import Foundation\nnonisolated struct PrepTask:' + task + '\nnonisolated struct PrepMeal:' + presentation
 check = r'''
