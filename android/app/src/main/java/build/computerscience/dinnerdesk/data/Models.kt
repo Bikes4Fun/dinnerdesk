@@ -201,40 +201,6 @@ data class PrepTask(
     val name: String get() = title
 }
 
-/** Why a cook reports a recipe. Ids match app/models.py RECIPE_REPORT_REASONS. */
-enum class RecipeReportReason(val id: String, val label: String) {
-    Ingredients("ingredients", "Ingredients are wrong or missing"),
-    Steps("steps", "Steps are wrong or confusing"),
-    Diet("diet", "Shows up despite my diet or allergies"),
-    Photo("photo", "Photo doesn't match"),
-    Duplicate("duplicate", "Duplicate of another recipe"),
-    TurnedOut("turned_out", "Didn't turn out well"),
-    Other("other", "Something else"),
-}
-
-/** Why a grocery item is wrong. Ids match app/models.py INGREDIENT_REPORT_REASONS. */
-enum class IngredientReportReason(val id: String, val label: String) {
-    Name("name", "Wrong name or spelling"),
-    Aisle("aisle", "In the wrong aisle"),
-    Amount("amount", "Amount or unit is wrong"),
-    Photo("photo", "Photo doesn't match"),
-    Duplicate("duplicate", "Listed twice / should be combined"),
-    Other("other", "Something else"),
-}
-
-/** Why a prep item isn't worth doing ahead. Ids match app/models.py PREP_REASONS. */
-enum class PrepReason(val id: String, val label: String) {
-    DayOf("day_of", "Better done day-of"),
-    KeptBadly("kept_badly", "Didn't keep well"),
-    TooSmall("too_small", "Too small to bother"),
-    PrepDifferently("prep_differently", "Prep it differently"),
-    NotPrep("not_prep", "Not a prep step");
-
-    companion object {
-        fun of(id: String?) = entries.firstOrNull { it.id == id }
-    }
-}
-
 @Serializable
 data class PrepMeal(
     val id: Int,

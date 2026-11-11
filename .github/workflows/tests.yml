@@ -92,6 +92,7 @@ jobs:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
+      - run: python3 ios/tests/test_prep_presentation.py
       # Simulator build, no signing: checks that the app compiles.
       - run: >-
           xcodebuild build -project ios/dinnerdesk.xcodeproj -target dinnerdesk -sdk iphonesimulator
