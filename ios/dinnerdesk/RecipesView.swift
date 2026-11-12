@@ -725,8 +725,13 @@ struct RecipeDetailView: View {
       // Show the saved recipe at once; ask the server only when there is none or it's old.
       let key = ResponseCache.key("recipes/\(id)")
       if recipe == nil, let saved: RecipeDetail = API.cached("recipes/\(id)") { recipe = saved }
+      let listed = store.recipes.first { $0.id == id }?.reviewed
+      if let listed, var shown = recipe, shown.reviewed != listed {
+        shown.reviewed = listed
+        recipe = shown
+      }
       let age = ResponseCache.age(of: key) ?? .infinity
-      if recipe == nil || age > Freshness.recipeAge {
+      if recipe == nil || age > Freshness.recipeAge || listed != recipe?.reviewed {
         do {
           recipe = try await API.get("recipes/\(id)", cache: true)
         } catch {
@@ -864,8 +869,12 @@ struct RecipeDetailView: View {
         }
       }
       servingAdjuster
-      Spacer(minLength: 0)
-      if recipe.reviewed { ReviewedBadge(detail: true) }
+      Spacer(minLength: 8)
+      if recipe.reviewed {
+        ReviewedBadge(detail: true)
+          .fixedSize()
+          .layoutPriority(1)
+      }
     }
   }
 
@@ -945,6 +954,7 @@ struct RecipeDetailView: View {
       .disabled(mealServings >= 50)
       .accessibilityLabel("More servings")
     }
+    .buttonStyle(.borderless)
   }
 
   @ViewBuilder
