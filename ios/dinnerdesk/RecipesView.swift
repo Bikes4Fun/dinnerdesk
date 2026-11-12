@@ -497,7 +497,7 @@ struct RecipeTile: View {
       RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Kitchen-tested by DinnerDesk" : "")")
+    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Kitchen-tested by Dinnerdesk" : "")")
   }
 
   private var readyTile: some View {

@@ -23,8 +23,8 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
         assert.doesNotMatch(render(false), /Remove Kitchen-tested from Soup/);
         assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove from To edit: Soup"/);
         assert.doesNotMatch(render(false), /Remove from To edit: Soup/);
-        assert.equal((render(false).match(/aria-label="Kitchen-tested by DinnerDesk"/g) || []).length, 1);
-        assert.equal((render(true).match(/aria-label="Kitchen-tested by DinnerDesk"/g) || []).length, 1);
+        assert.equal((render(false).match(/aria-label="Kitchen-tested by Dinnerdesk"/g) || []).length, 1);
+        assert.equal((render(true).match(/aria-label="Kitchen-tested by Dinnerdesk"/g) || []).length, 1);
         assert.doesNotMatch(render(false), /photo-reviewed-badge/);
         assert.match(render(false), /recipe-status-line/);
       }
@@ -38,7 +38,7 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
       const chip = renderToStaticMarkup(createElement(ReviewedBadge, { reviewed, detail: true }));
       assert.equal(chip.includes('aria-haspopup="dialog"'), reviewed);
       if (reviewed) {
-        assert.match(chip, /recipe, independently of its photos/);
+        assert.match(chip, /We cooked this recipe in our own kitchen and made sure it works as written/);
         assert.doesNotMatch(chip, /Cooked start to finish|Times and temperatures checked|Amounts and servings confirmed/);
       } else assert.equal(chip, "");
     }
