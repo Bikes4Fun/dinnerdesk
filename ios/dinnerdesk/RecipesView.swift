@@ -1080,7 +1080,9 @@ private struct RecipeGalleryView: View {
             TabView(selection: $selected) {
               ForEach(recipe.photos) { photo in
                 RecipePhoto(path: photo.path, large: true)
-                  .overlay(alignment: .bottomTrailing) { RecipePhotoCredit(photo: photo) }
+                  .overlay(alignment: .bottomTrailing) {
+                    if !hero { RecipePhotoCredit(photo: photo) }
+                  }
                   .tag(photo.path)
               }
             }
@@ -1097,6 +1099,9 @@ private struct RecipeGalleryView: View {
           }
           .overlay(alignment: .bottomLeading) {
             if hero, current?.ai == true { aiPhotoPill }
+          }
+          .overlay(alignment: .bottomTrailing) {
+            if hero, let current { RecipePhotoCredit(photo: current).padding(8) }
           }
           .accessibilityLabel("Recipe photos")
         if !hero {
