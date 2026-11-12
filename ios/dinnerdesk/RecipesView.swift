@@ -238,7 +238,7 @@ struct RecipesView: View {
       HStack(spacing: 8) {
         chip("All", on: filters.isEmpty) { filters = [] }
         ForEach(RecipeSearchFilter.allCases) { filter in
-          chip(filter.label, on: filters.contains(filter)) {
+          chip(filter.label, systemImage: filter == .reviewed ? "checkmark.seal.fill" : nil, on: filters.contains(filter)) {
             if filters.contains(filter) {
               filters.remove(filter)
             } else {
@@ -259,15 +259,20 @@ struct RecipesView: View {
     }
   }
 
-  private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
-    Button(title, action: action)
-      .font(Theme.chipLabel)
-      .padding(.horizontal, 12)
-      .padding(.vertical, 7)
-      .background(on ? Theme.accent : Theme.chip)
-      .foregroundStyle(on ? Color.white : Theme.ink)
-      .clipShape(Capsule())
-      .buttonStyle(.plain)
+  private func chip(_ title: String, systemImage: String? = nil, on: Bool, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      HStack(spacing: 4) {
+        if let systemImage { Image(systemName: systemImage) }
+        Text(title)
+      }
+    }
+    .font(Theme.chipLabel)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 7)
+    .background(on ? Theme.ink : Theme.chip)
+    .foregroundStyle(on ? Theme.surface : Theme.ink)
+    .clipShape(Capsule())
+    .buttonStyle(.plain)
   }
 
   @ViewBuilder
@@ -493,11 +498,11 @@ struct RecipeTile: View {
       Text(recipe.name)
         .font(Theme.recipeCardServing)
         .foregroundStyle(Theme.muted)
-        .lineLimit(3)
+        .lineLimit(2)
       RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Kitchen-tested by DinnerDesk" : "")")
+    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Kitchen-tested by Dinnerdesk" : "")")
   }
 
   private var readyTile: some View {
@@ -535,7 +540,7 @@ struct RecipeTile: View {
               store.onWeek(recipe.id) ? "Remove from this plan" : "Add to this plan")
           }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
+        RecipeCardName(name: recipe.name, lineLimit: 2, reservesSpace: true)
         RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
       }
     }
@@ -564,6 +569,13 @@ private enum RecipePageTab: String {
   case overview, cook
 }
 
+private struct RecipePhotoOffsetKey: PreferenceKey {
+  static var defaultValue: CGFloat = .greatestFiniteMagnitude
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = nextValue()
+  }
+}
+
 struct RecipeDetailView: View {
   let id: Int
   @EnvironmentObject private var store: Store
@@ -582,6 +594,7 @@ struct RecipeDetailView: View {
   @State private var reportNote = ""
   @State private var reportSending = false
   @State private var reported = false
+  @State private var collapsed = false
 
   private var mealServings: Int {
     if let slot = store.plan?.slots.first(where: { $0.recipeId == id }) {
@@ -595,20 +608,18 @@ struct RecipeDetailView: View {
       if let recipe {
         ScrollView {
           VStack(alignment: .leading, spacing: 16) {
-            Picker("Page", selection: $tab) {
-              Text("Overview").tag(RecipePageTab.overview)
-              Text("Cook").tag(RecipePageTab.cook)
+            RecipeGalleryView(recipe: recipe, canEdit: !recipe.catalog, hero: true) { updated in
+              self.recipe = updated
             }
-            .pickerStyle(.segmented)
-
-            if tab == .overview {
-              RecipeGalleryView(recipe: recipe, canEdit: !recipe.catalog) { updated in
-                self.recipe = updated
+            .background {
+              GeometryReader { geo in
+                Color.clear.preference(
+                  key: RecipePhotoOffsetKey.self,
+                  value: geo.frame(in: .named("recipe-scroll")).maxY
+                )
               }
             }
 
-            // Long names at large text sizes pushed everything else off screen.
-            // Cap at 3 lines with "…"; tap to see the whole name. VoiceOver always reads it all.
             Button {
               nameExpanded.toggle()
             } label: {
@@ -616,7 +627,7 @@ struct RecipeDetailView: View {
                 .font(Theme.recipeTitle)
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.leading)
-                .lineLimit(nameExpanded ? nil : 3)
+                .lineLimit(nameExpanded ? nil : 2)
                 .truncationMode(.tail)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -625,57 +636,56 @@ struct RecipeDetailView: View {
             .accessibilityLabel(recipe.name)
             .accessibilityAddTraits(.isHeader)
             .accessibilityRemoveTraits(.isButton)
-            if recipe.reviewed { ReviewedBadge(detail: true) }
-            servingsRow(recipe)
-            if tab == .overview, !recipe.prettyTags.isEmpty {
-              Text(recipe.prettyTags).font(Theme.subtitle).foregroundStyle(Theme.muted)
-            }
+            .padding(.horizontal)
+
+            metaRow(recipe).padding(.horizontal)
+            pageSwitch.padding(.horizontal)
 
             if tab == .overview {
-              Text("Ingredients").font(Theme.title)
-              // Hairlines between rows, so at large text an amount stacked above its name
-              // clearly belongs to that name and not the one before it.
               VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(recipe.ingredients.enumerated()), id: \.element.id) { i, ing in
                   if i > 0 { Rectangle().fill(Theme.line).frame(height: 1) }
                   ingredientLine(ing, recipe: recipe).padding(.vertical, 8)
                 }
               }
+              .padding(.horizontal)
             } else {
-              Text("Steps").font(Theme.title)
               if recipe.instructionsCustomized {
                 Text("Instructions customized by Dinnerdesk")
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  .padding(.horizontal)
               }
               if let link = recipe.sourceLink {
                 Link(destination: link) {
                   Text("\(recipe.instructionsSource == "import" ? "Steps from" : "Source:") \((link.host() ?? "").replacingOccurrences(of: "www.", with: ""))")
                     .font(Theme.subtitle).foregroundStyle(Theme.accent)
                 }
+                .padding(.horizontal)
               }
               ForEach(Array(recipe.instructions.enumerated()), id: \.offset) { i, step in
-                CookStepRow(index: i, step: step)
+                Text("Step \(i + 1) of \(recipe.instructions.count)")
+                  .font(Theme.action).foregroundStyle(Theme.ink)
+                  .padding(.horizontal)
+                CookStepRow(index: i, step: step).padding(.horizontal)
               }
             }
-
-            Button {
-              Task { await addToWeek() }
-            } label: {
-              Text(added ? "Remove from this plan" : "Add to this plan")
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .tint(Theme.accent)
-            .disabled(adding)
           }
-          .padding()
+          .padding(.bottom, 24)
         }
+        .coordinateSpace(name: "recipe-scroll")
+        .onPreferenceChange(RecipePhotoOffsetKey.self) { maxY in
+          collapsed = maxY < 88
+        }
+        .ignoresSafeArea(edges: .top)
         .background(Theme.bg)
       } else if let error {
         ErrorBanner(message: error).padding()
       } else {
         ProgressView()
       }
+    }
+    .overlay(alignment: .top) {
+      if let recipe { recipeChrome(recipe) }
     }
     .overlay(alignment: .bottom) {
       if let planNotice {
@@ -694,36 +704,13 @@ struct RecipeDetailView: View {
       planNotice = nil
     }
     .navigationBarTitleDisplayMode(.inline)
-    .toolbar {
-      if let recipe {
-        ToolbarItem(placement: .topBarTrailing) {
-          HStack(spacing: 0) {
-            HeaderIconButton(added ? "Remove from this plan" : "Add to this plan",
-                             systemImage: added ? "minus.circle.fill" : "plus.circle.fill") {
-              Task { await addToWeek() }
-            }
-            .disabled(adding)
-            .accessibilityValue(adding ? "Adding" : added ? "Added" : "Not added")
-
-            HeaderIconButton("Favorite", systemImage: recipe.favorited ? "heart.fill" : "heart",
-                             color: recipe.favorited ? Theme.accent : Theme.muted) {
-              Task { await favorite(recipe) }
-            }
-            .accessibilityValue(recipe.favorited ? "On" : "Off")
-
-            HeaderIconButton(recipe.toTry ? "Remove from To try" : "To try",
-                             systemImage: recipe.toTry ? "bookmark.fill" : "bookmark") {
-              Task { await tryLater(recipe) }
-            }
-
-            HeaderIconButton("Recipe options", systemImage: "ellipsis.circle") { showingMenu = true }
-          }
-        }
-      }
-    }
+    .toolbar(.hidden, for: .navigationBar)
     .menuSheet(isPresented: $showingMenu) {
       if let recipe {
         [
+          MenuSheetItem(title: recipe.toTry ? "Remove from To try" : "To try", systemImage: recipe.toTry ? "bookmark.fill" : "bookmark") {
+            Task { await tryLater(recipe) }
+          },
           MenuSheetItem(title: recipe.hidden ? "Unhide recipe" : "Hide recipe", systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
             Task { await hide(on: !recipe.hidden) }
           }
@@ -743,8 +730,13 @@ struct RecipeDetailView: View {
       // Show the saved recipe at once; ask the server only when there is none or it's old.
       let key = ResponseCache.key("recipes/\(id)")
       if recipe == nil, let saved: RecipeDetail = API.cached("recipes/\(id)") { recipe = saved }
+      let listed = store.recipes.first { $0.id == id }?.reviewed
+      if let listed, var shown = recipe, shown.reviewed != listed {
+        shown.reviewed = listed
+        recipe = shown
+      }
       let age = ResponseCache.age(of: key) ?? .infinity
-      if recipe == nil || age > Freshness.recipeAge {
+      if recipe == nil || age > Freshness.recipeAge || listed != recipe?.reviewed {
         do {
           recipe = try await API.get("recipes/\(id)", cache: true)
         } catch {
@@ -809,18 +801,126 @@ struct RecipeDetailView: View {
     }
   }
 
+  private func recipeChrome(_ recipe: RecipeDetail) -> some View {
+    HStack(spacing: 8) {
+      Button { dismiss() } label: {
+        Image(systemName: "chevron.left")
+          .font(.body.weight(.semibold))
+          .foregroundStyle(Theme.ink)
+          .frame(width: 44, height: 44)
+          .background(Theme.surface, in: Circle())
+          .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+      }
+      .buttonStyle(.plain)
+      .accessibilityLabel("Back")
+      if collapsed {
+        if let path = recipe.photos.first?.path {
+          RecipePhoto(path: path)
+            .frame(width: 32, height: 32)
+            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        Text(recipe.name)
+          .font(.custom("Fraunces72pt-SemiBold", size: 17, relativeTo: .headline))
+          .foregroundStyle(Theme.ink)
+          .lineLimit(1)
+      }
+      Spacer(minLength: 0)
+      HStack(spacing: 4) {
+        Button { Task { await addToWeek() } } label: {
+          Image(systemName: added ? "minus.circle.fill" : "plus.circle")
+            .font(.title3)
+            .foregroundStyle(Theme.accent)
+            .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .disabled(adding)
+        .accessibilityLabel(added ? "Remove from this week" : "Add to this week")
+        Button { Task { await favorite(recipe) } } label: {
+          Image(systemName: recipe.favorited ? "heart.fill" : "heart")
+            .font(.title3)
+            .foregroundStyle(Theme.accent)
+            .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(recipe.favorited ? "Remove from favorites" : "Add to favorites")
+        Button { showingMenu = true } label: {
+          Image(systemName: "ellipsis")
+            .font(.title3.weight(.bold))
+            .foregroundStyle(Theme.accent)
+            .frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Recipe options")
+      }
+      .padding(.horizontal, 4)
+      .background(Theme.surface, in: Capsule())
+      .shadow(color: .black.opacity(0.12), radius: 8, y: 2)
+    }
+    .padding(.horizontal, 16)
+    .padding(.top, 8)
+    .padding(.bottom, collapsed ? 8 : 0)
+    .background(collapsed ? Theme.bg : Color.clear)
+    .overlay(alignment: .bottom) {
+      if collapsed { Rectangle().fill(Theme.line).frame(height: 1) }
+    }
+  }
+
+  private func metaRow(_ recipe: RecipeDetail) -> some View {
+    HStack(spacing: 12) {
+      if recipe.cookingMinutes != nil {
+        HStack(spacing: 4) {
+          Image(systemName: "clock").font(.caption).foregroundStyle(Theme.muted)
+          cookTime(recipe).foregroundStyle(Theme.ink)
+        }
+      }
+      servingAdjuster
+      Spacer(minLength: 8)
+      if recipe.reviewed {
+        ReviewedBadge(detail: true)
+          .fixedSize()
+          .layoutPriority(1)
+      }
+    }
+  }
+
+  private var pageSwitch: some View {
+    HStack(spacing: 8) {
+      pageButton("Ingredients", systemImage: "list.bullet", tab: .overview)
+      pageButton("Start cooking", systemImage: "play.fill", tab: .cook)
+    }
+  }
+
+  private func pageButton(_ title: String, systemImage: String, tab: RecipePageTab) -> some View {
+    let on = self.tab == tab
+    return Button { self.tab = tab } label: {
+      Label(title, systemImage: systemImage)
+        .font(Theme.action)
+        .foregroundStyle(on ? Theme.surface : Theme.ink)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(on ? Theme.ink : Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay {
+          if !on {
+            RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Theme.line, lineWidth: 1)
+          }
+        }
+    }
+    .buttonStyle(.plain)
+    .accessibilityAddTraits(on ? .isSelected : [])
+  }
+
   private func ingredientLine(_ ing: IngredientLine, recipe: RecipeDetail) -> some View {
     let qty = scaleAmount(ing.quantity ?? "", from: recipe.servings, to: mealServings)
     return ViewThatFits(in: .horizontal) {
       HStack(alignment: .firstTextBaseline, spacing: 12) {
         if !qty.isEmpty {
-          Text(qty).font(Theme.count).foregroundStyle(Theme.muted).lineLimit(1).fixedSize()
+          Text(qty).font(Theme.count.weight(.semibold)).foregroundStyle(Theme.ink)
+            .lineLimit(1).frame(width: 72, alignment: .leading)
         }
         Text(ing.name).frame(maxWidth: .infinity, alignment: .leading)
       }
       VStack(alignment: .leading, spacing: 2) {
         if !qty.isEmpty {
-          Text(qty).font(Theme.count).foregroundStyle(Theme.muted)
+          Text(qty).font(Theme.count.weight(.semibold)).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
         }
         Text(ing.name).frame(maxWidth: .infinity, alignment: .leading)
@@ -830,45 +930,36 @@ struct RecipeDetailView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private func servingsRow(_ recipe: RecipeDetail) -> some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(alignment: .center, spacing: 16) {
-        servingAdjuster
-        cookTime(recipe)
-      }
-      VStack(alignment: .leading, spacing: 8) {
-        servingAdjuster
-        cookTime(recipe)
-      }
-    }
-    .buttonStyle(.borderless)
-  }
-
   private var servingAdjuster: some View {
     HStack(spacing: 8) {
       Button {
         Task { await bumpServings(-1) }
       } label: {
-        Image(systemName: "minus.circle")
+        Image(systemName: "minus.circle").foregroundStyle(Theme.accent)
           .frame(minWidth: 44, minHeight: 44)
           .contentShape(Rectangle())
       }
       .disabled(mealServings <= 1)
       .accessibilityLabel("Fewer servings")
-      Text("\(mealServings) servings")
-        .foregroundStyle(Theme.muted)
-        .lineLimit(1)
-        .fixedSize(horizontal: true, vertical: false)
+      HStack(spacing: 4) {
+        Image(systemName: "person.2").font(.caption).foregroundStyle(Theme.muted)
+        Text("\(mealServings)")
+          .foregroundStyle(Theme.ink)
+          .lineLimit(1)
+      }
+      .accessibilityElement(children: .ignore)
+      .accessibilityLabel("\(mealServings) servings")
       Button {
         Task { await bumpServings(1) }
       } label: {
-        Image(systemName: "plus.circle")
+        Image(systemName: "plus.circle").foregroundStyle(Theme.accent)
           .frame(minWidth: 44, minHeight: 44)
           .contentShape(Rectangle())
       }
       .disabled(mealServings >= 50)
       .accessibilityLabel("More servings")
     }
+    .buttonStyle(.borderless)
   }
 
   @ViewBuilder
@@ -981,6 +1072,7 @@ private struct CookStepRow: View {
 private struct RecipeGalleryView: View {
   let recipe: RecipeDetail
   let canEdit: Bool
+  var hero = false
   let onChange: (RecipeDetail) -> Void
   @EnvironmentObject private var store: Store
   @State private var selected = ""
@@ -989,6 +1081,7 @@ private struct RecipeGalleryView: View {
   @State private var notice: String?
   @State private var error: String?
   @State private var confirmDelete = false
+  @State private var showingAI = false
 
   private var current: RecipeGalleryPhoto? {
     recipe.photos.first(where: { $0.path == selected }) ?? recipe.photos.first
@@ -996,21 +1089,40 @@ private struct RecipeGalleryView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
+      if recipe.photos.isEmpty && hero {
+        Color.clear.frame(height: 120)
+      }
       if !recipe.photos.isEmpty {
         Color.clear.aspectRatio(1, contentMode: .fit)
           .overlay {
             TabView(selection: $selected) {
               ForEach(recipe.photos) { photo in
                 RecipePhoto(path: photo.path, large: true)
-                  .overlay(alignment: .bottomTrailing) { RecipePhotoCredit(photo: photo) }
+                  .overlay(alignment: .bottomTrailing) {
+                    if !hero { RecipePhotoCredit(photo: photo) }
+                  }
                   .tag(photo.path)
               }
             }
             .tabViewStyle(.page(indexDisplayMode: recipe.photos.count > 1 ? .always : .never))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
           }
-          .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .clipShape(hero ? AnyShape(Rectangle()) : AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous)))
+          .overlay(alignment: .top) {
+            if hero {
+              LinearGradient(colors: [.black.opacity(0.28), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 88)
+                .allowsHitTesting(false)
+            }
+          }
+          .overlay(alignment: .bottomLeading) {
+            if hero, current?.ai == true { aiPhotoPill }
+          }
+          .overlay(alignment: .bottomTrailing) {
+            if hero, let current { RecipePhotoCredit(photo: current).padding(8) }
+          }
           .accessibilityLabel("Recipe photos")
+        if !hero {
         HStack {
           if recipe.photos.count > 1 {
             Button { move(-1) } label: { Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44) }
@@ -1034,8 +1146,10 @@ private struct RecipeGalleryView: View {
         } else if current?.shared == true {
           StarTip(id: "recipes.shared-photo")
         }
+        }
       }
       if canEdit {
+        Group {
         ViewThatFits(in: .horizontal) {
           HStack { photoActions }
           VStack(alignment: .leading) { photoActions }
@@ -1045,6 +1159,8 @@ private struct RecipeGalleryView: View {
           ? "Add your own photos. The primary photo appears on recipe cards. Delete photo removes the one showing now. Catalog photo changes, including deletes, are shared with everyone."
           : "Add your own photos. The primary photo appears on recipe cards. Delete photo removes the one showing now.")
           .font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
+        .padding(.horizontal, hero ? 16 : 0)
       }
       if busy { ProgressView(notice ?? "Saving photos…") }
       else if let notice { Text(notice).font(Theme.subtitle) }
@@ -1063,6 +1179,28 @@ private struct RecipeGalleryView: View {
     .onChange(of: picked) { _, items in
       guard !items.isEmpty else { return }
       Task { await upload(items) }
+    }
+  }
+
+  private var aiPhotoPill: some View {
+    Button { showingAI = true } label: {
+      Label("AI photo", systemImage: "sparkle")
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(Theme.ink)
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, 12)
+        .frame(minHeight: 44)
+        .background(Theme.surface, in: Capsule())
+    }
+    .buttonStyle(.plain)
+    .padding(12)
+    .accessibilityLabel("AI photo")
+    .popover(isPresented: $showingAI) {
+      Text(Copy.text("recipes.ai-photo"))
+        .font(Theme.subtitle)
+        .padding()
+        .presentationCompactAdaptation(.popover)
     }
   }
 

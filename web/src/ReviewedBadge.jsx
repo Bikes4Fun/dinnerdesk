@@ -15,7 +15,7 @@ export function ReviewedBadge({ reviewed, detail = false }) {
     <dialog ref={dialog} className="kitchen-tested-sheet" aria-label={Copy.text("recipe.reviewed")} onClick={e => { if (e.target === e.currentTarget) e.currentTarget.close(); }}>
       <h2 className="kitchen-tested"><TestedSeal />{Copy.text("recipe.reviewed")}</h2>
       <p>{Copy.text("recipe.kitchen-tested.explanation")}</p>
-      <button type="button" className="btn-primary" onClick={() => dialog.current.close()}>Done</button>
+      <button type="button" className="btn-primary block" onClick={() => dialog.current.close()}>Got it</button>
     </dialog>
   </>;
 }
