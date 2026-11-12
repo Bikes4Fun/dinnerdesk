@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "./api.js";
+import { TestedSeal } from "./ReviewedBadge.jsx";
 import { useWeek } from "./week.jsx";
 
 export function RecipeThumbnailActions({ recipe, onChange, inline = false }) {
@@ -18,8 +19,8 @@ export function RecipeThumbnailActions({ recipe, onChange, inline = false }) {
   return (
     <div className={`card-admin-actions${inline ? " is-inline" : ""}`}>
     <button type="button" className="card-review" aria-pressed={Boolean(recipe.reviewed)} disabled={busy}
-      aria-label={`${recipe.reviewed ? "Remove review from" : "Mark reviewed:"} ${recipe.name}`}
-      onClick={(e) => toggle(e, "reviewed")}>{recipe.reviewed ? "✓ Reviewed" : "Review"}</button>
+      aria-label={`${recipe.reviewed ? "Remove Kitchen-tested from" : "Mark Kitchen-tested:"} ${recipe.name}`}
+      onClick={(e) => toggle(e, "reviewed")}><TestedSeal />{recipe.reviewed ? "Kitchen-tested" : "Mark tested"}</button>
     <button type="button" className="card-review" aria-pressed={Boolean(recipe.to_edit)} disabled={busy}
       aria-label={`${recipe.to_edit ? "Remove from To edit:" : "Tag as To edit:"} ${recipe.name}`}
       onClick={(e) => toggle(e, "to_edit")}>{recipe.to_edit ? "✓ To edit" : "To edit"}</button>

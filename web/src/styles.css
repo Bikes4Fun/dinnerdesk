@@ -2054,7 +2054,6 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 .photo-grid .card { width: auto; flex: none; }
 /* Recipe review belongs to the recipe, independently of photo credits. */
-.reviewed-badge { display: inline-block; padding: 3px 8px; border-radius: 8px; background: #fff0bc; color: #654b00; font-size: 0.8rem; font-weight: 700; }
 .recipe-review-control { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .recipe-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
 .recipe-admin-actions button { min-height: 44px; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
@@ -2063,11 +2062,17 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .card-admin-actions.is-inline { position: static; flex-wrap: wrap; margin-top: 4px; }
 .card-review { min-width: 0; min-height: 44px; padding: 4px 6px; border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 0.7rem; font-weight: 700; border: 1px solid var(--line); }
 .recipe-open-copy { display: block; width: 100%; text-align: left; }
-.card-review[aria-pressed="true"] { background: #fff0bc; color: #654b00; }
-.photo-status-badges { position: absolute; bottom: 8px; left: 8px; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; pointer-events: none; max-width: calc(100% - 52px); }
-.photo-status-badges .photo-tested-badge { position: static; }
-.photo-reviewed-badge { position: absolute; bottom: 6px; left: 6px; z-index: 2; pointer-events: none; }
 .recipe-edit-fields { min-width: 0; padding: 0; border: 0; }
 .recipe-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .step-remove { min-height: 44px; padding: 0 8px; color: var(--heart); }
 .template-coming-soon, .add-menu button:disabled { opacity: 0.55; cursor: default; }
+
+.recipe-status-line { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: .75rem; margin-top: 4px; }
+.kitchen-tested { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-size: inherit; font-weight: 600; }
+.kitchen-tested svg, .kitchen-tested-chip svg, .card-review svg { flex-shrink: 0; vertical-align: middle; }
+.kitchen-tested-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; margin: 8px 0; border: 0; border-radius: 999px; color: var(--ink); background: #f1e7ef; font-weight: 600; }
+.kitchen-tested-sheet { position: fixed; inset: auto 0 0; box-sizing: border-box; width: min(100%, 560px); max-height: 85dvh; overflow-y: auto; margin: 0 auto; padding: 24px; border: 0; border-radius: 20px 20px 0 0; background: var(--surface); color: var(--ink); }
+.kitchen-tested-sheet::backdrop { background: #0006; }
+.kitchen-tested-sheet h2 { font-size: 1.25rem; }
+.kitchen-tested-sheet p { line-height: 1.5; }
+.card-review[aria-pressed="true"] { background: #f1e7ef; color: var(--ink); }

@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -23,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import build.computerscience.dinnerdesk.data.Copy
 import build.computerscience.dinnerdesk.data.RecipeDetail
 
 @Composable
@@ -36,15 +34,6 @@ fun RecipeGallery(recipe: RecipeDetail) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Box {
             RecipePhoto(photo?.path, large = true)
-            Column(Modifier.align(Alignment.BottomStart).padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (recipe.reviewed) ReviewedBadge()
-                if (photo?.tested == true) {
-                    Text("★ ${Copy.text("recipe.tested")}", style = Theme.count, color = Theme.ink,
-                        modifier = Modifier.background(Color(0xFFFFF0BC), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                            .semantics { contentDescription = Copy.text("recipe.tested.description") })
-                }
-            }
             if (photo != null) TextButton(onClick = { creditOpen = true },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(44.dp)
                     .background(Color.White.copy(alpha = 0.9f), CircleShape)

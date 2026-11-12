@@ -1,5 +1,5 @@
 import FoodPhoto from "./FoodPhoto.jsx";
-import { ReviewedBadge } from "./ReviewedBadge.jsx";
+import { RecipeStatusLine } from "./ReviewedBadge.jsx";
 import { RecipeThumbnailActions } from "./RecipeThumbnailActions.jsx";
 import { api } from "./api.js";
 import { go } from "./nav.js";
@@ -25,9 +25,9 @@ export function RecipeCard({ recipe, onChange, admin = false }) {
       <div className="card is-coming-soon" aria-disabled={admin ? undefined : true}>
         <div className="card-img"><ComingSoonPhoto path={recipe.photo_path} />
           {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} />}
-          {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
         </div>
         <p className="card-name">{recipe.name}</p>
+        <RecipeStatusLine recipe={recipe} />
       </div>
     );
   }
@@ -69,10 +69,10 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
           {on ? "✓" : "+"}
         </button>
         {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} />}
-        {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
       </div>
       <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
         <p className="card-name">{recipe.name}</p>
+        <RecipeStatusLine recipe={recipe} />
       </button>
     </div>
   );
@@ -83,9 +83,9 @@ export function RecipeRow({ recipe, onChange, admin = false }) {
     return (
       <div className="recipe-row is-coming-soon" aria-disabled={admin ? undefined : true}>
         <div className="thumb-wrap"><ComingSoonPhoto className="thumb-sq" path={recipe.photo_path} />
-          {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
         </div>
         <div className="recipe-copy"><strong>{recipe.name}</strong>
+        <RecipeStatusLine recipe={recipe} />
           {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} inline />}
         </div>
       </div>
@@ -120,11 +120,11 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
         >
           {on ? "✓" : "+"}
         </button>
-        {!admin && <ReviewedBadge reviewed={recipe.reviewed} className="photo-reviewed-badge" />}
       </div>
       <div className="recipe-copy">
       <button type="button" className="recipe-open-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
         <strong>{recipe.name}</strong>
+        <RecipeStatusLine recipe={recipe} />
       </button>
       {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} inline />}
       </div>

@@ -16,17 +16,31 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
     const { WeekProvider } = await server.ssrLoadModule("/src/week.jsx");
     for (const Card of [RecipeCard, RecipeRow]) {
       for (const coming_soon of [false, true]) {
-        const recipe = { id: 1, name: "Soup", reviewed: true, to_edit: true, coming_soon };
+        const recipe = { id: 1, name: "Soup", cooking_minutes: 25, reviewed: true, to_edit: true, coming_soon };
         const render = (admin) => renderToStaticMarkup(createElement(WeekProvider, null,
           createElement(Card, { recipe, admin, onChange() {} })));
-        assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove review from Soup"/);
-        assert.doesNotMatch(render(false), /Remove review from Soup/);
+        assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove Kitchen-tested from Soup"/);
+        assert.doesNotMatch(render(false), /Remove Kitchen-tested from Soup/);
         assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove from To edit: Soup"/);
         assert.doesNotMatch(render(false), /Remove from To edit: Soup/);
-        assert.equal((render(false).match(/aria-label="Reviewed by Dinnerdesk"/g) || []).length, 1);
-        assert.equal((render(true).match(/aria-label="Reviewed by Dinnerdesk"/g) || []).length, 0);
-        assert.match(render(false), /class="reviewed-badge photo-reviewed-badge"/);
+        assert.equal((render(false).match(/aria-label="Kitchen-tested by DinnerDesk"/g) || []).length, 1);
+        assert.equal((render(true).match(/aria-label="Kitchen-tested by DinnerDesk"/g) || []).length, 1);
+        assert.doesNotMatch(render(false), /photo-reviewed-badge/);
+        assert.match(render(false), /recipe-status-line/);
       }
+    }
+    const { ReviewedBadge, RecipeStatusLine } = await server.ssrLoadModule("/src/ReviewedBadge.jsx");
+    for (const reviewed of [false, true]) {
+      const metadata = renderToStaticMarkup(createElement(RecipeStatusLine, { recipe: { cooking_minutes: 25, reviewed } }));
+      assert.match(metadata, /25 min/);
+      assert.equal(metadata.includes("Kitchen-tested"), reviewed);
+      assert.equal((metadata.match(/<svg /g) || []).length, Number(reviewed));
+      const chip = renderToStaticMarkup(createElement(ReviewedBadge, { reviewed, detail: true }));
+      assert.equal(chip.includes('aria-haspopup="dialog"'), reviewed);
+      if (reviewed) {
+        assert.match(chip, /recipe, independently of its photos/);
+        assert.doesNotMatch(chip, /Cooked start to finish|Times and temperatures checked|Amounts and servings confirmed/);
+      } else assert.equal(chip, "");
     }
     const { TemplateCard } = await server.ssrLoadModule("/src/pages/Recipes.jsx");
     const template = renderToStaticMarkup(createElement(TemplateCard, { family: { id: "bowls", name: "Bowls" } }));
@@ -36,20 +50,18 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
     const { RecipeGallery } = await server.ssrLoadModule("/src/RecipeGallery.jsx");
     const shared = JSON.parse(readFileSync(new URL("../../tests/fixtures/recipe_photo_status.json", import.meta.url), "utf8"));
     const gallery = renderToStaticMarkup(createElement(RecipeGallery, { recipe: shared, canEdit: false }));
-    assert.match(gallery, /Reviewed by Dinnerdesk/);
-    assert.match(gallery, /Developer tested:/);
+    assert.doesNotMatch(gallery, /Kitchen-tested|Developer tested|reviewed-badge/);
     assert.equal((gallery.match(/<img /g) || []).length, shared.photos.length);
     const noPhoto = renderToStaticMarkup(createElement(RecipeGallery, { recipe: { ...shared, photos: [] }, canEdit: false }));
-    assert.equal((noPhoto.match(/aria-label="Reviewed by Dinnerdesk"/g) || []).length, 1);
+    assert.doesNotMatch(noPhoto, /Kitchen-tested|Developer tested|reviewed-badge/);
     for (const reviewed of [false, true]) {
       for (const tested of [false, true]) {
         const recipe = { id: 1, name: "Soup", reviewed,
           photos: [{ path: "food/soup.jpg", primary: true, tested, ai: false, shared: false }] };
         const markup = renderToStaticMarkup(createElement(RecipeGallery, { recipe, canEdit: false }));
-        assert.equal(markup.includes('aria-label="Reviewed by Dinnerdesk"'), reviewed);
-        assert.equal(markup.includes('aria-label="Developer tested:'), tested);
+        assert.doesNotMatch(markup, /Kitchen-tested|Developer tested|reviewed-badge/);
         assert.equal((markup.match(/<img /g) || []).length, 1);
-        if (reviewed || tested) assert.match(markup, /photo-status-badges/);
+        assert.doesNotMatch(markup, /photo-status-badges/);
       }
     }
   } finally {

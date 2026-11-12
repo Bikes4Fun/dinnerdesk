@@ -33,7 +33,7 @@ export class RecipeCollections {
     ["try", "To try"],
     ["popular", "Popular"],
     ["quick", "Quick"],
-    ["reviewed", "Reviewed"],
+    ["reviewed", "Kitchen-tested"],
     ["hidden", "Hidden"],
     ["soon", "Coming soon"],
   ];
