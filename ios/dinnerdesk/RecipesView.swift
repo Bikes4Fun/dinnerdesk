@@ -914,20 +914,6 @@ struct RecipeDetailView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
-  private func servingsRow(_ recipe: RecipeDetail) -> some View {
-    ViewThatFits(in: .horizontal) {
-      HStack(alignment: .center, spacing: 16) {
-        servingAdjuster
-        cookTime(recipe)
-      }
-      VStack(alignment: .leading, spacing: 8) {
-        servingAdjuster
-        cookTime(recipe)
-      }
-    }
-    .buttonStyle(.borderless)
-  }
-
   private var servingAdjuster: some View {
     HStack(spacing: 8) {
       Button {
@@ -1078,6 +1064,7 @@ private struct RecipeGalleryView: View {
   @State private var notice: String?
   @State private var error: String?
   @State private var confirmDelete = false
+  @State private var showingAI = false
 
   private var current: RecipeGalleryPhoto? {
     recipe.photos.first(where: { $0.path == selected }) ?? recipe.photos.first
@@ -1085,6 +1072,9 @@ private struct RecipeGalleryView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
+      if recipe.photos.isEmpty && hero {
+        Color.clear.frame(height: 120)
+      }
       if !recipe.photos.isEmpty {
         Color.clear.aspectRatio(1, contentMode: .fit)
           .overlay {
@@ -1098,8 +1088,19 @@ private struct RecipeGalleryView: View {
             .tabViewStyle(.page(indexDisplayMode: recipe.photos.count > 1 ? .always : .never))
             .indexViewStyle(.page(backgroundDisplayMode: .always))
           }
-          .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+          .clipShape(hero ? AnyShape(Rectangle()) : AnyShape(RoundedRectangle(cornerRadius: 16, style: .continuous)))
+          .overlay(alignment: .top) {
+            if hero {
+              LinearGradient(colors: [.black.opacity(0.28), .clear], startPoint: .top, endPoint: .bottom)
+                .frame(height: 88)
+                .allowsHitTesting(false)
+            }
+          }
+          .overlay(alignment: .bottomLeading) {
+            if hero, current?.ai == true { aiPhotoPill }
+          }
           .accessibilityLabel("Recipe photos")
+        if !hero {
         HStack {
           if recipe.photos.count > 1 {
             Button { move(-1) } label: { Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44) }
@@ -1123,8 +1124,10 @@ private struct RecipeGalleryView: View {
         } else if current?.shared == true {
           StarTip(id: "recipes.shared-photo")
         }
+        }
       }
       if canEdit {
+        Group {
         ViewThatFits(in: .horizontal) {
           HStack { photoActions }
           VStack(alignment: .leading) { photoActions }
@@ -1134,6 +1137,8 @@ private struct RecipeGalleryView: View {
           ? "Add your own photos. The primary photo appears on recipe cards. Delete photo removes the one showing now. Catalog photo changes, including deletes, are shared with everyone."
           : "Add your own photos. The primary photo appears on recipe cards. Delete photo removes the one showing now.")
           .font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
+        .padding(.horizontal, hero ? 16 : 0)
       }
       if busy { ProgressView(notice ?? "Saving photos…") }
       else if let notice { Text(notice).font(Theme.subtitle) }
@@ -1152,6 +1157,27 @@ private struct RecipeGalleryView: View {
     .onChange(of: picked) { _, items in
       guard !items.isEmpty else { return }
       Task { await upload(items) }
+    }
+  }
+
+  private var aiPhotoPill: some View {
+    Button { showingAI = true } label: {
+      Label("AI\nphoto", systemImage: "sparkle")
+        .font(.caption2.weight(.semibold))
+        .multilineTextAlignment(.leading)
+        .foregroundStyle(Theme.ink)
+        .padding(.horizontal, 10)
+        .frame(minHeight: 44)
+        .background(Theme.surface, in: Capsule())
+    }
+    .buttonStyle(.plain)
+    .padding(12)
+    .accessibilityLabel("AI photo")
+    .popover(isPresented: $showingAI) {
+      Text(Copy.text("recipes.ai-photo"))
+        .font(Theme.subtitle)
+        .padding()
+        .presentationCompactAdaptation(.popover)
     }
   }
 
