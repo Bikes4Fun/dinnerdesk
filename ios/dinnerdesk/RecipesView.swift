@@ -671,13 +671,16 @@ struct RecipeDetailView: View {
         .onPreferenceChange(RecipePhotoOffsetKey.self) { maxY in
           collapsed = maxY < 88
         }
-        .background(Theme.bg.ignoresSafeArea())
-        .overlay(alignment: .top) { recipeChrome(recipe) }
+        .ignoresSafeArea(edges: .top)
+        .background(Theme.bg)
       } else if let error {
         ErrorBanner(message: error).padding()
       } else {
         ProgressView()
       }
+    }
+    .overlay(alignment: .top) {
+      if let recipe { recipeChrome(recipe) }
     }
     .overlay(alignment: .bottom) {
       if let planNotice {
