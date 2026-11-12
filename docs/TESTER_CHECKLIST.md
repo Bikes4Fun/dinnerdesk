@@ -234,3 +234,10 @@ iOS and native Android. All checks below remain manual acceptance work.
 - [ ] Before live cleanup: review the dry-run report and backup destination; resolve
   any conflicting alias placements/metadata. After approved cleanup, confirm recipes,
   pantry amounts/check-offs, grocery renames and each household's placements survived.
+
+
+## Kitchen-tested recipe status
+- On web as admin, toggle Kitchen-tested directly on a recipe card and list row. Refresh to confirm it persists; unmark to undo. Confirm photo count and files stay unchanged.
+- On web, iOS and Android as an ordinary user, compare the same marked recipe: one aubergine seal/check label beside cook time below its title; no status overlay on photos. Unmarked recipes show only cook time.
+- Open the recipe on each client: tap the one Kitchen-tested chip under the title. Check the explanation sheet, Done, back/Escape and drag dismissal as applicable; repeat with large text and a screen reader.
+- Use the Kitchen-tested filter. Check that photo credits/paging still work and native apps have no catalog-admin controls.

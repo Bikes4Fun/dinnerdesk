@@ -16,7 +16,7 @@ nonisolated enum RecipeSearchFilter: String, CaseIterable, Identifiable, Sendabl
     case .pantry: "Uses pantry"
     case .hidden: "Hidden"
     case .comingSoon: "Coming soon"
-    case .reviewed: "Reviewed"
+    case .reviewed: "Kitchen-tested"
     }
   }
 }
