@@ -671,8 +671,7 @@ struct RecipeDetailView: View {
         .onPreferenceChange(RecipePhotoOffsetKey.self) { maxY in
           collapsed = maxY < 88
         }
-        .ignoresSafeArea(edges: .top)
-        .background(Theme.bg)
+        .background(Theme.bg.ignoresSafeArea())
         .overlay(alignment: .top) { recipeChrome(recipe) }
       } else if let error {
         ErrorBanner(message: error).padding()
@@ -855,15 +854,15 @@ struct RecipeDetailView: View {
 
   private func metaRow(_ recipe: RecipeDetail) -> some View {
     HStack(spacing: 12) {
-      if recipe.reviewed { ReviewedBadge(detail: true) }
       if recipe.cookingMinutes != nil {
         HStack(spacing: 4) {
           Image(systemName: "clock").font(.caption).foregroundStyle(Theme.muted)
           cookTime(recipe).foregroundStyle(Theme.ink)
         }
       }
-      Spacer(minLength: 0)
       servingAdjuster
+      Spacer(minLength: 0)
+      if recipe.reviewed { ReviewedBadge(detail: true) }
     }
   }
 
