@@ -19,9 +19,15 @@ struct ReviewedBadge: View {
         .buttonStyle(.plain)
         .sheet(isPresented: $showing) {
           ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-              label.font(Theme.title)
-              Text(Copy.text("recipe.kitchen-tested.explanation")).font(Theme.body)
+            VStack(spacing: 16) {
+              label
+                .font(.system(size: 28))
+                .frame(width: 72, height: 72)
+                .background(Theme.aubergineTint, in: Circle())
+              Text(Copy.text("recipe.reviewed")).font(Theme.title)
+              Text(Copy.text("recipe.kitchen-tested.explanation"))
+                .font(Theme.body)
+                .multilineTextAlignment(.center)
               Button { showing = false } label: {
                 Text("Got it")
                   .font(Theme.action)
@@ -36,7 +42,7 @@ struct ReviewedBadge: View {
           }
           .scrollBounceBehavior(.basedOnSize)
           .foregroundStyle(Theme.ink)
-          .presentationDetents([.height(sheetHeight > 0 ? sheetHeight + 28 : 220), .large])
+          .presentationDetents([.height(sheetHeight > 0 ? sheetHeight + 28 : 280), .large])
           .presentationDragIndicator(.visible)
           .presentationBackground(Theme.surface)
         }
