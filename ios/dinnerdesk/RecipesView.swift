@@ -238,7 +238,7 @@ struct RecipesView: View {
       HStack(spacing: 8) {
         chip("All", on: filters.isEmpty) { filters = [] }
         ForEach(RecipeSearchFilter.allCases) { filter in
-          chip(filter.label, on: filters.contains(filter)) {
+          chip(filter.label, systemImage: filter == .reviewed ? "checkmark.seal.fill" : nil, on: filters.contains(filter)) {
             if filters.contains(filter) {
               filters.remove(filter)
             } else {
@@ -259,15 +259,20 @@ struct RecipesView: View {
     }
   }
 
-  private func chip(_ title: String, on: Bool, action: @escaping () -> Void) -> some View {
-    Button(title, action: action)
-      .font(Theme.chipLabel)
-      .padding(.horizontal, 12)
-      .padding(.vertical, 7)
-      .background(on ? Theme.accent : Theme.chip)
-      .foregroundStyle(on ? Color.white : Theme.ink)
-      .clipShape(Capsule())
-      .buttonStyle(.plain)
+  private func chip(_ title: String, systemImage: String? = nil, on: Bool, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      HStack(spacing: 4) {
+        if let systemImage { Image(systemName: systemImage) }
+        Text(title)
+      }
+    }
+    .font(Theme.chipLabel)
+    .padding(.horizontal, 12)
+    .padding(.vertical, 7)
+    .background(on ? Theme.ink : Theme.chip)
+    .foregroundStyle(on ? Theme.surface : Theme.ink)
+    .clipShape(Capsule())
+    .buttonStyle(.plain)
   }
 
   @ViewBuilder
@@ -493,7 +498,7 @@ struct RecipeTile: View {
       Text(recipe.name)
         .font(Theme.recipeCardServing)
         .foregroundStyle(Theme.muted)
-        .lineLimit(3)
+        .lineLimit(2)
       RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
     }
     .accessibilityElement(children: .combine)
@@ -535,7 +540,7 @@ struct RecipeTile: View {
               store.onWeek(recipe.id) ? "Remove from this plan" : "Add to this plan")
           }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
+        RecipeCardName(name: recipe.name, lineLimit: 2, reservesSpace: true)
         RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
       }
     }

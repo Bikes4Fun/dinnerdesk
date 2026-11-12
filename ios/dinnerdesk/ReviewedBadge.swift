@@ -64,13 +64,44 @@ struct RecipeStatusLine: View {
   let reviewed: Bool
 
   var body: some View {
-    HStack(spacing: 4) {
-      if let minutes, minutes > 0 { Text("\(minutes) min").foregroundStyle(Theme.muted) }
-      if reviewed {
-        if let minutes, minutes > 0 { Text("·").accessibilityHidden(true) }
-        ReviewedBadge()
-      }
+    ViewThatFits(in: .horizontal) {
+      row(stacked: false)
+      row(stacked: true)
     }
-    .font(.caption).foregroundStyle(Theme.ink)
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+
+  private var hasTime: Bool { if let minutes, minutes > 0 { return true }; return false }
+
+  @ViewBuilder
+  private func row(stacked: Bool) -> some View {
+    if stacked {
+      VStack(alignment: .leading, spacing: 2) {
+        if hasTime { timeText }
+        if reviewed { badge }
+      }
+    } else {
+      HStack(spacing: 4) {
+        if hasTime { timeText }
+        if hasTime && reviewed { Text("·").foregroundStyle(Theme.muted).accessibilityHidden(true) }
+        if reviewed { badge }
+      }
+      .lineLimit(1)
+      .fixedSize(horizontal: true, vertical: false)
+    }
+  }
+
+  private var timeText: some View {
+    Text("\(minutes ?? 0) min").font(.caption).foregroundStyle(Theme.ink)
+  }
+
+  private var badge: some View {
+    HStack(spacing: 4) {
+      Image(systemName: "checkmark.seal.fill").foregroundStyle(Theme.ink)
+      Text(Copy.text("recipe.reviewed")).fontWeight(.medium).foregroundStyle(Theme.ink)
+    }
+    .font(.caption)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(Copy.text("recipe.reviewed.description"))
   }
 }
