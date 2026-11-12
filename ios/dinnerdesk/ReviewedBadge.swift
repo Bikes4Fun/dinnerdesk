@@ -20,8 +20,9 @@ struct ReviewedBadge: View {
         .sheet(isPresented: $showing) {
           ScrollView {
             VStack(spacing: 16) {
-              label
-                .font(.system(size: 28))
+              Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 32))
+                .accessibilityHidden(true)
                 .frame(width: 72, height: 72)
                 .background(Theme.aubergineTint, in: Circle())
               Text(Copy.text("recipe.reviewed")).font(Theme.title)

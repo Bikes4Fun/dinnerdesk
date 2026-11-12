@@ -1161,11 +1161,12 @@ private struct RecipeGalleryView: View {
 
   private var aiPhotoPill: some View {
     Button { showingAI = true } label: {
-      Label("AI\nphoto", systemImage: "sparkle")
-        .font(.caption2.weight(.semibold))
-        .multilineTextAlignment(.leading)
+      Label("AI photo", systemImage: "sparkle")
+        .font(.caption.weight(.semibold))
         .foregroundStyle(Theme.ink)
-        .padding(.horizontal, 10)
+        .lineLimit(1)
+        .fixedSize()
+        .padding(.horizontal, 12)
         .frame(minHeight: 44)
         .background(Theme.surface, in: Capsule())
     }
