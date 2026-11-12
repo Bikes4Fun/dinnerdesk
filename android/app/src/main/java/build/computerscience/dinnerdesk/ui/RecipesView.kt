@@ -302,10 +302,10 @@ fun RecipeTile(recipe: RecipeSummary) {
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                 Box(Modifier.fillMaxSize().alpha(0.55f)) { RecipePhoto(recipe.photoPath, fill = true, corner = 12.dp) }
-                if (recipe.reviewed) Box(Modifier.align(Alignment.BottomStart).padding(6.dp)) { ReviewedBadge() }
                 Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+            RecipeStatusLine(recipe.cookingMinutes, recipe.reviewed)
         }
         return
     }
@@ -333,9 +333,9 @@ fun RecipeTile(recipe: RecipeSummary) {
                         tint = if (onWeek) Theme.accent else Color.Black.copy(alpha = 0.35f), modifier = Modifier.size(34.dp),
                     )
                 }
-                if (recipe.reviewed) Box(Modifier.align(Alignment.BottomStart).padding(6.dp)) { ReviewedBadge() }
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+            RecipeStatusLine(recipe.cookingMinutes, recipe.reviewed)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Theme.surface) {
             DropdownMenuItem({ Text(if (recipe.favorited) "Unfavorite" else "Favorite", style = Theme.body) }, { menu = false; store.launch { toggleFavorite(recipe) } })
@@ -440,8 +440,8 @@ fun RecipeDetailView(id: Int) {
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth().clickable { nameExpanded = !nameExpanded }.semantics { heading(); contentDescription = r.name },
                     )
+                    if (r.reviewed) ReviewedBadge(detail = true)
                     ServingsRow(mealServings, r.cookingMinutes, ::bumpServings)
-                    if (tab == RecipePageTab.Cook && r.reviewed) ReviewedBadge()
                     if (tab == RecipePageTab.Overview && r.prettyTags.isNotEmpty()) Text(r.prettyTags, style = Theme.subtitle, color = Theme.muted)
                     if (tab == RecipePageTab.Overview) {
                         Text("Ingredients", style = Theme.title, color = Theme.ink)

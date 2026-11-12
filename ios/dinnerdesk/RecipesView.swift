@@ -490,14 +490,14 @@ struct RecipeTile: View {
         }
         .clipped()
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(alignment: .bottomLeading) { if recipe.reviewed { ReviewedBadge().padding(6) } }
       Text(recipe.name)
         .font(Theme.recipeCardServing)
         .foregroundStyle(Theme.muted)
         .lineLimit(3)
+      RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Reviewed by Dinnerdesk" : "")")
+    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Kitchen-tested by DinnerDesk" : "")")
   }
 
   private var readyTile: some View {
@@ -534,9 +534,9 @@ struct RecipeTile: View {
             .accessibilityLabel(
               store.onWeek(recipe.id) ? "Remove from this plan" : "Add to this plan")
           }
-          .overlay(alignment: .bottomLeading) { if recipe.reviewed { ReviewedBadge().padding(6) } }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         RecipeCardName(name: recipe.name, lineLimit: 3, reservesSpace: true)
+        RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
       }
     }
     .buttonStyle(.plain)
@@ -625,8 +625,8 @@ struct RecipeDetailView: View {
             .accessibilityLabel(recipe.name)
             .accessibilityAddTraits(.isHeader)
             .accessibilityRemoveTraits(.isButton)
+            if recipe.reviewed { ReviewedBadge(detail: true) }
             servingsRow(recipe)
-            if tab == .cook && recipe.reviewed { ReviewedBadge() }
             if tab == .overview, !recipe.prettyTags.isEmpty {
               Text(recipe.prettyTags).font(Theme.subtitle).foregroundStyle(Theme.muted)
             }
@@ -1003,12 +1003,6 @@ private struct RecipeGalleryView: View {
               ForEach(recipe.photos) { photo in
                 RecipePhoto(path: photo.path, large: true)
                   .overlay(alignment: .bottomTrailing) { RecipePhotoCredit(photo: photo) }
-                  .overlay(alignment: .bottomLeading) {
-                    VStack(alignment: .leading, spacing: 4) {
-                      if recipe.reviewed { ReviewedBadge() }
-                      if photo.tested == true { DeveloperTestedBadge() }
-                    }.padding(10)
-                  }
                   .tag(photo.path)
               }
             }
@@ -1150,24 +1144,6 @@ private struct RecipeGalleryView: View {
   private enum GalleryError: LocalizedError {
     case unreadable
     var errorDescription: String? { "Couldn't read this photo. Choose another image." }
-  }
-}
-
-
-/// Gold ★ on a photo the developer took of the recipe as cooked.
-private struct DeveloperTestedBadge: View {
-  var body: some View {
-    HStack(spacing: 4) {
-      Image(systemName: "star.fill").foregroundStyle(Color(red: 0.54, green: 0.38, blue: 0))
-      Text(Copy.text("recipe.tested"))
-    }
-    .font(.caption.weight(.semibold))
-    .foregroundStyle(Theme.ink)
-    .padding(.horizontal, 9)
-    .padding(.vertical, 4)
-    .background(.regularMaterial, in: Capsule())
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel(Copy.text("recipe.tested.description"))
   }
 }
 

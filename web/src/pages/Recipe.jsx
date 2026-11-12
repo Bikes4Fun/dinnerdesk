@@ -518,7 +518,7 @@ export function Recipe({ id }) {
           </div>
         )}
       </header>
-      {!editing && tab === "cook" && !both && <ReviewedBadge reviewed={recipe.reviewed} />}
+      {!editing && <ReviewedBadge reviewed={recipe.reviewed} detail />}
       {!editing && admin && (
         <label className="recipe-review-control">
           <input type="checkbox" checked={Boolean(recipe.reviewed)} disabled={busy}
@@ -528,7 +528,7 @@ export function Recipe({ id }) {
               try { setRecipe(await api.reviewRecipe(recipe.id, on)); }
               catch (e) { setErr(e.message); }
               finally { setBusy(false); }
-            }} /> Reviewed by Dinnerdesk
+            }} /> Kitchen-tested
         </label>
       )}
       {!editing && (

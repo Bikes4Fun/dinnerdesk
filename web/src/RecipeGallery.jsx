@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import FoodPhoto from "./FoodPhoto.jsx";
 import { api } from "./api.js";
 import { Tip } from "./Tip.jsx";
-import { ReviewedBadge } from "./ReviewedBadge.jsx";
-import { Copy } from "./Copy.js";
 
 export function RecipeGallery({ recipe, canEdit, onChange }) {
   const photos = recipe.photos ?? (recipe.photo_path ? [{ path: recipe.photo_path, primary: true, ai: recipe.photo_ai, shared: recipe.photo_shared }] : []);
@@ -86,7 +84,6 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
 
   return (
     <section className="recipe-gallery" aria-label="Recipe photos">
-      {photos.length === 0 && <ReviewedBadge reviewed={recipe.reviewed} />}
       {photos.length > 0 && <>
         <div className="recipe-gallery-track" ref={track} onScroll={event => {
           const el = event.currentTarget;
@@ -94,10 +91,6 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
         }}>
           {photos.map((item, index) => <div className="recipe-gallery-slide" key={item.path} role="group" aria-label={`Photo ${index + 1} of ${photos.length}`}>
             <FoodPhoto className="hero" path={item.path} alt={`${recipe.name}, photo ${index + 1}`} />
-            <div className="photo-status-badges">
-              <ReviewedBadge reviewed={recipe.reviewed} />
-              {item.tested && <span className="photo-tested-badge" aria-label={Copy.text("recipe.tested.description")}><span aria-hidden="true">★</span> {Copy.text("recipe.tested")}</span>}
-            </div>
             <PhotoCredit photo={item} />
           </div>)}
         </div>
