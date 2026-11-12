@@ -110,6 +110,11 @@ Plan; not in Plan → ⋯) opens a
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
   exclude meals already on the proposal. Cancelling the picker changes nothing and records no
   dislike.
+- **Must:** the picker opens on the next 8 ranked meals, saved with the proposal when it was
+  ranked; Swap and a bigger plan take the next of those. None of them rank again; a search
+  looks through the household's pool.
+- **Must:** Taste Lab shows the same household pool as suggestions, so its diets, allergies,
+  avoids and hidden meals apply there in exactly the same way.
 - **Must:** **Fill in this plan** keeps meals already on the week, marked "Your selection",
   and they can't be swapped. Only the open slots are suggested. On iPhone it is in ⋯; on the
   website it is a link on the plan when that plan already has meals. The live plan stays until

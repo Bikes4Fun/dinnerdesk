@@ -382,6 +382,9 @@ def test_taste_catalog_uses_database_not_json_copy(tmp_path, monkeypatch):
         assert soup["recipe_id"] == 1
         assert soup["photo"] == "/food/soup.jpg"
         assert "onion" in soup["ingredients"]
+        # Taste Lab shows the same household pool suggestions use.
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["onion"]}}})
+        assert "Soup" not in [r["name"] for r in client.get("/api/catalog").json()["recipes"]]
 
 
 def test_templates_list_families(tmp_path):
@@ -1081,7 +1084,8 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
 def test_searchable_swap_options_and_explicit_replacement(tmp_path, monkeypatch):
     import app.routes as routes
     with _client(tmp_path) as client:
-        recipe = client.post("/api/recipes", json={"name": "Lemon chicken", "servings": 4}).json()
+        recipe = client.post("/api/recipes", json={"name": "Lemon chicken", "servings": 4,
+                                                   "ingredients": [{"name": "lemon", "quantity": "1"}]}).json()
         monkeypatch.setattr(routes, "_suggest_meals", lambda *args: ([{"id": 1, "name": "Soup", "reasons": []}, {"id": recipe["id"], "name": "Lemon chicken", "ingredients": ["lemon"], "reasons": []}], "Suggestions", {}))
         proposal = client.post("/api/plans", json={"meal_count": 1}).json()
         slot = proposal["slots"][0]
@@ -1621,6 +1625,21 @@ def test_swaps_keep_a_suggestion_and_survive_a_re_rank(tmp_path, monkeypatch):
         assert len(fresh["slots"]) == 3
         assert fresh["changes"] == swapped["changes"]
         assert client.get("/api/suggestions/current").json()["plan"] == fresh
+
+
+def test_swaps_use_the_saved_next_ranked_meals(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 3}).json()
+        monkeypatch.setattr(routes, "_suggest_meals", lambda *args: pytest.fail("swaps must not rank again"))
+        slot = proposal["slots"][0]
+        options = client.get(f"/api/plans/{proposal['id']}/swap-options/{slot['id']}").json()["recipes"]
+        assert len(options) == routes.SWAP_SPARES
+        assert not {o["id"] for o in options} & set(proposal["suggested_recipe_ids"])
+        swapped = client.post(f"/api/plans/{proposal['id']}/swap/{slot['id']}").json()
+        assert swapped["slots"][0]["recipe_id"] == options[0]["id"]
+        bigger = client.post(f"/api/plans/{proposal['id']}/resize", json={"meal_count": 4}).json()
+        assert bigger["slots"][3]["recipe_id"] == options[1]["id"]
 
 
 def test_suggestion_saved_before_stamps_is_re_ranked(tmp_path, monkeypatch):

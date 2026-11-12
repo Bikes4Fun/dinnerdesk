@@ -3632,17 +3632,19 @@ def _keep_familiar_share(ranked: list[dict], count: int) -> list[dict]:
 
 
 def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[int], current_ids: set[int],
-                   plan_id: int | None = None) -> tuple[list[dict], str, dict, dict | None, str]:
-    """count fresh meals next to the kept ones: picked, note, reasons, context and stamp.
+                   plan_id: int | None = None) -> tuple[list[dict], str, dict, dict | None, str, list[dict]]:
+    """count fresh meals next to the kept ones: picked, note, reasons, context, stamp and spares.
 
     plan_id is the proposal being re-ranked, if any. The stamp is taken first, so a change
-    that lands mid-rank stales it rather than hiding.
+    that lands mid-rank stales it rather than hiding. Spares are the next-ranked meals, saved
+    with the proposal so swaps and a bigger plan don't rank again.
     """
     stamp = _suggestion_stamp(db, household_id, kept, current_ids, plan_id)
     _SUGGEST_CONTEXT.set(None)
     # The ranker is greedy, so its first picks don't depend on how many it ranks. Rank
     # enough to fill the plan even if every meal already this week goes to the back.
-    candidates, note, reasons = _suggest_meals(db, household_id, count + len(current_ids - kept), kept, plan_id)
+    candidates, note, reasons = _suggest_meals(
+        db, household_id, count + len(current_ids - kept) + SWAP_SPARES, kept, plan_id)
     available = [m for m in candidates if m["id"] not in kept]
     # Prefer a fresh proposal; retain eligible familiar meals if the catalog is small.
     available.sort(key=lambda meal: meal["id"] in current_ids)
@@ -3651,7 +3653,32 @@ def _rank_proposal(db: PgConnection, household_id: int, count: int, kept: set[in
     # Keep reasons and the note to the meals actually picked.
     reasons = {str(m["id"]): m.get("reasons", []) for m in picked}
     note = _proposal_note(reasons, [m["id"] for m in picked])
-    return picked, note, reasons, _plan_context(_SUGGEST_CONTEXT.get(), picked), stamp
+    chosen = {m["id"] for m in picked}
+    spares = [_spare(m) for m in available if m["id"] not in chosen][:SWAP_SPARES]
+    return picked, note, reasons, _plan_context(_SUGGEST_CONTEXT.get(), picked), stamp, spares
+
+
+# Next-ranked meals saved with a proposal: what Swap offers and what a bigger plan adds.
+SWAP_SPARES = 8
+
+
+def _spare(meal: dict) -> dict:
+    return {"id": meal["id"], "reasons": meal.get("reasons", [])}
+
+
+def _pool_for(db: PgConnection, household_id: int) -> Pool:
+    return _household_pool(db, household_id, *_filter_prefs(db, household_id)[:3])[0]
+
+
+def _spares(db: PgConnection, household_id: int, meta: dict, excluded: set[int], need: int = 1) -> list[dict]:
+    """The proposal's saved next-ranked meals that aren't excluded and still keep the household's
+    filters. Ranks again only when fewer than need are left (or the proposal predates spares)."""
+    allowed = _pool_for(db, household_id).allowed
+    spares = [s for s in meta.get("spares") or [] if s["id"] not in excluded and s["id"] in allowed]
+    if len(spares) < need:
+        ranked, _, _ = _suggest_meals(db, household_id, len(excluded) + need + SWAP_SPARES)
+        spares = [_spare(m) for m in ranked if m["id"] not in excluded]
+    return spares
 
 
 def _proposal_note(reasons: dict, recipe_ids: list[int]) -> str:
@@ -3688,7 +3715,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
         kept = {s["recipe_id"] for s in source["slots"]} if source else set()
         current = _plan_out(db, _ensure_plan(db, household_id), household_id)
         current_ids = {slot["recipe_id"] for slot in current["slots"]}
-        picked, note, reasons, context, stamp = _rank_proposal(db, household_id, body.meal_count, kept, current_ids)
+        picked, note, reasons, context, stamp, spares = _rank_proposal(db, household_id, body.meal_count, kept, current_ids)
         if not picked:
             raise HTTPException(409, "No matching suggestions. Loosen Settings → Filters or choose meals yourself.")
     with transaction(db):
@@ -3711,7 +3738,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
                     (pid, meal["id"], servings, sort),
                 )
         if picked:
-            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": [], "context": context, "stamp": stamp, "ranked_with": sorted(kept)}), pid))
+            db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps({"suggestion_note": f"{note} Swap any meal or approve the plan when it feels right.", "suggestion_reasons": reasons, "original_recipe_ids": [m["id"] for m in picked], "suggested_recipe_ids": [m["id"] for m in picked], "feedback": [], "changes": [], "context": context, "stamp": stamp, "ranked_with": sorted(kept), "spares": spares}), pid))
         else:
             _rebuild_grocery(db, pid, household_id)
     out = _plan_out(db, pid, household_id)
@@ -3782,18 +3809,19 @@ def swap_suggestion(plan_id: int, slot_id: int, body: SuggestionSwap | None = No
             raise HTTPException(404, "Meal not found")
         excluded = set(plan["original_recipe_ids"]) | {s["recipe_id"] for s in plan["slots"]}
         excluded |= {c["to"] for c in plan["changes"]}
-        # A chosen meal is checked against the wide list; otherwise the next one past what's excluded.
-        choosing = body and body.recipe_id is not None
-        picked, _, _ = _suggest_meals(db, household_id, 400 if choosing else len(excluded) + 1)
-        if choosing:
-            current_ids = {s["recipe_id"] for s in plan["slots"]}
-            meal = next((m for m in picked if m["id"] == body.recipe_id and m["id"] not in current_ids), None)
-        else:
-            meal = next((m for m in picked if m["id"] not in excluded), None)
-        if not meal:
-            raise HTTPException(409, "No more matching meals. Try loosening Settings → Filters.")
         stored = db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
         meta = json.loads(stored["suggestion_json"])
+        # A chosen meal just has to be in the household's pool; otherwise the next saved spare.
+        if body and body.recipe_id is not None:
+            current_ids = {s["recipe_id"] for s in plan["slots"]}
+            pool = _pool_for(db, household_id)
+            ok = body.recipe_id not in current_ids and any(m["id"] == body.recipe_id for m in (*pool.meals, *pool.backup_meals))
+            known = next((s for s in meta.get("spares") or [] if s["id"] == body.recipe_id), None)
+            meal = (known or {"id": body.recipe_id, "reasons": []}) if ok else None
+        else:
+            meal = next(iter(_spares(db, household_id, meta, excluded)), None)
+        if not meal:
+            raise HTTPException(409, "No more matching meals. Try loosening Settings → Filters.")
         if slot["recipe_id"] not in meta["suggested_recipe_ids"]:
             raise HTTPException(409, "This meal was selected by you")
         meta["suggested_recipe_ids"].remove(slot["recipe_id"])
@@ -3845,7 +3873,7 @@ def _fresh_suggestion(db: PgConnection, household_id: int) -> int | None:
         swapped_in = {c["to"] for c in meta.get("changes") or []}
         kept = (slot_ids - set(suggested)) | {rid for rid in swapped_in & slot_ids if rid in pool.allowed}
         stale = [s for s in plan["slots"] if s["recipe_id"] not in kept]
-        picked, _, reasons, context, stamp = _rank_proposal(db, household_id, len(stale), kept, current_ids, plan_id)
+        picked, _, reasons, context, stamp, spares = _rank_proposal(db, household_id, len(stale), kept, current_ids, plan_id)
         with transaction(db):
             db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
             now_row = db.execute("SELECT status, suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
@@ -3864,7 +3892,7 @@ def _fresh_suggestion(db: PgConnection, household_id: int) -> int | None:
                 _proposal_note(meta["suggestion_reasons"], meta["suggested_recipe_ids"])
                 + " Swap any meal or approve the plan when it feels right."
             )
-            meta.update(context=context, stamp=stamp, ranked_with=sorted(kept), refreshed_at=now())
+            meta.update(context=context, stamp=stamp, ranked_with=sorted(kept), spares=spares, refreshed_at=now())
             db.execute("UPDATE plans SET suggestion_json = ? WHERE id = ?", (json.dumps(meta), plan_id))
         _log.info("suggestion refreshed hh=%d plan=%d replaced=%d", household_id, plan_id, len(stale))
         return plan_id
@@ -3955,11 +3983,12 @@ def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = D
         if body.meal_count < kept_count:
             raise HTTPException(409, "Keep enough room for your selected meals")
         delta = body.meal_count - len(plan["slots"])
+        row = db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
+        meta = json.loads(row["suggestion_json"])
         if delta > 0:
             excluded = {s["recipe_id"] for s in plan["slots"]} | set(plan["original_recipe_ids"])
             excluded |= {c["to"] for c in plan["changes"]}
-            picked, _, _ = _suggest_meals(db, household_id, len(excluded) + delta)
-            added = [m for m in picked if m["id"] not in excluded][:delta]
+            added = _spares(db, household_id, meta, excluded, delta)[:delta]
             if len(added) < delta:
                 raise HTTPException(409, "Not enough matching meals. Adjust filters or choose meals yourself.")
             for index, meal in enumerate(added):
@@ -3971,8 +4000,6 @@ def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = D
             for slot in removable:
                 db.execute("DELETE FROM plan_slots WHERE id = ?", (slot["id"],))
                 suggested.remove(slot["recipe_id"])
-        row = db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
-        meta = json.loads(row["suggestion_json"])
         meta["suggested_recipe_ids"] = suggested
         meta.setdefault("count_changes", []).append({"from": len(plan["slots"]), "to": body.meal_count, "at": now()})
         reasons = meta.setdefault("suggestion_reasons", {})
@@ -4008,17 +4035,27 @@ def suggestion_swap_options(plan_id: int, slot_id: int, q: str = "", db: PgConne
     slot = next((s for s in plan["slots"] if s["id"] == slot_id), None)
     if not slot or slot["recipe_id"] not in plan["suggested_recipe_ids"]:
         raise HTTPException(404, "Suggested meal not found")
-    picked, _, _ = _suggest_meals(db, household_id, 400)
     held = {s["recipe_id"] for s in plan["slots"]}
+    meta = json.loads(db.execute("SELECT suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()["suggestion_json"])
+    pool = _pool_for(db, household_id)
+    by_id = {m["id"]: m for m in (*pool.meals, *pool.backup_meals)}
+    # The saved next-ranked meals; a search also looks through the rest of the household's pool.
+    ids = [s["id"] for s in _spares(db, household_id, meta, held)]
     words = q.casefold().split()
-    options = []
-    for meal in picked:
-        blob = " ".join([meal["name"], *meal.get("ingredients", [])]).casefold()
-        if meal["id"] in held or not all(word in blob for word in words):
-            continue
-        row = db.execute("SELECT photo_path, parent_recipe_id FROM recipes WHERE id = ?", (meal["id"],)).fetchone()
-        options.append({"id": meal["id"], "name": meal["name"], "cooking_minutes": meal.get("cooking_minutes"),
-            "photo_path": usable_photo(row["photo_path"], meal["id"], row["parent_recipe_id"]) if row else None})
-        if len(options) == 50:
-            break
-    return {"recipes": options}
+    if words:
+        ids = list(dict.fromkeys([*ids, *by_id]))
+    meals = []
+    for rid in ids:
+        meal = by_id.get(rid)
+        if meal and rid not in held and all(w in " ".join([meal["name"], *meal.get("ingredients", [])]).casefold() for w in words):
+            meals.append(meal)
+            if len(meals) == 50:
+                break
+    marks = ",".join("?" for _ in meals) or "NULL"
+    photos = {int(r["id"]): r for r in db.execute(
+        f"SELECT id, photo_path, parent_recipe_id FROM recipes WHERE id IN ({marks})", [m["id"] for m in meals])}
+    return {"recipes": [
+        {"id": m["id"], "name": m["name"], "cooking_minutes": m.get("cooking_minutes"),
+         "photo_path": usable_photo(photos[m["id"]]["photo_path"], m["id"], photos[m["id"]]["parent_recipe_id"])
+         if m["id"] in photos else None}
+        for m in meals]}
