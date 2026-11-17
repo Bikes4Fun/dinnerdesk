@@ -37,6 +37,10 @@ engine and presentation classes, using each framework's intended view types.
 | By meal / By task views | Yes | Yes | Yes | PrepMealPresentation |
 | Feedback inbox administration | Yes | Intentional exclusion | Intentional exclusion | Web administration |
 
+Equal wording is **one** row, however many meals it came from and whatever each meal's
+amount is (#116). The amounts are kept in first-seen order and the row names every meal it
+covers. A household-added step keeps its own row, because the apps mark it.
+
 The fixture `tests/fixtures/prep_presentation.json` is consumed by Python, Node,
 Android JUnit and the standalone iOS model check. It covers matching wording with
 different quantities, shared meal links, household-added status, legacy cached
