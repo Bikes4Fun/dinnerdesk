@@ -563,6 +563,11 @@ function Stores() {
   const [lines, setLines] = useState([]);
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
+  // Removing a store unassigns its items, so confirm first and say how many (#187).
+  const [doomed, setDoomed] = useState(null);
+  // Renaming keeps the store's id, so every item stays assigned to it.
+  const [renaming, setRenaming] = useState(null);
+  const [renamedTo, setRenamedTo] = useState("");
 
   useEffect(() => {
     Promise.all([api.household(), api.plan()])
@@ -609,16 +614,62 @@ function Stores() {
           Aisles
         </button>
         <h3 className="block-label">Your stores</h3>
-        {stores.map((s) => (
-          <div key={s.id} className="store-edit">
-            <strong>{s.name}</strong>
-            {stores.length > 0 && (
-              <button type="button" className="text-link" onClick={() => persist(stores.filter((x) => x.id !== s.id))}>
+        {stores.map((s) => {
+          const used = lines.filter((l) => l.store === s.id).length;
+          if (renaming === s.id) {
+            return (
+              <form
+                key={s.id}
+                className="add-line"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = renamedTo.trim();
+                  // Keep the id so assignments survive; only the name people see changes.
+                  if (n && n !== s.name) persist(stores.map((x) => (x.id === s.id ? { ...x, name: n } : x)));
+                  setRenaming(null);
+                }}
+              >
+                <input className="field" aria-label={`Rename ${s.name}`} value={renamedTo} onChange={(e) => setRenamedTo(e.target.value)} autoFocus />
+                <button type="submit" className="btn-secondary">Save</button>
+                <button type="button" className="text-link" onClick={() => setRenaming(null)}>Cancel</button>
+              </form>
+            );
+          }
+          return (
+            <div key={s.id} className="store-edit">
+              <strong>{s.name}</strong>
+              <span className="store-count">{used === 1 ? "1 item" : `${used} items`}</span>
+              <button type="button" className="text-link" onClick={() => { setRenamedTo(s.name); setRenaming(s.id); }}>
+                Rename
+              </button>
+              <button type="button" className="text-link" onClick={() => setDoomed(s)}>
                 Remove
               </button>
-            )}
+            </div>
+          );
+        })}
+        {doomed && (
+          <div className="store-confirm" role="alertdialog" aria-label={`Remove ${doomed.name}?`}>
+            <p>
+              <strong>Remove {doomed.name}?</strong>{" "}
+              {(() => {
+                const n = lines.filter((l) => l.store === doomed.id).length;
+                if (!n) return "No items are assigned to it. You can add it back anytime.";
+                return `${n === 1 ? "1 item moves" : `${n} items move`} to Any store. You can add it back anytime.`;
+              })()}
+            </p>
+            <div className="store-confirm-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDoomed(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => { persist(stores.filter((x) => x.id !== doomed.id)); setDoomed(null); }}
+              >
+                Remove
+              </button>
+            </div>
           </div>
-        ))}
+        )}
         <form
           className="add-line"
           onSubmit={(e) => {

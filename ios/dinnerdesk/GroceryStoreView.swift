@@ -18,6 +18,9 @@ struct GroceryStoreView: View {
   @State private var newStore = ""
   @State private var addingStore = false
   @State private var doomedStore: KitchenStore?
+  /// Renaming keeps the store's id, so every item stays assigned to it.
+  @State private var renamingStore: KitchenStore?
+  @State private var renamedTo = ""
   @State private var error: String?
 
   private var unset: [ItemPlacement] { items.filter { $0.store.isEmpty } }
@@ -63,12 +66,16 @@ struct GroceryStoreView: View {
             // A Menu per chip: a context menu inside a List row lifts the whole row and
             // only ever offered the first store.
             Menu {
+              Button("Rename \(store.name)") {
+                renamedTo = store.name
+                renamingStore = store
+              }
               Button("Remove \(store.name)", role: .destructive) { doomedStore = store }
             } label: {
               KitchenChip(text: store.name, count: count(store), selected: false)
             }
             .buttonStyle(.borderless)
-            .accessibilityHint("Opens an option to remove this store")
+            .accessibilityHint("Opens options to rename or remove this store")
           }
           Button {
             addingStore = true
@@ -139,6 +146,19 @@ struct GroceryStoreView: View {
       Button("Cancel", role: .cancel) { newStore = "" }
     }
     .alert(
+      "Rename \(renamingStore?.name ?? "store")",
+      isPresented: Binding(get: { renamingStore != nil }, set: { if !$0 { renamingStore = nil } })
+    ) {
+      TextField("Store name", text: $renamedTo)
+      Button("Save") {
+        if let store = renamingStore { Task { await rename(store, to: renamedTo) } }
+        renamingStore = nil
+      }
+      Button("Cancel", role: .cancel) { renamingStore = nil }
+    } message: {
+      Text("Items assigned to this store stay with it.")
+    }
+    .alert(
       "Remove \(doomedStore?.name ?? "store")?",
       isPresented: Binding(get: { doomedStore != nil }, set: { if !$0 { doomedStore = nil } })
     ) {
@@ -150,7 +170,7 @@ struct GroceryStoreView: View {
         doomedStore = nil
       }
     } message: {
-      Text("You can add it back anytime.")
+      Text(removeMessage(doomedStore))
     }
   }
 
@@ -178,6 +198,22 @@ struct GroceryStoreView: View {
     }
     guard !stores.contains(where: { $0.id == id }) else { return }
     await saveStores(stores + [KitchenStore(id: id, name: name)])
+  }
+
+  /// Says how many items are about to lose their store, so Remove is never a surprise.
+  private func removeMessage(_ store: KitchenStore?) -> String {
+    guard let store else { return "You can add it back anytime." }
+    let n = count(store)
+    guard n > 0 else { return "No items are assigned to it. You can add it back anytime." }
+    let what = n == 1 ? "1 item moves" : "\(n) items move"
+    return "\(what) to Any store. You can add it back anytime."
+  }
+
+  /// Keeps the id so assignments survive; only the name people see changes.
+  private func rename(_ store: KitchenStore, to raw: String) async {
+    let name = raw.trimmingCharacters(in: .whitespaces)
+    guard !name.isEmpty, name != store.name else { return }
+    await saveStores(stores.map { $0.id == store.id ? KitchenStore(id: $0.id, name: name) : $0 })
   }
 
   private func saveStores(_ next: [KitchenStore]) async {

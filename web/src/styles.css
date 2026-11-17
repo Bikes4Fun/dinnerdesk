@@ -2090,3 +2090,12 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 /* Examples placeholder: muted color rather than 45% opacity, which failed contrast (#35). */
 .pantry-examples { color: var(--muted); }
 .pantry-examples p { margin: 0 0 4px; }
+
+/* Stores (#187): item count, Rename, and a confirmation before Remove unassigns items. */
+.store-count { flex: none; color: var(--muted); font-size: 0.85rem; }
+.store-confirm { margin: 8px 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--coral-tint); }
+.store-confirm p { margin: 0 0 10px; color: #8a3a22; font-size: 0.95rem; line-height: 1.45; }
+.store-confirm-actions { display: flex; gap: 10px; }
+.store-confirm-actions button { flex: 1; min-height: 44px; }
+.btn-danger { border-radius: 999px; background: var(--heart); color: #fff; font-size: 16px; font-weight: 600; padding: 0 18px; }
+.btn-danger:hover { background: #99322a; }
