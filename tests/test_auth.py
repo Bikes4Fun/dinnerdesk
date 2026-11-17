@@ -424,6 +424,14 @@ def test_forgot_password_reports_a_failed_send(tmp_path, monkeypatch):
     with _client(tmp_path) as client:
         client.post("/api/auth/signup", json={"email": "you@example.com", "password": "correct horse battery staple",
                                               "household_name": "Our house"})
+        # Unverified: same answer as an unknown address, and nothing is sent.
+        assert client.post("/api/auth/forgot-password", json={"email": "you@example.com"}).status_code == 200
+        with connect() as db:
+            db.execute(
+                "UPDATE users SET email_verified_at = ? WHERE email = ?",
+                ("2020-01-01T00:00:00+00:00", "you@example.com"),
+            )
+            db.commit()
         assert client.post("/api/auth/forgot-password", json={"email": "you@example.com"}).status_code == 503
         assert client.post("/api/auth/forgot-password", json={"email": "nobody@example.com"}).status_code == 200
 
@@ -725,6 +733,14 @@ def test_admin_emails_reset_and_confirm_links(tmp_path, monkeypatch):
     with _client(tmp_path) as admin, TestClient(create_app()) as user:
         _signup(admin, "admin@example.test")
         uid = _signup(user, "mailme@example.com")
+        refused = admin.post(f"/admin/users/{uid}/send-reset", json={})
+        assert refused.status_code == 400 and refused.json()["detail"] == "email_unverified"
+        with connect() as db:
+            db.execute(
+                "UPDATE users SET email_verified_at = ? WHERE id = ?",
+                ("2020-01-01T00:00:00+00:00", uid),
+            )
+            db.commit()
         assert admin.post(f"/admin/users/{uid}/send-reset", json={}).status_code == 200
         assert admin.post(f"/admin/users/{uid}/resend-confirmation", json={}).status_code == 200
         assert [(kind, to) for kind, to, _ in sent] == [("reset", "mailme@example.com"), ("verify", "mailme@example.com")]

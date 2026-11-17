@@ -113,6 +113,7 @@ USER_ERRORS = {
     "successor_required": "They own a household others are in. Make someone else its owner first.",
     "invalid_role": "Choose owner, admin or member.",
     "too_many": "Already sent 3 this hour. Try again later.",
+    "email_unverified": "Confirm their email before sending a password reset.",
     "super_admin": "The super admin is set by ADMIN_EMAIL on the server, not here.",
 }
 
