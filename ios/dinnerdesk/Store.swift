@@ -687,6 +687,37 @@ final class Store: ObservableObject {
     }
   }
 
+  /// "By meal": check off one meal's steps in a task (never another meal's). Older cached
+  /// tasks without step keys fall back to the whole-task check.
+  func setPrepMealSteps(taskId: Int, mealId: Int, keys: [String?], done: Bool) async {
+    guard let t = prepTasks.firstIndex(where: { $0.id == taskId }) else { return }
+    let stepKeys = keys.compactMap { $0 }
+    if stepKeys.count != keys.count {
+      if prepTasks[t].done != done { await togglePrep(prepTasks[t]) }
+      return
+    }
+    if let m = prepTasks[t].meals.firstIndex(where: { $0.id == mealId }) {
+      for s in (prepTasks[t].meals[m].steps ?? []).indices
+      where stepKeys.contains(prepTasks[t].meals[m].steps?[s].key ?? "") {
+        prepTasks[t].meals[m].steps?[s].done = done
+      }
+    }
+    prepTasks[t].done = prepTasks[t].meals.allSatisfy { meal in
+      (meal.steps ?? []).allSatisfy { $0.done ?? false }
+    }
+    do {
+      for key in stepKeys {
+        let result: PrepItemResult = try await API.send(
+          "prep/\(taskId)/steps", method: "PUT",
+          body: ["recipe_id": mealId, "key": key, "done": done])
+        if let t = prepTasks.firstIndex(where: { $0.id == taskId }) { prepTasks[t].done = result.done }
+      }
+    } catch {
+      fail(error)
+      await loadPrep()
+    }
+  }
+
   /// Was this a useful step to do ahead? Logged for review; it doesn't change what Prep shows.
   func ratePrepStep(taskId: Int, mealId: Int, step: PrepStep, _ rating: Int) async {
     let category = prepTasks.first(where: { $0.id == taskId })?.title ?? ""

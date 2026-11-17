@@ -45,7 +45,10 @@ export function Icon({ name, size = 22 }) {
   if (name === "prep") {
     return (
       <svg {...common}>
-        <path d="M4 4l11 11M15 15l2.5 2.5a2 2 0 102.8-2.8L17.8 12.2" />
+        {/* Clipboard with a list, matching iOS (list.bullet.clipboard) and Android (Assignment). */}
+        <rect x="5" y="4.5" width="14" height="16.5" rx="2" />
+        <path d="M9 3h6v3H9z" />
+        <path d="M9 11h6M9 14.5h6M9 18h3.5" />
       </svg>
     );
   }
