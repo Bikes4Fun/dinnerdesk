@@ -34,7 +34,7 @@ engine and presentation classes, using each framework's intended view types.
 | Original feedback and completion identities | Yes | Yes | Yes | Shared API and stores |
 | Meal links and cook dates | Yes | Yes | Yes | Shared API and platform navigation |
 | Completion, undo, ratings, missing-step additions | Existing | Existing | Existing | Shared API and platform stores |
-| By meal / By task views | Yes | Planned | Planned | PrepMealPresentation |
+| By meal / By task views | Yes | Yes | Yes | PrepMealPresentation |
 | Feedback inbox administration | Yes | Intentional exclusion | Intentional exclusion | Web administration |
 
 The fixture `tests/fixtures/prep_presentation.json` is consumed by Python, Node,
