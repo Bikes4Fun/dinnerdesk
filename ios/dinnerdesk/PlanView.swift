@@ -7,6 +7,11 @@ struct PlanView: View {
   @Environment(\.dynamicTypeSize) private var typeSize
   @AppStorage("plan.grid") private var grid = false
   @State private var editing = false
+  @State private var isLong = false
+
+  private var floatActions: Bool {
+    !editing && isLong && store.plan?.slots.isEmpty == false
+  }
   @State private var selected: Set<Int> = []
   @State private var menu = false
   @State private var picking: PlanSlot?
@@ -19,114 +24,129 @@ struct PlanView: View {
 
   var body: some View {
     NavigationStack {
-      ScrollView {
-        // Tighter than 16 so a default-size 4-meal plan fits on iPhone 16 without scrolling.
-        VStack(alignment: .leading, spacing: 12) {
-          if let error = store.error {
-            ErrorBanner(message: error)
-            if error.localizedCaseInsensitiveContains("filter") {
-              NavigationLink("Adjust filters") { FiltersView() }
-              Button("Choose meals") { store.error = nil; selectTab(.recipes) }
-            }
-          }
-          if let plan = store.plan {
-            let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
-            if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
-              VStack(alignment: .leading, spacing: 8) {
-                Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
-                NavigationLink {
-                  TasteLabView(swipe: true)
-                } label: {
-                  Text("Improve your results")
-                    .font(Theme.subtitle)
-                    .foregroundStyle(Theme.accent)
-                    .multilineTextAlignment(.leading)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
+      GeometryReader { viewport in
+        ScrollView {
+          // Tighter than 16 so a default-size 4-meal plan fits on iPhone 16 without scrolling.
+          VStack(alignment: .leading, spacing: 12) {
+            if let error = store.error {
+              ErrorBanner(message: error)
+              if error.localizedCaseInsensitiveContains("filter") {
+                NavigationLink("Adjust filters") { FiltersView() }
+                Button("Choose meals") { store.error = nil; selectTab(.recipes) }
               }
             }
-            if plan.slots.isEmpty {
-              VStack {
-                EmptyState(
-                  title: "Nothing on this plan",
-                  message: "Get suggestions for your next meals.",
-                  systemImage: "calendar")
-                CreateMealPlanButton { Task { await store.openSuggestions() } }
-                Button { selectTab(.recipes) } label: {
-                  Label("Add meals", systemImage: "plus")
-                }.font(Theme.action).frame(minHeight: 44)
-              }
-              .frame(maxWidth: .infinity)
-            }
-            if editing && !plan.slots.isEmpty {
-              // Side by side when it fits; stacked at large text so no word breaks mid-way.
-              ViewThatFits(in: .horizontal) {
-                HStack {
-                  selectAllButton(plan)
-                  Spacer()
-                  selectedCount
-                }
+            if let plan = store.plan {
+              let photoWidth = calculateGlobalPhotoWidth(for: plan, availableWidth: totalRowWidth)
+              if plan.status == "suggested", let note = plan.suggestionNote, !note.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                  selectAllButton(plan)
-                  selectedCount
-                }
-              }
-              ViewThatFits(in: .horizontal) {
-                HStack {
-                  markCookedButton(plan)
-                  Spacer()
-                  removeButton
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                  markCookedButton(plan)
-                  removeButton
-                }
-              }
-              .disabled(selected.isEmpty)
-            }
-            let planGroups = groups(plan)
-            ForEach(planGroups, id: \.key) { group in
-              // "Cooked" only labels a section when other meals sit above it; when the whole
-              // week is cooked the checkmarks already say so and the header just pushes the
-              // plan buttons down.
-              if group.key == Int.max {
-                if planGroups.count > 1 { ThemeHeader("Cooked") }
-              } else if group.key >= 0 {
-                ThemeHeader(dayTitle(plan.startDate, group.key))
-              }
-              // At accessibility text sizes the grid shows as the list, so names don't break mid-word.
-              if grid && !editing && !typeSize.isAccessibilitySize {
-                LazyVGrid(
-                  columns: [GridItem(.flexible(), alignment: .top), GridItem(.flexible(), alignment: .top)],
-                  alignment: .leading, spacing: 16) {
-                  ForEach(group.slots) { slot in
-                    meal(slot, plan: plan, grid: true, photoWidth: photoWidth)
+                  Text(note).font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  NavigationLink {
+                    TasteLabView(swipe: true)
+                  } label: {
+                    Text("Improve your results")
+                      .font(Theme.subtitle)
+                      .foregroundStyle(Theme.accent)
+                      .multilineTextAlignment(.leading)
+                      .frame(maxWidth: .infinity, alignment: .leading)
                   }
                 }
-              } else {
-                ForEach(group.slots) { slot in
-                  meal(slot, plan: plan, grid: false, photoWidth: photoWidth)
-                  Divider()
+              }
+              if plan.slots.isEmpty {
+                VStack {
+                  EmptyState(
+                    title: "Nothing on this plan",
+                    message: "Get suggestions for your next meals.",
+                    systemImage: "calendar")
+                  CreateMealPlanButton { Task { await store.openSuggestions() } }
+                  Button { selectTab(.recipes) } label: {
+                    Label("Add meals", systemImage: "plus")
+                  }.font(Theme.action).frame(minHeight: 44)
+                }
+                .frame(maxWidth: .infinity)
+              }
+              if editing && !plan.slots.isEmpty {
+                // Side by side when it fits; stacked at large text so no word breaks mid-way.
+                ViewThatFits(in: .horizontal) {
+                  HStack {
+                    selectAllButton(plan)
+                    Spacer()
+                    selectedCount
+                  }
+                  VStack(alignment: .leading, spacing: 8) {
+                    selectAllButton(plan)
+                    selectedCount
+                  }
+                }
+                ViewThatFits(in: .horizontal) {
+                  HStack {
+                    markCookedButton(plan)
+                    Spacer()
+                    removeButton
+                  }
+                  VStack(alignment: .leading, spacing: 8) {
+                    markCookedButton(plan)
+                    removeButton
+                  }
+                }
+                .disabled(selected.isEmpty)
+              }
+              let planGroups = groups(plan)
+              ForEach(planGroups, id: \.key) { group in
+                // "Cooked" only labels a section when other meals sit above it; when the whole
+                // week is cooked the checkmarks already say so and the header just pushes the
+                // plan buttons down.
+                if group.key == Int.max {
+                  if planGroups.count > 1 { ThemeHeader("Cooked") }
+                } else if group.key >= 0 {
+                  ThemeHeader(dayTitle(plan.startDate, group.key))
+                }
+                // At accessibility text sizes the grid shows as the list, so names don't break mid-word.
+                if grid && !editing && !typeSize.isAccessibilitySize {
+                  LazyVGrid(
+                    columns: [GridItem(.flexible(), alignment: .top), GridItem(.flexible(), alignment: .top)],
+                    alignment: .leading, spacing: 16) {
+                    ForEach(group.slots) { slot in
+                      meal(slot, plan: plan, grid: true, photoWidth: photoWidth)
+                    }
+                  }
+                } else {
+                  ForEach(group.slots) { slot in
+                    meal(slot, plan: plan, grid: false, photoWidth: photoWidth)
+                    Divider()
+                  }
                 }
               }
-            }
-            if !plan.slots.isEmpty { 
-              // Side by side only while both labels fit on one line; otherwise stacked so no word breaks.
-              ViewThatFits(in: .horizontal) {
-                HStack { planButtons.fixedSize() }
-                VStack(alignment: .leading) { planButtons }
+              if !editing && !plan.slots.isEmpty {
+                planActionRow
+                  .opacity(floatActions ? 0 : 1)
+                  .allowsHitTesting(!floatActions)
+                  .accessibilityHidden(floatActions)
               }
+            } else {
+              ProgressView()
             }
-          } else {
-            ProgressView()
+          }
+          .background {
+            GeometryReader { geo in
+              Color.clear.preference(key: PlanRowWidthKey.self, value: geo.size.width)
+            }
+          }
+          .padding()
+        }
+        .onScrollGeometryChange(for: Bool.self) { geometry in
+          // Compare the inline layout with the viewport before reserving space for the floating row.
+          geometry.contentSize.height > viewport.size.height - viewport.safeAreaInsets.top - viewport.safeAreaInsets.bottom
+        } action: { _, overflow in
+          isLong = overflow
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+          if floatActions {
+            planActionRow
+              .frame(maxWidth: .infinity)
+              .padding(.horizontal, 16)
+              .padding(.vertical, 8)
           }
         }
-        .background {
-          GeometryReader { geo in
-            Color.clear.preference(key: PlanRowWidthKey.self, value: geo.size.width)
-          }
-        }
-        .padding()
       }
       .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
       .safeAreaInset(edge: .top, spacing: 0) {
@@ -151,7 +171,6 @@ struct PlanView: View {
       .navigationBarTitleDisplayMode(.inline)
       .tint(Theme.accent)
       .menuSheet(isPresented: $menu) {
-        // New meal plan is the button under the plan (and on the empty plan), not here (#104).
         [
           MenuSheetItem(title: "Save as draft", systemImage: "square.and.arrow.down") {
             draftTitle = store.plan?.title ?? "Saved plan"
@@ -177,18 +196,42 @@ struct PlanView: View {
     }
   }
 
+  private var planActionRow: some View {
+    ViewThatFits(in: .horizontal) {
+      if !typeSize.isAccessibilitySize {
+        HStack(spacing: 10) { planButtons }
+          .fixedSize(horizontal: true, vertical: false)
+      }
+      VStack(spacing: 10) { planButtons }
+    }
+  }
+
   @ViewBuilder
   private var planButtons: some View {
-    Button {
+    planPill("New meal plan", icon: "sparkles", filled: true) {
       Task { await store.openSuggestions() }
-    } label: {
-      Label("New meal plan", systemImage: "sparkles")
     }
-    .buttonStyle(.borderedProminent)
-    .tint(Theme.accent)
-    Button { selectTab(.recipes) } label: {
-      Label("Add meals", systemImage: "plus")
-    }.font(Theme.action).frame(minHeight: 44)
+    planPill("Add meals", icon: "plus", filled: false) {
+      selectTab(.recipes)
+    }
+  }
+
+  private func planPill(_ title: String, icon: String, filled: Bool, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      Label(title, systemImage: icon)
+        .font(Theme.action)
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+        .foregroundStyle(filled ? Color.white : Theme.ink)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(minHeight: 44)
+        .background(filled ? Theme.ink : Theme.surface, in: Capsule())
+        .overlay { Capsule().strokeBorder(Theme.ink) }
+        .contentShape(Capsule())
+    }
+    .buttonStyle(.plain)
+    .shadow(color: Theme.ink.opacity(0.28), radius: 11, y: 8)
   }
 
   /// Turns Edit mode on or off. Leaving it clears any meal selection.

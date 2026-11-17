@@ -1845,9 +1845,13 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .pill-primary:hover { background: var(--brand-hover); }
 .pill-secondary { background: #f0e9e6; color: var(--ink); }
 .pill:disabled { opacity: 0.5; }
-/* Plan: New meal plan (and Fill in this plan) under the meals; ⋯ no longer has it (#104). */
 .plan-new { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 16px 0 96px; }
-.plan-new .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.plan-actions { display: flex; flex-wrap: wrap; gap: 10px; max-width: 100%; }
+.plan-actions .pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; font-size: 1rem; }
+.plan-actions .pill svg { flex: none; }
+.plan-actions-offscreen { visibility: hidden; }
+.plan-add-meals { background: #fff; color: var(--brand); border: 1px solid var(--brand); }
+.plan-add-meals:hover { background: #f1e7ef; }
 
 .suggest-bar {
   display: flex;
@@ -1896,9 +1900,8 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   .plan-meal-list .meal-photo-wrap, .plan-meal-list .meal-photo-btn, .plan-meal-list .meal-photo-btn img, .plan-meal-list .meal-photo-btn .ph { width: 112px; height: 112px; }
   .plan-meal-list .meal-photo-wrap { flex: 0 0 112px; }
 }
-.fab-pill-wrap { position: fixed; left: 0; right: 0; bottom: calc(84px + var(--safe-bottom)); z-index: 6; display: flex; justify-content: center; pointer-events: none; }
-.fab-pill { pointer-events: auto; min-height: 52px; padding: 0 28px; border-radius: 999px; background: var(--brand); color: #fbf6ee; font-size: 17px; font-weight: 700; box-shadow: 0 6px 18px rgba(74, 22, 70, 0.25); }
-.fab-pill:hover { background: var(--brand-hover); }
+.fab-pill-wrap { position: fixed; left: 0; right: 0; bottom: calc(84px + var(--safe-bottom)); z-index: 6; justify-content: center; pointer-events: none; padding: 0 16px; }
+.fab-pill-wrap .pill { pointer-events: auto; min-height: 52px; box-shadow: 0 6px 18px rgba(74, 22, 70, 0.25); }
 @media (min-width: 880px) { .fab-pill-wrap { left: 232px; bottom: 28px; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

@@ -1,5 +1,5 @@
 import FoodPhoto from "../FoodPhoto.jsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
@@ -64,6 +64,20 @@ export function Plan() {
   const [reportedId, setReportedId] = useState(null);
   const [plan, setPlan] = useState(null);
   const [editing, setEditing] = useState(false);
+  const inlineActions = useRef(null);
+  const hasPlan = plan !== null;
+  const [inlineActionsVisible, setInlineActionsVisible] = useState(true);
+  const floatActions = hasPlan && !editing && !inlineActionsVisible;
+
+  useEffect(() => {
+    const target = inlineActions.current;
+    if (!target) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setInlineActionsVisible(entry.isIntersecting);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasPlan]);
   const [grid, setGrid] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [placing, setPlacing] = useState(null);
@@ -136,6 +150,13 @@ export function Plan() {
     const today = new Date();
     const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     setDate(slot.day_index == null ? localToday : slotDate(plan, slot.day_index));
+  }
+
+  function planActions() {
+    return <>
+      <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
+      <button type="button" className="pill plan-add-meals" onClick={() => go("/recipes")}><Icon name="plus" size={18} /> Add meals</button>
+    </>;
   }
 
   if (!plan) return <section className="screen pad">{err || "Loading…"}</section>;
@@ -245,13 +266,14 @@ export function Plan() {
           </article>)}
         </div>
       </section>)}
-      {/* New meal plan lives under the plan (and on an empty plan), not in ⋯ (#104). */}
-      <div className="plan-new">
-        <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
+      <div className="plan-new" ref={inlineActions}>
+        {!editing && <div className={`plan-actions${floatActions ? " plan-actions-offscreen" : ""}`}>
+          {planActions()}
+        </div>}
         {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
       </div>
     </div>
-    <div className="fab-pill-wrap"><button type="button" className="fab-pill" onClick={() => go("/recipes")}>Add meals</button></div>
+    {floatActions && <div className="fab-pill-wrap plan-actions">{planActions()}</div>}
       {proposal && reviewing && <div className="sheet-backdrop"><section className="suggested-plan schedule-sheet review-sheet" role="dialog" aria-modal="true" aria-labelledby="suggested-title">
         <h2 id="suggested-title">Review your suggestions</h2>
         <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
