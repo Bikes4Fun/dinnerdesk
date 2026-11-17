@@ -174,7 +174,6 @@ export function Prep() {
       </header>
       {menu && (
         <div className="action-sheet prep-options">
-          {doneCount > 0 && <button type="button" onClick={() => { toggleShowDone(); setMenu(false); }}>{showDone ? "Hide completed" : `Show completed (${doneCount})`}</button>}
           <button type="button" onClick={() => { setMenu(false); window.print(); }}>Print prep</button>
           <button type="button" onClick={() => setMenu(false)}>Done</button>
         </div>
@@ -195,9 +194,16 @@ export function Prep() {
               <div style={{ width: `${pct}%` }} />
             </div>
 
-            <div className="pz-view" role="group" aria-label="Show prep">
-              <button type="button" aria-pressed={view === "meal"} onClick={() => chooseView("meal")}>By meal</button>
-              <button type="button" aria-pressed={view === "task"} onClick={() => chooseView("task")}>By task</button>
+            <div className="pz-view-row">
+              <div className="pz-view" role="group" aria-label="Show prep">
+                <button type="button" aria-pressed={view === "meal"} onClick={() => chooseView("meal")}>By meal</button>
+                <button type="button" aria-pressed={view === "task"} onClick={() => chooseView("task")}>By task</button>
+              </div>
+              {doneCount > 0 && (
+                <button type="button" className="pz-done-toggle" onClick={toggleShowDone}>
+                  {showDone ? "Hide completed" : `Show completed (${doneCount})`}
+                </button>
+              )}
             </div>
 
             {view === "meal" && (
