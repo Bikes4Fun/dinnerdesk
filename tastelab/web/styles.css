@@ -611,3 +611,39 @@ code { font-size: 0.86em; background: var(--soft); padding: 0.1rem 0.35rem; bord
 .history-info strong { display: block; overflow-wrap: anywhere; line-height: 1.4; }
 .history-votes { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
 .history-votes button { min-height: 44px; }
+
+/* Recommendation review mirrors the native iOS/Android SuggestedPlanReview. */
+.recommendations .plan-grid { gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.recommendations .meal { background: none; border: 0; border-radius: 0; overflow: visible; gap: 8px; }
+.recommendations .meal-photo { border-radius: 14px; overflow: hidden; }
+.recommendations .meal-body { padding: 0; }
+.recommendations .meal h3 { margin: 0; color: var(--aubergine); font-size: 15px; font-weight: 600; line-height: 1.3; }
+.recommendations .meal p { margin-top: 4px; font-size: 13px; line-height: 1.3; }
+.recommendations .swap-badge { top: 8px; right: 8px; width: 28px; height: 28px; background: var(--surface); color: #b84228; box-shadow: 0 1px 4px #0003; font-size: 13px; }
+.recommendations .dock { margin-top: 16px; }
+.recommendations .row-btns { gap: 10px; }
+.recommendations .btn { min-height: 50px; padding: 10px; border-radius: 14px; font-size: 17px; font-weight: 600; }
+.recommendations .btn.ghost { background: var(--surface); border: 1.5px solid var(--line); color: var(--aubergine); }
+html.in-app { --accent: #b84228; --muted: #746570; }
+html.in-app .app { padding: 16px; }
+html.in-app .recommendations { width: 100%; }
+html.in-app .recommendations .brand { font-size: 17px; font-weight: 600; }
+html.in-app .recommendations .top { flex-wrap: wrap; margin-bottom: 12px; }
+html.in-app .recommendations .top-tools { flex: 1 0 100%; justify-content: flex-end; }
+html.in-app .recommendations .steps { display: none; }
+html.in-app .recommendations .progress { font-size: 13px; }
+@media (max-width: 22em) {
+  .recommendations .plan-grid { grid-template-columns: minmax(0, 1fr); }
+  .recommendations .row-btns { grid-template-columns: minmax(0, 1fr); }
+}
+.photo-report { position: absolute; top: 8px; right: 8px; z-index: 5; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--surface); color: var(--aubergine); touch-action: manipulation; }
+.photo-report:disabled { opacity: 1; }
+.photo-report-backdrop { position: fixed; inset: 0; z-index: 20; background: #0007; display: grid; place-items: center; padding: 16px; }
+.photo-report-dialog { width: min(100%, 440px); max-height: 100%; overflow: auto; background: var(--bg); border-radius: 16px; padding: 20px; display: grid; gap: 12px; }
+.photo-report-dialog h2, .photo-report-dialog p { margin: 0; }
+.photo-report-dialog h2 { font: 600 20px var(--font); }
+.photo-report-dialog textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; color: var(--aubergine); }
+
+/* Android passes its native accessibility breakpoint to its embedded review. */
+html.large-text .recommendations .plan-grid,
+html.large-text .recommendations .row-btns { grid-template-columns: minmax(0, 1fr); }

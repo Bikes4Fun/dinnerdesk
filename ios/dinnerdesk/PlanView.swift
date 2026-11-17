@@ -681,8 +681,45 @@ func dayTitle(_ start: String, _ index: Int) -> String {
   return day.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
 }
 
-/// Review a suggested plan in the app's own plain style (not Taste Lab's cards): a rounded
-/// square photo with a white swap button in its corner, then the name and cook time.
+/// Shared presentation for suggested meals in the plan review and Taste Lab.
+struct SuggestedMealTile<Photo: View>: View {
+  let name: String
+  let minutes: Int?
+  var selection = false
+  var swap: (() -> Void)?
+  var swapDisabled = false
+  @ViewBuilder let photoContent: () -> Photo
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      Color.clear.aspectRatio(1, contentMode: .fit)
+        .overlay { photoContent() }
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(alignment: .topTrailing) {
+          if let swap {
+            Button(action: swap) {
+              Image(systemName: "arrow.triangle.2.circlepath")
+                .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.accent)
+                .frame(width: 28, height: 28)
+                .background(Theme.surface, in: Circle())
+                .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
+                .frame(width: 44, height: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(swapDisabled)
+            .accessibilityLabel("Swap meal: \(name)")
+          }
+        }
+      VStack(alignment: .leading, spacing: 4) {
+        RecipeCardName(name: name)
+        if let minutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
+        if selection { Text("Your selection").font(Theme.subtitle).foregroundStyle(Theme.muted) }
+      }
+    }
+  }
+}
+
+/// Review a suggested plan using the shared meal tiles.
 struct SuggestedPlanReview: View {
   @EnvironmentObject private var store: Store
   @Environment(\.dismiss) private var dismiss
@@ -708,37 +745,16 @@ struct SuggestedPlanReview: View {
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
               ForEach(store.proposal?.slots ?? []) { slot in
-                VStack(alignment: .leading, spacing: 8) {
-                  Color.clear.aspectRatio(1, contentMode: .fit)
-                    .overlay {
-                      NavigationLink { RecipeDetailView(id: slot.recipeId) } label: { RecipePhoto(path: slot.photoPath, fill: true) }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Open \(slot.recipeName)")
-                    }
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .overlay(alignment: .topTrailing) {
-                      if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true {
-                        Button { swapping = slot } label: {
-                          Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.accent)
-                            .frame(width: 28, height: 28)
-                            .background(Theme.surface, in: Circle())
-                            .shadow(color: .black.opacity(0.12), radius: 2, y: 1)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(store.proposal?.status != "suggested")
-                        .accessibilityLabel("Swap meal: \(slot.recipeName)")
-                      }
-                    }
-                  VStack(alignment: .leading, spacing: 4) {
-                    RecipeCardName(name: slot.recipeName)
-                    if let minutes = slot.cookingMinutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-                    if store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true {
-                      Text("Your selection").font(Theme.subtitle).foregroundStyle(Theme.muted)
-                    }
+                SuggestedMealTile(name: slot.recipeName,
+                                  minutes: slot.cookingMinutes,
+                                  selection: store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) != true,
+                                  swap: store.proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true ? { swapping = slot } : nil,
+                                  swapDisabled: store.proposal?.status != "suggested") {
+                  NavigationLink { RecipeDetailView(id: slot.recipeId) } label: {
+                    RecipePhoto(path: slot.photoPath, fill: true)
                   }
+                  .buttonStyle(.plain)
+                  .accessibilityLabel("Open \(slot.recipeName)")
                 }
               }
             }
