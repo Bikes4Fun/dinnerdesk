@@ -501,15 +501,8 @@ fun AccountView() {
                     }
                 }
                 ListHeader("Password")
-                if (session.status?.hasEmail == false) {
-                    ListRow {
-                        Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.", style = Theme.subtitle, color = Theme.muted)
-                    }
-                } else if (session.status?.emailVerified != true) {
-                    ListRow {
-                        Text("Your email isn't verified yet, so a password reset can't be sent.", style = Theme.subtitle, color = Theme.muted)
-                    }
-                } else {
+                val hasAddress = session.status?.hasEmail != false || !session.status?.recoveryEmail.isNullOrBlank()
+                if (session.status?.emailVerified == true) {
                     ListRow(onClick = if (busy) null else ({
                         action {
                             AuthApi.forgotPassword(email ?: return@action)
@@ -522,7 +515,21 @@ fun AccountView() {
                             Text("Reset password", style = Theme.body, color = Theme.accent)
                         }
                     }
-                    ListRow { Text("Email a reset link to your signed-in address.", style = Theme.subtitle, color = Theme.muted) }
+                    ListRow {
+                        Text(
+                            if (session.status?.hasEmail == false) "We'll email a reset link to your recovery email."
+                            else "Email a reset link to your signed-in address.",
+                            style = Theme.subtitle, color = Theme.muted,
+                        )
+                    }
+                } else if (hasAddress) {
+                    ListRow {
+                        Text("Your email isn't verified yet, so a password reset can't be sent.", style = Theme.subtitle, color = Theme.muted)
+                    }
+                } else {
+                    ListRow {
+                        Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.", style = Theme.subtitle, color = Theme.muted)
+                    }
                 }
                 ListHeader("Household")
                 ListRow {

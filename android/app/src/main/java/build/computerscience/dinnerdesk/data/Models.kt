@@ -415,6 +415,7 @@ data class AuthStatus(
     val authenticated: Boolean = false,
     val email: String? = null,
     @SerialName("has_email") val hasEmail: Boolean? = null,
+    @SerialName("recovery_email") val recoveryEmail: String? = null,
     @SerialName("email_verified") val emailVerified: Boolean? = null,
     val admin: Boolean? = null,
 )
