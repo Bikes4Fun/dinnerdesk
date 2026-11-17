@@ -6,6 +6,11 @@ import SwiftUI
 final class Session: ObservableObject {
   private static let guestKey = "dinnerdesk.guest"
   private static let feedbackTipKey = "dinnerdesk.feedbackTipSeen"
+  private static let whatsNewSeenKey = "dinnerdesk.whatsNewSeen"
+
+  // For a feature release or other major update, set a fresh ID and list only the changes
+  // being announced. Keep that ID across routine builds, or set this to nil to retire it.
+  private static let whatsNew: (id: String, changes: [String])? = nil
 
   @Published var status: AuthStatus?
   @Published var loadError: String?
@@ -29,12 +34,13 @@ final class Session: ObservableObject {
   private var tourCheckedFor: String?
   /// The tour is due but waits until the feedback tip is closed.
   private var tourPending = false
+  private var whatsNewPending = false
+  @Published var showWhatsNew = false
+  var whatsNewChanges: [String] { Self.whatsNew?.changes ?? [] }
   /// How to send a TestFlight screenshot (FeedbackTipView). Set it from More to show it again.
   @Published var showFeedbackTip = false
 
-  /// First run: the feedback tip once on this device (TestFlight only), then the tour once if the
-  /// household hasn't finished or skipped the current version (TourView.version), or this device
-  /// is on a new build.
+  /// Give the TestFlight feedback tip priority over onboarding and release announcements.
   func checkTour() async {
     guard let status, !needsSignIn else { return }
     let key = "\(status.householdId ?? 0)"
@@ -42,11 +48,10 @@ final class Session: ObservableObject {
       do {
         let prefs = try await KitchenAPI.prefs()
         tourCheckedFor = key
-        if TourView.isDue(prefs) || TourView.isNewBuild {
-          tourPending = true
-        } else {
-          // Nothing due: start counting from this build, so the next build opens the tour.
-          TourView.noteBuild()
+        tourPending = TourView.isDue(prefs)
+        whatsNewPending = false
+        if !tourPending, let announcement = Self.whatsNew, !announcement.changes.isEmpty {
+          whatsNewPending = UserDefaults.standard.string(forKey: Self.whatsNewSeenKey) != announcement.id
         }
       } catch {
         guard !API.isCancellation(error) else { return }
@@ -55,18 +60,29 @@ final class Session: ObservableObject {
     }
     if !UserDefaults.standard.bool(forKey: Self.feedbackTipKey), await FeedbackTipView.isBeta() {
       showFeedbackTip = true
-    } else if tourPending {
-      tourPending = false
-      showTour = true
+    } else {
+      presentPendingTourOrAnnouncement()
     }
   }
 
-  /// The feedback tip was closed: remember it, then open the tour if it was waiting.
   func feedbackTipClosed() {
     UserDefaults.standard.set(true, forKey: Self.feedbackTipKey)
+    presentPendingTourOrAnnouncement()
+  }
+
+  private func presentPendingTourOrAnnouncement() {
     if tourPending {
       tourPending = false
       showTour = true
+    } else if whatsNewPending {
+      whatsNewPending = false
+      showWhatsNew = true
+    }
+  }
+
+  func whatsNewClosed() {
+    if let announcement = Self.whatsNew {
+      UserDefaults.standard.set(announcement.id, forKey: Self.whatsNewSeenKey)
     }
   }
 
@@ -183,6 +199,31 @@ struct AuthGate<Content: View>: View {
     }
     .sheet(isPresented: $session.showFeedbackTip, onDismiss: { session.feedbackTipClosed() }) {
       FeedbackTipView()
+    }
+    .sheet(isPresented: $session.showWhatsNew, onDismiss: { session.whatsNewClosed() }) {
+      NavigationStack {
+        ScrollView {
+          VStack(alignment: .leading, spacing: 16) {
+            ForEach(session.whatsNewChanges.indices, id: \.self) { index in
+              Text(session.whatsNewChanges[index])
+                .font(Theme.body)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(20)
+        }
+        .background(Theme.bg)
+        .navigationTitle(Copy.text("tour.update.title"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+          ToolbarItem(placement: .confirmationAction) {
+            Button("Done") { session.showWhatsNew = false }
+          }
+        }
+      }
+      .tint(Theme.accent)
     }
     .fullScreenCover(isPresented: $session.showTour) {
       TourView()

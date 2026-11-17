@@ -2,14 +2,11 @@ import SwiftUI
 
 /// First-run tour (mirrors web/src/Tour.jsx and TourView.kt). Welcome → Quick start (how we use AI,
 /// Filters, then the how-to cards in the order chosen on #24) or Taste Lab, or Skip.
-/// Shown by AuthGate for new households and after a major update (`version`), or whenever
-/// `session.showTour` is set.
+/// Shown by AuthGate for new households or when opened from Settings.
 struct TourView: View {
   enum Step { case welcome, ai, filters, how }
 
-  /// Raise this (and TOUR_VERSION in web/src/Tour.jsx) with a major update: everyone who saw an
-  /// older tour gets it once more. Households that finished the tour before versions existed
-  /// count as version 1.
+  /// Keep writing the current tour version for clients that share the household preferences.
   static let version = 2
 
   /// The tour version this household last finished or skipped; 0 if never.
@@ -17,21 +14,8 @@ struct TourView: View {
     (prefs["tour_version"] as? Int) ?? (prefs["tour_done"] == nil ? 0 : 1)
   }
 
-  /// Does this household still need to see the current tour?
-  static func isDue(_ prefs: [String: Any]) -> Bool { seen(prefs) < version }
-
-  // Every new build (each TestFlight upload) opens the tour once on this device, as What's new.
-  private static let buildKey = "dinnerdesk.tourBuild"
-  private static var build: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
-
-  /// This device saw the tour (or was checked) on an earlier build.
-  static var isNewBuild: Bool {
-    guard let last = UserDefaults.standard.string(forKey: buildKey) else { return false }
-    return last != build
-  }
-
-  /// Remember this build, so the tour waits for the next one.
-  static func noteBuild() { UserDefaults.standard.set(build, forKey: buildKey) }
+  /// Only households that have never completed or skipped the tour need onboarding.
+  static func isDue(_ prefs: [String: Any]) -> Bool { seen(prefs) == 0 }
 
   private struct HowStep: Identifiable {
     let id: Int
@@ -63,8 +47,6 @@ struct TourView: View {
   @State private var howIndex = 0
   @State private var showTasteLab = false
   @State private var saving = false
-  /// They saw an older tour, so this is the one after a major update: welcome says What's new.
-  @State private var isUpdate = false
   @State private var error: String?
 
   init() {}
@@ -108,7 +90,6 @@ struct TourView: View {
     }
     .tint(Theme.accent)
     .interactiveDismissDisabled()
-    .task { await loadFilters() }
   }
 
   // MARK: Welcome
@@ -117,10 +98,10 @@ struct TourView: View {
     ScrollView {
       VStack(alignment: .leading, spacing: 16) {
         VStack(alignment: .leading, spacing: 6) {
-          Text(isUpdate ? Copy.text("tour.update.title") : "Welcome to \(Copy.appName)")
+          Text("Welcome to \(Copy.appName)")
             .font(Theme.bigTitle)
             .foregroundStyle(Theme.ink)
-          Text(isUpdate ? Copy.text("tour.update") : Copy.text("app.tagline"))
+          Text(Copy.text("app.tagline"))
             .foregroundStyle(Theme.muted)
         }
         .padding(.bottom, 8)
@@ -346,17 +327,8 @@ struct TourView: View {
     }
   }
 
-  private func loadFilters() async {
-    do {
-      let prefs = try await KitchenAPI.prefs()
-      let seen = Self.seen(prefs)
-      isUpdate = (seen > 0 && seen < Self.version) || Self.isNewBuild
-    } catch { self.error = KitchenAPI.message(error) }
-  }
-
   @discardableResult
   private func markDone(filters: [String: Any]?) async -> Bool {
-    Self.noteBuild()
     var patch: [String: Any] = ["tour_done": true, "tour_version": Self.version]
     if let filters { patch["filters"] = filters }
     do {
