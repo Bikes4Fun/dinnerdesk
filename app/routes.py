@@ -51,7 +51,7 @@ from app.domain.ingredient_review import (
 from app.domain.ingredients import aisle_for, pantry_key
 from app.domain.pantry_catalog import collapse_catalog_names, ingredient_name, in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import SemanticPrepEngine, step_key, step_sentences
-from app.domain.prep_presentation import PrepTaskPresentation
+from app.domain.prep_presentation import PrepMealPresentation, PrepTaskPresentation
 from app.domain.diet_filter import allowed as diet_allowed, blocks_for, matched_words, merge_filters
 from app.domain.pool import Pool, build_pool, filters_key
 from app.domain.search import filter_item_matches, hard_tokens, search_grocery_names, tokens as search_tokens
@@ -2377,7 +2377,7 @@ def list_prep(
         tasks.append({"id": r["id"], "title": r["title"], "notes": r["notes"], "done": bool(r["done"]),
                       "rating": rating, "reason": reason, "reason_note": reason_note, "section": "other", "item": r["title"],
                       "action": "", **details})
-    return {"tasks": tasks}
+    return {"tasks": tasks, "meal_groups": PrepMealPresentation(tasks).meal_groups()}
 
 
 def _meal_days(db: PgConnection, plan_id: int) -> dict[int, dict]:

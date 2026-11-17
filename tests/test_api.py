@@ -1045,9 +1045,14 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         steps = task["meals"][0]["steps"]
         response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
-        partial = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        partial_body = client.get(f"/api/plans/{plan['id']}/prep").json()
+        partial = partial_body["tasks"][0]
         assert partial["id"] == task["id"] and partial["done"] is False
         assert [s["done"] for s in partial["meals"][0]["steps"]] == [True, False]
+        # "By meal" view: the same steps under their meal, with the same keys and done state.
+        [meal_group] = partial_body["meal_groups"]
+        assert meal_group["id"] == recipe["id"] and meal_group["tasks"][0]["task_id"] == task["id"]
+        assert [(s["key"], s["done"]) for s in meal_group["tasks"][0]["steps"]] == [(steps[0]["key"], True), (steps[1]["key"], False)]
         assert client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
         # The iPhone app decodes this body; an empty reply showed its full-screen error.
         assert client.patch(f"/api/prep/{task['id']}", json={"done": True}).json() == {"ok": True}
