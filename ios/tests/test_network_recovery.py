@@ -22,8 +22,6 @@ final class WatchConnectivityManager {
 }
 enum TourView {
   static func isDue(_ prefs: [String: Any]) -> Bool { prefs["tour_done"] == nil }
-  static var isNewBuild: Bool { false }
-  static func noteBuild() {}
 }
 enum FeedbackTipView {
   static func isBeta() async -> Bool { false }
@@ -60,6 +58,13 @@ enum FeedbackTipView {
     KitchenAPI.response = .success([:])
     await session.checkTour()
     precondition(session.showTour)
+    UserDefaults.standard.register(defaults: ["dinnerdesk.tourBuild": "previous-build", "dinnerdesk.feedbackTipSeen": true])
+    let returningSession = Session()
+    AuthAPI.responses = [.success(AuthStatus(authenticated: true))]
+    KitchenAPI.response = .success(["tour_done": true, "tour_version": 2])
+    await returningSession.refresh()
+    await returningSession.checkTour()
+    precondition(!returningSession.showTour && !returningSession.showWhatsNew)
     var fatalNotifications = 0
     let observer = NotificationCenter.default.addObserver(forName: Notification.Name("dinnerdeskFailure"), object: nil, queue: nil) { _ in fatalNotifications += 1 }
     API.reportFailure(URLError(.networkConnectionLost))
@@ -68,7 +73,7 @@ enum FeedbackTipView {
     API.reportFailure(APIError.http(503, ""))
     precondition(fatalNotifications == 0)
     NotificationCenter.default.removeObserver(observer)
-    print("PASS: startup retry, retained session, cancellation, tour retry, no fatal request notifications")
+    print("PASS: startup retry, retained session, cancellation, tour retry, no build-triggered popup, no fatal request notifications")
   }
 }
 ''')
