@@ -627,3 +627,12 @@ nonisolated struct SwapOption: Decodable, Identifiable, Sendable {
 }
 nonisolated struct SwapOptions: Decodable, Sendable { let recipes: [SwapOption] }
 
+/// What a card's ＋ or ✓ just did, and how to put it back (#35). The id changes with every
+/// action, so the bar's timer restarts even when the wording repeats.
+struct PlanToast: Identifiable, Equatable {
+  let id = UUID()
+  let text: String
+  let recipeId: Int
+  /// True when undoing means adding the meal back, i.e. the toast is about a removal.
+  let undoAdds: Bool
+}
