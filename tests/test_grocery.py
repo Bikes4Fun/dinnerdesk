@@ -21,7 +21,18 @@ def test_aisles_put_shelf_forms_in_pantry_and_fresh_herbs_in_produce():
     assert aisle_for("shredded mozzarella") == "dairy"
     assert aisle_for("half and half") == "dairy"
     assert aisle_for("sea scallops") == "meat"
-    assert aisle_for("frozen peas") == "other"
+
+
+def test_deli_frozen_and_unknown_aisle_defaults():
+    for name in ["hummus", "guacamole", "extra firm tofu", "tzatziki sauce", "deli roast beef",
+                 "sliced turkey breast", "rotisserie chicken", "prosciutto"]:
+        assert aisle_for(name) == "deli", name
+    for name in ["frozen peas", "frozen, riced cauliflower", "frozen cherries", "pre-cooked vegan sausage",
+                 "veggie burger patties, plant-based", "veggie ground, plant based", "meatless meatballs"]:
+        assert aisle_for(name) == "frozen", name
+    assert aisle_for("vegan chicken broth") == "pantry"
+    assert aisle_for("paper towels") == "other"
+    assert aisle_for("dish soap") == "other"
 
 
 def test_merge_sums_same_ingredient_across_recipes():

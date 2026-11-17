@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from fractions import Fraction
 
-from .ingredients import apply_alias, aisle_for, pantry_key
+from .ingredients import AISLES, apply_alias, aisle_for, pantry_key
 from .pantry_catalog import ingredient_name
 
 _VULGAR = {
@@ -312,6 +312,6 @@ def merge_grocery(
                 "used_in": cur["meals"],
             }
         )
-    aisle_order = {"produce": 0, "dairy": 1, "meat": 2, "pantry": 3, "other": 4}
+    aisle_order = {aisle: index for index, aisle in enumerate(AISLES)}
     lines.sort(key=lambda x: (aisle_order.get(x["aisle"], 9), x["name"]))
     return lines

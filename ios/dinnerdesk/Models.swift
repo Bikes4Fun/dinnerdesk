@@ -561,6 +561,8 @@ nonisolated struct ShopAisle: Decodable, Identifiable, Hashable, Sendable {
     ShopAisle(id: "dairy", name: "Dairy, Cheese & Eggs", number: ""),
     ShopAisle(id: "meat", name: "Meat & Seafood", number: ""),
     ShopAisle(id: "pantry", name: "Pantry", number: ""),
+    ShopAisle(id: "deli", name: "Deli", number: ""),
+    ShopAisle(id: "frozen", name: "Frozen", number: ""),
     ShopAisle(id: "other", name: "Other", number: ""),
   ]
 }
