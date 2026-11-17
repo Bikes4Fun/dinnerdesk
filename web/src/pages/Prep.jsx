@@ -4,13 +4,15 @@ import { go } from "../nav.js";
 import { Icon } from "../icons.jsx";
 import { PREP_REASONS } from "../reportOptions.js";
 export { PREP_REASONS } from "../reportOptions.js";
-import { PrepTaskPresentation } from "../PrepTaskPresentation.js";
+import { PrepTaskPresentation, prepMealGroups } from "../PrepTaskPresentation.js";
 import "./prep.css";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
    one progress bar, and check-off that works like the grocery list (done items leave unless
    "Show completed"). One item is open at a time (prep.html, #220): its steps, the meals it's for,
-   Done / Skip (both move on to the next item) and "Worth prepping ahead?". */
+   Done / Skip (both move on to the next item) and "Worth prepping ahead?".
+   "By meal" shows the same work under each meal: one row per task with a progress ring
+   (checks off that meal's steps only), a one-line summary, and the steps folded out. */
 
 const SECTIONS = [
   ["veg", "Vegetables"],
@@ -38,11 +40,15 @@ export function Prep() {
   const [report, setReport] = useState(null); // task id whose "What's wrong?" box is open
   const [menu, setMenu] = useState(false);
   const [toast, setToast] = useState(null); // { id, why }
+  const [mealGroups, setMealGroups] = useState([]);
+  const [view, setView] = useState(() => store.get("prep.view", "meal")); // "meal" | "task"
+  const [openMealTask, setOpenMealTask] = useState(null); // "mealId:taskId" open in By meal
 
   async function load() {
     const plan = await api.plan();
     const data = await api.prep(plan.id);
     setTasks(data.tasks);
+    setMealGroups(prepMealGroups(data));
     setOpenId((cur) => cur ?? data.tasks.find((t) => !t.done)?.id ?? null);
     setLoaded(true);
   }
@@ -53,9 +59,51 @@ export function Prep() {
 
   const patchLocal = (id, change) => setTasks((cur) => cur.map((t) => (t.id === id ? { ...t, ...change } : t)));
 
+  // Keep both views in step after a check: the task's steps and the by-meal copies.
+  function markSteps(taskId, mealId, keys, done) {
+    const hit = (meal, step) => (mealId == null || meal === mealId) && (keys == null || keys.includes(step.key));
+    setTasks((cur) => cur.map((t) => {
+      if (t.id !== taskId) return t;
+      const meals = (t.meals || []).map((m) => ({ ...m, steps: (m.steps || []).map((st) => (hit(m.id, st) ? { ...st, done } : st)) }));
+      const steps = meals.flatMap((m) => m.steps);
+      return { ...t, meals, done: steps.length ? steps.every((st) => st.done) : done };
+    }));
+    setMealGroups((cur) => cur.map((g) => ({
+      ...g,
+      tasks: g.tasks.map((t) => {
+        if (t.task_id !== taskId) return t;
+        const steps = t.steps.map((st) => (hit(g.id, st) ? { ...st, done } : st));
+        return { ...t, steps, done: steps.every((st) => st.done) };
+      }),
+    })));
+  }
+
+  // By meal: check one meal's steps of a task (never another meal's).
+  async function checkMealSteps(group, task, steps, done) {
+    if (steps.some((st) => st.key == null)) { // older cached task: only whole-task check
+      const full = tasks.find((t) => t.id === task.task_id);
+      if (full) toggle({ ...full, done: !done });
+      return;
+    }
+    const keys = steps.map((st) => st.key);
+    markSteps(task.task_id, group.id, keys, done);
+    try {
+      for (const key of keys) await api.checkPrepItem(task.task_id, { recipe_id: group.id, key, done });
+    } catch (e) {
+      setErr(e.message);
+      load().catch(() => {});
+    }
+  }
+
+  function chooseView(next) {
+    setView(next);
+    store.set("prep.view", next);
+  }
+
   async function toggle(task) {
     const done = !task.done;
     patchLocal(task.id, { done });
+    markSteps(task.id, null, null, done);
     setToast(done ? { id: task.id, why: false } : null);
     try {
       await api.patchPrep(task.id, done);
@@ -147,7 +195,18 @@ export function Prep() {
               <div style={{ width: `${pct}%` }} />
             </div>
 
-            {sections.map((s) => (
+            <div className="pz-view" role="group" aria-label="Show prep">
+              <button type="button" aria-pressed={view === "meal"} onClick={() => chooseView("meal")}>By meal</button>
+              <button type="button" aria-pressed={view === "task"} onClick={() => chooseView("task")}>By task</button>
+            </div>
+
+            {view === "meal" && (
+              <MealView groups={mealGroups} showDone={showDone} openKey={openMealTask}
+                onOpen={(key) => setOpenMealTask(openMealTask === key ? null : key)}
+                onCheck={checkMealSteps} />
+            )}
+
+            {view === "task" && sections.map((s) => (
               <section key={s.key} id={`prep-${s.key}`} className="pz-section">
                 <h2 className="pz-group-label"><span>{s.title}</span><span>{s.done} of {s.all.length}</span></h2>
                 {s.shown.length === 0
@@ -196,6 +255,72 @@ export function Prep() {
         </div>
       )}
     </section>
+  );
+}
+
+function MealView({ groups, showDone, openKey, onOpen, onCheck }) {
+  return groups.map((g) => {
+    const shown = showDone ? g.tasks : g.tasks.filter((t) => !t.done);
+    const left = g.tasks.filter((t) => !t.done).length;
+    return (
+      <section key={g.id} className="pz-meal">
+        <header className="pz-meal-head">
+          <a href={`/recipes/${g.id}`} onClick={(e) => { e.preventDefault(); go(`/recipes/${g.id}`); }}>{g.name}</a>
+          <span className="pz-meal-meta">{[g.day, left ? `${left} to prep` : "All prepped"].filter(Boolean).join(" · ")}</span>
+        </header>
+        {shown.map((t) => (
+          <MealTaskRow key={t.task_id} group={g} task={t} open={openKey === `${g.id}:${t.task_id}`}
+            onOpen={() => onOpen(`${g.id}:${t.task_id}`)} onCheck={onCheck} />
+        ))}
+      </section>
+    );
+  });
+}
+
+const RING = 2 * Math.PI * 11;
+
+function MealTaskRow({ group, task: t, open, onOpen, onCheck }) {
+  const done = t.steps.filter((st) => st.done).length;
+  const total = t.steps.length;
+  const summary = t.quantities.length ? t.quantities.join(" · ") : total === 1 ? "1 step" : `${total} steps`;
+  const progress = done > 0 && !t.done ? `${done} of ${total} · ` : "";
+  const id = `pz-meal-${group.id}-${t.task_id}`;
+  return (
+    <div className={`pz-mtask${open ? " open" : ""}${t.done ? " done" : ""}`}>
+      <div className="pz-mtask-head">
+        <button type="button" className="pz-ring" onClick={() => onCheck(group, t, t.steps, !t.done)}
+          aria-label={`${t.done ? "Mark not done" : "Mark done"}: ${t.title} for ${group.name}`}>
+          <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
+            <circle cx="14" cy="14" r="11" className="pz-ring-track" />
+            {done > 0 && !t.done && <circle cx="14" cy="14" r="11" className="pz-ring-fill" strokeDasharray={`${(RING * done) / total} ${RING}`} transform="rotate(-90 14 14)" />}
+            {t.done && <path d="M9.2 14.4l3.2 3L18.8 11" className="pz-ring-check" />}
+          </svg>
+        </button>
+        <button type="button" className="pz-toggle" aria-expanded={open} aria-controls={id} onClick={onOpen}>
+          <span className="pz-mtask-text">
+            <span className="pz-title">{t.title}</span>
+            <span className="pz-mtask-summary">{progress}{summary}</span>
+          </span>
+          <span className="pz-chev" aria-hidden="true"><Icon name="chevron-down" size={14} /></span>
+        </button>
+      </div>
+      {open && (
+        <div className="pz-mtask-body" id={id}>
+          {t.steps.map((st, i) => (
+            <div key={st.key ?? i} className={`pz-mstep${st.done ? " done" : ""}`}>
+              {st.key != null ? (
+                <button type="button" className="pz-check" aria-label={`${st.done ? "Mark not done" : "Mark done"}: ${st.text}`}
+                  onClick={() => onCheck(group, t, [st], !st.done)}>{st.done && <Icon name="check" size={12} />}</button>
+              ) : <span className="pz-check pz-check-off" aria-hidden="true" />}
+              <p>{st.text}
+                {st.quantities.length > 0 && <span className="pz-amount">{st.quantities.join(" · ")}</span>}
+                {st.added && <span className="pz-added">Added by you</span>}</p>
+            </div>
+          ))}
+          {t.storage && <p className="pz-mtask-storage">{t.storage}</p>}
+        </div>
+      )}
+    </div>
   );
 }
 
