@@ -464,6 +464,8 @@ const KITCHEN_AISLES = [
   { id: "dairy", name: "Dairy, Cheese & Eggs", number: "" },
   { id: "meat", name: "Meat & Seafood", number: "" },
   { id: "pantry", name: "Pantry", number: "" },
+  { id: "deli", name: "Deli", number: "" },
+  { id: "frozen", name: "Frozen", number: "" },
   { id: "other", name: "Other", number: "" },
 ];
 

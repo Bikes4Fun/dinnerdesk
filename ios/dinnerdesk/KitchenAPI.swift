@@ -300,6 +300,8 @@ enum KitchenDefaults {
     KitchenAisle(id: "dairy", name: "Dairy, Cheese & Eggs", number: ""),
     KitchenAisle(id: "meat", name: "Meat & Seafood", number: ""),
     KitchenAisle(id: "pantry", name: "Pantry", number: ""),
+    KitchenAisle(id: "deli", name: "Deli", number: ""),
+    KitchenAisle(id: "frozen", name: "Frozen", number: ""),
     KitchenAisle(id: "other", name: "Other", number: ""),
   ]
 

@@ -48,7 +48,7 @@ from app.domain.ingredient_review import (
     save_group_audit,
     save_group_notes,
 )
-from app.domain.ingredients import aisle_for, pantry_key
+from app.domain.ingredients import NEW_AISLES, aisle_for, pantry_key
 from app.domain.pantry_catalog import collapse_catalog_names, ingredient_name, in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import SemanticPrepEngine, step_key, step_sentences
 from app.domain.prep_presentation import PrepMealPresentation, PrepTaskPresentation
@@ -2629,6 +2629,19 @@ def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
         prefs = json.loads(row["prefs_json"] or "{}")
     except json.JSONDecodeError:
         raise
+    grocery = prefs.get("grocery")
+    aisles = grocery.get("aisles") if isinstance(grocery, dict) else None
+    if isinstance(aisles, list) and aisles:
+        existing = {aisle.get("id") for aisle in aisles if isinstance(aisle, dict)}
+        missing = [
+            {"id": aisle_id, "name": name, "number": ""}
+            for aisle_id, name in NEW_AISLES.items() if aisle_id not in existing
+        ]
+        other_index = next(
+            (index for index, aisle in enumerate(aisles) if isinstance(aisle, dict) and aisle.get("id") == "other"),
+            len(aisles),
+        )
+        aisles[other_index:other_index] = missing
     return {"id": row["id"], "name": row["name"], "prefs": prefs}
 
 

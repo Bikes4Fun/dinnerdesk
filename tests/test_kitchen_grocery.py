@@ -109,6 +109,20 @@ def test_store_and_aisle_survive_a_rebuild(tmp_path):
         assert again["aisle"] == "pantry"
 
 
+def test_new_aisles_extend_saved_order_without_overwriting_custom_aisles(tmp_path):
+    with _client(tmp_path) as client:
+        saved = [
+            {"id": "pantry", "name": "Dry goods", "number": "2"},
+            {"id": "deli", "name": "Deli counter", "number": "4"},
+            {"id": "other", "name": "Other", "number": ""},
+        ]
+        response = client.put("/api/household", json={"prefs": {"grocery": {"aisles": saved}}})
+        assert response.status_code == 200
+        expected = [*saved[:2], {"id": "frozen", "name": "Frozen", "number": ""}, saved[2]]
+        assert response.json()["prefs"]["grocery"]["aisles"] == expected
+        assert client.get("/api/household").json()["prefs"]["grocery"]["aisles"] == expected
+
+
 def test_ingredient_aliases_share_pantry_grocery_and_placement(tmp_path):
     with _client(tmp_path) as client:
         pid = client.get("/api/plans/current").json()["id"]

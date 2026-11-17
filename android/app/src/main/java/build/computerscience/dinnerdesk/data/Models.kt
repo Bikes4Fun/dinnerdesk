@@ -368,6 +368,8 @@ data class ShopAisle(val id: String, val name: String, val number: String = "") 
             ShopAisle("dairy", "Dairy, Cheese & Eggs"),
             ShopAisle("meat", "Meat & Seafood"),
             ShopAisle("pantry", "Pantry"),
+            ShopAisle("deli", "Deli"),
+            ShopAisle("frozen", "Frozen"),
             ShopAisle("other", "Other"),
         )
     }
