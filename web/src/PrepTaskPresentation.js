@@ -28,3 +28,37 @@ export class PrepTaskPresentation {
     return groups;
   }
 }
+
+/** The same tasks grouped by meal ("By meal" view). The server sends `meal_groups`; this
+ *  fallback rebuilds them for older cached responses. An empty server list is authoritative. */
+export function prepMealGroups(data) {
+  if (Array.isArray(data?.meal_groups)) return data.meal_groups;
+  const groups = new Map();
+  for (const task of data?.tasks || []) {
+    for (const meal of task.meals || []) {
+      let steps = (meal.steps || []).map((step) => ({
+        key: step.key ?? null,
+        text: (step.display_text || step.text || "").trim(),
+        quantities: (step.quantities || []).filter(Boolean),
+        added: Boolean(step.added),
+        done: Boolean(step.done),
+      })).filter((step) => step.text);
+      if (!steps.length) {
+        steps = (meal.instructions || []).map((text) => text.trim()).filter(Boolean)
+          .map((text) => ({ key: null, text, quantities: [], added: false, done: Boolean(task.done) }));
+      }
+      if (!steps.length) continue;
+      if (!groups.has(meal.id)) {
+        groups.set(meal.id, { id: meal.id, name: meal.name, day: meal.day ?? null, day_index: meal.day_index ?? null, tasks: [] });
+      }
+      const quantities = [];
+      for (const step of steps) for (const q of step.quantities) if (!quantities.includes(q)) quantities.push(q);
+      groups.get(meal.id).tasks.push({
+        task_id: task.id, title: task.title, quantities, storage: task.storage || "",
+        done: steps.every((step) => step.done), steps,
+      });
+    }
+  }
+  return [...groups.values()].sort((a, b) =>
+    (a.day_index == null) - (b.day_index == null) || (a.day_index ?? 0) - (b.day_index ?? 0));
+}
