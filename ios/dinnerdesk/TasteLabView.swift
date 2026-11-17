@@ -568,6 +568,7 @@ struct TasteLabView: View {
   var swipe = false
   @State private var lab = TasteLab()
   @State private var editingFilters = false
+  @Environment(\.dynamicTypeSize) private var textSize
   @Environment(\.dismiss) private var dismiss
 
   var body: some View {
@@ -726,19 +727,15 @@ struct TasteLabView: View {
 
   private var planView: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 14) {
+      VStack(alignment: .leading, spacing: 12) {
         Text("Plan \(min(lab.round + 1, TasteLab.planRounds)) of \(TasteLab.planRounds)")
           .font(Theme.count).foregroundStyle(Theme.muted)
           .frame(maxWidth: .infinity, alignment: .trailing)
         if lab.swapFrom == nil { banner }
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
           ForEach(lab.plan) { r in
-            // Side by side, not nested, so the bookmark gets its own taps and VoiceOver stop.
-            ZStack(alignment: .topLeading) {
-              Button { lab.openSwap(r.id) } label: { PlanMealCard(recipe: r) }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Swap \(r.name)")
-              SaveForLater(recipeID: r.recipeId, name: r.name, small: true).padding(14)
+            SuggestedMealTile(name: r.name, minutes: r.mins, swap: { lab.openSwap(r.id) }) {
+              RecipePhoto(path: r.photo, fill: true)
             }
           }
         }
@@ -753,7 +750,7 @@ struct TasteLabView: View {
           .foregroundStyle(Theme.muted)
           .frame(maxWidth: .infinity)
       }
-      .padding(20)
+      .padding()
     }
   }
 
@@ -1001,6 +998,66 @@ private struct HeroMosaic: View {
   }
 }
 
+private struct PhotoReportButton: View {
+  let recipeID: Int
+  let name: String
+  @State private var showing = false
+  @State private var note = ""
+  @State private var sending = false
+  @State private var reported = false
+  @State private var error: String?
+
+  var body: some View {
+    Button { showing = true } label: {
+      Image(systemName: reported ? "checkmark" : "flag")
+        .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.ink)
+        .frame(width: 32, height: 32)
+        .background(Theme.surface.opacity(0.94), in: Circle())
+        .frame(width: 44, height: 44).contentShape(Rectangle())
+    }
+    .buttonStyle(.plain).disabled(reported)
+    .accessibilityLabel(reported ? "Photo reported: \(name)" : "Report photo: \(name)")
+    .sheet(isPresented: $showing) {
+      NavigationStack {
+        ScrollView {
+          VStack(alignment: .leading, spacing: 12) {
+            Text(name).font(Theme.action)
+            Text(RecipeReportReason.photo.label).font(Theme.body)
+            TextField("Anything to add? (optional)", text: $note, axis: .vertical)
+              .lineLimit(3...8).padding(12)
+              .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
+            if let error { ErrorBanner(message: error) }
+            Button {
+              sending = true
+              error = nil
+              Task {
+                do {
+                  let _: Ok = try await API.send("recipes/\(recipeID)/report", method: "POST", body: [
+                    "reason": RecipeReportReason.photo.rawValue,
+                    "note": note.trimmingCharacters(in: .whitespacesAndNewlines)
+                  ])
+                  reported = true
+                  showing = false
+                } catch { self.error = error.localizedDescription }
+                sending = false
+              }
+            } label: {
+              Text(sending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
+            }
+            .buttonStyle(.plain).disabled(sending)
+          }.padding()
+        }
+        .background(Theme.bg)
+        .navigationTitle("Report photo").navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showing = false }.disabled(sending) } }
+        .interactiveDismissDisabled(sending)
+      }.tint(Theme.accent)
+    }
+  }
+}
+
 private struct SwipeCard: View {
   let recipe: LabRecipe
   var drag: CGFloat = 0
@@ -1011,6 +1068,11 @@ private struct SwipeCard: View {
       RecipePhoto(path: recipe.photo, fill: true)
         .overlay(alignment: .topLeading) {
           SaveForLater(recipeID: recipe.recipeId, name: recipe.name, small: true).padding(8)
+        }
+        .overlay(alignment: .topTrailing) {
+          if let id = recipe.recipeId, recipe.photo != nil {
+            PhotoReportButton(recipeID: id, name: recipe.name).padding(8)
+          }
         }
         .overlay {
           ZStack {
@@ -1097,36 +1159,6 @@ private struct SwipeStack: View {
       }
     }
     .onChange(of: lab.index) { drag = 0 }
-  }
-}
-
-private struct PlanMealCard: View {
-  let recipe: LabRecipe
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      RecipePhoto(path: recipe.photo, fill: true)
-        .overlay(alignment: .topTrailing) {
-          Image(systemName: "arrow.left.arrow.right")
-            .font(.system(size: 13, weight: .bold))
-            .foregroundStyle(Theme.ink)
-            .padding(7)
-            .background(Theme.surface.opacity(0.92), in: Circle())
-            .padding(8)
-            .accessibilityHidden(true)
-        }
-      Text(recipe.name)
-        .font(Theme.recipeCardName)
-        .foregroundStyle(Theme.ink)
-        .lineLimit(2, reservesSpace: true)
-        .multilineTextAlignment(.leading)
-      if let mins = recipe.mins {
-        Text("\(mins) min").font(Theme.recipeCardServing).foregroundStyle(Theme.muted)
-      }
-    }
-    .padding(10)
-    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.line))
   }
 }
 
