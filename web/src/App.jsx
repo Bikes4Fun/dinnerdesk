@@ -363,7 +363,7 @@ export function App() {
       <div className="main" key={tabRootVersion}>
         {!authStatus.authenticated && !guestNoticeDismissed && <Notice onDismiss={() => setGuestNoticeDismissed(true)}>Using a guest kitchen. Clearing browser data can lose access. <a href="/login">Sign in or create an account</a> to protect your data.</Notice>}
         {emailNudge(authStatus) && !emailNoticeDismissed && page !== "account-security" && <Notice onDismiss={() => setEmailNoticeDismissed(true)}>
-          {authStatus.has_email || authStatus.recovery_email ? "Your email isn't verified yet." : "Your account has no email, so a forgotten password can't be reset."}{" "}
+          {authStatus.has_email || authStatus.recovery_email ? "Your email isn't verified yet, so a password reset can't be sent." : "Your account has no email, so a forgotten password can't be reset."}{" "}
           <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email || authStatus.recovery_email ? "Verify email" : "Add email"}</a>
         </Notice>}
         <WhatsNew />
