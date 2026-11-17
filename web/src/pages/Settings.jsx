@@ -25,7 +25,7 @@ function Link({ href, children, extra, onClick }) {
 export function emailNudge(status) {
   if (!status || !status.authenticated || status.email_verified) return "";
   return status.has_email || status.recovery_email
-    ? "Your email isn't verified yet, so a password reset link might not reach you."
+    ? "Your email isn't verified yet. A password reset still goes to this address."
     : "Your account has no email, so a forgotten password can't be reset.";
 }
 

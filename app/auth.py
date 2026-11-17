@@ -237,7 +237,7 @@ def reset_address_for(conn: Any, name: str) -> Optional[str]:
 
 def start_password_reset(conn: Any, email: str) -> Optional[str]:
     """Make a one-time reset token for this email or username, or None (unknown, no email on file,
-    or too many asks).
+    or too many asks). A verified email is not required.
 
     Callers must answer the same way either way, so nobody can probe which emails have accounts.
     """

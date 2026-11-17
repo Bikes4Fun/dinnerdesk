@@ -24,6 +24,7 @@ def conn(tmp_path):
 
 
 def test_reset_sets_new_password_and_signs_out(conn):
+    assert conn.execute("SELECT email_verified_at FROM users").fetchone()["email_verified_at"] is None
     old_session = conn.execute("SELECT token FROM sessions").fetchone()["token"]
     token = start_password_reset(conn, " ME@example.com ")
     assert token
