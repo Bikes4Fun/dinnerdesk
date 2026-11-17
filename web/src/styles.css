@@ -2076,3 +2076,17 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .kitchen-tested-sheet h2 { font-size: 1.25rem; }
 .kitchen-tested-sheet p { line-height: 1.5; }
 .card-review[aria-pressed="true"] { background: #f1e7ef; color: var(--ink); }
+
+/* Pantry (#187): the whole row is the tap target, plus a select mode with a bottom action bar. */
+.have-row { width: 100%; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; border-bottom: 1px solid var(--line); min-height: 44px; }
+.have-row:hover .have-name { text-decoration: underline; }
+.have-row.is-picked { background: var(--coral-tint); }
+.have-name { flex: 1; min-width: 0; font-weight: 600; }
+.have-tick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid var(--brand); border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--brand); }
+.have-row.is-picked .have-tick { background: var(--brand); color: var(--surface); }
+.have-chev { flex: none; color: var(--muted); font-size: 20px; line-height: 1; }
+.pantry-bulk-bar { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 1rem calc(12px + var(--safe-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.pantry-bulk-bar button { flex: 1 1 auto; min-height: 46px; }
+/* Examples placeholder: muted color rather than 45% opacity, which failed contrast (#35). */
+.pantry-examples { color: var(--muted); }
+.pantry-examples p { margin: 0 0 4px; }
