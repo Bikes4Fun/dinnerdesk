@@ -16,6 +16,8 @@ struct PlanView: View {
   @State private var removing = false
   /// Width of the plan list after its padding. One photo size is chosen from this.
   @State private var totalRowWidth: CGFloat = 350
+  /// True once the plan is taller than the screen, which is when the buttons float (#104).
+  @State private var planOverflows = false
 
   var body: some View {
     NavigationStack {
@@ -110,7 +112,8 @@ struct PlanView: View {
                 }
               }
             }
-            if !plan.slots.isEmpty { 
+            // A plan taller than the screen floats these above the tab bar instead (#104).
+            if !plan.slots.isEmpty && !planOverflows {
               // Side by side only while both labels fit on one line; otherwise stacked so no word breaks.
               ViewThatFits(in: .horizontal) {
                 HStack { planButtons.fixedSize() }
@@ -129,6 +132,12 @@ struct PlanView: View {
         .padding()
       }
       .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
+      .onScrollGeometryChange(for: Bool.self) { geometry in
+        geometry.contentSize.height > geometry.containerSize.height + 1
+      } action: { _, overflows in
+        withMotion { planOverflows = overflows }
+      }
+      .safeAreaInset(edge: .bottom, spacing: 0) { floatingPlanButtons }
       .safeAreaInset(edge: .top, spacing: 0) {
         TabHeader(store.plan?.title ?? "This week") {
           // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
@@ -189,6 +198,23 @@ struct PlanView: View {
     Button { selectTab(.recipes) } label: {
       Label("Add meals", systemImage: "plus")
     }.font(Theme.action).frame(minHeight: 44)
+  }
+
+  /// The same two actions above the tab bar, for a plan taller than the screen (#104). The
+  /// inline pair below the meals is hidden while this shows, so neither is on screen twice.
+  @ViewBuilder private var floatingPlanButtons: some View {
+    if planOverflows && !editing && !(store.plan?.slots.isEmpty ?? true) {
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 10) { planButtons.fixedSize() }
+        VStack(spacing: 8) { planButtons }
+      }
+      .padding(.horizontal, 16)
+      .padding(.vertical, 10)
+      .background(.regularMaterial, in: Capsule())
+      .shadow(color: Theme.ink.opacity(0.22), radius: 11, y: 8)
+      .padding(.bottom, 8)
+      .transition(.opacity)
+    }
   }
 
   /// Turns Edit mode on or off. Leaving it clears any meal selection.
