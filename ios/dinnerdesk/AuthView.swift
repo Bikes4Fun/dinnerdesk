@@ -380,7 +380,7 @@ struct ForgotPasswordView: View {
                 .font(Theme.mealName)
                 .foregroundStyle(Theme.ink)
               Text(
-                "If \(email) has an account with an email on file, a reset link is on its way to that email. It works once, for 1 hour. After you set a new password, come back here and sign in."
+                "If \(email) has an account with a verified email, a reset link is on its way to that email. It works once, for 1 hour. After you set a new password, come back here and sign in."
               )
               .foregroundStyle(Theme.muted)
             }
