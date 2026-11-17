@@ -348,6 +348,8 @@ nonisolated struct PrepMeal: Decodable, Identifiable, Sendable {
   let name: String
   /// The meal's cook day on the plan ("Mon"), or nil when it isn't scheduled.
   let day: String?
+  /// Plan day number for that cook day (orders the "By meal" view); nil when unscheduled.
+  let dayIndex: Int?
   let instructions: [String]
   var steps: [PrepStep]?
 }
@@ -411,6 +413,81 @@ nonisolated final class PrepTaskPresentation: Sendable {
       }
     }
     return groups
+  }
+}
+
+/// "By meal" view: the same prep tasks under each meal (mirrors app/domain/prep_presentation.py
+/// PrepMealPresentation and tests/fixtures/prep_meal_groups.json). Built from the live tasks so
+/// checking a step in either view updates both. A task row holds only that meal's steps.
+nonisolated struct PrepMealStep: Identifiable, Sendable {
+  var id: String { key ?? text }
+  let key: String?
+  let text: String
+  let quantities: [String]
+  let added: Bool
+  let done: Bool
+}
+
+nonisolated struct PrepMealTask: Identifiable, Sendable {
+  var id: Int { taskId }
+  let taskId: Int
+  let title: String
+  let quantities: [String]
+  let storage: String
+  let done: Bool
+  let steps: [PrepMealStep]
+}
+
+nonisolated struct PrepMealGroup: Identifiable, Sendable {
+  let id: Int
+  let name: String
+  let day: String?
+  let dayIndex: Int?
+  var tasks: [PrepMealTask]
+}
+
+nonisolated final class PrepMealPresentation: Sendable {
+  let tasks: [PrepTask]
+
+  init(_ tasks: [PrepTask]) { self.tasks = tasks }
+
+  var mealGroups: [PrepMealGroup] {
+    var groups: [PrepMealGroup] = []
+    for task in tasks {
+      for meal in task.meals {
+        var steps: [PrepMealStep] = (meal.steps ?? []).compactMap { step in
+          let display = step.displayText ?? ""
+          let text = (display.isEmpty ? step.text : display).trimmingCharacters(in: .whitespacesAndNewlines)
+          guard !text.isEmpty else { return nil }
+          return PrepMealStep(
+            key: step.key, text: text, quantities: (step.quantities ?? []).filter { !$0.isEmpty },
+            added: step.added == true, done: step.done == true)
+        }
+        if steps.isEmpty {  // older cached tasks only carry plain instructions
+          steps = meal.instructions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { PrepMealStep(key: nil, text: $0, quantities: [], added: false, done: task.done) }
+        }
+        guard !steps.isEmpty else { continue }
+        var quantities: [String] = []
+        for step in steps { for q in step.quantities where !quantities.contains(q) { quantities.append(q) } }
+        let row = PrepMealTask(
+          taskId: task.id, title: task.title, quantities: quantities, storage: task.storage ?? "",
+          done: steps.allSatisfy(\.done), steps: steps)
+        if let i = groups.firstIndex(where: { $0.id == meal.id }) {
+          groups[i].tasks.append(row)
+        } else {
+          groups.append(PrepMealGroup(id: meal.id, name: meal.name, day: meal.day, dayIndex: meal.dayIndex, tasks: [row]))
+        }
+      }
+    }
+    // Cook-day order, unscheduled last; stable for ties.
+    return groups.enumerated().sorted { a, b in
+      let ka = (a.element.dayIndex == nil ? 1 : 0, a.element.dayIndex ?? 0, a.offset)
+      let kb = (b.element.dayIndex == nil ? 1 : 0, b.element.dayIndex ?? 0, b.offset)
+      return ka < kb
+    }.map(\.element)
   }
 }
 
