@@ -226,6 +226,8 @@ data class PrepMeal(
     val name: String = "",
     /** The meal's cook day on the plan ("Mon"), or null when it isn't scheduled. */
     val day: String? = null,
+    /** Plan day number for that cook day (orders the "By meal" view); null when unscheduled. */
+    @SerialName("day_index") val dayIndex: Int? = null,
     val instructions: List<String> = emptyList(),
     val steps: List<PrepStep>? = null,
 )
@@ -274,6 +276,48 @@ class PrepTaskPresentation(private val task: PrepTask) {
                 }
             }
             return groups
+        }
+}
+
+/**
+ * "By meal" view: the same prep tasks under each meal (mirrors app/domain/prep_presentation.py
+ * PrepMealPresentation and tests/fixtures/prep_meal_groups.json). Built from the live tasks so
+ * checking a step in either view updates both. A task row holds only that meal's steps.
+ */
+data class PrepMealStep(val key: String?, val text: String, val quantities: List<String>, val added: Boolean, val done: Boolean)
+
+data class PrepMealTask(
+    val taskId: Int, val title: String, val quantities: List<String>, val storage: String,
+    val done: Boolean, val steps: List<PrepMealStep>,
+)
+
+data class PrepMealGroup(val id: Int, val name: String, val day: String?, val dayIndex: Int?, val tasks: List<PrepMealTask>)
+
+class PrepMealPresentation(private val tasks: List<PrepTask>) {
+    val mealGroups: List<PrepMealGroup>
+        get() {
+            val groups = linkedMapOf<Int, PrepMealGroup>()
+            for (task in tasks) {
+                for (meal in task.meals) {
+                    var steps = meal.steps.orEmpty().mapNotNull { step ->
+                        val text = (step.displayText?.takeIf { it.isNotEmpty() } ?: step.text).trim()
+                        if (text.isEmpty()) null
+                        else PrepMealStep(step.key, text, step.quantities.filter { it.isNotEmpty() }, step.added == true, step.done == true)
+                    }
+                    if (steps.isEmpty()) { // older cached tasks only carry plain instructions
+                        steps = meal.instructions.map { it.trim() }.filter { it.isNotEmpty() }
+                            .map { PrepMealStep(null, it, emptyList(), false, task.done) }
+                    }
+                    if (steps.isEmpty()) continue
+                    val quantities = steps.flatMap { it.quantities }.distinct()
+                    val row = PrepMealTask(task.id, task.title, quantities, task.storage ?: "", steps.all { it.done }, steps)
+                    val group = groups[meal.id]
+                    groups[meal.id] = group?.copy(tasks = group.tasks + row)
+                        ?: PrepMealGroup(meal.id, meal.name, meal.day, meal.dayIndex, listOf(row))
+                }
+            }
+            // Cook-day order, unscheduled last; sortedWith is stable for ties.
+            return groups.values.sortedWith(compareBy({ it.dayIndex == null }, { it.dayIndex ?: 0 }))
         }
 }
 

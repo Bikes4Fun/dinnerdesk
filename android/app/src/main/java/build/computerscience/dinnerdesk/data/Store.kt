@@ -506,6 +506,36 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         loadPrep()
     }
 
+    /**
+     * "By meal": check off one meal's steps in a task (never another meal's). Older cached
+     * tasks without step keys fall back to the whole-task check.
+     */
+    suspend fun setPrepMealSteps(taskId: Int, mealId: Int, keys: List<String?>, done: Boolean) {
+        val task = prepTasks.firstOrNull { it.id == taskId } ?: return
+        val stepKeys = keys.filterNotNull()
+        if (stepKeys.size != keys.size) {
+            if (task.done != done) togglePrep(task)
+            return
+        }
+        prepTasks = prepTasks.map { t ->
+            if (t.id != taskId) t else {
+                val meals = t.meals.map { m ->
+                    if (m.id != mealId) m else m.copy(steps = m.steps?.map { if (it.key in stepKeys) it.copy(done = done) else it })
+                }
+                t.copy(meals = meals, done = meals.all { m -> m.steps.orEmpty().all { it.done == true } })
+            }
+        }
+        try {
+            for (key in stepKeys) {
+                val result: PrepItemResult = Api.send("prep/$taskId/steps", "PUT", mapOf("recipe_id" to mealId, "key" to key, "done" to done))
+                prepTasks = prepTasks.map { if (it.id == taskId) it.copy(done = result.done) else it }
+            }
+        } catch (e: Throwable) {
+            fail(e)
+            loadPrep()
+        }
+    }
+
     /** Thumbs on a meal. A 👎 meal is never suggested again; a 👍 pulls similar meals in. */
     suspend fun rateMeal(slot: PlanSlot, rating: Int) {
         val before = slot.rating ?: 0
