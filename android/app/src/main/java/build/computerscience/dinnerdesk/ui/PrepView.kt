@@ -76,6 +76,9 @@ import build.computerscience.dinnerdesk.data.Copy
 import build.computerscience.dinnerdesk.data.MissingPrepMeal
 import build.computerscience.dinnerdesk.data.MissingPrepStep
 import build.computerscience.dinnerdesk.data.PrepMeal
+import build.computerscience.dinnerdesk.data.PrepMealGroup
+import build.computerscience.dinnerdesk.data.PrepMealPresentation
+import build.computerscience.dinnerdesk.data.PrepMealTask
 import build.computerscience.dinnerdesk.data.PrepReason
 import build.computerscience.dinnerdesk.data.PrepTask
 import kotlinx.coroutines.delay
@@ -97,7 +100,8 @@ private class PrepGroup(val section: PrepSection, val all: List<PrepTask>, val s
 }
 
 /**
- * Weekend prep, grouped by what the food is (#21). One row per item however many meals use it.
+ * Weekend prep (#21). "By meal" (default) shows one card per meal with a row per task, whose ring
+ * checks that meal's steps; "By task" groups by what the food is (mirrors web .pz-view). One row per item however many meals use it.
  * A progress ring and one bar per section up top; collapsible sections; 👍/👎 on the open item;
  * a done item leaves its section unless "Show completed" is on, and a short-lived bar offers Undo.
  */
@@ -116,6 +120,8 @@ fun PrepView() {
     var detailsOpen by remember { mutableStateOf(setOf<Int>()) }
     var toast by remember { mutableStateOf<Int?>(null) }
     var missingOpen by remember { mutableStateOf(false) }
+    var prepView by remember { mutableStateOf(prefs.getString("prep.view", "meal") ?: "meal") }
+    var openMealTask by remember { mutableStateOf<String?>(null) }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val offsets = remember { mutableMapOf<String, Int>() }
@@ -162,8 +168,28 @@ fun PrepView() {
                         PrepHeader(tasks.size, doneCount, groups, showDone, onToggleDone = {
                             showDone = !showDone
                             prefs.edit().putBoolean("prep.showDone", showDone).apply()
-                        }) { key -> offsets[key]?.let { y -> scope.launch { scroll.animateScrollTo(y) } } }
-                        for (g in groups) {
+                        }) { key ->
+                            // The section bars jump to By task sections.
+                            if (prepView != "task") {
+                                prepView = "task"
+                                prefs.edit().putString("prep.view", "task").apply()
+                            }
+                            scope.launch { delay(50); offsets[key]?.let { y -> scroll.animateScrollTo(y) } }
+                        }
+                        PrepViewSwitch(prepView) { next ->
+                            prepView = next
+                            prefs.edit().putString("prep.view", next).apply()
+                        }
+                        if (prepView == "meal") {
+                            for (g in PrepMealPresentation(tasks).mealGroups) {
+                                MealCard(
+                                    g, showDone, openKey = openMealTask,
+                                    onOpen = { key -> openMealTask = if (openMealTask == key) null else key },
+                                    openRecipe = { nav.push(Route.Recipe(it)) },
+                                ) { task, keys, done -> store.launch { setPrepMealSteps(task.taskId, g.id, keys, done) } }
+                            }
+                        }
+                        if (prepView == "task") for (g in groups) {
                             Box(Modifier.onGloballyPositioned { offsets[g.section.key] = it.positionInParent().y.toInt() }) {
                                 SectionBlock(
                                     g, open = g.section.key !in closed,
@@ -227,6 +253,131 @@ fun PrepView() {
         }
     }
     if (missingOpen) Sheet(onDismiss = { missingOpen = false }) { MissingPrepSheet() }
+}
+
+/** By meal / By task switch (mirrors .pz-view on web). */
+@Composable
+private fun PrepViewSwitch(selected: String, onSelect: (String) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(14.dp)).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        for ((key, label) in listOf("meal" to "By meal", "task" to "By task")) {
+            val on = selected == key
+            Box(
+                Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp))
+                    .background(if (on) Theme.ink else Color.Transparent)
+                    .clickable { onSelect(key) }
+                    .semantics { contentDescription = if (on) "$label, selected" else label },
+                contentAlignment = Alignment.Center,
+            ) { Text(label, style = Theme.chipLabel, color = if (on) Theme.surface else Theme.ink) }
+        }
+    }
+}
+
+@Composable
+private fun MealCard(
+    g: PrepMealGroup, showDone: Boolean, openKey: String?, onOpen: (String) -> Unit,
+    openRecipe: (Int) -> Unit, onCheck: (PrepMealTask, List<String?>, Boolean) -> Unit,
+) {
+    val shown = if (showDone) g.tasks else g.tasks.filter { !it.done }
+    val left = g.tasks.count { !it.done }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Theme.surface)
+            .border(1.dp, Theme.line, RoundedCornerShape(16.dp))
+            .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 4.dp),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { openRecipe(g.id) }.padding(bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(g.name, style = Theme.action, color = Theme.ink)
+            Text(listOfNotNull(g.day, if (left > 0) "$left to prep" else "All prepped").joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
+        }
+        for (t in shown) {
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Theme.line))
+            MealTaskRow(g, t, open = openKey == "${g.id}:${t.taskId}", onOpen = { onOpen("${g.id}:${t.taskId}") }, onCheck = onCheck)
+        }
+    }
+}
+
+@Composable
+private fun MealTaskRow(
+    g: PrepMealGroup, t: PrepMealTask, open: Boolean, onOpen: () -> Unit,
+    onCheck: (PrepMealTask, List<String?>, Boolean) -> Unit,
+) {
+    val done = t.steps.count { it.done }
+    val total = t.steps.size.coerceAtLeast(1)
+    val summary = if (t.quantities.isNotEmpty()) t.quantities.joinToString(" · ")
+        else if (t.steps.size == 1) "1 step" else "${t.steps.size} steps"
+    val progress = if (done > 0 && !t.done) "$done of ${t.steps.size} · " else ""
+    Column {
+        Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(44.dp).clip(CircleShape).clickable { onCheck(t, t.steps.map { it.key }, !t.done) }
+                    .semantics { contentDescription = "${if (t.done) "Mark not done" else "Mark done"}: ${t.title} for ${g.name}" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(Modifier.size(24.dp)) {
+                    val w = 2.4.dp.toPx()
+                    val arc = Size(size.width - w, size.height - w)
+                    val at = Offset(w / 2, w / 2)
+                    drawCircle(if (t.done) Theme.coral else Theme.surface)
+                    drawArc(if (t.done) Theme.coral else Theme.dash, 0f, 360f, false, at, arc, style = Stroke(w))
+                    if (done > 0 && !t.done) drawArc(Theme.coral, -90f, 360f * done / total, false, at, arc, style = Stroke(w))
+                }
+                if (t.done) Icon(Icons.Filled.Check, null, tint = Theme.ink, modifier = Modifier.size(14.dp))
+            }
+            Row(
+                Modifier.weight(1f).heightIn(min = 64.dp).clickable(onClick = onOpen).padding(start = 4.dp, top = 10.dp, bottom = 10.dp)
+                    .semantics { contentDescription = "${t.title}, $progress$summary, ${if (open) "expanded" else "collapsed"}" },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        t.title, style = Theme.action, color = if (t.done) Theme.muted else Theme.bodyInk,
+                        textDecoration = if (t.done) TextDecoration.LineThrough else null,
+                    )
+                    Text(progress + summary, style = Theme.stepText, color = Theme.muted)
+                }
+                Icon(
+                    Icons.Filled.KeyboardArrowDown, null, tint = Theme.muted,
+                    modifier = Modifier.size(22.dp).rotate(if (open) 180f else 0f),
+                )
+            }
+        }
+        if (open) {
+            Column(Modifier.padding(start = 44.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                for (step in t.steps) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        val key = step.key
+                        Box(
+                            Modifier.size(36.dp).clip(CircleShape)
+                                .then(if (key != null) Modifier.clickable { onCheck(t, listOf(key), !step.done) } else Modifier)
+                                .semantics { contentDescription = "${if (step.done) "Mark not done" else "Mark done"}: ${step.text}" },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Box(
+                                Modifier.size(22.dp).clip(CircleShape)
+                                    .background(if (step.done) Theme.coral else Theme.surface)
+                                    .border(1.5.dp, if (step.done) Theme.coral else Theme.dash, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) { if (step.done) Icon(Icons.Filled.Check, null, tint = Theme.ink, modifier = Modifier.size(12.dp)) }
+                        }
+                        Column(Modifier.weight(1f).padding(top = 7.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                step.text, style = Theme.stepText, color = if (step.done) Theme.muted else Theme.bodyInk,
+                                textDecoration = if (step.done) TextDecoration.LineThrough else null,
+                            )
+                            if (step.quantities.isNotEmpty()) Text(step.quantities.joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
+                            if (step.added) Text("Added by you", style = Theme.subtitle, color = Theme.muted)
+                        }
+                    }
+                }
+                if (t.storage.isNotEmpty()) Text(t.storage, style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
 }
 
 @Composable
