@@ -17,7 +17,7 @@ struct PlanView: View {
   /// Width of the plan list after its padding. One photo size is chosen from this.
   @State private var totalRowWidth: CGFloat = 350
   /// True once the plan is taller than the screen, which is when the buttons float (#104).
-  @State private var planOverflows = false
+  @State private var inlineButtonsSeen = true
 
   var body: some View {
     NavigationStack {
@@ -112,12 +112,15 @@ struct PlanView: View {
                 }
               }
             }
-            // A plan taller than the screen floats these above the tab bar instead (#104).
-            if !plan.slots.isEmpty && !planOverflows {
+            if !plan.slots.isEmpty {
               // Side by side only while both labels fit on one line; otherwise stacked so no word breaks.
               ViewThatFits(in: .horizontal) {
                 HStack { planButtons.fixedSize() }
                 VStack(alignment: .leading) { planButtons }
+              }
+              // While this pair is scrolled out of sight, the same actions float instead (#104).
+              .onScrollVisibilityChange(threshold: 0.01) { seen in
+                withMotion { inlineButtonsSeen = seen }
               }
             }
           } else {
@@ -132,12 +135,7 @@ struct PlanView: View {
         .padding()
       }
       .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
-      .onScrollGeometryChange(for: Bool.self) { geometry in
-        geometry.contentSize.height > geometry.containerSize.height + 1
-      } action: { _, overflows in
-        withMotion { planOverflows = overflows }
-      }
-      .safeAreaInset(edge: .bottom, spacing: 0) { floatingPlanButtons }
+      .overlay(alignment: .bottom) { floatingPlanButtons }
       .safeAreaInset(edge: .top, spacing: 0) {
         TabHeader(store.plan?.title ?? "This week") {
           // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
@@ -200,10 +198,11 @@ struct PlanView: View {
     }.font(Theme.action).frame(minHeight: 44)
   }
 
-  /// The same two actions above the tab bar, for a plan taller than the screen (#104). The
-  /// inline pair below the meals is hidden while this shows, so neither is on screen twice.
+  /// The same two actions floating above the plan while the inline pair is scrolled out of
+  /// sight (#104), so a full week doesn't hide New meal plan below every meal. Web and Android
+  /// do the same, and scrolling down to the real pair takes this away.
   @ViewBuilder private var floatingPlanButtons: some View {
-    if planOverflows && !editing && !(store.plan?.slots.isEmpty ?? true) {
+    if !inlineButtonsSeen && !editing && !(store.plan?.slots.isEmpty ?? true) {
       ViewThatFits(in: .horizontal) {
         HStack(spacing: 10) { planButtons.fixedSize() }
         VStack(spacing: 8) { planButtons }
