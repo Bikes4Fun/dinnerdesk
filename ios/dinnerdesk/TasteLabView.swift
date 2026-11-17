@@ -613,7 +613,7 @@ struct TasteLabView: View {
   private var title: String {
     switch lab.screen {
     case .swipe: "Keep going"
-    case .plan: "Suggested dinners"
+    case .plan: "Review your suggestions"
     case .history: "Swipe history"
     case .empty: lab.phase == .free ? "No new meals to swipe" : "No meals match"
     default: "Taste Lab"
@@ -737,12 +737,19 @@ struct TasteLabView: View {
             SuggestedMealTile(name: r.name, minutes: r.mins, swap: { lab.openSwap(r.id) }) {
               RecipePhoto(path: r.photo, fill: true)
             }
+            .overlay(alignment: .topLeading) {
+              SaveForLater(recipeID: r.recipeId, name: r.name, small: true).padding(8)
+            }
           }
         }
-        HStack(spacing: 10) {
-          LabButton("Not for us", systemImage: "hand.thumbsdown", primary: false) { lab.judgePlan("down") }
-          LabButton("This plan works", systemImage: "hand.thumbsup") { lab.judgePlan("up") }
+        Group {
+          if textSize.isAccessibilitySize {
+            VStack(spacing: 10) { planActions }
+          } else {
+            HStack(spacing: 10) { planActions }
+          }
         }
+        .padding(.top, 4)
         .disabled(lab.busy)
         links
         Button("Done for now") { lab.finish() }
@@ -752,6 +759,11 @@ struct TasteLabView: View {
       }
       .padding()
     }
+  }
+
+  @ViewBuilder private var planActions: some View {
+    LabButton("This plan works") { lab.judgePlan("up") }
+    LabButton("Not for us", primary: false) { lab.judgePlan("down") }
   }
 
   private var doneView: some View {
@@ -860,7 +872,7 @@ private struct LabButton: View {
     Button(action: action) {
       HStack(spacing: 8) {
         if let systemImage { Image(systemName: systemImage) }
-        Text(title).lineLimit(1).minimumScaleFactor(0.8)
+        Text(title).multilineTextAlignment(.center)
       }
       .font(Theme.action)
       .foregroundStyle(primary ? Theme.bg : Theme.ink)
@@ -868,7 +880,7 @@ private struct LabButton: View {
       .background(primary ? Theme.ink : Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
       .overlay(
         RoundedRectangle(cornerRadius: 14, style: .continuous)
-          .strokeBorder(primary ? Color.clear : Theme.line)
+          .strokeBorder(primary ? Color.clear : Theme.line, lineWidth: 1.5)
       )
     }
     .buttonStyle(.plain)

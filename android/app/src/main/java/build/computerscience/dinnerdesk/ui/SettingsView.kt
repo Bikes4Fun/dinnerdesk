@@ -673,7 +673,7 @@ private fun DeleteAccountSheet(alone: Boolean, onDeleted: () -> Unit) {
     }
 }
 
-/** Taste Lab stays a web page (the swipe engine lives on the server); shown in a web view. */
+/** Taste Lab shares the web swipe engine; its app presentation mirrors native plan review. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 fun TasteLabView(swipe: Boolean = false) {
@@ -681,8 +681,12 @@ fun TasteLabView(swipe: Boolean = false) {
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
+    val largeText = isAccessibilitySize
     val url = Api.origin.newBuilder().addPathSegments("tastelab/").addQueryParameter("chrome", "app")
-        .apply { if (swipe) addQueryParameter("swipe", "1") }.build()
+        .apply {
+            if (swipe) addQueryParameter("swipe", "1")
+            if (largeText) addQueryParameter("large-text", "1")
+        }.build()
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar("Taste Lab")
