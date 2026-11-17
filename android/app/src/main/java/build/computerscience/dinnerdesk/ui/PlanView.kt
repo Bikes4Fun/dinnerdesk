@@ -620,11 +620,15 @@ fun SuggestedPlanReview() {
                             RecipePhoto(slot.photoPath, fill = true, corner = 14.dp)
                             if (suggested) {
                                 Box(
-                                    Modifier.align(Alignment.TopEnd).padding(6.dp).size(44.dp).shadow(3.dp, CircleShape).background(Theme.surface, CircleShape)
+                                    Modifier.align(Alignment.TopEnd).size(44.dp)
                                         .clickable(enabled = proposal?.status == "suggested" && !disabled) { swapping = slot }
                                         .semantics { contentDescription = "Swap meal: ${slot.recipeName}" },
                                     contentAlignment = Alignment.Center,
-                                ) { Icon(Icons.Filled.Sync, null, tint = Theme.accent, modifier = Modifier.size(22.dp)) }
+                                ) {
+                                    Box(Modifier.size(28.dp).shadow(2.dp, CircleShape).background(Theme.surface, CircleShape), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Filled.Sync, null, tint = Theme.accent, modifier = Modifier.size(16.dp))
+                                    }
+                                }
                             }
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
