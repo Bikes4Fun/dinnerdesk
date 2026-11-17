@@ -505,6 +505,10 @@ fun AccountView() {
                     ListRow {
                         Text("This account has a username instead of an email, so there's no reset link. If you forget your password, the account can't be recovered.", style = Theme.subtitle, color = Theme.muted)
                     }
+                } else if (session.status?.emailVerified != true) {
+                    ListRow {
+                        Text("Your email isn't verified yet, so a password reset can't be sent.", style = Theme.subtitle, color = Theme.muted)
+                    }
                 } else {
                     ListRow(onClick = if (busy) null else ({
                         action {

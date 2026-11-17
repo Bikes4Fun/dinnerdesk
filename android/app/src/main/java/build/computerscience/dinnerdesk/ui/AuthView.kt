@@ -162,7 +162,7 @@ fun ForgotPasswordView(initialEmail: String) {
                             Text("Check your email", style = Theme.mealName, color = Theme.ink)
                         }
                         Text(
-                            "If $email has an account, a reset link is on its way. It works once, for 1 hour. After you set a new password, come back here and sign in.",
+                            "If $email has an account with a verified email, a reset link is on its way. It works once, for 1 hour. After you set a new password, come back here and sign in.",
                             style = Theme.body, color = Theme.muted,
                         )
                     }

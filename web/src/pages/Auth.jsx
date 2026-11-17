@@ -57,7 +57,7 @@ export function Auth({ onAuthed }) {
               {err ? <p className="banner err" role="alert">{err}</p> : null}
               {sent ? (
                 <p className="banner ok" role="status">
-                  If {email} has an account with an email on file, a reset link is on its way to that email. It works once, for 1 hour.
+                  If {email} has an account with a verified email, a reset link is on its way to that email. It works once, for 1 hour.
                 </p>
               ) : (
                 <form onSubmit={submit}>

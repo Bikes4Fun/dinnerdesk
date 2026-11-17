@@ -77,6 +77,6 @@ nonisolated struct AuthStatus: Decodable, Sendable {
     guard authenticated, emailVerified != true else { return nil }
     return hasEmail == false && recoveryEmail == nil
       ? "Your account has no email, so a forgotten password can't be reset."
-      : "Your email isn't verified yet. A password reset still goes to this address."
+      : "Your email isn't verified yet, so a password reset can't be sent."
   }
 }

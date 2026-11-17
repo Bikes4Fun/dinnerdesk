@@ -237,15 +237,16 @@ def reset_address_for(conn: Any, name: str) -> Optional[str]:
 
 def start_password_reset(conn: Any, email: str) -> Optional[str]:
     """Make a one-time reset token for this email or username, or None (unknown, no email on file,
-    or too many asks). A verified email is not required.
+    email not verified, or too many asks).
 
     Callers must answer the same way either way, so nobody can probe which emails have accounts.
     """
     email = (email or "").strip().lower()
     row = conn.execute(
-        "SELECT id, email, recovery_email FROM users WHERE email = ? OR recovery_email = ?", (email, email)
+        "SELECT id, email, recovery_email, email_verified_at FROM users WHERE email = ? OR recovery_email = ?",
+        (email, email),
     ).fetchone()
-    if not row or not reset_address(row):
+    if not row or not reset_address(row) or not row["email_verified_at"]:
         return None
     since = (datetime.now(timezone.utc) - timedelta(hours=1)).replace(microsecond=0).isoformat()
     recent = conn.execute(
@@ -269,12 +270,12 @@ def start_password_reset(conn: Any, email: str) -> Optional[str]:
 def finish_password_reset(conn: Any, token: str, new_password: str) -> str:
     """Set a new password from a reset link. Signs out everywhere, then returns a fresh session."""
     row = conn.execute(
-        """SELECT pr.user_id, pr.expires_at, pr.used_at, u.household_id
+        """SELECT pr.user_id, pr.expires_at, pr.used_at, u.household_id, u.email_verified_at
            FROM password_resets pr JOIN users u ON u.id = pr.user_id
            WHERE pr.token_hash = ?""",
         (_reset_hash(token or ""),),
     ).fetchone()
-    if not row or row["used_at"]:
+    if not row or row["used_at"] or not row["email_verified_at"]:
         raise AuthError("reset_invalid")
     if datetime.fromisoformat(row["expires_at"]) < datetime.now(timezone.utc):
         raise AuthError("reset_expired")
@@ -756,9 +757,14 @@ def record_device(conn: Any, token: str, user_agent: str, app: str = "") -> None
 
 
 def admin_send_reset(conn: Any, user_id: int) -> tuple[str, str] | None:
-    """A reset token and where to send it, or None (no email on file, or too many this hour)."""
+    """A reset token and where to send it, or None (no email on file, or too many this hour).
+
+    Raises email_unverified when the address on file hasn't been confirmed.
+    """
     user = _member(conn, user_id)
     to = reset_address(user)
+    if to and not user["email_verified_at"]:
+        raise AuthError("email_unverified")
     token = start_password_reset(conn, user["email"]) if to else None
     return (to, token) if token else None
 
