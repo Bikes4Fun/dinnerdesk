@@ -1112,11 +1112,11 @@ def test_prep_progress_survives_regrouping_but_changed_steps_reset(tmp_path):
         client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
         client.patch(f"/api/recipes/{recipe['id']}", json={"name": "Chicken with mashed potatoes"})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
-        potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
+        potato = next(t for t in tasks if t["title"] == "Make mashed potatoes")
         assert potato["done"] and potato["meals"][0]["steps"][0]["done"]
         client.patch(f"/api/recipes/{recipe['id']}", json={"instructions": [{"text": "Peel and dice potatoes."}, {"text": "Dice onions."}]})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
-        potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
+        potato = next(t for t in tasks if t["title"] == "Make mashed potatoes")
         assert not potato["done"] and not potato["meals"][0]["steps"][0]["done"]
 
 

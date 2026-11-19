@@ -270,9 +270,17 @@ class PrepTaskPresentation(private val task: PrepTask) {
                     val quantities = step.quantities.filter { it.isNotEmpty() }
                     val added = step.added == true
                     val link = PrepInstructionMeal(meal.id, meal.name, meal.day)
-                    val index = groups.indexOfFirst { it.text.equals(text, ignoreCase = true) && it.quantities == quantities && it.added == added }
-                    if (index < 0) groups.add(PrepInstructionGroup(text, quantities, added, listOf(link)))
-                    else if (groups[index].meals.none { it.id == meal.id }) groups[index] = groups[index].copy(meals = groups[index].meals + link)
+                    // Equal wording is one row whatever each meal's amount is (#116); the amounts
+                    // are kept in first-seen order. An added step stays separate, as the apps mark it.
+                    val index = groups.indexOfFirst { it.text.equals(text, ignoreCase = true) && it.added == added }
+                    if (index < 0) {
+                        groups.add(PrepInstructionGroup(text, quantities, added, listOf(link)))
+                    } else {
+                        val group = groups[index]
+                        val merged = group.quantities + quantities.filterNot { it in group.quantities }
+                        val meals = if (group.meals.none { it.id == meal.id }) group.meals + link else group.meals
+                        groups[index] = group.copy(quantities = merged, meals = meals)
+                    }
                 }
             }
             return groups
