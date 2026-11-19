@@ -25,13 +25,14 @@ import androidx.compose.material.icons.automirrored.outlined.List
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.Feedback
 import androidx.compose.material.icons.outlined.Gesture
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Kitchen
-import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material.icons.outlined.SwapHoriz
@@ -54,6 +55,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
@@ -84,13 +86,21 @@ import kotlinx.coroutines.launch
 fun MoreView() {
     val session = LocalSession.current
     val nav = LocalNav.current
+    val showPrep = LocalConfiguration.current.screenWidthDp >= 390 && !isAccessibilitySize
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         ThemeList {
             LargeTitle("More")
-            ListRow({ nav.push(Route.PrepHome) }) { ThemeIconRow("Weekend prep", Icons.AutoMirrored.Outlined.Assignment) }
-            ListRow({ nav.push(Route.Kitchen) }) { ThemeIconRow("My Kitchen and Groceries", Icons.Outlined.Kitchen) }
+            ListRow({ nav.push(Route.Kitchen) }) { ThemeIconRow("My Kitchen", Icons.Outlined.Kitchen) }
+            if (!showPrep) {
+                ListRow({ nav.push(Route.PrepHome) }) { ThemeIconRow("Weekend prep", Icons.AutoMirrored.Outlined.Assignment) }
+            }
             ListRow({ nav.push(Route.TasteLab()) }) { ThemeIconRow("Taste Lab", Icons.Outlined.Gesture) }
-            ListRow({ session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
+            ListRow({ nav.push(Route.Account) }) {
+                ThemeIconRow("Account & security", Icons.Outlined.AccountCircle, session.status?.email ?: "Guest")
+            }
+            ListRow({ nav.push(Route.Feedback) }) {
+                ThemeIconRow("Report a bug or suggest a feature", Icons.Outlined.Feedback)
+            }
             ListRow({ nav.push(Route.Settings) }) { ThemeIconRow("Settings", Icons.Outlined.Settings) }
         }
     }

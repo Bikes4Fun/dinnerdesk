@@ -4,7 +4,7 @@ import Foundation
 
 /// Search filter chips on the Recipes screen. Same keys and labels as web and Android.
 nonisolated enum RecipeSearchFilter: String, CaseIterable, Identifiable, Sendable {
-  case fav, tryLater, popular, quick, pantry, hidden, comingSoon, reviewed
+  case fav, tryLater, popular, reviewed, quick, pantry, hidden, comingSoon
   var id: String { rawValue }
 
   var label: String {
