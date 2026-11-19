@@ -3,6 +3,8 @@ package build.computerscience.dinnerdesk.ui
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -91,10 +93,14 @@ fun NavStack(nav: Nav, modifier: Modifier = Modifier, content: @Composable (Rout
         }
     }
     val top = nav.entries.last()
+    val reduceMotion = isReduceMotion
     AnimatedContent(
         targetState = top,
         transitionSpec = {
-            if (targetState.id > initialState.id) {
+            // Reduce Motion: cross-fade instead of sliding the screen across.
+            if (reduceMotion) {
+                fadeIn(tween(120)) togetherWith fadeOut(tween(120))
+            } else if (targetState.id > initialState.id) {
                 slideInHorizontally(tween(280)) { it } togetherWith slideOutHorizontally(tween(280)) { -it / 3 }
             } else {
                 slideInHorizontally(tween(280)) { -it / 3 } togetherWith slideOutHorizontally(tween(280)) { it }
