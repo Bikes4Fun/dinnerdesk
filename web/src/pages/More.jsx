@@ -1,14 +1,19 @@
 import { go } from "../nav.js";
 
-function Link({ href, children, extra, onClick }) {
+function Link({ href, children, extra, onClick, className }) {
   return (
-    <button type="button" className="list-link" onClick={onClick || (() => go(href))}>
+    <button
+      type="button"
+      className={["list-link", className].filter(Boolean).join(" ")}
+      onClick={onClick || (() => go(href))}
+    >
       {children}
       {extra ? <em>{extra}</em> : null}
     </button>
   );
 }
 
+/** Matches iOS More: Kitchen, Prep (when no Prep tab), Taste Lab, Account, Feedback, Settings. */
 export function More() {
   return (
     <section className="screen">
@@ -17,16 +22,12 @@ export function More() {
       </header>
       <div className="scroll pad">
         <Link href="/kitchen">My kitchen</Link>
-        <Link href="/prep">Prep</Link>
+        {/* Shown only when the Prep tab is hidden (narrow screens). */}
+        <Link href="/prep" className="more-prep-when-no-tab">Weekend prep</Link>
         <Link href="/settings/tastelab">Taste Lab</Link>
-        <Link href="/recipes?list=hidden">Hidden recipes</Link>
+        <Link href="/settings/account">Account &amp; security</Link>
+        <Link href="/settings/feedback">Report a bug or suggest a feature</Link>
         <Link href="/settings">Settings</Link>
-        <Link href="/about">About</Link>
-        <a className="list-link" href="https://x.com/DinnerDesk" target="_blank" rel="noopener noreferrer">
-          Twitter
-          <em>@DinnerDesk</em>
-        </a>
-        <Link onClick={() => window.dispatchEvent(new Event("dinnerdesk-tour"))}>Quick start tour</Link>
       </div>
     </section>
   );
