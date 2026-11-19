@@ -21,8 +21,6 @@ struct PlanView: View {
   @State private var removing = false
   /// Width of the plan list after its padding. One photo size is chosen from this.
   @State private var totalRowWidth: CGFloat = 350
-  /// True once the plan is taller than the screen, which is when the buttons float (#104).
-  @State private var inlineButtonsSeen = true
 
   var body: some View {
     NavigationStack {
@@ -151,7 +149,6 @@ struct PlanView: View {
         }
       }
       .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
-      .overlay(alignment: .bottom) { floatingPlanButtons }
       .safeAreaInset(edge: .top, spacing: 0) {
         TabHeader(store.plan?.title ?? "This week") {
           // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.

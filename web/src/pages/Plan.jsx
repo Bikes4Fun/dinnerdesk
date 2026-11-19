@@ -1,6 +1,5 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { useEffect, useRef, useState } from "react";
-import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
