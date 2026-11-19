@@ -43,29 +43,27 @@
   .hide-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; width: 100%; }
   .hide-label { color: var(--muted); font-size: 13px; }
   #hides button.chip[aria-pressed="true"] { text-decoration: line-through; border-color: var(--warn); color: var(--muted); font-weight: 500; }
-  .split { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
-  .list { flex: 999 1 520px; min-width: 0; overflow: hidden; }
+  .list { min-width: 0; overflow: hidden; }
   .scrollx { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
   .list table { min-width: 640px; }
   th { text-align: left; color: var(--muted); font-size: 13px; font-weight: 500; padding: 10px 14px; border-bottom: 1px solid var(--line); }
   td { padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  .list tbody tr { cursor: pointer; }
-  .list tbody tr:hover, .list tbody tr[aria-selected="true"] { background: var(--sel); }
+  .list tbody tr[data-key] { cursor: pointer; }
+  .list tbody tr[data-key]:hover, .list tbody tr[aria-selected="true"] { background: var(--sel); }
+  .list tbody tr.fold > td { padding: 0; background: var(--bg); }
+  .fold-body { border-top: 1px solid var(--line); scroll-margin-top: 12px; }
   .list tbody tr:last-child td { border-bottom: 0; }
   .save-row { display: flex; align-items: center; gap: 10px; }
   .saved { color: var(--ok); font-weight: 600; }
   @media (max-width: 900px) {
-    #detail { display: none !important; }
     .list table { min-width: 0; }
     .list thead { display: none; }
     .list tbody tr { display: block; }
     .list tbody td { display: block; border: 0; padding: 4px 14px; }
     .list tbody td:first-child { padding-top: 12px; }
     .list tbody tr:not(.fold) td:last-child { padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
-    tr.fold td { padding: 0; background: var(--bg); }
-    tr.fold .fold-body { border-top: 1px solid var(--line); }
   }
   .title { font-weight: 600; display: block; text-decoration: none; }
   .excerpt { color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
@@ -75,7 +73,6 @@
   .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px; background: var(--chip); white-space: nowrap; }
   .chipline .tag { margin: 1px 4px 1px 0; }
   .tag.hit, .tag.changed { box-shadow: inset 0 0 0 1px var(--warn); }
-  aside { flex: 1 1 440px; max-width: 620px; min-width: 0; }
   .d-head { padding: 16px 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--rule); }
   .d-head h2 { margin: 0; font-size: 17px; font-weight: 700; overflow-wrap: anywhere; }
   .d-head p { margin-top: 2px; font-size: 13px; }
@@ -91,6 +88,12 @@
   .btn[aria-pressed="true"] { border-color: var(--solid); background: var(--solid); color: var(--on-solid); font-weight: 500; }
   textarea { width: 100%; min-height: 64px; padding: 8px; resize: vertical; }
   #issue { width: 100%; padding: 6px 8px; }
+  #bug-dialog { width: min(480px, calc(100% - 32px)); max-height: calc(100% - 32px); padding: 0;
+    border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+  #bug-dialog::backdrop { background: rgb(0 0 0 / 40%); }
+  #bug-dialog textarea { min-height: 110px; }
+  .btn.primary { background: var(--solid); color: var(--on-solid); border-color: var(--solid); }
+  .btn:disabled { opacity: .6; cursor: default; }
   dl { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 16px; row-gap: 6px; }
   dt { color: var(--muted); }
   dd { margin: 0; overflow-wrap: anywhere; }
@@ -107,7 +110,7 @@
   #toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--solid); color: var(--on-solid);
     padding: 8px 14px; border-radius: 8px; font-size: 13px; display: none; max-width: calc(100% - 32px); }
   #toast.err { background: var(--warn); color: #fff; }
-  @media (max-width: 600px) { main { padding: 20px 16px 40px; } aside { max-width: none; } }
+  @media (max-width: 600px) { main { padding: 20px 16px 40px; } }
 </style>
 </head>
 <body>
@@ -122,6 +125,7 @@
       <input id="find" type="search" autocomplete="off" placeholder="Search words, recipe, household or email"></label>
     <div class="chips" role="group" aria-label="Type" id="kinds"></div>
     <div class="chips" role="group" aria-label="Status" id="states"></div>
+    <button type="button" class="btn primary" id="add-bug">Add bug report</button>
     <button type="button" class="btn" id="download">Download filtered items (JSON)</button>
     <div class="hide-row">
       <span class="hide-label">Hide</span>
@@ -129,15 +133,24 @@
     </div>
   </div>
   <section class="panel prepsum" id="prepsum" aria-label="Prep votes" hidden></section>
-  <div class="split">
-    <section class="panel list" aria-label="Inbox items"><div class="scrollx"><table>
-      <thead><tr><th scope="col">Type</th><th scope="col">What they said</th><th scope="col">From</th>
-        <th scope="col">Status</th><th scope="col">Sent</th></tr></thead>
-      <tbody id="rows"></tbody></table></div></section>
-    <aside class="panel" id="detail" aria-label="Selected item" hidden></aside>
-  </div>
+  <section class="panel list" aria-label="Inbox items"><div class="scrollx"><table>
+    <thead><tr><th scope="col">Type</th><th scope="col">What they said</th><th scope="col">From</th>
+      <th scope="col">Status</th><th scope="col">Sent</th></tr></thead>
+    <tbody id="rows"></tbody></table></div></section>
   <p class="faint closed" id="closed"></p>
 </main>
+<dialog id="bug-dialog" aria-labelledby="bug-title">
+  <div class="d-head"><h2 id="bug-title">Add bug report</h2></div>
+  <form class="block" id="bug-form">
+    <label for="bug-note">What went wrong?</label>
+    <textarea id="bug-note" name="note" maxlength="2000" required autofocus></textarea>
+    <p id="bug-error" class="warn" role="alert" hidden></p>
+    <div class="save-row">
+      <button type="submit" class="btn primary" id="bug-save">Save report</button>
+      <button type="button" class="btn" id="bug-cancel">Cancel</button>
+    </div>
+  </form>
+</dialog>
 <div id="toast" role="status"></div>
 <script>
 const DATA = /*DATA*/null;
@@ -175,7 +188,6 @@ const find = document.getElementById("find");
 find.value = state.q || "";
 let kind = state.k || "all", which = state.s || "open", selected = state.i || null;
 let savedKey = null;
-const narrow = () => window.matchMedia("(max-width: 900px)").matches;
 let hidden = new Set((state.hide || "").split(",").filter(id => HIDES.some(([k]) => k === id)));
 const kept = i => !HIDES.some(([id, , test]) => hidden.has(id) && test(i));
 
@@ -237,7 +249,7 @@ function row(i) {
   const s = said(i);
   return `<tr data-key="${esc(key(i))}" aria-selected="${key(i) === selected}">
     <td><span class="tag">${KIND_LABEL[i.kind]}</span></td>
-    <td><a class="title" href="#i=${esc(encodeURIComponent(key(i)))}">${esc(title(i))}</a>${s ? `<span class="excerpt">${esc(s)}</span>` : ""}
+    <td><a class="title" aria-expanded="${key(i) === selected}" href="#i=${esc(encodeURIComponent(key(i)))}">${esc(title(i))}</a>${s ? `<span class="excerpt">${esc(s)}</span>` : ""}
       ${i.behind ? `<span class="faint warn">Older version</span>` : ""}</td>
     <td><span style="overflow-wrap:anywhere">${esc(from(i))}</span></td>
     <td><span class="${i.status === "new" ? "warn" : "muted"}">${STATUS_LABEL[i.status] || esc(i.status)}</span>${i.admin_note ? ` <span class="faint" title="Has a note">✎</span>` : ""}</td>
@@ -406,23 +418,13 @@ function render() {
   prepSummary();
   document.getElementById("rows").innerHTML = shown.map(row).join("")
     || `<tr><td colspan="5" class="empty">${DATA.items.length ? "Nothing here." : "Nothing sent in yet. Bugs, ideas and reports show up here."}</td></tr>`;
-  const item = DATA.items.find(i => key(i) === selected);
-  const aside = document.getElementById("detail");
-  if (narrow()) {
-    aside.hidden = true;
-    aside.innerHTML = "";
-    aside.dataset.key = "";
+  const item = shown.find(i => key(i) === selected);
+  if (item) {
     const tr = [...document.querySelectorAll("#rows tr[data-key]")].find(row => row.dataset.key === selected);
-    if (tr && item) {
-      const fold = document.createElement("tr");
-      fold.className = "fold";
-      fold.innerHTML = `<td colspan="5"><div class="fold-body">${detail(item)}</div></td>`;
-      tr.after(fold);
-    }
-  } else {
-    aside.hidden = !item;
-    if (!item || aside.dataset.key !== selected) aside.innerHTML = item ? detail(item) : "";
-    aside.dataset.key = item ? selected : "";
+    const fold = document.createElement("tr");
+    fold.className = "fold";
+    fold.innerHTML = `<td colspan="5"><div class="fold-body">${detail(item)}</div></td>`;
+    tr.after(fold);
   }
   const hash = new URLSearchParams({ ...(find.value ? { q: find.value } : {}), ...(kind !== "all" ? { k: kind } : {}),
     ...(which !== "open" ? { s: which } : {}), ...(hidden.size ? { hide: [...hidden].join(",") } : {}),
@@ -444,10 +446,31 @@ async function save(item, change) {
   Object.assign(item, change);
 }
 
+function revealDetail() {
+  const fold = document.querySelector(".fold-body");
+  if (!fold) return;
+  const header = fold.querySelector(".d-head").getBoundingClientRect();
+  if (header.top < 0 || header.bottom > window.innerHeight) fold.scrollIntoView({ block: "start", inline: "nearest" });
+}
+
 async function onDetailClick(e) {
   if (e.target.closest("[data-close]")) { selected = null; savedKey = null; return render(); }
   const goto = e.target.closest("[data-goto]");
-  if (goto) { e.preventDefault(); selected = goto.dataset.goto; savedKey = null; return render(); }
+  if (goto) {
+    e.preventDefault();
+    selected = goto.dataset.goto;
+    savedKey = null;
+    if (!filteredItems().some(i => key(i) === selected)) {
+      const related = DATA.items.find(i => key(i) === selected);
+      find.value = "";
+      kind = "all";
+      which = related?.status === "done" || related?.status === "declined" ? "closed" : "open";
+      hidden.clear();
+    }
+    render();
+    revealDetail();
+    return;
+  }
   const item = DATA.items.find(i => key(i) === selected); if (!item) return;
   const s = e.target.closest("[data-status]");
   if (s) {
@@ -460,7 +483,7 @@ async function onDetailClick(e) {
     } catch (err) { toast(err.message, true); }
   }
   if (e.target.closest("[data-save-note]")) {
-    const root = e.target.closest("#detail, tr.fold");
+    const root = e.target.closest("tr.fold");
     const change = { admin_note: root.querySelector("#note").value };
     const issue = root.querySelector("#issue");
     if (issue) change.planned_issue = issue.value.trim();
@@ -468,14 +491,16 @@ async function onDetailClick(e) {
     catch (err) { toast(err.message, true); }
   }
 }
-document.getElementById("detail").addEventListener("click", onDetailClick);
 document.getElementById("rows").addEventListener("click", e => {
   if (e.target.closest("tr.fold")) return onDetailClick(e);
   const tr = e.target.closest("tr[data-key]"); if (!tr) return;
   e.preventDefault();
   if (selected !== tr.dataset.key) savedKey = null;
-  selected = narrow() && selected === tr.dataset.key ? null : tr.dataset.key;
+  selected = selected === tr.dataset.key ? null : tr.dataset.key;
   render();
+  const updated = [...document.querySelectorAll("#rows tr[data-key]")].find(row => row.dataset.key === tr.dataset.key);
+  if (e.target.closest("a.title")) updated?.querySelector("a.title").focus({ preventScroll: true });
+  if (selected) revealDetail();
 });
 document.getElementById("kinds").addEventListener("click", e => {
   const b = e.target.closest("[data-k]"); if (b) { kind = b.dataset.k; render(); }
@@ -493,10 +518,54 @@ document.getElementById("closed").addEventListener("click", e => {
 document.getElementById("states").addEventListener("click", e => {
   const b = e.target.closest("[data-s]"); if (b) { which = b.dataset.s; render(); }
 });
+const bugDialog = document.getElementById("bug-dialog");
+const bugForm = document.getElementById("bug-form");
+const bugNote = document.getElementById("bug-note");
+const bugError = document.getElementById("bug-error");
+const bugSave = document.getElementById("bug-save");
+const bugCancel = document.getElementById("bug-cancel");
+document.getElementById("add-bug").addEventListener("click", () => bugDialog.showModal());
+bugCancel.addEventListener("click", () => bugDialog.close());
+bugDialog.addEventListener("cancel", e => {
+  if (bugSave.disabled) e.preventDefault();
+});
+bugDialog.addEventListener("close", () => {
+  bugForm.reset();
+  bugError.hidden = true;
+});
+bugForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  if (bugSave.disabled) return;
+  const note = bugNote.value.trim();
+  if (!note) {
+    bugError.textContent = "Describe the bug before saving.";
+    bugError.hidden = false;
+    bugNote.focus();
+    return;
+  }
+  bugSave.disabled = bugCancel.disabled = bugNote.readOnly = true;
+  bugError.hidden = true;
+  try {
+    const res = await fetch("/api/feedback", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "bug", note }),
+    });
+    if (!res.ok) throw new Error(`Could not save the report (${res.status}).`);
+    const { id } = await res.json();
+    const hash = new URLSearchParams({ i: `feedback/${id}` });
+    history.replaceState(null, "", `#${hash}`);
+    location.reload();
+  } catch (err) {
+    bugError.textContent = err.message || "Could not save the report.";
+    bugError.hidden = false;
+    bugSave.disabled = bugCancel.disabled = bugNote.readOnly = false;
+    bugNote.focus();
+  }
+});
 find.addEventListener("input", render);
 document.getElementById("download").addEventListener("click", downloadItems);
-window.matchMedia("(max-width: 900px)").addEventListener("change", render);
 render();
+if (selected) revealDetail();
 </script>
 </body>
 </html>
