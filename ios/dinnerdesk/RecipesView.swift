@@ -136,6 +136,8 @@ struct RecipesView: View {
       PlanStrip()
       }
     }
+    // Outside the NavigationStack, so one bar serves browse and the See all grids (#35).
+    .planToast()
   }
 
   @ViewBuilder

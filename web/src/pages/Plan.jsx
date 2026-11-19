@@ -1,5 +1,5 @@
 import FoodPhoto from "../FoodPhoto.jsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
@@ -64,6 +64,10 @@ export function Plan() {
   const [reportedId, setReportedId] = useState(null);
   const [plan, setPlan] = useState(null);
   const [editing, setEditing] = useState(false);
+  // The floating pair only appears once the inline pair has scrolled out of view, so a short
+  // plan keeps its buttons under the meals and a long one doesn't need scrolling (#104).
+  const inlineActions = useRef(null);
+  const [inlineSeen, setInlineSeen] = useState(true);
   const [grid, setGrid] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [placing, setPlacing] = useState(null);
@@ -88,6 +92,15 @@ export function Plan() {
   }, [swapping, proposal?.id, swapQuery]);
   async function load() { setPlan(await api.plan()); setProposal((await api.pendingSuggestion()).plan); await week.load(); }
   useEffect(() => { load().catch((e) => setErr(e.message)); }, []);
+
+  // Watch the inline buttons: while they're on screen the floating pair stays hidden.
+  useEffect(() => {
+    const node = inlineActions.current;
+    if (!node || typeof IntersectionObserver !== "function") return undefined;
+    const observer = new IntersectionObserver(([entry]) => setInlineSeen(entry.isIntersecting));
+    observer.observe(node);
+    return () => observer.disconnect();
+  });
   async function act(work) {
     setBusy(true); setErr(""); setMessage("");
     try { await work(); } catch (e) { setErr(e.message); }
@@ -246,12 +259,18 @@ export function Plan() {
         </div>
       </section>)}
       {/* New meal plan lives under the plan (and on an empty plan), not in ⋯ (#104). */}
-      <div className="plan-new">
+      <div className="plan-new" ref={inlineActions}>
         <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
+        <button type="button" className="pill" onClick={() => go("/recipes")}>Add meals</button>
         {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
       </div>
     </div>
-    <div className="fab-pill-wrap"><button type="button" className="fab-pill" onClick={() => go("/recipes")}>Add meals</button></div>
+    {!editing && !inlineSeen && (
+      <div className="fab-pill-wrap">
+        <button type="button" className="fab-pill" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
+        <button type="button" className="fab-pill is-secondary" onClick={() => go("/recipes")}>Add meals</button>
+      </div>
+    )}
       {proposal && reviewing && <div className="sheet-backdrop"><section className="suggested-plan schedule-sheet review-sheet" role="dialog" aria-modal="true" aria-labelledby="suggested-title">
         <h2 id="suggested-title">Review your suggestions</h2>
         <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>

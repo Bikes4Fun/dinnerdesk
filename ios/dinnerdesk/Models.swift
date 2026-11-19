@@ -376,7 +376,7 @@ nonisolated struct PrepInstructionMeal: Decodable, Identifiable, Sendable {
 
 nonisolated struct PrepInstructionGroup: Decodable, Sendable {
   let text: String
-  let quantities: [String]
+  var quantities: [String]
   let added: Bool
   var meals: [PrepInstructionMeal]
 }
@@ -403,9 +403,14 @@ nonisolated final class PrepTaskPresentation: Sendable {
         guard !text.isEmpty else { continue }
         let quantities = rawQuantities.filter { !$0.isEmpty }
         let link = PrepInstructionMeal(id: meal.id, name: meal.name, day: meal.day)
+        // Equal wording is one row whatever each meal's amount is (#116); the amounts are
+        // kept in first-seen order. An added step stays separate, since the apps mark it.
         if let index = groups.firstIndex(where: {
-          $0.text.caseInsensitiveCompare(text) == .orderedSame && $0.quantities == quantities && $0.added == added
+          $0.text.caseInsensitiveCompare(text) == .orderedSame && $0.added == added
         }) {
+          for quantity in quantities where !groups[index].quantities.contains(quantity) {
+            groups[index].quantities.append(quantity)
+          }
           if !groups[index].meals.contains(where: { $0.id == meal.id }) { groups[index].meals.append(link) }
         } else {
           groups.append(PrepInstructionGroup(text: text, quantities: quantities, added: added, meals: [link]))
@@ -627,3 +632,12 @@ nonisolated struct SwapOption: Decodable, Identifiable, Sendable {
 }
 nonisolated struct SwapOptions: Decodable, Sendable { let recipes: [SwapOption] }
 
+/// What a card's ＋ or ✓ just did, and how to put it back (#35). The id changes with every
+/// action, so the bar's timer restarts even when the wording repeats.
+struct PlanToast: Identifiable, Equatable {
+  let id = UUID()
+  let text: String
+  let recipeId: Int
+  /// True when undoing means adding the meal back, i.e. the toast is about a removal.
+  let undoAdds: Bool
+}

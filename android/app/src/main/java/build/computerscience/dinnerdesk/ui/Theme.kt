@@ -10,12 +10,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import android.provider.Settings
 import build.computerscience.dinnerdesk.R
 
 /**
@@ -80,6 +83,19 @@ object Theme {
 /** Large text sizes (iOS accessibility sizes): layouts stack instead of squeezing. */
 val isAccessibilitySize: Boolean
     @Composable @ReadOnlyComposable get() = LocalDensity.current.fontScale >= 1.5f
+
+/**
+ * "Remove animations" in Android's accessibility settings, which sets the animator duration
+ * scale to 0. Movement is dropped; state changes still happen. Mirrors iOS's withMotion and
+ * the web's prefers-reduced-motion block.
+ */
+val isReduceMotion: Boolean
+    @Composable get() {
+        val context = LocalContext.current
+        // Re-read on configuration change, which is when this setting takes effect.
+        LocalConfiguration.current
+        return Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
+    }
 
 @Composable
 fun DinnerdeskTheme(content: @Composable () -> Unit) {
