@@ -178,11 +178,13 @@ fun RecipeTileHeartButton(on: Boolean, onClick: () -> Unit, corner: RecipeTileCo
 
 @Composable
 fun RecipeTileSwapButton(onClick: () -> Unit, enabled: Boolean = true, corner: RecipeTileCorner = RecipeTileCorner.TopTrailing) {
-    RecipeTilePhotoOverlay(
-        corner = corner, mode = RecipeTileOverlayMode.Interactive,
-        label = "Swap meal", onClick = if (enabled) onClick else null,
-    ) {
-        Icon(Icons.Outlined.Refresh, null, tint = Theme.accent, modifier = Modifier.size(16.dp).alpha(if (enabled) 1f else 0.4f))
+    Box(Modifier.alpha(if (enabled) 1f else 0.4f)) {
+        RecipeTilePhotoOverlay(
+            corner = corner, mode = RecipeTileOverlayMode.Interactive,
+            label = "Swap meal", onClick = if (enabled) onClick else null,
+        ) {
+            Icon(Icons.Outlined.Refresh, null, tint = Theme.accent, modifier = Modifier.size(16.dp))
+        }
     }
 }
 
@@ -298,8 +300,10 @@ fun RecipeTile(
 
     @Composable
     fun photo() {
+        // Beside defaults to swap-picker thumb size when photoSide is omitted.
+        val side = photoSide ?: if (meta.placement == RecipeTileMeta.Placement.Beside) 70.dp else null
         val base = Modifier
-            .then(if (photoSide != null) Modifier.size(photoSide) else Modifier.fillMaxWidth())
+            .then(if (side != null) Modifier.size(side) else Modifier.fillMaxWidth())
             .aspectRatio(1f)
             .clip(RoundedCornerShape(12.dp))
         Box(base) {

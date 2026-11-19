@@ -200,8 +200,10 @@ struct RecipeTileSwapButton: View {
         Image(systemName: "arrow.triangle.2.circlepath")
           .font(.system(size: 13, weight: .semibold))
           .foregroundStyle(Theme.accent)
+          .opacity(disabled ? 0.4 : 1)
       }
       .disabled(disabled)
+      .opacity(disabled ? 0.4 : 1)
     }
   }
 }
@@ -422,7 +424,7 @@ struct RecipeTile<Overlay: View>: View {
   }
 
   var body: some View {
-    Group {
+    let tile = Group {
       if meta.placement == .beside {
         HStack(alignment: .top, spacing: 12) {
           photo
@@ -440,10 +442,13 @@ struct RecipeTile<Overlay: View>: View {
       guard openEnabled else { return }
       onOpen?()
     }
-    .contextMenu {
-      // Option: empty menuItems = no context menu actions.
-      ForEach(menuItems) { item in
-        Button(item.title, role: item.role, action: item.action)
+    if menuItems.isEmpty {
+      tile
+    } else {
+      tile.contextMenu {
+        ForEach(menuItems) { item in
+          Button(item.title, role: item.role, action: item.action)
+        }
       }
     }
   }
@@ -465,10 +470,12 @@ struct RecipeTile<Overlay: View>: View {
   }
 
   private var photo: some View {
+    // Beside defaults to swap-picker thumb size when photoSide is omitted.
+    let side = photoSide ?? (meta.placement == .beside ? 70 : nil)
     let square = Color.clear.aspectRatio(1, contentMode: .fit)
     return Group {
-      if let photoSide {
-        square.frame(width: photoSide, height: photoSide)
+      if let side {
+        square.frame(width: side, height: side)
       } else {
         square.frame(maxWidth: .infinity)
       }

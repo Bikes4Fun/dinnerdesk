@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import FoodPhoto from "./FoodPhoto.jsx";
 import { RecipeStatusLine } from "./ReviewedBadge.jsx";
 import { go } from "./nav.js";
@@ -66,7 +67,7 @@ export function RecipeTileAddButton({ onPlan, onClick, corner = RecipeTileCorner
     <RecipeTilePhotoOverlay
       corner={corner}
       mode="interactive"
-      label={onPlan ? "Already on plan" : "Add to plan"}
+      label={onPlan ? "Remove from this plan" : "Add to this plan"}
       onClick={onClick}
       className={onPlan ? "is-on" : ""}
     >
@@ -218,6 +219,10 @@ export function RecipeTile({
   className = "",
 }) {
   const canOpen = openEnabled && !comingSoon;
+  const [menu, setMenu] = useState(null);
+  const menuRef = useRef(null);
+  // Beside defaults to a swap-picker-sized thumb when photoSide is omitted.
+  const side = photoSide ?? (metaPlacement === "beside" ? 70 : undefined);
 
   function open() {
     if (!canOpen) return;
@@ -228,12 +233,25 @@ export function RecipeTile({
   function onContextMenu(e) {
     if (!menuItems.length) return;
     e.preventDefault();
-    // REVIEW: native browser menu vs custom panel — for now dispatch a simple confirm list.
-    const labels = menuItems.map((m, i) => `${i + 1}. ${m.title}`).join("\n");
-    const pick = window.prompt(`Recipe actions:\n${labels}\n\nEnter number`);
-    const idx = Number(pick) - 1;
-    if (idx >= 0 && idx < menuItems.length) menuItems[idx].action?.();
+    setMenu({ x: e.clientX, y: e.clientY });
   }
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    function close(e) {
+      if (menuRef.current && menuRef.current.contains(e.target)) return;
+      setMenu(null);
+    }
+    function onKey(e) {
+      if (e.key === "Escape") setMenu(null);
+    }
+    window.addEventListener("mousedown", close);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", close);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [menu]);
 
   const statusRecipe = {
     cooking_minutes: showCookTime ? minutes : null,
@@ -280,12 +298,16 @@ export function RecipeTile({
   );
 
   const photoStyle = {
-    ...(photoSide ? { width: photoSide, height: photoSide } : null),
+    ...(side ? { width: side, height: side } : null),
     opacity: comingSoon ? Math.min(photoOpacity, 0.6) : photoOpacity,
   };
 
+  // Photo shell is a div (not a button) so overlay buttons are not nested inside another button.
   const photo = (
     <div className={`recipe-tile-photo${comingSoon ? " is-soon" : ""}`} style={photoStyle}>
+      {canOpen ? (
+        <button type="button" className="recipe-tile-photo-hit" onClick={open} aria-label={name} />
+      ) : null}
       <FoodPhoto path={photoPath} />
       {comingSoon && <RecipeTileComingSoonBadge />}
       {overlays}
@@ -297,46 +319,42 @@ export function RecipeTile({
       className={`recipe-tile recipe-tile--${metaPlacement}${className ? ` ${className}` : ""}${comingSoon ? " is-coming-soon" : ""}`}
       onContextMenu={onContextMenu}
     >
-      {metaPlacement === "beside" ? (
-        <>
-          {photo}
-          <div className="recipe-tile-body">
-            {canOpen ? (
-              <button type="button" className="recipe-tile-open" onClick={open}>
-                {nameEl}
-                {meta}
-              </button>
-            ) : (
-              <>
-                {nameEl}
-                {meta}
-              </>
-            )}
-          </div>
-        </>
-      ) : (
-        <>
-          {canOpen ? (
-            <button type="button" className="recipe-tile-open-photo" onClick={open}>
-              {photo}
+      {photo}
+      <div className="recipe-tile-body">
+        {canOpen ? (
+          <button type="button" className="recipe-tile-open" onClick={open}>
+            {nameEl}
+            {meta}
+          </button>
+        ) : (
+          <>
+            {nameEl}
+            {meta}
+          </>
+        )}
+      </div>
+      {menu && menuItems.length > 0 && (
+        <div
+          ref={menuRef}
+          className="recipe-tile-menu"
+          role="menu"
+          style={{ left: menu.x, top: menu.y }}
+        >
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="menuitem"
+              className={`recipe-tile-menu-item${item.destructive ? " is-danger" : ""}`}
+              onClick={() => {
+                setMenu(null);
+                item.action?.();
+              }}
+            >
+              {item.title}
             </button>
-          ) : (
-            photo
-          )}
-          <div className="recipe-tile-body">
-            {canOpen ? (
-              <button type="button" className="recipe-tile-open" onClick={open}>
-                {nameEl}
-                {meta}
-              </button>
-            ) : (
-              <>
-                {nameEl}
-                {meta}
-              </>
-            )}
-          </div>
-        </>
+          ))}
+        </div>
       )}
     </div>
   );
