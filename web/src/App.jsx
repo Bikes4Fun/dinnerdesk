@@ -355,6 +355,8 @@ export function App() {
           <NavLink href="/prep" navKey="prep" label="Prep" icon="prep" page={page} />
           <NavLink href="/kitchen" navKey="kitchen" label="My kitchen" icon="kitchen" page={page} />
           <div className="nav-divider" />
+          <NavLink href="/settings/account" navKey="account-security" label="Account & security" icon="settings" page={page} />
+          <NavLink href="/settings/feedback" navKey="feedback" label="Report a bug" icon="flag" page={page} />
           <NavLink href="/settings" navKey="settings" label="Settings" icon="settings" page={page} />
           <NavLink href="/about" navKey="about" label="About" icon="about" page={page} />
           {admin && <AdminNav page={page} />}

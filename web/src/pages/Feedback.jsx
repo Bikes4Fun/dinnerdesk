@@ -81,7 +81,7 @@ export function Feedback() {
 
   return (
     <section className="screen">
-      <Header title="Bugs & ideas" back="/settings" />
+      <Header title="Bugs & ideas" back="/more" />
       <div className="scroll pad">
         {err && <p className="banner err" role="alert">{err}</p>}
         {sent ? (
