@@ -118,7 +118,7 @@ def test_named_components_batch_across_recipes_without_duplicate_quantities():
         {"recipe_id": 2, "recipe_name": "Chicken with mashed potatoes", "ingredients": [{"name": "potatoes", "quantity": "1 lb"}], "instructions": [{"text": "Peel and dice potatoes."}]},
     ]
     task = prep_from_slots(slots)[0]
-    assert task["title"] == "Prep mashed potatoes"
+    assert task["title"] == "Make mashed potatoes"
     assert task["recipe_ids"] == [1, 2]
     assert task["quantities"] == ["3 lb potatoes"]
     assert len(task["meals"][0]["steps"]) == 2
@@ -503,3 +503,44 @@ def test_packaged_broth_is_not_excluded_as_meat_work():
         {'text': 'Cover and simmer until the quinoa is tender.'}]}])
     assert [t['title'] for t in tasks] == ['Cook quinoa']
     assert len(tasks[0]['meals'][0]['steps']) == 2
+
+
+def test_cut_direction_is_not_an_ingredient_and_continues_the_step_before():
+    """"Slice crosswise." named the cut as the item ("Slice crosswise", item "Crosswise")."""
+    slots = [
+        {"recipe_id": 1, "recipe_name": "Salmon Rice Bowl",
+         "ingredients": [{"name": "green onions"}],
+         "instructions": [{"text": "Trim the green onions."}, {"text": "Slice crosswise."}]},
+    ]
+    tasks = prep_from_slots(slots)
+    assert [t["title"] for t in tasks] == ["Trim green onions"]
+    steps = [s["text"] for s in tasks[0]["meals"][0]["steps"]]
+    assert steps == ["Trim the green onions.", "Slice crosswise."]
+
+
+def test_cut_direction_alone_makes_no_task_without_a_step_before_it():
+    slots = [
+        {"recipe_id": 1, "recipe_name": "Odd Recipe", "ingredients": [{"name": "salmon"}],
+         "instructions": [{"text": "Cut into wedges."}]},
+    ]
+    assert prep_from_slots(slots) == []
+
+
+def test_continuation_does_not_cross_into_the_next_recipe():
+    slots = [
+        {"recipe_id": 1, "recipe_name": "First", "ingredients": [{"name": "carrots"}],
+         "instructions": [{"text": "Peel the carrots."}]},
+        {"recipe_id": 2, "recipe_name": "Second", "ingredients": [{"name": "salmon"}],
+         "instructions": [{"text": "Slice crosswise."}]},
+    ]
+    assert [t["title"] for t in prep_from_slots(slots)] == ["Peel carrots"]
+
+
+def test_a_sentence_naming_a_grocery_still_starts_its_own_task():
+    """The continuation must not swallow a real second ingredient."""
+    slots = [
+        {"recipe_id": 1, "recipe_name": "Stir-fry",
+         "ingredients": [{"name": "carrots"}, {"name": "peppers"}],
+         "instructions": [{"text": "Peel the carrots."}, {"text": "Slice the peppers."}]},
+    ]
+    assert sorted(t["title"] for t in prep_from_slots(slots)) == ["Peel carrots", "Slice peppers"]

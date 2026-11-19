@@ -88,6 +88,7 @@
 				MyRecipesView.swift,
 				PantryMatch.swift,
 				PantryView.swift,
+				PlanToastBar.swift,
 				PlanView.swift,
 				PrepView.swift,
 				RecipeCollections.swift,
