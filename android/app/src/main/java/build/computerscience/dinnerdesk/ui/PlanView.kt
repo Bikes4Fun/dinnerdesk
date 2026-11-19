@@ -51,6 +51,7 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,6 +63,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -102,6 +104,13 @@ fun PlanView() {
     var draftTitle by remember { mutableStateOf("") }
     var removing by remember { mutableStateOf(false) }
     val large = isAccessibilitySize
+    val scroll = rememberScrollState()
+    // The inline New meal plan pair sits at the end of the plan, so it comes into view over the
+    // last `inlineButtons` pixels of the scroll. maxValue is Int.MAX_VALUE until the column is
+    // measured, and 0 when everything fits; neither floats anything.
+    var inlineButtons by remember { mutableIntStateOf(0) }
+    val inlineButtonsSeen = scroll.maxValue == 0 || scroll.maxValue == Int.MAX_VALUE ||
+        scroll.value >= scroll.maxValue - inlineButtons
 
     fun setEditing(on: Boolean) {
         editing = on
@@ -110,7 +119,7 @@ fun PlanView() {
 
     RefreshBox({ store.loadAll() }) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.fillMaxSize().verticalScroll(scroll).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -195,11 +204,32 @@ fun PlanView() {
                     }
                 }
                 // New meal plan lives here, not in ⋯ (#104), matching iPhone's buttons under the plan.
-                if (plan.slots.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (plan.slots.isNotEmpty()) Column(
+                    Modifier.onSizeChanged { inlineButtons = it.height },
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     CreateMealPlanButton { store.launch { openSuggestions() } }
                     AddMealsButton { selectTab(AppTab.Recipes) }
                 }
             }
+        }
+        // A full week used to hide New meal plan below every meal, so the same two actions float
+        // above the plan while the real pair is scrolled out of sight (#104), as on web and iPhone.
+        if (!inlineButtonsSeen && !editing && store.plan?.slots?.isNotEmpty() == true) Box(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val newPlan = @Composable {
+                CreateMealPlanButton(Modifier.shadow(12.dp, CircleShape)) { store.launch { openSuggestions() } }
+            }
+            val addMeals = @Composable {
+                AddMealsPill(Modifier.shadow(12.dp, CircleShape)) { selectTab(AppTab.Recipes) }
+            }
+            // Large text makes two pills too wide for one row, so they stack there.
+            if (large) Column(horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)) { newPlan(); addMeals() }
+            else Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)) { newPlan(); addMeals() }
         }
     }
 
@@ -245,6 +275,20 @@ private fun AddMealsButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
         Text("Add meals", style = Theme.action, color = Theme.accent)
+    }
+}
+
+/** Add meals as a capsule, for the floating row where the plain link would read as part of a meal. */
+@Composable
+private fun AddMealsPill(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier.heightIn(min = 44.dp).clip(CircleShape).background(Theme.surface)
+            .border(1.5.dp, Theme.accent, CircleShape).clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(18.dp))
+        Text("Add meals", style = Theme.body, color = Theme.accent, textAlign = TextAlign.Center)
     }
 }
 

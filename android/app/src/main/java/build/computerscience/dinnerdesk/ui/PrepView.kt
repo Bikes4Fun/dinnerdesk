@@ -124,6 +124,7 @@ fun PrepView() {
     var openMealTask by remember { mutableStateOf<String?>(null) }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
+    val reduceMotion = isReduceMotion
     val offsets = remember { mutableMapOf<String, Int>() }
 
     LaunchedEffect(Unit) { store.loadPrep(onlyIfStale = true) }
@@ -177,7 +178,10 @@ fun PrepView() {
                                 prepView = "task"
                                 prefs.edit().putString("prep.view", "task").apply()
                             }
-                            scope.launch { delay(50); offsets[key]?.let { y -> scroll.animateScrollTo(y) } }
+                            scope.launch {
+                                delay(50)
+                                offsets[key]?.let { y -> if (reduceMotion) scroll.scrollTo(y) else scroll.animateScrollTo(y) }
+                            }
                         }
                         if (prepView == "meal") {
                             for (g in PrepMealPresentation(tasks).mealGroups) {
@@ -232,7 +236,9 @@ fun PrepView() {
         val toastTask = toast?.let { id -> tasks.firstOrNull { it.id == id } }
         AnimatedVisibility(
             toastTask != null, Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut(),
+            // Reduce Motion: fade the check-off bar in place instead of sliding it up.
+            enter = if (reduceMotion) fadeIn() else slideInVertically { it } + fadeIn(),
+            exit = if (reduceMotion) fadeOut() else slideOutVertically { it } + fadeOut(),
         ) {
             val task = toastTask ?: return@AnimatedVisibility
             Row(

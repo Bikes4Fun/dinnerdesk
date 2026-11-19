@@ -13,8 +13,11 @@ class PrepInstructionGroup:
 class PrepTaskPresentation:
     """Group display instructions without losing quantities or source identities.
 
-    Equal wording only shares a row when its amounts and household-added status
-    also agree. Original steps remain unchanged for completion and feedback.
+    Equal wording shares one row, however many meals it came from and whatever each meal's
+    amount is (#116): "Peel and dice the onion." used to repeat once per distinct amount.
+    The amounts are kept, in first-seen order, and the row names every meal it covers. A
+    household-added step stays on its own row, since the apps mark it. Original steps remain
+    unchanged for completion and feedback.
     """
 
     def __init__(self, task: dict):
@@ -30,8 +33,11 @@ class PrepTaskPresentation:
                     continue
                 amounts = [q for q in step.get('quantities') or [] if q]
                 added = bool(step.get('added'))
-                key = (text.casefold(), tuple(amounts), added)
-                group = groups.setdefault(key, PrepInstructionGroup(text, amounts, added))
+                key = (text.casefold(), added)
+                group = groups.setdefault(key, PrepInstructionGroup(text, [], added))
+                for amount in amounts:
+                    if amount not in group.quantities:
+                        group.quantities.append(amount)
                 if not any(m['id'] == meal['id'] for m in group.meals):
                     group.meals.append({k: meal.get(k) for k in ('id', 'name', 'day')})
         return [asdict(group) for group in groups.values()]

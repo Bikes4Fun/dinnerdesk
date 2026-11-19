@@ -202,7 +202,7 @@ Start from the Plan tab → ⋯ → New meal plan → Suggest meals for me.
 
 ## 8. Weekend prep
 
-- [ ] With meals on your plan, Prep shows tasks named for the item or component, such as **Prep potatoes**, **Prep mashed potatoes**, **Grate mozzarella**, or **Make tzatziki**.
+- [ ] With meals on your plan, Prep shows tasks named for the item or component, such as **Prep potatoes**, **Make mashed potatoes**, **Grate mozzarella**, or **Make tzatziki**.
 - [ ] Two meals needing the same prep share one task, with each meal's instructions underneath and their quantities combined.
 - [ ] Repeated ingredient mentions within one task do not multiply quantities; broth, frozen peas, and eggs are not pulled into unrelated chopping tasks.
 - [ ] A closed task shows its name, involved meals, and partial progress. Expand it to see quantities and steps; collapse it to hide them.

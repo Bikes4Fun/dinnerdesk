@@ -16,12 +16,14 @@ export class PrepTaskPresentation {
         const quantities = (step.quantities || []).filter(Boolean);
         const added = Boolean(step.added);
         const link = { id: meal.id, name: meal.name, day: meal.day ?? null };
-        const shared = groups.find((g) => g.text.toLowerCase() === text.toLowerCase()
-          && JSON.stringify(g.quantities) === JSON.stringify(quantities) && g.added === added);
+        // Equal wording is one row whatever each meal's amount is (#116); the amounts are
+        // kept in first-seen order. An added step stays separate, since the apps mark it.
+        const shared = groups.find((g) => g.text.toLowerCase() === text.toLowerCase() && g.added === added);
         if (shared) {
+          for (const q of quantities) if (!shared.quantities.includes(q)) shared.quantities.push(q);
           if (!shared.meals.some((m) => m.id === meal.id)) shared.meals.push(link);
         } else {
-          groups.push({ text, quantities, added, meals: [link] });
+          groups.push({ text, quantities: [...quantities], added, meals: [link] });
         }
       }
     }
