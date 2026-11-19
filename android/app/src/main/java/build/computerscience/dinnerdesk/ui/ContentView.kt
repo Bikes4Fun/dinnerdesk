@@ -157,6 +157,8 @@ fun ContentView() {
                 androidx.compose.runtime.key(nav) {
                     NavStack(nav) { route -> RouteContent(route) }
                 }
+                // Above the tab bar, so one bar serves every screen with a recipe card (#35).
+                PlanToastBar()
             }
             if (!keyboard) {
                 TabBar(
