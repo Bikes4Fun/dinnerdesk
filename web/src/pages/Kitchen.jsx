@@ -115,6 +115,10 @@ function PantryHave() {
   const [selected, setSelected] = useState(null);
   const [autoCheck, setAutoCheck] = useState(false);
   const [err, setErr] = useState("");
+  // Select mode: tick several items and apply one change to all of them (#187).
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState(new Set());
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api
@@ -140,35 +144,117 @@ function PantryHave() {
     }
   }
 
+  function togglePick(id) {
+    setPicked((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function leavePicking() {
+    setPicking(false);
+    setPicked(new Set());
+  }
+
+  // One change applied to every ticked item. `patch` is whatever patchPantry takes.
+  async function applyToPicked(patch, drop) {
+    const chosen = items.filter((i) => picked.has(i.id));
+    if (!chosen.length) return;
+    setBusy(true);
+    setErr("");
+    try {
+      const updated = await Promise.all(chosen.map((i) => api.patchPantry(i.id, patch)));
+      const byId = new Map(updated.map((i) => [i.id, i]));
+      setItems((cur) => (drop ? cur.filter((i) => !byId.has(i.id)) : cur.map((i) => byId.get(i.id) || i)));
+      leavePicking();
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (selected) return <PantryItem item={selected} onBack={() => { setSelected(null); api.pantry().then((d) => setItems(d.items.filter((i) => i.have))); }} />;
+
+  const allPicked = picked.size > 0 && picked.size === items.length;
+  const pickedItems = items.filter((i) => picked.has(i.id));
+  // One button that undoes itself, like Plan's Mark cooked / Mark uncooked.
+  const allNeverShop = pickedItems.length > 0 && pickedItems.every((i) => i.never_shop);
 
   return (
     <section className="screen">
       <header className="top sub">
         <Back />
         <h1>Pantry</h1>
-        <button type="button" className="text-link" onClick={() => go("/kitchen/pantry/add")}>
-          Add items
-        </button>
+        {picking ? (
+          <button type="button" className="text-link" onClick={leavePicking}>Done</button>
+        ) : items.length > 0 ? (
+          <button type="button" className="text-link" onClick={() => setPicking(true)}>Select</button>
+        ) : (
+          <button type="button" className="text-link" onClick={() => go("/kitchen/pantry/add")}>Add items</button>
+        )}
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
         <Tip id="kitchen.pantry">What you already have.</Tip>
         <label className="toggle-row">Always check off pantry items <input type="checkbox" checked={autoCheck} onChange={(e) => saveAutoCheck(e.target.checked)} /></label>
+        {picking && items.length > 0 && (
+          <div className="plan-bulk">
+            <button type="button" onClick={() => setPicked(allPicked ? new Set() : new Set(items.map((i) => i.id)))}>
+              {allPicked ? "Deselect all" : "Select all"}
+            </button>
+            <span>{picked.size} selected</span>
+          </div>
+        )}
         {items.length === 0 && <p className="empty-block">Nothing checked yet. Add items from the catalog.</p>}
         {items.map((item) => (
-          <div key={item.id} className="have-row">
-            <button className="text-link" onClick={() => setSelected(item)}>{item.name}</button>
+          // The whole row is the target, not just the name (#187).
+          <button
+            key={item.id}
+            type="button"
+            className={`have-row${picking && picked.has(item.id) ? " is-picked" : ""}`}
+            aria-pressed={picking ? picked.has(item.id) : undefined}
+            onClick={() => (picking ? togglePick(item.id) : setSelected(item))}
+          >
+            {picking && <span className="have-tick" aria-hidden="true">{picked.has(item.id) ? "✓" : ""}</span>}
+            <span className="have-name">{item.name}</span>
             {item.never_shop ? <em>never shop</em> : null}
-          </div>
+            {!picking && <span className="have-chev" aria-hidden="true">›</span>}
+          </button>
         ))}
-        <button type="button" className="ghost-add" onClick={() => go("/kitchen/pantry/add")}>
-          + Add or edit items
-        </button>
-        <button type="button" className="list-foot-link" onClick={() => go("/kitchen/stores")}>
-          Grocery store
-        </button>
+        {!picking && (
+          <>
+            <button type="button" className="ghost-add" onClick={() => go("/kitchen/pantry/add")}>
+              + Add or edit items
+            </button>
+            <button type="button" className="list-foot-link" onClick={() => go("/kitchen/stores")}>
+              Grocery store
+            </button>
+          </>
+        )}
       </div>
+      {picking && (
+        <div className="pantry-bulk-bar">
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={busy || picked.size === 0}
+            onClick={() => applyToPicked({ never_shop: !allNeverShop })}
+          >
+            {allNeverShop ? "Stop always checking off" : "Always check off"}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={busy || picked.size === 0}
+            onClick={() => applyToPicked({ have: false }, true)}
+          >
+            Remove from pantry
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -255,13 +341,16 @@ function PantryAdd() {
       <header className="top sub">
         <Back to="/kitchen/pantry" />
         <h1>Add items</h1>
-        <button type="button" className="text-link" onClick={() => setAdding((v) => !v)}>
-          New
+        <button type="button" className="text-link" onClick={() => go("/kitchen/pantry")}>
+          Done
         </button>
       </header>
       <div className="scroll pad" onKeyDown={(e) => { if (e.target.closest(".add-line")) return; onListKeys(e, ".p-check", ".field-input"); }}>
         {err && <p className="banner err">{err}</p>}
-        <Tip id="kitchen.pantry-add">Check what you have. Saves as you go.</Tip>
+        <Tip id="kitchen.pantry-add">Check what you have. Saves as you go — tap Done when you’re finished.</Tip>
+        <button type="button" className="ghost-add" onClick={() => setAdding((v) => !v)}>
+          {adding ? "Cancel custom item" : "+ Add a custom item"}
+        </button>
         {adding && (
           <form className="add-line" onSubmit={addCustom}>
             <input
@@ -358,7 +447,7 @@ function AlwaysChecked() {
           Things you always have on hand, like salt or oil. They still appear on your grocery list,
           but already checked off, so you can skip them unless you run low.
         </Tip>
-        {items.length === 0 && <div style={{ opacity: 0.45 }} aria-label="Examples only">
+        {items.length === 0 && <div className="pantry-examples" aria-label="Examples only">
           <p>Examples — add what you always keep on hand</p><p>Salt</p><p>Olive oil</p><p>Black pepper</p>
         </div>}
         {items.map((item) => (
@@ -474,6 +563,11 @@ function Stores() {
   const [lines, setLines] = useState([]);
   const [name, setName] = useState("");
   const [err, setErr] = useState("");
+  // Removing a store unassigns its items, so confirm first and say how many (#187).
+  const [doomed, setDoomed] = useState(null);
+  // Renaming keeps the store's id, so every item stays assigned to it.
+  const [renaming, setRenaming] = useState(null);
+  const [renamedTo, setRenamedTo] = useState("");
 
   useEffect(() => {
     Promise.all([api.household(), api.plan()])
@@ -520,16 +614,62 @@ function Stores() {
           Aisles
         </button>
         <h3 className="block-label">Your stores</h3>
-        {stores.map((s) => (
-          <div key={s.id} className="store-edit">
-            <strong>{s.name}</strong>
-            {stores.length > 0 && (
-              <button type="button" className="text-link" onClick={() => persist(stores.filter((x) => x.id !== s.id))}>
+        {stores.map((s) => {
+          const used = lines.filter((l) => l.store === s.id).length;
+          if (renaming === s.id) {
+            return (
+              <form
+                key={s.id}
+                className="add-line"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const n = renamedTo.trim();
+                  // Keep the id so assignments survive; only the name people see changes.
+                  if (n && n !== s.name) persist(stores.map((x) => (x.id === s.id ? { ...x, name: n } : x)));
+                  setRenaming(null);
+                }}
+              >
+                <input className="field" aria-label={`Rename ${s.name}`} value={renamedTo} onChange={(e) => setRenamedTo(e.target.value)} autoFocus />
+                <button type="submit" className="btn-secondary">Save</button>
+                <button type="button" className="text-link" onClick={() => setRenaming(null)}>Cancel</button>
+              </form>
+            );
+          }
+          return (
+            <div key={s.id} className="store-edit">
+              <strong>{s.name}</strong>
+              <span className="store-count">{used === 1 ? "1 item" : `${used} items`}</span>
+              <button type="button" className="text-link" onClick={() => { setRenamedTo(s.name); setRenaming(s.id); }}>
+                Rename
+              </button>
+              <button type="button" className="text-link" onClick={() => setDoomed(s)}>
                 Remove
               </button>
-            )}
+            </div>
+          );
+        })}
+        {doomed && (
+          <div className="store-confirm" role="alertdialog" aria-label={`Remove ${doomed.name}?`}>
+            <p>
+              <strong>Remove {doomed.name}?</strong>{" "}
+              {(() => {
+                const n = lines.filter((l) => l.store === doomed.id).length;
+                if (!n) return "No items are assigned to it. You can add it back anytime.";
+                return `${n === 1 ? "1 item moves" : `${n} items move`} to Any store. You can add it back anytime.`;
+              })()}
+            </p>
+            <div className="store-confirm-actions">
+              <button type="button" className="btn-secondary" onClick={() => setDoomed(null)}>Cancel</button>
+              <button
+                type="button"
+                className="btn-danger"
+                onClick={() => { persist(stores.filter((x) => x.id !== doomed.id)); setDoomed(null); }}
+              >
+                Remove
+              </button>
+            </div>
           </div>
-        ))}
+        )}
         <form
           className="add-line"
           onSubmit={(e) => {
