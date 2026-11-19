@@ -124,6 +124,7 @@ fun PrepView() {
     var openMealTask by remember { mutableStateOf<String?>(null) }
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
+    val reduceMotion = isReduceMotion
     val offsets = remember { mutableMapOf<String, Int>() }
 
     LaunchedEffect(Unit) { store.loadPrep(onlyIfStale = true) }
@@ -168,17 +169,19 @@ fun PrepView() {
                         PrepHeader(tasks.size, doneCount, groups, showDone, onToggleDone = {
                             showDone = !showDone
                             prefs.edit().putBoolean("prep.showDone", showDone).apply()
+                        }, prepView = prepView, onSelectView = { next ->
+                            prepView = next
+                            prefs.edit().putString("prep.view", next).apply()
                         }) { key ->
                             // The section bars jump to By task sections.
                             if (prepView != "task") {
                                 prepView = "task"
                                 prefs.edit().putString("prep.view", "task").apply()
                             }
-                            scope.launch { delay(50); offsets[key]?.let { y -> scroll.animateScrollTo(y) } }
-                        }
-                        PrepViewSwitch(prepView) { next ->
-                            prepView = next
-                            prefs.edit().putString("prep.view", next).apply()
+                            scope.launch {
+                                delay(50)
+                                offsets[key]?.let { y -> if (reduceMotion) scroll.scrollTo(y) else scroll.animateScrollTo(y) }
+                            }
                         }
                         if (prepView == "meal") {
                             for (g in PrepMealPresentation(tasks).mealGroups) {
@@ -233,7 +236,9 @@ fun PrepView() {
         val toastTask = toast?.let { id -> tasks.firstOrNull { it.id == id } }
         AnimatedVisibility(
             toastTask != null, Modifier.align(Alignment.BottomCenter),
-            enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut(),
+            // Reduce Motion: fade the check-off bar in place instead of sliding it up.
+            enter = if (reduceMotion) fadeIn() else slideInVertically { it } + fadeIn(),
+            exit = if (reduceMotion) fadeOut() else slideOutVertically { it } + fadeOut(),
         ) {
             val task = toastTask ?: return@AnimatedVisibility
             Row(
@@ -255,22 +260,28 @@ fun PrepView() {
     if (missingOpen) Sheet(onDismiss = { missingOpen = false }) { MissingPrepSheet() }
 }
 
-/** By meal / By task switch (mirrors .pz-view on web). */
+/** By meal / By task switch (mirrors .pz-view on web): compact, sized to its labels. */
 @Composable
 private fun PrepViewSwitch(selected: String, onSelect: (String) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(14.dp)).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        Modifier.heightIn(min = 44.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        for ((key, label) in listOf("meal" to "By meal", "task" to "By task")) {
-            val on = selected == key
-            Box(
-                Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp))
-                    .background(if (on) Theme.ink else Color.Transparent)
-                    .clickable { onSelect(key) }
-                    .semantics { contentDescription = if (on) "$label, selected" else label },
-                contentAlignment = Alignment.Center,
-            ) { Text(label, style = Theme.chipLabel, color = if (on) Theme.surface else Theme.ink) }
+        Row(
+            Modifier.background(Theme.aubergineTint, CircleShape).padding(3.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            for ((key, label) in listOf("meal" to "By meal", "task" to "By task")) {
+                val on = selected == key
+                Box(
+                    Modifier.heightIn(min = 30.dp).clip(CircleShape)
+                        .background(if (on) Theme.ink else Color.Transparent)
+                        .clickable { onSelect(key) }
+                        .padding(horizontal = 12.dp)
+                        .semantics { contentDescription = if (on) "$label, selected" else label },
+                    contentAlignment = Alignment.Center,
+                ) { Text(label, style = Theme.count.copy(fontWeight = FontWeight.SemiBold), color = if (on) Theme.surface else Theme.ink, maxLines = 1) }
+            }
         }
     }
 }
@@ -382,7 +393,8 @@ private fun MealTaskRow(
 
 @Composable
 private fun PrepHeader(
-    total: Int, doneCount: Int, groups: List<PrepGroup>, showDone: Boolean, onToggleDone: () -> Unit, jump: (String) -> Unit,
+    total: Int, doneCount: Int, groups: List<PrepGroup>, showDone: Boolean, onToggleDone: () -> Unit,
+    prepView: String, onSelectView: (String) -> Unit, jump: (String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -407,17 +419,27 @@ private fun PrepHeader(
                 Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(Theme.aubergineTint)) {
                     Box(Modifier.fillMaxWidth(g.done.toFloat() / g.all.size).height(8.dp).clip(CircleShape).background(Theme.coral))
                 }
-                Text(buildAnnotatedString {
-                    withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = Theme.ink)) { append("${g.section.short} ") }
-                    withStyle(SpanStyle(color = Theme.muted)) { append("${g.done}/${g.all.size}") }
-                }, style = Theme.count, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // Name and count on their own lines, matching iOS.
+                Text(g.section.short, style = Theme.count.copy(fontWeight = FontWeight.Bold), color = Theme.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${g.done}/${g.all.size}", style = Theme.count, color = Theme.muted, maxLines = 1)
             }
         }
         if (isAccessibilitySize) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { for (g in groups) bar(g, Modifier.fillMaxWidth()) }
         else Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { for (g in groups) bar(g, Modifier.weight(1f)) }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("$doneCount completed", style = Theme.subtitle, color = Theme.muted, modifier = Modifier.weight(1f))
-            if (doneCount > 0) LinkButton(if (showDone) "Hide completed" else "Show completed", onClick = onToggleDone)
+        // View switch and Show/Hide completed share one row; they stack at the largest text sizes.
+        val toggle: @Composable () -> Unit = {
+            if (doneCount > 0) Box(Modifier.heightIn(min = 44.dp).clickable(onClick = onToggleDone).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                Text(
+                    if (showDone) "Hide completed" else "Show completed ($doneCount)",
+                    style = Theme.count.copy(fontWeight = FontWeight.SemiBold), color = Theme.accent, maxLines = 1,
+                )
+            }
+        }
+        if (isAccessibilitySize) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { PrepViewSwitch(prepView, onSelectView); toggle() }
+        else Row(verticalAlignment = Alignment.CenterVertically) {
+            PrepViewSwitch(prepView, onSelectView)
+            Spacer(Modifier.weight(1f))
+            toggle()
         }
     }
 }

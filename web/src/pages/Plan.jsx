@@ -1,5 +1,6 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
 import { Icon } from "../icons.jsx";
 import { Thumbs } from "../Thumbs.jsx";
@@ -102,6 +103,15 @@ export function Plan() {
   }, [swapping, proposal?.id, swapQuery]);
   async function load() { setPlan(await api.plan()); setProposal((await api.pendingSuggestion()).plan); await week.load(); }
   useEffect(() => { load().catch((e) => setErr(e.message)); }, []);
+
+  // Watch the inline buttons: while they're on screen the floating pair stays hidden.
+  useEffect(() => {
+    const node = inlineActions.current;
+    if (!node || typeof IntersectionObserver !== "function") return undefined;
+    const observer = new IntersectionObserver(([entry]) => setInlineSeen(entry.isIntersecting));
+    observer.observe(node);
+    return () => observer.disconnect();
+  });
   async function act(work) {
     setBusy(true); setErr(""); setMessage("");
     try { await work(); } catch (e) { setErr(e.message); }

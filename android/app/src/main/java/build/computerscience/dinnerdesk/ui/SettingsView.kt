@@ -49,6 +49,7 @@ import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PanTool
+import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -102,20 +103,17 @@ import java.time.LocalDate
 import kotlin.math.max
 import kotlin.math.min
 
-/** Settings: account & household, privacy, help. */
+/** Settings: help, tour, web, Twitter — nested under More, matching iOS. */
 @Composable
 fun SettingsView() {
     val session = LocalSession.current
-    val nav = LocalNav.current
     val openUrl = rememberOpenUrl()
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar()
         ThemeList {
             LargeTitle("Settings")
-            ListRow({ nav.push(Route.Account) }) { ThemeIconRow("Account & security", Icons.Outlined.AccountCircle, session.status?.email ?: "Guest") }
-            ListRow({ nav.push(Route.Privacy) }) { ThemeIconRow("Privacy", Icons.Outlined.PanTool) }
             ListRow({ openUrl(Api.url("support")) }, chevron = false) { ThemeIconRow("Help & support", Icons.AutoMirrored.Outlined.HelpOutline) }
-            ListRow({ nav.push(Route.Feedback) }) { ThemeIconRow("Report a bug or suggest a feature", Icons.Outlined.Feedback) }
+            ListRow({ session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
             ListRow({ openUrl("https://dinnerdesk.computerscience.build") }, chevron = false) { ThemeIconRow("${Copy.appName} on the web", Icons.Outlined.Explore) }
             ListRow({ openUrl("https://x.com/DinnerDesk") }, chevron = false) { ThemeIconRow("Twitter", Icons.Outlined.Forum, "@DinnerDesk") }
             ListHeader("About recipes & photos")
@@ -421,6 +419,7 @@ private fun OtherField(
 fun AccountView() {
     val store = LocalStore.current
     val session = LocalSession.current
+    val nav = LocalNav.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var members by remember { mutableStateOf<List<HouseholdMember>>(emptyList()) }
@@ -605,12 +604,14 @@ fun AccountView() {
                     else "Deletes your account. The household stays for the other members.",
                     style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
                 )
+                ListRow({ nav.push(Route.Privacy) }) { ThemeIconRow("Privacy", Icons.Outlined.PanTool) }
             } else {
                 Text(
                     "You're using ${Copy.appName} as a guest. Create an account to keep your plan and share it with your household.",
                     style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 )
                 ListRow({ signingIn = true }, chevron = false) { Text("Sign in or create account", style = Theme.mealName, color = Theme.accent) }
+                ListRow({ nav.push(Route.Privacy) }) { ThemeIconRow("Privacy", Icons.Outlined.PanTool) }
             }
         }
     }

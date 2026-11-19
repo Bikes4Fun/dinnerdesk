@@ -92,7 +92,6 @@ struct PrepView: View {
               if prepView != "task" { prepView = "task" }
               DispatchQueue.main.async { withMotion { proxy.scrollTo(key, anchor: .top) } }
             }
-            viewSwitch
             if prepView == "task" {
               ForEach(groups) { group in section(group).id(group.key) }
             } else {
@@ -152,10 +151,12 @@ struct PrepView: View {
               }
             }
             .frame(height: 8)
-            Text("\(g.short) ").font(Theme.count.weight(.bold)).foregroundStyle(Theme.ink)
-              + Text("\(g.done)/\(g.all.count)").font(Theme.count).foregroundStyle(Theme.muted)
+            // Name and count on their own lines so every bar sits at the same height.
+            Text(g.short).font(Theme.count.weight(.bold)).foregroundStyle(Theme.ink)
+              .lineLimit(1).minimumScaleFactor(0.75)
+            Text("\(g.done)/\(g.all.count)").font(Theme.count).foregroundStyle(Theme.muted)
           }
-          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+          .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -166,14 +167,10 @@ struct PrepView: View {
       } else {
         HStack(alignment: .top, spacing: 6) { bars }
       }
-      HStack {
-        Text("\(doneCount) completed").font(Theme.subtitle).foregroundStyle(Theme.muted)
-        Spacer()
-        if doneCount > 0 {
-          Button(showDone ? "Hide completed" : "Show completed") { showDone.toggle() }
-            .font(Theme.action).foregroundStyle(Theme.accent)
-            .frame(minHeight: 44)
-        }
+      // View switch and Show/Hide completed share one row; they stack at the largest text sizes.
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 12) { viewSwitch; Spacer(minLength: 0); completedToggle }
+        VStack(alignment: .leading, spacing: 8) { viewSwitch; completedToggle }
       }
     }
   }
@@ -203,26 +200,40 @@ struct PrepView: View {
 
   private var mealGroups: [PrepMealGroup] { PrepMealPresentation(tasks).mealGroups }
 
-  /// By meal / By task switch (mirrors .pz-view on web).
+  /// By meal / By task switch (mirrors .pz-view on web): compact, sized to its labels.
   private var viewSwitch: some View {
-    HStack(spacing: 4) {
+    HStack(spacing: 2) {
       ForEach([("meal", "By meal"), ("task", "By task")], id: \.0) { key, label in
         let on = prepView == key
         Button { withMotion { prepView = key } } label: {
-          Text(label).font(Theme.chipLabel)
+          Text(label).font(Theme.count.weight(.semibold)).lineLimit(1)
             .foregroundStyle(on ? Theme.surface : Theme.ink)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(on ? Theme.ink : .clear, in: RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 12)
+            .frame(minHeight: 30)
+            .background(on ? Theme.ink : .clear, in: Capsule())
+            .frame(minHeight: 44)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
       }
     }
-    .padding(4)
-    .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 14))
+    .padding(.horizontal, 3)
+    .background(Theme.aubergineTint, in: Capsule().inset(by: 4))
+    .fixedSize()
     .accessibilityElement(children: .contain)
     .accessibilityLabel("Show prep")
+  }
+
+  @ViewBuilder private var completedToggle: some View {
+    if doneCount > 0 {
+      Button(showDone ? "Hide completed" : "Show completed (\(doneCount))") { showDone.toggle() }
+        .buttonStyle(.plain)
+        .font(Theme.count.weight(.semibold)).foregroundStyle(Theme.accent)
+        .lineLimit(1)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
   }
 
   private func mealCard(_ g: PrepMealGroup) -> some View {

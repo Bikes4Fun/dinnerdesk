@@ -1,4 +1,4 @@
-from app.domain.grocery import merge_grocery
+from app.domain.grocery import coerce_qty_name, grocery_item_name, grocery_names, merge_grocery
 from app.domain.ingredients import aisle_for, zone_for
 
 
@@ -21,7 +21,18 @@ def test_aisles_put_shelf_forms_in_pantry_and_fresh_herbs_in_produce():
     assert aisle_for("shredded mozzarella") == "dairy"
     assert aisle_for("half and half") == "dairy"
     assert aisle_for("sea scallops") == "meat"
-    assert aisle_for("frozen peas") == "other"
+
+
+def test_deli_frozen_and_unknown_aisle_defaults():
+    for name in ["hummus", "guacamole", "extra firm tofu", "tzatziki sauce", "deli roast beef",
+                 "sliced turkey breast", "rotisserie chicken", "prosciutto"]:
+        assert aisle_for(name) == "deli", name
+    for name in ["frozen peas", "frozen, riced cauliflower", "frozen cherries", "pre-cooked vegan sausage",
+                 "veggie burger patties, plant-based", "veggie ground, plant based", "meatless meatballs"]:
+        assert aisle_for(name) == "frozen", name
+    assert aisle_for("vegan chicken broth") == "pantry"
+    assert aisle_for("paper towels") == "other"
+    assert aisle_for("dish soap") == "other"
 
 
 def test_merge_sums_same_ingredient_across_recipes():
@@ -270,3 +281,82 @@ def test_merge_repairs_kebab_style_overlay_and_merges_chicken():
         "Chicken Kebabs",
         "Cheesy Cheddar Broccoli & Chicken",
     ]
+
+
+def test_merge_collapses_prep_notes_on_the_same_ingredient():
+    """The reported case: two recipes using cilantro, written differently (#90)."""
+    lines = merge_grocery(
+        [
+            {"name": "fresh cilantro, chopped", "quantity": "1/4 cup", "recipe_id": 1,
+             "recipe_name": "Cilantro lime ranch"},
+            {"name": "cilantro", "quantity": "1/4 cup", "recipe_id": 2,
+             "recipe_name": "Cilantro burger"},
+        ],
+        pantry_have=set(),
+        never_shop=set(),
+        aliases={},
+    )
+    assert len(lines) == 1
+    assert lines[0]["name"] == "cilantro"
+    assert lines[0]["quantity"] == "1/2 cup"
+    assert lines[0]["used_by"] == ["Cilantro lime ranch", "Cilantro burger"]
+
+
+def test_prep_notes_do_not_swallow_part_of_the_name():
+    for name in ["beans, black", "milk, 2%", "tomato, roma", "chicken, thighs"]:
+        assert grocery_names(name) == [name], name
+
+
+def test_leading_preparation_joins_the_same_line():
+    lines = merge_grocery(
+        [
+            {"name": "cilantro", "quantity": "1/4 cup chopped", "recipe_id": 1,
+             "recipe_name": "Cilantro lime ranch"},
+            {"name": "cilantro", "quantity": "1/4 cup cilantro", "recipe_id": 2,
+             "recipe_name": "Cilantro burger"},
+            {"name": "fresh cilantro, chopped", "quantity": "2 tbsp", "recipe_id": 3,
+             "recipe_name": "Tacos"},
+        ],
+        pantry_have=set(),
+        never_shop=set(),
+        aliases={},
+    )
+    assert len(lines) == 1
+    assert lines[0]["name"] == "cilantro"
+    assert lines[0]["quantity"] == "1/2 cup + 2 tbsp"
+    assert len(lines[0]["used_in"]) == 3
+
+
+def test_shelf_forms_are_not_treated_as_preparations():
+    # Each of these names a different product from the plain food, so it keeps its own line.
+    for name in ["crushed tomatoes", "diced tomatoes", "shredded mozzarella", "grated parmesan"]:
+        assert grocery_item_name(name, {}, {}) == name, name
+
+
+def test_quantity_that_repeats_the_food_does_not_double_the_name():
+    qty, name = coerce_qty_name("1/4 cup cilantro", "cilantro")
+    assert (qty, name) == ("1/4 cup", "cilantro")
+    assert coerce_qty_name("2 onions", "onion") == ("2", "onions")
+
+
+def test_prep_notes_and_parentheses_reduce_to_the_food():
+    assert grocery_names("parsley, leaves only")[-1] == "parsley"
+    assert grocery_names("onion (diced), chopped")[-1] == "onion"
+    assert grocery_names("chicken, cooked and shredded")[-1] == "chicken"
+    assert grocery_names("freshly grated parmesan")[-1] == "grated parmesan"
+
+
+def test_pantry_item_matches_a_recipe_name_with_a_prep_note():
+    lines = merge_grocery(
+        [{"name": "spinach, chopped", "quantity": "2 cups", "recipe_id": 1, "recipe_name": "A"}],
+        pantry_have={"spinach"},
+        never_shop=set(),
+        aliases={},
+    )
+    assert len(lines) == 1
+    assert lines[0]["from_pantry"] is True
+
+
+def test_catalog_name_keeps_its_own_identity():
+    # "black pepper" is in the catalog, so nothing shortens it to "pepper".
+    assert grocery_item_name("black pepper", {}, {}) == "black pepper"

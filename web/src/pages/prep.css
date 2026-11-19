@@ -114,8 +114,11 @@
 
 /* By meal / By task switch, and the By meal view: one card per meal, one row per task with a
    progress ring for that meal's steps, a one-line summary, and the steps folded out. */
-.prep-screen .pz-view { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 16px 0 4px; padding: 4px; border-radius: 14px; background: #f1e7ef; }
-.prep-screen .pz-view button { min-height: 40px; border-radius: 10px; color: var(--brand); font-size: 15px; font-weight: 600; }
+.prep-screen .pz-view-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; margin: 14px 0 2px; }
+.prep-screen .pz-view { display: inline-flex; gap: 2px; padding: 3px; border-radius: 999px; background: #f1e7ef; }
+.prep-screen .pz-view button { position: relative; min-height: 30px; padding: 0 12px; border-radius: 999px; color: var(--brand); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.prep-screen .pz-view button::after { content: ""; position: absolute; inset: -7px 0; } /* 44px touch target */
+.prep-screen .pz-done-toggle { min-height: 44px; padding: 0 4px; color: var(--accent); font-size: 13px; font-weight: 600; white-space: nowrap; }
 .prep-screen .pz-view button[aria-pressed="true"] { background: var(--brand); color: #fbf6ee; }
 .prep-screen .pz-meal { margin-top: 14px; padding: 14px 16px 4px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
 .prep-screen .pz-meal-head { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; }
@@ -143,4 +146,4 @@
 .prep-screen .pz-mstep.done p { color: var(--muted); text-decoration: line-through; }
 .prep-screen .pz-mstep .pz-amount { display: block; max-width: none; white-space: normal; font-size: 14px; }
 .prep-screen .pz-mtask-storage { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
-@media print { .prep-screen .pz-view { display: none; } }
+@media print { .prep-screen .pz-view-row { display: none; } }

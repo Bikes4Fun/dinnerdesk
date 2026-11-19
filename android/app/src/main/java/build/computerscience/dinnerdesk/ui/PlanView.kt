@@ -57,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -323,6 +324,20 @@ private fun AddMealsButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
         Text("Add meals", style = Theme.action, color = Theme.accent)
+    }
+}
+
+/** Add meals as a capsule, for the floating row where the plain link would read as part of a meal. */
+@Composable
+private fun AddMealsPill(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier.heightIn(min = 44.dp).clip(CircleShape).background(Theme.surface)
+            .border(1.5.dp, Theme.accent, CircleShape).clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(18.dp))
+        Text("Add meals", style = Theme.body, color = Theme.accent, textAlign = TextAlign.Center)
     }
 }
 

@@ -629,6 +629,100 @@ def test_custom_grocery_line_stays_off_catalog(tmp_path):
         assert "usb-c" in names
 
 
+def _second_onion_recipe(quantity: str) -> int:
+    """A second catalog recipe that also uses onion, for plans built up over time."""
+    db = connect()
+    ts = now()
+    db.execute(
+        """INSERT INTO recipes (
+            household_id, slug, name, servings, cooking_minutes,
+            instructions_json, cookware_json, source_url, provenance_json,
+            photo_path, created_at, updated_at
+        ) VALUES (NULL, 'onion-tart', 'Onion tart', 4, 30, '[]', '[]', '',
+            '{"instructions_copied_from_third_party": false}', '', ?, ?)""",
+        (ts, ts),
+    )
+    rid = db.execute("SELECT id FROM recipes WHERE slug = 'onion-tart'").fetchone()["id"]
+    db.execute(
+        """INSERT INTO recipe_ingredients
+           (recipe_id, ingredient_id, quantity, unit, note, sort)
+           VALUES (?, 1, ?, '', '', 0)""",
+        (rid, quantity),
+    )
+    db.commit()
+    db.close()
+    return int(rid)
+
+
+def test_adding_a_recipe_to_an_existing_plan_updates_the_amount(tmp_path):
+    """The reported glitch: a second recipe went on the plan, the amount didn't move (#90)."""
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        tart = _second_onion_recipe("2")
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]},
+        )
+        first = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert first["quantity"] == "1"
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={
+                "slots": [
+                    {"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4},
+                    {"recipe_id": tart, "day_index": 2, "meal_type": "dinner", "servings": 4},
+                ]
+            },
+        )
+        after = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert after["quantity"] == "3"
+        assert len(after["used_in"]) == 2
+
+
+def test_a_hand_added_item_does_not_freeze_the_line(tmp_path):
+    """Merging a hand-added item used to pin the amount, so later recipes never moved it."""
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        tart = _second_onion_recipe("3")
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]},
+        )
+        client.post(f"/api/plans/{pid}/grocery/lines", json={"name": "onion", "quantity": "1"})
+        merged = [x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"]]
+        assert len(merged) == 1
+        assert merged[0]["quantity"] == "2"
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={
+                "slots": [
+                    {"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4},
+                    {"recipe_id": tart, "day_index": 2, "meal_type": "dinner", "servings": 4},
+                ]
+            },
+        )
+        after = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert after["quantity"] == "4"
+
+
+def test_an_edited_amount_still_survives_a_rebuild(tmp_path):
+    """The household's own number is theirs to keep; only merging stopped minting one."""
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]},
+        )
+        onion = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        client.patch(f"/api/grocery/lines/{onion['id']}", json={"quantity": "9"})
+        client.post(f"/api/plans/{pid}/grocery")
+        kept = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert kept["quantity"] == "9"
+
+
 def test_rebuild_keeps_checks_on_same_item(tmp_path):
     with _client(tmp_path) as client:
         _link_soup_onion(tmp_path)
@@ -1112,11 +1206,11 @@ def test_prep_progress_survives_regrouping_but_changed_steps_reset(tmp_path):
         client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
         client.patch(f"/api/recipes/{recipe['id']}", json={"name": "Chicken with mashed potatoes"})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
-        potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
+        potato = next(t for t in tasks if t["title"] == "Make mashed potatoes")
         assert potato["done"] and potato["meals"][0]["steps"][0]["done"]
         client.patch(f"/api/recipes/{recipe['id']}", json={"instructions": [{"text": "Peel and dice potatoes."}, {"text": "Dice onions."}]})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
-        potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
+        potato = next(t for t in tasks if t["title"] == "Make mashed potatoes")
         assert not potato["done"] and not potato["meals"][0]["steps"][0]["done"]
 
 

@@ -48,7 +48,7 @@ from app.domain.ingredient_review import (
     save_group_audit,
     save_group_notes,
 )
-from app.domain.ingredients import aisle_for, pantry_key
+from app.domain.ingredients import NEW_AISLES, aisle_for, pantry_key
 from app.domain.pantry_catalog import collapse_catalog_names, ingredient_name, in_grocery_catalog, item_key, preferred_grocery_name
 from app.domain.prep import SemanticPrepEngine, step_key, step_sentences
 from app.domain.prep_presentation import PrepMealPresentation, PrepTaskPresentation
@@ -1584,8 +1584,21 @@ def _combine_duplicate_grocery_lines(db: PgConnection, plan_id: int) -> dict[int
                 else:
                     meals[key] = dict(meal)
             remapped[row["id"]] = keep["id"]
-        explicit = any(r["quantity_override"] is not None or (r["quantity"] and not json.loads(r["source_slots_json"])) for r in group)
-        db.execute("UPDATE grocery_lines SET quantity = ?, quantity_override = ?, checked = ?, source_slots_json = ? WHERE id = ?", (quantity, quantity if explicit else None, int(all(r["checked"] for r in group)), json.dumps(list(meals.values())), keep["id"]))
+        household_amount = any(
+            r["quantity_override"] is not None
+            or (r["quantity"] and not json.loads(r["source_slots_json"] or "[]"))
+            for r in group
+        )
+        from_recipes = any(json.loads(r["source_slots_json"] or "[]") for r in group)
+        # An override pins the amount against every later rebuild, so only a line the plan
+        # isn't the source for keeps one. Merging a hand-added item into a recipe-backed line
+        # used to mint one, and that line's amount then never moved again when a recipe was
+        # added to the plan (#90). The hand-added amount still counts in this rebuild; from
+        # the next one the line follows the plan again.
+        override = quantity if household_amount and (
+            not from_recipes or keep["quantity_override"] is not None
+        ) else None
+        db.execute("UPDATE grocery_lines SET quantity = ?, quantity_override = ?, checked = ?, source_slots_json = ? WHERE id = ?", (quantity, override, int(all(r["checked"] for r in group)), json.dumps(list(meals.values())), keep["id"]))
         for row in group:
             if row["id"] != keep["id"]:
                 db.execute("DELETE FROM grocery_lines WHERE id = ?", (row["id"],))
@@ -2629,6 +2642,19 @@ def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
         prefs = json.loads(row["prefs_json"] or "{}")
     except json.JSONDecodeError:
         raise
+    grocery = prefs.get("grocery")
+    aisles = grocery.get("aisles") if isinstance(grocery, dict) else None
+    if isinstance(aisles, list) and aisles:
+        existing = {aisle.get("id") for aisle in aisles if isinstance(aisle, dict)}
+        missing = [
+            {"id": aisle_id, "name": name, "number": ""}
+            for aisle_id, name in NEW_AISLES.items() if aisle_id not in existing
+        ]
+        other_index = next(
+            (index for index, aisle in enumerate(aisles) if isinstance(aisle, dict) and aisle.get("id") == "other"),
+            len(aisles),
+        )
+        aisles[other_index:other_index] = missing
     return {"id": row["id"], "name": row["name"], "prefs": prefs}
 
 

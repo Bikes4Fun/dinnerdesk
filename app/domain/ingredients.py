@@ -5,11 +5,24 @@ from __future__ import annotations
 import re
 import unicodedata
 
-AISLES = ("produce", "dairy", "meat", "pantry", "other")
+AISLES = ("produce", "dairy", "meat", "pantry", "deli", "frozen", "other")
+NEW_AISLES = {"deli": "Deli", "frozen": "Frozen"}
 
 # Checked in order; the first match wins. Shelf-stable forms come before the
 # fresh words they contain ("garlic powder", "tomato paste", "fish sauce").
 _FROZEN = re.compile(r"\bfrozen\b")
+_MEATLESS_MEAT = re.compile(
+    r"\b(?:plant[- ]based|meatless|vegan|vegetarian|veggie)\b.*"
+    r"\b(?:burgers?|patt(?:y|ies)|ground|sausages?|meatballs?|nuggets?|bacon|chicken|beef|pork|turkey|"
+    r"hot dogs?|deli slices?|crumbles?)\b"
+)
+_MEATLESS_PANTRY = re.compile(r"\b(?:broth|stock|bouillon|seasoning|flavoring|flavou?red)\b")
+_DELI = re.compile(
+    r"\b(?:hummus|guacamole|pico de gallo|tzatziki|tofu|kimchi|rotisserie chicken|"
+    r"deli (?:roast beef|meats?|ham|turkey|chicken)|"
+    r"sliced (?:turkey breast|turkey|ham|roast beef|chicken breast)|"
+    r"prosciutto|salami|pepperoni)\b"
+)
 _FRESH = re.compile(r"\bfresh\b")
 _SHELF = re.compile(
     r"\b(?:broth|stock|bouillon|soup|powder|seasoning|spice|flakes|granules|granulated|"
@@ -65,21 +78,23 @@ def apply_alias(name: str, aliases: dict[str, str]) -> str:
 
 def aisle_for(name: str) -> str:
     n = pantry_key(name)
-    if _FROZEN.search(n):
-        return "other"
+    if _FROZEN.search(n) or (_MEATLESS_MEAT.search(n) and not _MEATLESS_PANTRY.search(n)):
+        return "frozen"
     if _FRESH.search(n) and _PRODUCE.search(n):
         return "produce"
     if re.search(r"lettuce", n):
         return "produce"
     if _SHELF.search(n) or _PEPPER_SPICE.search(n):
         return "pantry"
+    if _DELI.search(n):
+        return "deli"
     if _MEAT.search(n):
         return "meat"
     if _DAIRY.search(n):
         return "dairy"
     if _PRODUCE.search(n):
         return "produce"
-    return "pantry"
+    return "other"
 
 
 def zone_for(name: str) -> str:
@@ -88,9 +103,12 @@ def zone_for(name: str) -> str:
         return "freezer"
     if re.search(r"powder|seasoning|flakes|dried|spice", n):
         return "spices"
-    if aisle_for(n) == "produce":
+    aisle = aisle_for(n)
+    if aisle == "frozen":
+        return "freezer"
+    if aisle == "produce":
         return "produce"
-    if aisle_for(n) == "dairy" or re.search(r"chicken|cilantro", n):
+    if aisle in ("dairy", "deli") or re.search(r"chicken|cilantro", n):
         return "fridge"
     if re.search(r"salt|pepper|oil|spice|garlic|vinegar", n):
         return "spices"
