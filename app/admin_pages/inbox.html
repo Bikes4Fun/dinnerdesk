@@ -170,8 +170,7 @@ const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 const KINDS = [["all", "All"], ["bug", "Bugs"], ["idea", "Ideas"], ["recipe", "Recipe reports"], ["ingredient", "Ingredient reports"], ["plan", "Plan reports"], ["prep", "Prep"]];
 // Each pressed chip drops those items. The type and status chips above still choose what is shown.
-const HIDES = [["photo", "Photo reports", i => i.reason === "photo"], ["crash", "Crashes", i => i.kind === "crash"],
-  ["bug", "Bugs", i => i.kind === "bug"],
+const HIDES = [["photo", "Photo reports", i => i.reason === "photo"], ["bug", "Bugs", i => i.kind === "bug"],
   ["idea", "Ideas", i => i.kind === "idea"], ["recipe", "Recipe reports", i => i.kind === "recipe"],
   ["ingredient", "Ingredient reports", i => i.kind === "ingredient"], ["plan", "Plan reports", i => i.kind === "plan"],
   ["prep", "Prep", i => i.kind === "prep"], ["planned", "Planned", i => i.status === "planned"]];
@@ -194,7 +193,6 @@ const kept = i => !HIDES.some(([id, , test]) => hidden.has(id) && test(i));
 
 const from = i => i.email || `${i.household_name || "household"} (h${i.household_id})${i.guest ? " · guest" : ""}`;
 function title(i) {
-  if (i.kind === "crash") return `Crash: ${i.message}${i.seen > 1 ? ` (${i.seen}\u00d7)` : ""}`;
   if (i.kind === "recipe") return `${i.recipe_name || `Recipe ${i.recipe_id}`}: ${REASONS[i.reason] || i.reason}`;
   if (i.kind === "ingredient") return `${i.item_name || "Grocery item"}: ${ITEM_REASONS[i.reason] || i.reason}`;
   if (i.kind === "plan") return `Plan #${i.plan_id ?? "deleted"}`;
@@ -259,16 +257,6 @@ function row(i) {
 }
 
 // What each kind of item needs to be understood.
-function crashBody(i) {
-  return `<div class="block"><dl>
-      <dt>Screen</dt><dd>${esc(i.screen || "unknown")}</dd>
-      <dt>Seen</dt><dd>${i.seen}\u00d7${i.last_seen_at ? `, last ${ago(i.last_seen_at)}` : ""}</dd>
-      <dt>Device</dt><dd>${esc(i.device || "unknown")}</dd></dl>
-    ${i.stack ? `<details open><summary class="warn">Stack</summary><pre>${esc(i.stack)}</pre></details>` : ""}
-    ${i.pages.length ? `<details><summary>Screens before the crash (${i.pages.length})</summary><ol>${i.pages.map(p => `<li>${esc(p)}</li>`).join("")}</ol></details>` : ""}
-    ${i.errors.length ? `<details><summary class="warn">Errors before the crash (${i.errors.length})</summary><ol>${i.errors.map(e => `<li>${esc(e)}</li>`).join("")}</ol></details>` : ""}</div>`;
-}
-
 function feedbackBody(i) {
   return `<div class="block"><dl>
       <dt>Version</dt><dd>${esc(i.version)}${i.behind ? ` <span class="warn">· older version (${esc(i.behind)})</span>` : ""}</dd>
@@ -368,7 +356,7 @@ function sender(i) {
 }
 
 function detail(i) {
-  const body = { bug: feedbackBody, idea: feedbackBody, crash: crashBody, recipe: recipeBody, ingredient: ingredientBody, plan: planBody, prep: prepBody }[i.kind](i);
+  const body = { bug: feedbackBody, idea: feedbackBody, recipe: recipeBody, ingredient: ingredientBody, plan: planBody, prep: prepBody }[i.kind](i);
   const words = i.note;
   const savedHere = savedKey === key(i);
   return `<div class="d-head"><div style="min-width:0"><h2>${esc(title(i))}</h2>

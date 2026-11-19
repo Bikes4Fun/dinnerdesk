@@ -1,5 +1,4 @@
 import { api } from "./api.js";
-import { CrashNotice, ErrorBoundary } from "./ErrorBoundary.jsx";
 import { Icon } from "./icons.jsx";
 import { ADMIN_PAGES, go, inboxCount } from "./nav.js";
 import { About } from "./pages/About.jsx";
@@ -206,11 +205,7 @@ export function App() {
   useEffect(() => {
     const fail = (event) => {
       if (event.reason?.name === "AbortError") return;
-      const message = event.detail || event.reason?.message || event.error?.message || event.message
-        || "Unexpected application error";
-      // Anything the boundary below didn't catch: a listener, a timer, a rejected promise.
-      api.reportCrash({ message, stack: String(event.error?.stack || event.reason?.stack || ""), screen: window.location.pathname });
-      setFatalError(message);
+      setFatalError(event.detail || event.reason?.message || event.error?.message || event.message || "Unexpected application error");
     };
     window.addEventListener("dinnerdesk-failure", fail);
     window.addEventListener("unhandledrejection", fail);
@@ -295,9 +290,7 @@ export function App() {
   if (page === "privacy") return <Privacy />;
   if (page === "support") return <Support />;
 
-  // The message stays out of the markup on purpose: it means nothing to a cook, it can carry
-  // internals, and it travels in screenshots. The Inbox has it (#357).
-  if (fatalError) return <CrashNotice onRetry={() => setFatalError("")} />;
+  if (fatalError) return <main role="alert" className="screen pad"><h1>App stopped</h1><pre>{fatalError}</pre></main>;
 
   if (authStatus === null) {
     return <div className="app is-auth" />;
@@ -376,7 +369,6 @@ export function App() {
           <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>{authStatus.has_email || authStatus.recovery_email ? "Verify email" : "Add email"}</a>
         </Notice>}
         <WhatsNew />
-        <ErrorBoundary key={page}>
         {page === "plan" && <Plan />}
         {page === "recipes" && <Recipes admin={admin} />}
         {page === "recipe" && <Recipe id={route.id} />}
@@ -396,7 +388,6 @@ export function App() {
         {page === "filters" && <Filters />}
         {page === "social" && <Social />}
         {page === "newsletter" && <Newsletter />}
-        </ErrorBoundary>
       </div>
       <nav className="tabbar" aria-label="Primary">
         <NavLink href="/" navKey="plan" label="Plan" icon="plan" page={page} count={mealCount} />

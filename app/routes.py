@@ -65,7 +65,6 @@ from app.models import (
     RecipePhotoAdd,
     RecipePhotoPrimary,
     PrepMissingPut,
-    ClientErrorCreate,
     IngredientReportCreate,
     PlanReportCreate,
     RecipeReportCreate,
@@ -2857,44 +2856,6 @@ def _sender(request: Request, db: PgConnection, household_id: int) -> dict:
                      "accounts": db.execute("SELECT COUNT(*) AS n FROM users WHERE household_id = ?",
                                             (household_id,)).fetchone()["n"]},
     }
-
-
-@router.post("/client-errors")
-def report_client_error(body: ClientErrorCreate, request: Request, db: PgConnection = DbDep,
-                        household_id: int = HhDep):
-    """A crash the app caught in someone's browser. It goes to the Inbox so the person sees a
-    plain apology instead of the error, and so nobody has to report it by hand.
-
-    A crash usually repeats — a reload lands on the same broken screen — so the same message on
-    the same screen keeps one row and counts the repeats. Nothing here is typed by the person;
-    the trail is already redacted of one-time tokens on the way out of the browser."""
-    message = body.message.strip()[:500] or "Unknown error"
-    screen = body.screen.strip()[:200]
-    snapshot = {"stack": body.stack.strip()[:4000],
-                "pages": [p[:200] for p in body.pages[:10]],
-                "errors": [e[:500] for e in body.errors[:10]],
-                "user_agent": request.headers.get("user-agent", "")[:400],
-                "app": request.headers.get("x-dinnerdesk-app", "")[:100],
-                **_sender(request, db, household_id)}
-    stamp = now()
-    with transaction(db):
-        same = db.execute(
-            """SELECT id FROM client_errors
-               WHERE household_id = ? AND message = ? AND screen = ? AND status = 'new'
-               ORDER BY id DESC LIMIT 1""",
-            (household_id, message, screen),
-        ).fetchone()
-        if same:
-            db.execute("UPDATE client_errors SET seen = seen + 1, last_seen_at = ?, snapshot_json = ? WHERE id = ?",
-                       (stamp, json.dumps(snapshot), same["id"]))
-        else:
-            db.execute(
-                """INSERT INTO client_errors
-                   (household_id, user_id, message, screen, snapshot_json, created_at, last_seen_at)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (household_id, snapshot.get("user_id"), message, screen, json.dumps(snapshot), stamp, stamp),
-            )
-    return {"ok": True}
 
 
 @router.post("/plans/{plan_id}/report")

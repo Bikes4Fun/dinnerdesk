@@ -723,43 +723,6 @@ def test_an_edited_amount_still_survives_a_rebuild(tmp_path):
         assert kept["quantity"] == "9"
 
 
-def test_a_caught_crash_reaches_the_inbox_once_per_screen(tmp_path):
-    """A crash reports itself so nobody has to, and a crash loop stays one Inbox item (#357)."""
-    with _client(tmp_path) as client:
-        crash = {"message": "setInlineSeen is not defined", "stack": "at Plan (Plan.jsx:108)",
-                 "screen": "/", "pages": ["10:00:00 /recipes", "10:00:04 /"],
-                 "errors": ["10:00:05 setInlineSeen is not defined"]}
-        assert client.post("/api/client-errors", json=crash).json() == {"ok": True}
-        assert client.post("/api/client-errors", json=crash).json() == {"ok": True}
-        db = connect()
-        rows = db.execute("SELECT message, screen, seen, snapshot_json FROM client_errors").fetchall()
-        db.close()
-        assert len(rows) == 1
-        assert rows[0]["message"] == "setInlineSeen is not defined"
-        assert rows[0]["seen"] == 2
-        snapshot = json.loads(rows[0]["snapshot_json"])
-        assert snapshot["stack"] == "at Plan (Plan.jsx:108)"
-        assert snapshot["pages"] == crash["pages"]
-        from app.admin_routes import _inbox, _inbox_new
-        db = connect()
-        item = next(i for i in _inbox(db)["items"] if i["kind"] == "crash")
-        assert _inbox_new(db) >= 1
-        db.close()
-        assert item["status"] == "new"
-        assert item["seen"] == 2
-        assert item["note"] == "setInlineSeen is not defined"
-        assert item["pages"] == crash["pages"]
-
-
-def test_a_different_screen_is_its_own_crash(tmp_path):
-    with _client(tmp_path) as client:
-        for screen in ("/", "/grocery"):
-            client.post("/api/client-errors", json={"message": "boom", "screen": screen})
-        db = connect()
-        assert len(db.execute("SELECT id FROM client_errors").fetchall()) == 2
-        db.close()
-
-
 def test_rebuild_keeps_checks_on_same_item(tmp_path):
     with _client(tmp_path) as client:
         _link_soup_onion(tmp_path)

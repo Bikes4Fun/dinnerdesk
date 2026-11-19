@@ -245,16 +245,6 @@ class IngredientReportCreate(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
-class ClientErrorCreate(BaseModel):
-    """A crash the web app caught, with the trail of what led to it. No user text: nobody typed
-    this, the app sent it, so the person never has to describe or even see the failure."""
-    message: str = Field(default="", max_length=500)
-    stack: str = Field(default="", max_length=4000)
-    screen: str = Field(default="", max_length=200)
-    pages: list[str] = Field(default_factory=list, max_length=10)
-    errors: list[str] = Field(default_factory=list, max_length=10)
-
-
 class PlanReportCreate(BaseModel):
     """A cook reporting a bad meal plan suggestion, in their own words."""
     note: str = Field(default="", max_length=1000)
