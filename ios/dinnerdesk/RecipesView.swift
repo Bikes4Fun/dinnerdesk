@@ -464,7 +464,7 @@ private struct PlanStrip: View {
           }
         }
         .padding(.top, 6)
-        .background(Theme.surface.opacity(.5))
+        .background(Theme.surface.opacity(0.5))
         .overlay(alignment: .top) { Theme.line.frame(height: 1) }
       }
     }
