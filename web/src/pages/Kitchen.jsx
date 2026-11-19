@@ -37,6 +37,7 @@ function KitchenHub() {
   const [portions, setPortions] = useState(4);
   const [alwaysN, setAlwaysN] = useState(null);
   const [overrideN, setOverrideN] = useState(null);
+  const [syncSoon, setSyncSoon] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -68,6 +69,7 @@ function KitchenHub() {
     }
   }
 
+  // Layout mirrors iOS Kitchen: Everyday / Shopping / General / Coming soon.
   return (
     <section className="screen">
       <header className="top">
@@ -78,9 +80,25 @@ function KitchenHub() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
-        <label className="block-label">Cooking</label>
+        <label className="block-label">Everyday</label>
+        <button type="button" className="list-link" onClick={() => go("/settings/filters")}>
+          Filters
+        </button>
+        <button type="button" className="list-link" onClick={() => go("/recipes?list=mine")}>
+          My recipes
+        </button>
+        <button type="button" className="list-link" onClick={() => go("/kitchen/pantry")}>
+          Pantry
+        </button>
+        <label className="block-label">Shopping</label>
+        <button type="button" className="list-link" onClick={() => go("/kitchen/stores")}>
+          Stores &amp; aisles
+        </button>
+        <button type="button" className="list-link" onClick={() => go("/kitchen/always-checked")}>
+          Always checked off {alwaysN != null ? <em>{alwaysN}</em> : null}
+        </button>
         <label className="portions-row">
-          Family portions
+          Portions
           <input
             className="portions-input"
             type="number"
@@ -89,22 +107,32 @@ function KitchenHub() {
             onChange={(e) => savePortions(e.target.value)}
           />
         </label>
-        <button type="button" className="list-link" onClick={() => go("/kitchen/templates")}>
-          Templates
-        </button>
-        <button type="button" className="list-link" onClick={() => go("/kitchen/pantry")}>
-          Pantry
-        </button>
-        <label className="block-label">Grocery settings</label>
-        <button type="button" className="list-link" onClick={() => go("/kitchen/always-checked")}>
-          Always checked off {alwaysN != null ? <em>{alwaysN}</em> : null}
+        <label className="block-label">General</label>
+        <button type="button" className="list-link" onClick={() => go("/recipes?list=hidden")}>
+          Hidden recipes
         </button>
         <button type="button" className="list-link" onClick={() => go("/kitchen/overrides")}>
           Substitutions {overrideN != null ? <em>{overrideN}</em> : null}
         </button>
-        <button type="button" className="list-link" onClick={() => go("/kitchen/stores")}>
-          Grocery store
+        <label className="block-label">Coming soon</label>
+        <button type="button" className="list-link" onClick={() => go("/kitchen/templates")}>
+          Recipe templates
+          <em>Coming soon</em>
         </button>
+        <button type="button" className="list-link" disabled>
+          New to cooking
+          <em>Coming soon</em>
+        </button>
+        <button type="button" className="list-link" onClick={() => setSyncSoon((on) => !on)}>
+          Sync nutrition data
+          <em>Coming soon</em>
+        </button>
+        {syncSoon ? (
+          <p className="help">
+            Coming soon: when you cook a meal, we’ll send that serving’s calories and macros to
+            Apple Health so Lose It, Cronometer, and other trackers can log it.
+          </p>
+        ) : null}
       </div>
     </section>
   );

@@ -1465,9 +1465,12 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 }
 
 .tabbar .optional-prep { display: none; }
+/* Prep on More when the Prep tab is hidden; hide this row when the tab shows. */
+.more-prep-when-no-tab { display: flex; }
 @media (min-width: 390px) and (max-width: 767px) {
   .tabbar .optional-prep { display: flex; }
   .tabbar { grid-template-columns: repeat(5, 1fr); }
+  .more-prep-when-no-tab { display: none; }
 }
 
 .plan-meal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
