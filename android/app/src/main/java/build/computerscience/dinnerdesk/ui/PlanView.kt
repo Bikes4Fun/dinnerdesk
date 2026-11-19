@@ -1,11 +1,15 @@
 package build.computerscience.dinnerdesk.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -29,6 +33,7 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.AddCircleOutline
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.CheckCircleOutline
@@ -51,6 +56,8 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,7 +69,12 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -102,15 +114,28 @@ fun PlanView() {
     var draftTitle by remember { mutableStateOf("") }
     var removing by remember { mutableStateOf(false) }
     val large = isAccessibilitySize
+    var viewportHeight by remember { mutableIntStateOf(0) }
+    var inlineHeight by remember { mutableIntStateOf(0) }
+    var floatingHeight by remember { mutableIntStateOf(0) }
+    val floatActions = !editing && store.plan?.slots?.isNotEmpty() == true &&
+        viewportHeight > 0 && inlineHeight > viewportHeight
+    val bottomReserve = with(LocalDensity.current) {
+        if (floatActions) maxOf(80.dp, floatingHeight.toDp() + 24.dp) else 0.dp
+    }
+    val openPlan = { store.launch { openSuggestions() }; Unit }
+    val addMeals = { selectTab(AppTab.Recipes) }
 
     fun setEditing(on: Boolean) {
         editing = on
         if (!on) selected = emptySet()
     }
 
-    RefreshBox({ store.loadAll() }) {
+    RefreshBox({ store.loadAll() }, Modifier.onSizeChanged { viewportHeight = it.height }) {
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                .padding(bottom = bottomReserve)
+                .onSizeChanged { inlineHeight = it.height }
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -194,12 +219,21 @@ fun PlanView() {
                         }
                     }
                 }
-                // New meal plan lives here, not in ⋯ (#104), matching iPhone's buttons under the plan.
-                if (plan.slots.isNotEmpty()) Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CreateMealPlanButton { store.launch { openSuggestions() } }
-                    AddMealsButton { selectTab(AppTab.Recipes) }
+                if (!editing && plan.slots.isNotEmpty()) {
+                    // Keep the inline layout measurable when its actions move above the tab bar.
+                    val inlineModifier = if (floatActions) {
+                        Modifier.alpha(0f).clearAndSetSemantics { hideFromAccessibility() }
+                    } else Modifier
+                    PlanActions(large, openPlan, addMeals, modifier = inlineModifier, active = !floatActions)
                 }
             }
+        }
+        AnimatedVisibility(
+            visible = floatActions,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 12.dp),
+            exit = ExitTransition.None,
+        ) {
+            PlanActions(large, openPlan, addMeals, Modifier.onSizeChanged { floatingHeight = it.height })
         }
     }
 
@@ -237,6 +271,51 @@ fun PlanView() {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun PlanActions(
+    large: Boolean,
+    onNewPlan: () -> Unit,
+    onAddMeals: () -> Unit,
+    modifier: Modifier = Modifier,
+    active: Boolean = true,
+) {
+    val pills: @Composable () -> Unit = {
+        PlanActionPill(CREATE_MEAL_PLAN, Icons.Outlined.AutoAwesome, filled = true, active, onNewPlan)
+        PlanActionPill("Add meals", Icons.Filled.Add, filled = false, active, onAddMeals)
+    }
+    if (large) {
+        Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            pills()
+        }
+    } else {
+        FlowRow(
+            modifier,
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            pills()
+        }
+    }
+}
+
+@Composable
+private fun PlanActionPill(title: String, icon: ImageVector, filled: Boolean, active: Boolean, onClick: () -> Unit) {
+    val color = if (filled) Color.White else Theme.ink
+    Row(
+        Modifier.shadow(14.dp, CircleShape).heightIn(min = 48.dp).clip(CircleShape)
+            .background(if (filled) Theme.ink else Color.White)
+            .border(1.dp, Theme.ink, CircleShape)
+            .clickable(enabled = active, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(18.dp))
+        Text(title, style = Theme.action, color = color, textAlign = TextAlign.Center)
+    }
+}
+
 @Composable
 private fun AddMealsButton(onClick: () -> Unit) {
     Row(
@@ -245,6 +324,20 @@ private fun AddMealsButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
         Text("Add meals", style = Theme.action, color = Theme.accent)
+    }
+}
+
+/** Add meals as a capsule, for the floating row where the plain link would read as part of a meal. */
+@Composable
+private fun AddMealsPill(modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Row(
+        modifier.heightIn(min = 44.dp).clip(CircleShape).background(Theme.surface)
+            .border(1.5.dp, Theme.accent, CircleShape).clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(18.dp))
+        Text("Add meals", style = Theme.body, color = Theme.accent, textAlign = TextAlign.Center)
     }
 }
 
@@ -620,11 +713,15 @@ fun SuggestedPlanReview() {
                             RecipePhoto(slot.photoPath, fill = true, corner = 14.dp)
                             if (suggested) {
                                 Box(
-                                    Modifier.align(Alignment.TopEnd).padding(6.dp).size(44.dp).shadow(3.dp, CircleShape).background(Theme.surface, CircleShape)
+                                    Modifier.align(Alignment.TopEnd).size(44.dp)
                                         .clickable(enabled = proposal?.status == "suggested" && !disabled) { swapping = slot }
                                         .semantics { contentDescription = "Swap meal: ${slot.recipeName}" },
                                     contentAlignment = Alignment.Center,
-                                ) { Icon(Icons.Filled.Sync, null, tint = Theme.accent, modifier = Modifier.size(22.dp)) }
+                                ) {
+                                    Box(Modifier.size(28.dp).shadow(2.dp, CircleShape).background(Theme.surface, CircleShape), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Filled.Sync, null, tint = Theme.accent, modifier = Modifier.size(16.dp))
+                                    }
+                                }
                             }
                         }
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {

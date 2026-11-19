@@ -29,8 +29,6 @@ final class Store: ObservableObject {
   }
   /// Household default servings, for recipes not yet on the plan.
   @Published private(set) var familyPortions: Int?
-  /// Dinnerdesk admins can tag recipe steps as Prep.
-  @Published private(set) var isAdmin = false
   @Published var stores: [ShopStore] = ShopStore.defaults
   @Published var aisles: [ShopAisle] = ShopAisle.defaults
   @Published var groupByStore = false
@@ -39,6 +37,8 @@ final class Store: ObservableObject {
   @Published var showAisleNums = false
   @Published var showEmoji = false
   @Published var prepTasks: [PrepTask] = []
+  /// The confirmation shown after a card's ＋ or ✓, which has no room for a label (#35).
+  @Published var planToast: PlanToast?
   @Published var error: String?
 
   private var groceryPrefsLoaded = false
@@ -136,7 +136,6 @@ final class Store: ObservableObject {
     prepTasks = []
     hiddenRecipes = nil
     familyPortions = nil
-    isAdmin = false
     groceryPrefsLoaded = false
     if load { await loadAll() }
   }
@@ -182,15 +181,6 @@ final class Store: ObservableObject {
       await PhotoCache.prefetch(photo)
       #endif
     }
-  }
-
-  /// Signed-in status for admin-only controls, fetched once per launch.
-  func loadAdmin() async {
-    if Freshness.isFresh(Freshness.auth, within: .greatestFiniteMagnitude) { return }
-    let gen = generation
-    guard let status = try? await AuthAPI.status(), gen == generation else { return }
-    isAdmin = status.admin == true
-    Freshness.mark(Freshness.auth)
   }
 
   func searchRecipes(_ q: String) async {
@@ -309,10 +299,28 @@ final class Store: ObservableObject {
   }
 
   func toggleWeek(_ recipe: RecipeSummary) async {
-    if onWeek(recipe.id) {
+    let wasOn = onWeek(recipe.id)
+    if wasOn {
       await removeFromWeek(recipeId: recipe.id)
     } else {
       await addToWeek(recipeId: recipe.id, servings: nil)
+    }
+    // A card's ＋ and ✓ carry no label, so say what happened (#35). Nothing to confirm if the
+    // change didn't take: the error banner covers that.
+    guard onWeek(recipe.id) != wasOn else { return }
+    planToast = PlanToast(
+      text: wasOn ? "Removed from this week" : "Added to this week",
+      recipeId: recipe.id, undoAdds: wasOn)
+  }
+
+  /// Puts back what the toast just reported, and takes the toast away.
+  func undoPlanToast() async {
+    guard let toast = planToast else { return }
+    planToast = nil
+    if toast.undoAdds {
+      await addToWeek(recipeId: toast.recipeId, servings: nil)
+    } else {
+      await removeFromWeek(recipeId: toast.recipeId)
     }
   }
 
@@ -693,6 +701,37 @@ final class Store: ObservableObject {
         "prep/\(taskId)/steps", method: "PUT",
         body: ["recipe_id": mealId, "key": step.key, "done": next])
       if let t = prepTasks.firstIndex(where: { $0.id == taskId }) { prepTasks[t].done = result.done }
+    } catch {
+      fail(error)
+      await loadPrep()
+    }
+  }
+
+  /// "By meal": check off one meal's steps in a task (never another meal's). Older cached
+  /// tasks without step keys fall back to the whole-task check.
+  func setPrepMealSteps(taskId: Int, mealId: Int, keys: [String?], done: Bool) async {
+    guard let t = prepTasks.firstIndex(where: { $0.id == taskId }) else { return }
+    let stepKeys = keys.compactMap { $0 }
+    if stepKeys.count != keys.count {
+      if prepTasks[t].done != done { await togglePrep(prepTasks[t]) }
+      return
+    }
+    if let m = prepTasks[t].meals.firstIndex(where: { $0.id == mealId }) {
+      for s in (prepTasks[t].meals[m].steps ?? []).indices
+      where stepKeys.contains(prepTasks[t].meals[m].steps?[s].key ?? "") {
+        prepTasks[t].meals[m].steps?[s].done = done
+      }
+    }
+    prepTasks[t].done = prepTasks[t].meals.allSatisfy { meal in
+      (meal.steps ?? []).allSatisfy { $0.done ?? false }
+    }
+    do {
+      for key in stepKeys {
+        let result: PrepItemResult = try await API.send(
+          "prep/\(taskId)/steps", method: "PUT",
+          body: ["recipe_id": mealId, "key": key, "done": done])
+        if let t = prepTasks.firstIndex(where: { $0.id == taskId }) { prepTasks[t].done = result.done }
+      }
     } catch {
       fail(error)
       await loadPrep()

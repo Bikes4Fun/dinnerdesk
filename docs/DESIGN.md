@@ -110,6 +110,11 @@ Plan; not in Plan → ⋯) opens a
 - **Must:** swap any suggested meal from a picker with search. Choices respect the filters and
   exclude meals already on the proposal. Cancelling the picker changes nothing and records no
   dislike.
+- **Must:** the picker opens on the next 8 ranked meals, saved with the proposal when it was
+  ranked; Swap and a bigger plan take the next of those. None of them rank again; a search
+  looks through the household's pool.
+- **Must:** Taste Lab shows the same household pool as suggestions, so its diets, allergies,
+  avoids and hidden meals apply there in exactly the same way.
 - **Must:** **Fill in this plan** keeps meals already on the week, marked "Your selection",
   and they can't be swapped. Only the open slots are suggested. On iPhone it is in ⋯; on the
   website it is a link on the plan when that plan already has meals. The live plan stays until
@@ -257,6 +262,43 @@ entry listed for its archive id, so it can have several different photos. Entrie
 “Developer tested” badge on the photo. Unknown credits say “Photo source not recorded”;
 the recipe source is never assumed to be the photo source. Gallery paths and credits are
 included in household data exports.
+
+The Developer tested label is an overlay, never written onto the image. Exact duplicate
+gallery images (including copies with different filenames or embedded metadata) share one
+display entry and retain tested/AI/shared attribution. The primary path is kept; source
+files are unchanged. Deleting that gallery entry removes its duplicate references too,
+so the same photo cannot immediately return under another filename.
+
+Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on its detail page
+on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
+Recipes search offers a Reviewed filter that combines with other filters. Web admins can
+also toggle review directly on recipe thumbnails beside the plan and favorite controls.
+An admin-only To edit toggle sits beside Review and adds/removes the recipe from the
+existing editing queue. Its saved state is included only in admin recipe-list responses.
+This changes recipe approval only, without uploading or changing any photos. On web it also
+overlays the main photo and regular-user thumbnails, independently of whether a photo is
+Developer tested. Both overlays can appear together. Approval does not claim that the recipe
+was cooked. Photo credits and the
+Developer tested photo badge are unchanged. Only the admin review endpoint may change this
+status; ordinary recipe tags cannot award it. Copies start unreviewed. Catalog review changes
+are pulled into recipe files by sync and preserved across imports until the file agrees.
+
+Web admins manage recipes directly on the main recipe view: Tag as To edit, Hide from everyone
+(catalog recipes), and Delete — send for review. The last action only queues a request;
+it never deletes or automatically hides a recipe. Admin → Recipes to edit consolidates
+To edit, Hidden from everyone, Deletion review and existing Ingredient fixes. Each queue
+links back to the recipe; admins can clear edit tags, show hidden recipes again, or keep
+a recipe by cancelling its deletion request. Hidden catalog recipes leave browsing and
+suggestions but remain openable from existing plans. Workflow flags are admin-only,
+persist through catalog sync/import, and do not transfer to recipe copies. Private
+recipes in other households never appear in these queues.
+Admins also edit tags, name, servings, time, ingredients and steps directly in Overview,
+with inline Save changes, Discard changes and Save as copy controls. There is no separate
+admin Edit mode. The gallery and management controls remain available; failed saves keep
+the draft, and saved changes show a confirmation. Ordinary users retain their existing view.
+The step editor has a Remove button for each step. Removing a row also removes its amounts
+and Prep flag; remaining steps renumber automatically. Save persists the removal, while
+Discard changes restores the saved steps.
 
 
 Recipe detail add controls reflect membership in the current plan: already included recipes
@@ -416,6 +458,8 @@ builds → shop → prep → cook.
 
 **Not built yet:** template dinners (pick format, protein, base, sauce → generate a recipe) and
 "make this a meal" (attach sides to any recipe). See #88 and #89.
+Template previews remain faded and labelled Coming soon; creation/menu/list controls are
+disabled, including old family links, until the template workflow is ready.
 
 ---
 

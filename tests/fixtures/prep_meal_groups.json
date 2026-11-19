@@ -1,0 +1,233 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Peel and mince garlic",
+      "done": false,
+      "storage": "Refrigerate in a covered container.",
+      "meals": [
+        {
+          "id": 58,
+          "name": "Bowls",
+          "day": "Tue",
+          "day_index": 1,
+          "instructions": [],
+          "steps": [
+            {
+              "key": "g58",
+              "text": "Mince the garlic.",
+              "display_text": "Peel and mince the garlic.",
+              "quantities": [
+                "4 cloves garlic"
+              ],
+              "added": false,
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 57,
+          "name": "Tofu",
+          "day": "Mon",
+          "day_index": 0,
+          "instructions": [],
+          "steps": [
+            {
+              "key": "g57",
+              "text": "Mince the garlic.",
+              "display_text": "Peel and mince the garlic.",
+              "quantities": [
+                "2 cloves garlic"
+              ],
+              "added": false,
+              "done": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Make glaze",
+      "done": false,
+      "storage": "",
+      "meals": [
+        {
+          "id": 57,
+          "name": "Tofu",
+          "day": "Mon",
+          "day_index": 0,
+          "instructions": [],
+          "steps": [
+            {
+              "key": "s1",
+              "text": "Whisk the soy sauce and honey.",
+              "display_text": "",
+              "quantities": [
+                "2 tbsp soy sauce",
+                "1 tbsp honey"
+              ],
+              "added": false,
+              "done": false
+            },
+            {
+              "key": "s2",
+              "text": "Add the garlic.",
+              "quantities": [
+                "2 tbsp soy sauce",
+                ""
+              ],
+              "added": true,
+              "done": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Prep onion",
+      "done": true,
+      "storage": "",
+      "meals": [
+        {
+          "id": 61,
+          "name": "Legacy meal",
+          "day": null,
+          "day_index": null,
+          "instructions": [
+            "Dice the onion.",
+            " "
+          ],
+          "steps": []
+        },
+        {
+          "id": 62,
+          "name": "Empty meal",
+          "day": "Wed",
+          "day_index": 2,
+          "instructions": [],
+          "steps": [
+            {
+              "key": "e",
+              "text": "  "
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "expected": [
+    {
+      "id": 57,
+      "name": "Tofu",
+      "day": "Mon",
+      "day_index": 0,
+      "tasks": [
+        {
+          "task_id": 1,
+          "title": "Peel and mince garlic",
+          "quantities": [
+            "2 cloves garlic"
+          ],
+          "storage": "Refrigerate in a covered container.",
+          "done": false,
+          "steps": [
+            {
+              "key": "g57",
+              "text": "Peel and mince the garlic.",
+              "quantities": [
+                "2 cloves garlic"
+              ],
+              "added": false,
+              "done": false
+            }
+          ]
+        },
+        {
+          "task_id": 2,
+          "title": "Make glaze",
+          "quantities": [
+            "2 tbsp soy sauce",
+            "1 tbsp honey"
+          ],
+          "storage": "",
+          "done": false,
+          "steps": [
+            {
+              "key": "s1",
+              "text": "Whisk the soy sauce and honey.",
+              "quantities": [
+                "2 tbsp soy sauce",
+                "1 tbsp honey"
+              ],
+              "added": false,
+              "done": false
+            },
+            {
+              "key": "s2",
+              "text": "Add the garlic.",
+              "quantities": [
+                "2 tbsp soy sauce"
+              ],
+              "added": true,
+              "done": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 58,
+      "name": "Bowls",
+      "day": "Tue",
+      "day_index": 1,
+      "tasks": [
+        {
+          "task_id": 1,
+          "title": "Peel and mince garlic",
+          "quantities": [
+            "4 cloves garlic"
+          ],
+          "storage": "Refrigerate in a covered container.",
+          "done": true,
+          "steps": [
+            {
+              "key": "g58",
+              "text": "Peel and mince the garlic.",
+              "quantities": [
+                "4 cloves garlic"
+              ],
+              "added": false,
+              "done": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 61,
+      "name": "Legacy meal",
+      "day": null,
+      "day_index": null,
+      "tasks": [
+        {
+          "task_id": 3,
+          "title": "Prep onion",
+          "quantities": [],
+          "storage": "",
+          "done": true,
+          "steps": [
+            {
+              "key": null,
+              "text": "Dice the onion.",
+              "quantities": [],
+              "added": false,
+              "done": true
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

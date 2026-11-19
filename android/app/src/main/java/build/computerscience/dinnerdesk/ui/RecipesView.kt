@@ -61,6 +61,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.Api
+import build.computerscience.dinnerdesk.data.Copy
 import build.computerscience.dinnerdesk.data.Freshness
 import build.computerscience.dinnerdesk.data.IngredientLine
 import build.computerscience.dinnerdesk.data.InstructionStep
@@ -199,6 +200,9 @@ fun RecipesView() {
                     if (suggestedIds.isNotEmpty()) BrowseSection("Suggestions", rows(RecipeListKind.Suggestions)) { open(RecipeListKind.Suggestions) }
                     BrowseSection("Your favorites", favorites, empty = "Heart a recipe to keep it here.") { open(RecipeListKind.Fav) }
                     if (toTry.isNotEmpty()) BrowseSection("To try", toTry) { open(RecipeListKind.TryLater) }
+                    Column(Modifier.alpha(0.65f)) {
+                        BrowseSection("Create from a template", emptyList(), empty = "Coming soon") {}
+                    }
                     if (popular.isNotEmpty()) BrowseSection("Most popular", popular) { open(RecipeListKind.Popular) }
                     if (mine.isNotEmpty()) BrowseSection("Your recipes", mine) { open(RecipeListKind.Mine) }
                     if (simple.isNotEmpty()) BrowseSection("Super simple", simple) { open(RecipeListKind.Simple) }
@@ -249,7 +253,7 @@ private fun BrowseSection(title: String, rows: List<RecipeSummary>, empty: Strin
             val ordered = remember(rows) { browseOrder(rows) }
             LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(ordered, key = { it.id }) { recipe ->
-                    Box(Modifier.width(if (large) 280.dp else 160.dp)) { RecipeTile(recipe) }
+                    Box(Modifier.width(if (large) 280.dp else 160.dp)) { BrowseRecipeTile(recipe) }
                 }
             }
         }
@@ -267,7 +271,7 @@ private fun RecipeGrid(rows: List<RecipeSummary>, empty: String?) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         for (row in rows.chunked(columns)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                for (recipe in row) Box(Modifier.weight(1f)) { RecipeTile(recipe) }
+                for (recipe in row) Box(Modifier.weight(1f)) { BrowseRecipeTile(recipe) }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -285,19 +289,23 @@ fun RecipeGridPage(title: String, recipes: List<RecipeSummary>) {
     }
 }
 
-/** Square photo with a this-plan check, bold name underneath. Long-press for favorite / to try / hide. */
+/** Temporary name until Recipes migrates to shared `RecipeTile` in RecipeTile.kt. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RecipeTile(recipe: RecipeSummary) {
+fun BrowseRecipeTile(recipe: RecipeSummary) {
     if (recipe.comingSoon) {
         // Our photo is in but the steps aren't written yet: dimmed, labelled, not clickable.
-        Column(Modifier.fillMaxWidth().semantics { contentDescription = "${recipe.name}, coming soon" },
+        Column(Modifier.fillMaxWidth().semantics {
+            contentDescription = listOfNotNull(recipe.name, "Coming soon",
+                if (recipe.reviewed) Copy.text("recipe.reviewed.description") else null).joinToString(", ")
+        },
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                 Box(Modifier.fillMaxSize().alpha(0.55f)) { RecipePhoto(recipe.photoPath, fill = true, corner = 12.dp) }
                 Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+            RecipeStatusLine(recipe.cookingMinutes, recipe.reviewed)
         }
         return
     }
@@ -327,6 +335,7 @@ fun RecipeTile(recipe: RecipeSummary) {
                 }
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
+            RecipeStatusLine(recipe.cookingMinutes, recipe.reviewed)
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Theme.surface) {
             DropdownMenuItem({ Text(if (recipe.favorited) "Unfavorite" else "Favorite", style = Theme.body) }, { menu = false; store.launch { toggleFavorite(recipe) } })
@@ -359,7 +368,6 @@ fun RecipeDetailView(id: Int) {
     var draftServings by remember { mutableStateOf<Int?>(null) }
     var reporting by remember { mutableStateOf(false) }
     var reported by remember { mutableStateOf(false) }
-    val admin = store.isAdmin
 
     val mealServings = store.plan?.slots?.firstOrNull { it.recipeId == id }?.servings
         ?: draftServings ?: store.familyPortions ?: recipe?.servings ?: 4
@@ -379,7 +387,6 @@ fun RecipeDetailView(id: Int) {
         }
         store.loadGroceryPrefs(onlyIfStale = true)
     }
-    LaunchedEffect(Unit) { store.loadAdmin() }
     LaunchedEffect(planNotice) {
         if (planNotice == null) return@LaunchedEffect
         delay(2000)
@@ -406,21 +413,6 @@ fun RecipeDetailView(id: Int) {
         if (store.onWeek(id)) store.launch { setServingsForRecipe(id, next) } else draftServings = next
     }
 
-    fun togglePrep(index: Int) {
-        val current = recipe ?: return
-        if (index !in current.instructions.indices) return
-        val steps = current.instructions.toMutableList()
-        steps[index] = steps[index].copy(prep = !(steps[index].prep ?: false))
-        val next = current.copy(instructions = steps)
-        recipe = next
-        scope.launch {
-            try {
-                recipe = Api.send<RecipeDetail>("recipes/$id", "PATCH", mapOf("in_place" to true, "instructions" to steps.map { it.asBody() }), cacheAs = "recipes/$id")
-            } catch (e: Throwable) {
-                error = Api.message(e)
-            }
-        }
-    }
 
     Box(Modifier.fillMaxSize().background(Theme.bg)) {
         Column(Modifier.fillMaxSize()) {
@@ -440,9 +432,7 @@ fun RecipeDetailView(id: Int) {
                     error?.let { ErrorBanner(it) }
                     Segmented(listOf(RecipePageTab.Overview to "Overview", RecipePageTab.Cook to "Cook"), tab) { tab = it }
                     if (tab == RecipePageTab.Overview) {
-                        RecipePhoto(r.photoPath, large = true)
-                        if (r.photoAI && r.photoPath != null) StarTip("recipes.ai-photo")
-                        else if (r.photoShared && r.photoPath != null) StarTip("recipes.shared-photo")
+                        RecipeGallery(r)
                     }
                     // Long names at large text sizes pushed everything else off screen. Cap at 3 lines; tap to see it all.
                     Text(
@@ -450,6 +440,7 @@ fun RecipeDetailView(id: Int) {
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth().clickable { nameExpanded = !nameExpanded }.semantics { heading(); contentDescription = r.name },
                     )
+                    if (r.reviewed) ReviewedBadge(detail = true)
                     ServingsRow(mealServings, r.cookingMinutes, ::bumpServings)
                     if (tab == RecipePageTab.Overview && r.prettyTags.isNotEmpty()) Text(r.prettyTags, style = Theme.subtitle, color = Theme.muted)
                     if (tab == RecipePageTab.Overview) {
@@ -470,7 +461,7 @@ fun RecipeDetailView(id: Int) {
                                 modifier = Modifier.clickable { openUrl(link) },
                             )
                         }
-                        r.instructions.forEachIndexed { i, step -> CookStepRow(i, step, if (admin) ({ togglePrep(i) }) else null) }
+                        r.instructions.forEachIndexed { i, step -> CookStepRow(i, step) }
                     }
                     FilledButton(
                         if (added) "Remove from this plan" else "Add to this plan", color = Theme.accent, textColor = Color.White,
@@ -537,17 +528,11 @@ private fun IngredientRow(ing: IngredientLine, qty: String) {
 }
 
 @Composable
-private fun CookStepRow(index: Int, step: InstructionStep, onPrep: (() -> Unit)?) {
+private fun CookStepRow(index: Int, step: InstructionStep) {
     Column(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("${index + 1}.", style = Theme.body, color = Theme.accent)
-            if (onPrep != null) {
-                val on = step.prep ?: false
-                Text(
-                    "Prep", style = Theme.chipLabel, color = if (on) Color.White else Theme.muted,
-                    modifier = Modifier.clip(CircleShape).background(if (on) Theme.accent else Theme.surface).clickable(onClick = onPrep).padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-            }
+
         }
         val text = step.displayText
         val lines = text.split("\n")

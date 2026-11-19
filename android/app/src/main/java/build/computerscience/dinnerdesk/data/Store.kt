@@ -53,9 +53,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     /** Household default servings, for recipes not yet on the plan. */
     var familyPortions by mutableStateOf<Int?>(null)
         private set
-    /** Dinnerdesk admins can tag recipe steps as Prep. */
-    var isAdmin by mutableStateOf(false)
-        private set
     var stores by mutableStateOf(ShopStore.defaults)
     var aisles by mutableStateOf(ShopAisle.defaults)
     var groupByStore by mutableStateOf(false)
@@ -64,6 +61,8 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     var showAisleNums by mutableStateOf(false)
     var showEmoji by mutableStateOf(false)
     var prepTasks by mutableStateOf<List<PrepTask>>(emptyList())
+    /** The confirmation shown after a card's + or check, which has no room for a label (#35). */
+    var planToast by mutableStateOf<PlanToast?>(null)
     var error by mutableStateOf<String?>(null)
 
     private var groceryPrefsLoaded = false
@@ -153,7 +152,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         prepTasks = emptyList()
         hiddenRecipes = null
         familyPortions = null
-        isAdmin = false
         groceryPrefsLoaded = false
         if (load) loadAll()
     }
@@ -190,16 +188,6 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
             }
             Api.photoUrl(photo)?.let { context.imageLoader.execute(ImageRequest.Builder(context).data(it).build()) }
         }
-    }
-
-    /** Signed-in status for admin-only controls, fetched once per launch. */
-    suspend fun loadAdmin() {
-        if (Freshness.isFresh(Freshness.AUTH, Double.MAX_VALUE)) return
-        val gen = generation
-        val status = try { AuthApi.status() } catch (e: CancellationException) { throw e } catch (_: Exception) { return }
-        if (gen != generation) return
-        isAdmin = status.admin == true
-        Freshness.mark(Freshness.AUTH)
     }
 
     suspend fun searchRecipes(q: String) {
@@ -285,7 +273,22 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     }
 
     suspend fun toggleWeek(recipe: RecipeSummary) {
-        if (onWeek(recipe.id)) removeFromWeek(recipe.id) else addToWeek(recipe.id, null)
+        val wasOn = onWeek(recipe.id)
+        if (wasOn) removeFromWeek(recipe.id) else addToWeek(recipe.id, null)
+        // A card's + and check carry no label, so say what happened (#35). Nothing to confirm if
+        // the change didn't take: the error banner covers that.
+        if (onWeek(recipe.id) == wasOn) return
+        planToast = PlanToast(
+            text = if (wasOn) "Removed from this week" else "Added to this week",
+            recipeId = recipe.id, undoAdds = wasOn,
+        )
+    }
+
+    /** Puts back what the toast just reported, and takes the toast away. */
+    suspend fun undoPlanToast() {
+        val toast = planToast ?: return
+        planToast = null
+        if (toast.undoAdds) addToWeek(toast.recipeId, null) else removeFromWeek(toast.recipeId)
     }
 
     suspend fun addToWeek(recipeId: Int, servings: Int?) {
@@ -518,6 +521,36 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
             fail(e)
         }
         loadPrep()
+    }
+
+    /**
+     * "By meal": check off one meal's steps in a task (never another meal's). Older cached
+     * tasks without step keys fall back to the whole-task check.
+     */
+    suspend fun setPrepMealSteps(taskId: Int, mealId: Int, keys: List<String?>, done: Boolean) {
+        val task = prepTasks.firstOrNull { it.id == taskId } ?: return
+        val stepKeys = keys.filterNotNull()
+        if (stepKeys.size != keys.size) {
+            if (task.done != done) togglePrep(task)
+            return
+        }
+        prepTasks = prepTasks.map { t ->
+            if (t.id != taskId) t else {
+                val meals = t.meals.map { m ->
+                    if (m.id != mealId) m else m.copy(steps = m.steps?.map { if (it.key in stepKeys) it.copy(done = done) else it })
+                }
+                t.copy(meals = meals, done = meals.all { m -> m.steps.orEmpty().all { it.done == true } })
+            }
+        }
+        try {
+            for (key in stepKeys) {
+                val result: PrepItemResult = Api.send("prep/$taskId/steps", "PUT", mapOf("recipe_id" to mealId, "key" to key, "done" to done))
+                prepTasks = prepTasks.map { if (it.id == taskId) it.copy(done = result.done) else it }
+            }
+        } catch (e: Throwable) {
+            fail(e)
+            loadPrep()
+        }
     }
 
     /** Thumbs on a meal. A 👎 meal is never suggested again; a 👍 pulls similar meals in. */

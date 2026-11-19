@@ -382,6 +382,9 @@ def test_taste_catalog_uses_database_not_json_copy(tmp_path, monkeypatch):
         assert soup["recipe_id"] == 1
         assert soup["photo"] == "/food/soup.jpg"
         assert "onion" in soup["ingredients"]
+        # Taste Lab shows the same household pool suggestions use.
+        client.put("/api/household", json={"prefs": {"filters": {"avoids": ["onion"]}}})
+        assert "Soup" not in [r["name"] for r in client.get("/api/catalog").json()["recipes"]]
 
 
 def test_templates_list_families(tmp_path):
@@ -624,6 +627,100 @@ def test_custom_grocery_line_stays_off_catalog(tmp_path):
         client.post(f"/api/plans/{plan_id}/grocery")
         names = [x["name"] for x in client.get(f"/api/plans/{plan_id}/grocery").json()["lines"]]
         assert "usb-c" in names
+
+
+def _second_onion_recipe(quantity: str) -> int:
+    """A second catalog recipe that also uses onion, for plans built up over time."""
+    db = connect()
+    ts = now()
+    db.execute(
+        """INSERT INTO recipes (
+            household_id, slug, name, servings, cooking_minutes,
+            instructions_json, cookware_json, source_url, provenance_json,
+            photo_path, created_at, updated_at
+        ) VALUES (NULL, 'onion-tart', 'Onion tart', 4, 30, '[]', '[]', '',
+            '{"instructions_copied_from_third_party": false}', '', ?, ?)""",
+        (ts, ts),
+    )
+    rid = db.execute("SELECT id FROM recipes WHERE slug = 'onion-tart'").fetchone()["id"]
+    db.execute(
+        """INSERT INTO recipe_ingredients
+           (recipe_id, ingredient_id, quantity, unit, note, sort)
+           VALUES (?, 1, ?, '', '', 0)""",
+        (rid, quantity),
+    )
+    db.commit()
+    db.close()
+    return int(rid)
+
+
+def test_adding_a_recipe_to_an_existing_plan_updates_the_amount(tmp_path):
+    """The reported glitch: a second recipe went on the plan, the amount didn't move (#90)."""
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        tart = _second_onion_recipe("2")
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]},
+        )
+        first = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert first["quantity"] == "1"
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={
+                "slots": [
+                    {"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4},
+                    {"recipe_id": tart, "day_index": 2, "meal_type": "dinner", "servings": 4},
+                ]
+            },
+        )
+        after = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert after["quantity"] == "3"
+        assert len(after["used_in"]) == 2
+
+
+def test_a_hand_added_item_does_not_freeze_the_line(tmp_path):
+    """Merging a hand-added item used to pin the amount, so later recipes never moved it."""
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        tart = _second_onion_recipe("3")
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]},
+        )
+        client.post(f"/api/plans/{pid}/grocery/lines", json={"name": "onion", "quantity": "1"})
+        merged = [x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"]]
+        assert len(merged) == 1
+        assert merged[0]["quantity"] == "2"
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={
+                "slots": [
+                    {"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4},
+                    {"recipe_id": tart, "day_index": 2, "meal_type": "dinner", "servings": 4},
+                ]
+            },
+        )
+        after = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert after["quantity"] == "4"
+
+
+def test_an_edited_amount_still_survives_a_rebuild(tmp_path):
+    """The household's own number is theirs to keep; only merging stopped minting one."""
+    with _client(tmp_path) as client:
+        _link_soup_onion(tmp_path)
+        pid = client.get("/api/plans/current").json()["id"]
+        client.put(
+            f"/api/plans/{pid}/slots",
+            json={"slots": [{"recipe_id": 1, "day_index": 1, "meal_type": "dinner", "servings": 4}]},
+        )
+        onion = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        client.patch(f"/api/grocery/lines/{onion['id']}", json={"quantity": "9"})
+        client.post(f"/api/plans/{pid}/grocery")
+        kept = next(x for x in client.get(f"/api/plans/{pid}/grocery").json()["lines"] if "onion" in x["name"])
+        assert kept["quantity"] == "9"
 
 
 def test_rebuild_keeps_checks_on_same_item(tmp_path):
@@ -1042,9 +1139,14 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
         steps = task["meals"][0]["steps"]
         response = client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": steps[0]["key"], "done": True})
         assert response.status_code == 200
-        partial = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"][0]
+        partial_body = client.get(f"/api/plans/{plan['id']}/prep").json()
+        partial = partial_body["tasks"][0]
         assert partial["id"] == task["id"] and partial["done"] is False
         assert [s["done"] for s in partial["meals"][0]["steps"]] == [True, False]
+        # "By meal" view: the same steps under their meal, with the same keys and done state.
+        [meal_group] = partial_body["meal_groups"]
+        assert meal_group["id"] == recipe["id"] and meal_group["tasks"][0]["task_id"] == task["id"]
+        assert [(s["key"], s["done"]) for s in meal_group["tasks"][0]["steps"]] == [(steps[0]["key"], True), (steps[1]["key"], False)]
         assert client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": "unknown", "done": True}).status_code == 404
         # The iPhone app decodes this body; an empty reply showed its full-screen error.
         assert client.patch(f"/api/prep/{task['id']}", json={"done": True}).json() == {"ok": True}
@@ -1081,7 +1183,8 @@ def test_individual_prep_completion_and_whole_task_toggle(tmp_path):
 def test_searchable_swap_options_and_explicit_replacement(tmp_path, monkeypatch):
     import app.routes as routes
     with _client(tmp_path) as client:
-        recipe = client.post("/api/recipes", json={"name": "Lemon chicken", "servings": 4}).json()
+        recipe = client.post("/api/recipes", json={"name": "Lemon chicken", "servings": 4,
+                                                   "ingredients": [{"name": "lemon", "quantity": "1"}]}).json()
         monkeypatch.setattr(routes, "_suggest_meals", lambda *args: ([{"id": 1, "name": "Soup", "reasons": []}, {"id": recipe["id"], "name": "Lemon chicken", "ingredients": ["lemon"], "reasons": []}], "Suggestions", {}))
         proposal = client.post("/api/plans", json={"meal_count": 1}).json()
         slot = proposal["slots"][0]
@@ -1103,11 +1206,11 @@ def test_prep_progress_survives_regrouping_but_changed_steps_reset(tmp_path):
         client.put(f"/api/prep/{task['id']}/steps", json={"recipe_id": recipe["id"], "key": first["key"], "done": True})
         client.patch(f"/api/recipes/{recipe['id']}", json={"name": "Chicken with mashed potatoes"})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
-        potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
+        potato = next(t for t in tasks if t["title"] == "Make mashed potatoes")
         assert potato["done"] and potato["meals"][0]["steps"][0]["done"]
         client.patch(f"/api/recipes/{recipe['id']}", json={"instructions": [{"text": "Peel and dice potatoes."}, {"text": "Dice onions."}]})
         tasks = client.get(f"/api/plans/{plan['id']}/prep").json()["tasks"]
-        potato = next(t for t in tasks if t["title"] == "Prep mashed potatoes")
+        potato = next(t for t in tasks if t["title"] == "Make mashed potatoes")
         assert not potato["done"] and not potato["meals"][0]["steps"][0]["done"]
 
 
@@ -1395,12 +1498,12 @@ def test_download_recipes_include_ingredients_and_tags_only_for_this_household(t
         assert recipes[empty['id']]['tags'] == []
         assert 'private-tag' not in exported.text
         assert 'secret-quantity' not in exported.text
-def _upload_photo_data():
+def _upload_photo_data(color="green"):
     import base64
     from io import BytesIO
     from PIL import Image
     image = BytesIO()
-    Image.new('RGB', (24, 24), 'green').save(image, 'PNG')
+    Image.new('RGB', (24, 24), color).save(image, 'PNG')
     return 'data:image/png;base64,' + base64.b64encode(image.getvalue()).decode()
 
 
@@ -1621,6 +1724,21 @@ def test_swaps_keep_a_suggestion_and_survive_a_re_rank(tmp_path, monkeypatch):
         assert len(fresh["slots"]) == 3
         assert fresh["changes"] == swapped["changes"]
         assert client.get("/api/suggestions/current").json()["plan"] == fresh
+
+
+def test_swaps_use_the_saved_next_ranked_meals(tmp_path, monkeypatch):
+    with _client(tmp_path) as client:
+        routes, ids = _fresh_suggestion_kitchen(monkeypatch)
+        proposal = client.post("/api/plans", json={"meal_count": 3}).json()
+        monkeypatch.setattr(routes, "_suggest_meals", lambda *args: pytest.fail("swaps must not rank again"))
+        slot = proposal["slots"][0]
+        options = client.get(f"/api/plans/{proposal['id']}/swap-options/{slot['id']}").json()["recipes"]
+        assert len(options) == routes.SWAP_SPARES
+        assert not {o["id"] for o in options} & set(proposal["suggested_recipe_ids"])
+        swapped = client.post(f"/api/plans/{proposal['id']}/swap/{slot['id']}").json()
+        assert swapped["slots"][0]["recipe_id"] == options[0]["id"]
+        bigger = client.post(f"/api/plans/{proposal['id']}/resize", json={"meal_count": 4}).json()
+        assert bigger["slots"][3]["recipe_id"] == options[1]["id"]
 
 
 def test_suggestion_saved_before_stamps_is_re_ranked(tmp_path, monkeypatch):
@@ -2301,13 +2419,13 @@ def test_recipe_gallery_keeps_original_and_selects_primary(tmp_path, monkeypatch
     monkeypatch.setenv('FOOD_DIR', str(tmp_path))
     with _client(tmp_path) as client:
         original = client.patch('/api/recipes/1', json={'photo_data': _upload_photo_data()}).json()['photo_path']
-        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()})
+        added = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data('red')})
         assert added.status_code == 200
         first = added.json()
         upload = next(p['path'] for p in first['photos'] if p['path'] != original)
         assert first['photo_path'] == original
         assert len(first['photos']) == 2
-        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data()}).json()
+        again = client.post('/api/recipes/1/photos', json={'photo_data': _upload_photo_data('blue')}).json()
         assert len(again['photos']) == 3
         selected = client.put('/api/recipes/1/photos/primary', json={'path': upload})
         assert selected.status_code == 200
@@ -2345,7 +2463,7 @@ def test_recipe_gallery_permissions_invalid_upload_and_export(tmp_path, monkeypa
         first = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
         assert first['photo_path'] == first['photos'][0]['path']
         assert first['photos'][0]['primary']
-        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data()}).json()
+        second = client.post(f'/api/recipes/{rid}/photos', json={'photo_data': _upload_photo_data('red')}).json()
         path = next(p['path'] for p in second['photos'] if not p['primary'])
         assert client.put(f'/api/recipes/{rid}/photos/primary', json={'path': path}).json()['photo_path'] == path
         assert client.post(f'/api/recipes/{rid}/photos', json={'photo_data': 'invalid'}).status_code == 400
@@ -2428,7 +2546,8 @@ def test_catalog_sync_state_files_and_import(tmp_path, monkeypatch):
             assert client.patch('/api/recipes/1', json={'name': 'Better soup', 'tags': ['tested']}).status_code == 200
             state = client.get('/api/catalog-sync/state', headers=auth).json()
             soup = next(r for r in state['recipes'] if r['slug'] == 'soup')
-            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False}
+            assert soup['admin_edited'] == {'content': True, 'tags': True, 'photo': False, 'retired': False,
+                                            'reviewed': False, 'to_edit': False, 'delete_requested': False}
             assert soup['content']['name'] == 'Better soup' and soup['tags'] == ['tested']
             assert state['files']['data/recipe_photos.json'] == hashlib.sha256(
                 (data / 'recipe_photos.json').read_bytes()).hexdigest()
@@ -2545,3 +2664,176 @@ def test_admin_removes_a_recipe_from_the_app_and_brings_it_back(tmp_path):
         back = client.put("/api/recipes/1/retired", json={"on": False})
         assert back.json()["retired"] is False
         assert any(r["id"] == 1 for r in client.get("/api/recipes").json()["recipes"])
+
+
+def test_admin_review_marker_persists_in_lists_and_copies_need_review(tmp_path):
+    with _client(tmp_path) as client:
+        assert client.get('/api/recipes/1').json()['reviewed'] is False
+        marked = client.put('/api/recipes/1/reviewed', json={'on': True})
+        assert marked.status_code == 200 and marked.json()['reviewed'] is True
+        assert client.get('/api/recipes/1').json()['reviewed'] is True
+        rows = client.get('/api/recipes').json()['recipes']
+        assert next(r for r in rows if r['id'] == 1)['reviewed'] is True
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'name': 'New copy'}).json()
+        assert copied['reviewed'] is False
+        assert client.put(f"/api/recipes/{copied['id']}/reviewed", json={'on': True}).json()['reviewed'] is True
+        assert client.put('/api/recipes/1/reviewed', json={'on': False}).json()['reviewed'] is False
+        assert client.put('/api/recipes/2/reviewed', json={'on': True}).status_code == 404
+        assert client.put('/api/recipes/999999/reviewed', json={'on': True}).status_code == 404
+
+
+def test_review_marker_is_admin_only_and_cannot_be_forged_as_a_tag(tmp_path):
+    with _client(tmp_path, admin=False) as client:
+        for on in (True, False):
+            assert client.put('/api/recipes/1/reviewed', json={'on': on}).status_code == 403
+        own = client.post('/api/recipes', json={'name': 'Ours', 'tags': ['reviewed'], 'reviewed': True}).json()
+        assert own['reviewed'] is False
+        assert client.put(f"/api/recipes/{own['id']}/reviewed", json={'on': True}).status_code == 403
+
+
+def test_catalog_review_survives_import_until_sync_matches(tmp_path):
+    from app.db.catalog import upsert_catalog_recipe
+    with _client(tmp_path) as client:
+        assert client.put('/api/recipes/1/reviewed', json={'on': True}).status_code == 200
+        incoming = {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20}
+        with connect() as db:
+            report = {}
+            upsert_catalog_recipe(db, incoming, {}, report)
+            db.commit()
+            assert any(c['part'] == 'reviewed' for c in report['conflicts'])
+        assert client.get('/api/recipes/1').json()['reviewed'] is True
+        with connect() as db:
+            upsert_catalog_recipe(db, {**incoming, 'reviewed': True}, {})
+            db.commit()
+            flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+            assert flags.get('admin_reviewed_edited') is not True
+        assert client.put('/api/recipes/1/reviewed', json={'on': False}).status_code == 200
+        with connect() as db:
+            upsert_catalog_recipe(db, {**incoming, 'reviewed': True}, {})
+            db.commit()
+        assert client.get('/api/recipes/1').json()['reviewed'] is False
+
+
+def test_admin_recipe_queues_are_reversible_and_preserve_recipes(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, 'collect_flagged_recipes', lambda root: [
+        {'name': 'Soup', 'reason': 'Check amount', 'raw': 'lots', 'source': 'example', 'ingredient_name': 'onion'}])
+    monkeypatch.setattr(routes, 'save_flagged_recipes', lambda *args: None)
+    with _client(tmp_path) as client:
+        endpoint = '/api/dev/ingredient-review/flagged'
+        initial = client.get(endpoint).json()
+        assert initial['queues'] == {'to_edit': [], 'hidden': [], 'delete_requested': []}
+        assert initial['reasons'][0]['recipes'][0]['recipe_id'] == 1
+        plan = client.get('/api/plans/current').json()
+        assert client.put(f"/api/plans/{plan['id']}/slots", json={'slots': [{'recipe_id': 1, 'servings': 4}]}).status_code == 200
+        assert client.put('/api/recipes/1/workflow', json={'to_edit': True}).json()['to_edit'] is True
+        cards = client.get('/api/recipes').json()['recipes']
+        assert next(r for r in cards if r['id'] == 1)['to_edit'] is True
+        pending = client.put('/api/recipes/1/workflow', json={'delete_requested': True}).json()
+        assert pending['delete_requested'] is True and pending['to_edit'] is True
+        assert not pending['retired']
+        assert any(r['id'] == 1 for r in client.get('/api/recipes').json()['recipes'])
+        assert client.put('/api/recipes/1/retired', json={'on': True}).status_code == 200
+        queues = client.get(endpoint).json()['queues']
+        assert all([r['id'] for r in queues[key]] == [1] for key in queues)
+        assert not any(r['id'] == 1 for r in client.get('/api/recipes').json()['recipes'])
+        assert client.get('/api/recipes/1').status_code == 200
+        assert client.get('/api/plans/current').json()['slots'][0]['recipe_id'] == 1
+        copied = client.patch('/api/recipes/1', json={'as_copy': True, 'name': 'Independent copy'}).json()
+        assert not copied['to_edit'] and not copied['delete_requested']
+        assert client.put('/api/recipes/1/workflow', json={'to_edit': False, 'delete_requested': False}).status_code == 200
+        assert client.put('/api/recipes/1/retired', json={'on': False}).status_code == 200
+        assert all(not rows for rows in client.get(endpoint).json()['queues'].values())
+        assert any(r['id'] == 1 for r in client.get('/api/recipes').json()['recipes'])
+
+
+def test_admin_recipe_workflow_enforces_permissions_and_household_privacy(tmp_path, monkeypatch):
+    import app.routes as routes
+    monkeypatch.setattr(routes, 'collect_flagged_recipes', lambda root: [])
+    monkeypatch.setattr(routes, 'save_flagged_recipes', lambda *args: None)
+    with _client(tmp_path) as client:
+        assert client.put('/api/recipes/2/workflow', json={'to_edit': True}).status_code == 404
+        assert client.put('/api/recipes/999999/workflow', json={'delete_requested': True}).status_code == 404
+        assert client.put('/api/recipes/1/workflow', json={'retired': True}).status_code == 422
+        with connect() as db:
+            db.execute('UPDATE recipes SET provenance_json = ? WHERE id = 2',
+                       (json.dumps({'to_edit': True, 'delete_requested': True}),))
+            db.commit()
+        assert all(not rows for rows in client.get('/api/dev/ingredient-review/flagged').json()['queues'].values())
+        assert client.put('/api/recipes/1/workflow', json={'to_edit': True}).status_code == 200
+        overrides = client.app.dependency_overrides.copy()
+        client.app.dependency_overrides.clear()
+        try:
+            assert client.put('/api/recipes/1/workflow', json={'to_edit': False}).status_code == 403
+            assert client.get('/api/dev/ingredient-review/flagged').status_code == 403
+            ordinary = client.get('/api/recipes/1').json()
+            assert 'to_edit' not in ordinary and 'delete_requested' not in ordinary
+            assert all('to_edit' not in row for row in client.get('/api/recipes').json()['recipes'])
+        finally:
+            client.app.dependency_overrides.update(overrides)
+
+
+@pytest.mark.parametrize('field', ['to_edit', 'delete_requested'])
+def test_admin_workflow_survives_catalog_import_and_clears_synced_flags(tmp_path, field):
+    from app.db.catalog import upsert_catalog_recipe
+    from app.catalog_sync_routes import _recipe_state
+    with _client(tmp_path) as client:
+        assert client.put('/api/recipes/1/workflow', json={field: True}).status_code == 200
+        incoming = {'slug': 'soup', 'name': 'Soup', 'servings': 4, 'cooking_minutes': 20}
+        with connect() as db:
+            report = {}
+            upsert_catalog_recipe(db, incoming, {}, report)
+            db.commit()
+            assert any(c['part'] == field for c in report['conflicts'])
+            state = _recipe_state(db, db.execute('SELECT * FROM recipes WHERE id = 1').fetchone(), {}, {})
+            assert state[field] is True and state['admin_edited'][field] is True
+            upsert_catalog_recipe(db, {**incoming, field: True}, {})
+            db.commit()
+            flags = json.loads(db.execute('SELECT provenance_json FROM recipes WHERE id = 1').fetchone()['provenance_json'])
+            assert flags[field] is True and not flags.get(f'admin_{field}_edited')
+        assert client.put('/api/recipes/1/workflow', json={field: False}).status_code == 200
+        with connect() as db:
+            upsert_catalog_recipe(db, {**incoming, field: True}, {})
+            db.commit()
+        assert client.get('/api/recipes/1').json()[field] is False
+
+
+@pytest.mark.parametrize("extension", ["png", "jpg"])
+def test_tested_photo_duplicate_is_one_overlay_without_mutating_images(tmp_path, monkeypatch, extension):
+    from PIL import Image
+    from app.domain import recipe_photos
+    monkeypatch.setenv('FOOD_DIR', str(tmp_path))
+    names = [f'original.{extension}', 'tested-copy.png', 'different.png']
+    for name, color in zip(names, ['red', 'red', 'blue']):
+        Image.new('RGB', (24, 24), color).save(tmp_path / name)
+        monkeypatch.setitem(recipe_photos.USE, name, 77)
+    monkeypatch.setitem(recipe_photos.GALLERY, '77', names)
+    monkeypatch.setattr(recipe_photos, 'TESTED', {'tested-copy.png'})
+    before = {name: (tmp_path / name).read_bytes() for name in names}
+    with _client(tmp_path) as client:
+        with connect() as db:
+            db.execute("UPDATE recipes SET photo_path = ?, source_url = 'https://example.test/recipes/77' WHERE id = 1", (f"food/{names[0]}",))
+            db.commit()
+        shown = client.get('/api/recipes/1').json()
+        assert [photo['path'] for photo in shown['photos']] == [f'food/{names[0]}', 'food/different.png']
+        assert shown['photos'][0]['tested'] is True
+        marked = client.put('/api/recipes/1/reviewed', json={'on': True}).json()
+        assert marked['photo_path'] == shown['photo_path'] and marked['photos'] == shown['photos']
+        assert before == {name: (tmp_path / name).read_bytes() for name in names}
+        after = client.request('DELETE', '/api/recipes/1/photos', json={'path': shown['photo_path']}).json()
+        assert [photo['path'] for photo in after['photos']] == ['food/different.png']
+        assert after['photo_path'] == 'food/different.png'
+        assert [photo['path'] for photo in client.get('/api/recipes/1').json()['photos']] == ['food/different.png']
+        assert before == {name: (tmp_path / name).read_bytes() for name in names}
+
+
+def test_saving_recipe_step_removals_preserves_remaining_amounts_and_prep(tmp_path):
+    with _client(tmp_path) as client:
+        steps = [{'text': f'Step {i}', 'ings': f'{i} tbsp olive oil', 'prep': i % 2 == 0} for i in range(1, 11)]
+        assert client.patch('/api/recipes/1', json={'instructions': steps}).status_code == 200
+        kept = steps[::2]
+        saved = client.patch('/api/recipes/1', json={'instructions': kept})
+        assert saved.status_code == 200
+        actual = client.get('/api/recipes/1').json()['instructions']
+        assert len(actual) == 5
+        assert [(s['text'], s['ings'], s['prep']) for s in actual] == [(s['text'], s['ings'], s['prep']) for s in kept]

@@ -19,6 +19,11 @@ def conn(tmp_path):
     c = connect()
     init_db(c)
     signup(c, "Me@Example.com", "oldpassword1", "Home")
+    c.execute(
+        "UPDATE users SET email_verified_at = ? WHERE email = ?",
+        ("2020-01-01T00:00:00+00:00", "me@example.com"),
+    )
+    c.commit()
     yield c
     c.close()
 
@@ -65,6 +70,16 @@ def test_unknown_email_and_bad_token(conn):
     assert start_password_reset(conn, "nobody@example.com") is None
     with pytest.raises(AuthError) as e:
         finish_password_reset(conn, "made-up", "newpassword9")
+    assert e.value.detail == "reset_invalid"
+
+
+def test_unverified_email_gets_no_reset(conn):
+    token = start_password_reset(conn, "me@example.com")
+    conn.execute("UPDATE users SET email_verified_at = NULL")
+    conn.commit()
+    assert start_password_reset(conn, "me@example.com") is None
+    with pytest.raises(AuthError) as e:
+        finish_password_reset(conn, token, "newpassword9")
     assert e.value.detail == "reset_invalid"
 
 

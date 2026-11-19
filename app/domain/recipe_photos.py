@@ -11,8 +11,11 @@ from __future__ import annotations
 from app.assets import catalog_dir, food_dir
 
 import json
+import hashlib
 import re
+from functools import lru_cache
 from pathlib import Path
+from PIL import Image, ImageOps, ImageChops, ImageStat
 
 
 # Photos from recipe sites are never ours to show, even if one is listed by mistake.
@@ -193,6 +196,63 @@ def photo_is_borrowed(path: str, archive_id: str | None) -> bool:
 def photo_is_tested(path: str) -> bool:
     """True when the developer took this photo of the recipe as cooked."""
     return photo_name(path) in TESTED
+
+
+@lru_cache(maxsize=256)
+def _photo_pixels(path: str, size: int, modified: int) -> tuple:
+    with Image.open(path) as image:
+        image = ImageOps.exif_transpose(image).convert("RGBA")
+        preview = image.convert("RGB").resize((128, 128), Image.Resampling.LANCZOS).tobytes()
+        return image.size, hashlib.sha256(image.tobytes()).hexdigest(), preview
+
+
+def unique_gallery(photos: list[dict]) -> list[dict]:
+    """Collapse image copies, including upload re-encoding, without changing source files."""
+    unique: list[dict] = []
+    for photo in photos:
+        kept = next((item for item in unique if same_photo(item["path"], photo["path"])), None)
+        if kept is None:
+            unique.append(dict(photo))
+            continue
+        if (photo.get("tested") and not kept.get("tested")) or kept.get("credit") == "Photo source not recorded":
+            if photo.get("credit"):
+                kept.update({field: photo.get(field, "") for field in ("credit", "source_url")})
+        for flag in ("primary", "tested", "ai", "shared"):
+            kept[flag] = bool(kept.get(flag) or photo.get(flag))
+    return unique
+
+
+def _local_photo(path: str) -> tuple | None:
+    if path.startswith(("https://", "http://")):
+        return None
+    try:
+        file = food_dir() / photo_name(path)
+        stat = file.stat()
+        return _photo_pixels(str(file), stat.st_size, stat.st_mtime_ns)
+    except (OSError, RuntimeError, ValueError, Image.DecompressionBombError):
+        return None
+
+
+def same_photo(first: str, second: str) -> bool:
+    if photo_identity(first) == photo_identity(second):
+        return True
+    a, b = _local_photo(first), _local_photo(second)
+    if a is None or b is None:
+        return False
+    (aw, ah), (bw, bh) = a[0], b[0]
+    if abs(aw * bh - bw * ah) / max(aw * bh, bw * ah) > 0.001:
+        return False
+    # Allow tiny JPEG/resize differences, but retain crops, edits and distinct photos.
+    difference = ImageChops.difference(Image.frombytes("RGB", (128, 128), a[2]),
+                                       Image.frombytes("RGB", (128, 128), b[2]))
+    return max(ImageStat.Stat(difference).mean) <= 1.5 and max(hi for _, hi in difference.getextrema()) <= 16
+
+
+def photo_identity(path: str) -> tuple:
+    if path.startswith(("https://", "http://")):
+        return "url", path
+    local = _local_photo(path)
+    return ("pixels", *local[:2]) if local else ("file", photo_name(path))
 
 
 def catalog_gallery(archive_id: str | None) -> list[str]:

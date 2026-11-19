@@ -12,6 +12,13 @@ to meals. Each group contains `text`, `quantities`, `added`, and meal links with
 amounts and household-added status agree. Original `meals[].steps[].text` and
 `key` remain authoritative for feedback and completion.
 
+`PrepMealPresentation` creates `meal_groups` for the Prep page's "By meal" view: one
+entry per meal (`id`, `name`, `day`, `day_index`), in cook-day order with unscheduled
+meals last, each listing its prep tasks (`task_id`, `title`, `quantities`, `storage`,
+`done`) with only that meal's steps (`key`, `text`, `quantities`, `added`, `done`).
+Checking a task in one meal checks only that meal's step keys, through the same
+per-step completion endpoint. The fixture is `tests/fixtures/prep_meal_groups.json`.
+
 The web adapter class and native presentation classes consume server groups.
 They provide the same fallback for older cached responses during app/server
 rollouts. iOS keeps SwiftUI views and decoded value models as structs; Android
@@ -27,7 +34,12 @@ engine and presentation classes, using each framework's intended view types.
 | Original feedback and completion identities | Yes | Yes | Yes | Shared API and stores |
 | Meal links and cook dates | Yes | Yes | Yes | Shared API and platform navigation |
 | Completion, undo, ratings, missing-step additions | Existing | Existing | Existing | Shared API and platform stores |
+| By meal / By task views | Yes | Yes | Yes | PrepMealPresentation |
 | Feedback inbox administration | Yes | Intentional exclusion | Intentional exclusion | Web administration |
+
+Equal wording is **one** row, however many meals it came from and whatever each meal's
+amount is (#116). The amounts are kept in first-seen order and the row names every meal it
+covers. A household-added step keeps its own row, because the apps mark it.
 
 The fixture `tests/fixtures/prep_presentation.json` is consumed by Python, Node,
 Android JUnit and the standalone iOS model check. It covers matching wording with

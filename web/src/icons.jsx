@@ -36,23 +36,31 @@ export function Icon({ name, size = 22 }) {
   if (name === "grocery") {
     return (
       <svg {...common}>
-        <path d="M3 4h2l2.2 11h11l2-8H6.2" />
-        <circle cx="9" cy="19.5" r="1.3" />
-        <circle cx="17" cy="19.5" r="1.3" />
+        {/* The cart as it was drawn before #224 redrew it: solid wheels, basket on a handle,
+            which is also what iPhone (cart) and Android (ShoppingCart) show. */}
+        <circle cx="9" cy="20" r="1.2" fill="currentColor" stroke="none" />
+        <circle cx="18" cy="20" r="1.2" fill="currentColor" stroke="none" />
+        <path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h8.3a2 2 0 0 0 2-1.5L21 8H7" />
       </svg>
     );
   }
   if (name === "prep") {
     return (
       <svg {...common}>
-        <path d="M4 4l11 11M15 15l2.5 2.5a2 2 0 102.8-2.8L17.8 12.2" />
+        {/* Clipboard with a list, matching iOS (list.bullet.clipboard) and Android (Assignment). */}
+        <rect x="5" y="4.5" width="14" height="16.5" rx="2" />
+        <path d="M9 3h6v3H9z" />
+        <path d="M9 11h6M9 14.5h6M9 18h3.5" />
       </svg>
     );
   }
   if (name === "kitchen") {
     return (
       <svg {...common}>
-        <path d="M6 21V8M18 21V8M4 8h16M8 4h8M4 21h16M10 13h4" />
+        {/* A fridge, as iPhone (refrigerator) and Android (Kitchen) show for My kitchen. #224
+            redrew this without being asked, and what it drew read as a box on legs. */}
+        <rect x="4.5" y="3" width="15" height="18" rx="2.5" />
+        <path d="M4.5 9.5h15M8 6.2v1.8M8 11.8v2.4" />
       </svg>
     );
   }

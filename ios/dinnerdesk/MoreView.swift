@@ -53,7 +53,7 @@ struct MoreView: View {
           NavigationLink {
               SettingsView()
             } label: {
-              ThemeIconRow(title: "More", systemImage: "gearshape")
+              ThemeIconRow(title: "Settings", systemImage: "gearshape")
             }
           
         }

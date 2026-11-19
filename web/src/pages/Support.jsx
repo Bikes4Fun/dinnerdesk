@@ -52,7 +52,7 @@ export function Support() {
         <p>
           <strong>Reviewed by our team.</strong> Our team reviews the AI-generated photos and wording. We’re
           working through cooking the recipes, checking ingredients and steps, and replacing AI images with our own photos.
-          A gold ★ marks recipes we’ve reviewed and tested. We’re also building a way for you to share your own
+          The Kitchen-tested badge marks recipes tried in our kitchen. We’re also building a way for you to share your own
           photos of recipes you make.
         </p>
 

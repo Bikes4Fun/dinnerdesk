@@ -78,6 +78,9 @@ fun GroceryStoreView() {
     var newStore by remember { mutableStateOf("") }
     var addingStore by remember { mutableStateOf(false) }
     var doomedStore by remember { mutableStateOf<ShopStore?>(null) }
+    // Renaming keeps the store's id, so every item stays assigned to it.
+    var renamingStore by remember { mutableStateOf<ShopStore?>(null) }
+    var renamedTo by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
 
     suspend fun load() {
@@ -153,6 +156,11 @@ fun GroceryStoreView() {
                         Box {
                             KitchenChip(shop.name, items.count { it.store == shop.id }, selected = false) { open = true }
                             DropdownMenu(open, { open = false }, containerColor = Theme.surface) {
+                                DropdownMenuItem({ Text("Rename ${shop.name}", style = Theme.body, color = Theme.ink) }, {
+                                    open = false
+                                    renamedTo = shop.name
+                                    renamingStore = shop
+                                })
                                 DropdownMenuItem({ Text("Remove ${shop.name}", style = Theme.body, color = Theme.destructive) }, { open = false; doomedStore = shop })
                             }
                         }
@@ -198,8 +206,25 @@ fun GroceryStoreView() {
             }
         }, onDismiss = { addingStore = false; newStore = "" })
     }
+    renamingStore?.let { shop ->
+        TextFieldAlert("Rename ${shop.name}", renamedTo, { renamedTo = it }, "Store name", "Save", onConfirm = {
+            val name = renamedTo.trim()
+            // Keep the id so assignments survive; only the name people see changes.
+            if (name.isNotEmpty() && name != shop.name) {
+                scope.launch { saveStores(stores.map { if (it.id == shop.id) it.copy(name = name) else it }) }
+            }
+            renamingStore = null
+        }, onDismiss = { renamingStore = null })
+    }
     doomedStore?.let { shop ->
-        ConfirmDialog("Remove ${shop.name}?", "Remove", message = "You can add it back anytime.", onConfirm = {
+        // Say how many items lose their store, so Remove is never a surprise.
+        val n = items.count { it.store == shop.id }
+        val message = when {
+            n == 0 -> "No items are assigned to it. You can add it back anytime."
+            n == 1 -> "1 item moves to Any store. You can add it back anytime."
+            else -> "$n items move to Any store. You can add it back anytime."
+        }
+        ConfirmDialog("Remove ${shop.name}?", "Remove", message = message, onConfirm = {
             scope.launch { saveStores(stores.filter { it.id != shop.id }) }
         }, onDismiss = { doomedStore = null })
     }

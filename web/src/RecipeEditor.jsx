@@ -115,6 +115,8 @@ export function RecipeEditorFields({
                 />
                 Prep
               </label>
+              <button type="button" className="step-remove" aria-label={`Remove step ${i + 1}`}
+                onClick={() => setSteps(steps.filter((x) => x.key !== s.key))}>Remove</button>
             </div>
           </div>
           <textarea

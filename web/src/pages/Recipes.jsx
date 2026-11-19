@@ -167,23 +167,20 @@ function Row({ title, onSeeAll, children, empty }) {
   );
 }
 
-function TemplateCard({ family, onOpen }) {
+export function TemplateCard({ family }) {
   return (
-    <div className="card">
-      <div className="card-img">
-        <button type="button" className="card-open" onClick={() => onOpen(family)}>
-          <FoodPhoto path={family.photo_path} />
-        </button>
+    <div className="card is-coming-soon" aria-disabled="true">
+      <div className="card-img coming-soon">
+        <FoodPhoto path={family.photo_path} />
+        <span className="coming-soon-tag">Coming soon</span>
       </div>
-      <button type="button" className="card-open" onClick={() => onOpen(family)}>
-        <p className="card-name">{prettyFamily(family.name || family.id)}</p>
-        <p className="card-meta">Template</p>
-      </button>
+      <p className="card-name">{prettyFamily(family.name || family.id)}</p>
+      <p className="card-meta">Template · Coming soon</p>
     </div>
   );
 }
 
-export function Recipes() {
+export function Recipes({ admin = false }) {
   const searchRef = useRef(null);
   const addRef = useRef(null);
   const [showSearch, setShowSearch] = useState(false);
@@ -207,8 +204,8 @@ export function Recipes() {
     function apply() {
       const { list: listParam, family } = browseQuery();
       if (family) {
-        setFamilyId(family);
-        setList(null);
+        setFamilyId(null);
+        setList("templates");
         setShowSearch(false);
         return;
       }
@@ -265,6 +262,7 @@ export function Recipes() {
 
   function patchRecipe(next) {
     setRecipes((cur) => cur.map((r) => (r.id === next.id ? { ...r, ...next } : r)));
+    setHiddenRecipes((cur) => cur.map((r) => (r.id === next.id ? { ...r, ...next } : r)));
   }
 
   // Every list comes from RecipeCollections, the same class (and rules) as on iOS and Android.
@@ -389,22 +387,6 @@ export function Recipes() {
     go("/recipes");
   }
 
-  function openFamily(family) {
-    setShowSearch(false);
-    setShowAdd(false);
-    setList(null);
-    setFamilyId(family.id);
-    go(`/recipes?family=${encodeURIComponent(family.id)}`);
-  }
-
-  function openTemplates() {
-    setShowSearch(false);
-    setShowAdd(false);
-    setFamilyId(null);
-    setList("templates");
-    go("/recipes?list=templates");
-  }
-
   return (
     <section className="screen">
       <header className="top between">
@@ -457,12 +439,9 @@ export function Recipes() {
                 <button
                   type="button"
                   role="menuitem"
-                  onClick={() => {
-                    setShowAdd(false);
-                    openTemplates();
-                  }}
+                  disabled
                 >
-                  From a template
+                  From a template · Coming soon
                 </button>
               </div>
             )}
@@ -517,41 +496,41 @@ export function Recipes() {
         {!inList && (
           <>
             {!!suggestedIds.length && <Row title="Suggestions" onSeeAll={() => setList("suggestions")}>
-              {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />)}
+              {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />)}
             </Row>}
             <Row title="Your Favorites" onSeeAll={() => setList("fav")} empty="Heart a recipe to keep it here.">
-              {yours.length ? browseOrder(yours).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {yours.length ? browseOrder(yours).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="To try" onSeeAll={() => setList("try")}>
-              {toTry.length ? browseOrder(toTry).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {toTry.length ? browseOrder(toTry).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="Create from a template" onSeeAll={openTemplates}>
+            <Row title="Create from a template · Coming soon" empty="Coming soon.">
               {families.some((f) => (f.recipes || []).length)
                 ? families
                     .filter((f) => (f.recipes || []).length)
-                    .map((f) => <TemplateCard key={f.id} family={f} onOpen={openFamily} />)
+                    .map((f) => <TemplateCard key={f.id} family={f} />)
                 : null}
             </Row>
             <Row title="Most Popular" onSeeAll={() => setList("popular")}>
-              {popular.length ? browseOrder(popular).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {popular.length ? browseOrder(popular).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Your Recipes" onSeeAll={() => setList("mine")}>
-              {mine.length ? browseOrder(mine).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {mine.length ? browseOrder(mine).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Super simple" onSeeAll={() => setList("simple")}>
-              {simple.length ? browseOrder(simple).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {simple.length ? browseOrder(simple).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Budget friendly" onSeeAll={() => setList("budget")}>
-              {budget.length ? browseOrder(budget).slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {budget.length ? browseOrder(budget).slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Uses pantry" onSeeAll={() => setList("pantry")}>
-              {pantryRow.length ? browseOrder(pantryRow).slice(0, 12).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {pantryRow.length ? browseOrder(pantryRow).slice(0, 12).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Sauces & dressings" onSeeAll={() => setList("sauces")}>
-              {sauces.length ? browseOrder(sauces).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} />) : null}
+              {sauces.length ? browseOrder(sauces).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             {comingSoon.length > 0 && <Row title="Coming soon" onSeeAll={() => setList("soon")}>
-              {comingSoon.slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} />)}
+              {comingSoon.slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />)}
             </Row>}
             <div className="section-head flush">
               <h2>All recipes</h2>
@@ -559,7 +538,7 @@ export function Recipes() {
             <div className="recipe-list">
               {collections.all
                 .map((r) => (
-                  <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />
+                  <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />
                 ))}
             </div>
             {hiddenList.length > 0 ? (
@@ -574,9 +553,8 @@ export function Recipes() {
         {inList && list === "templates" && (
           <div>
             {families.map((f) => (
-              <button key={f.id} type="button" className="list-link" onClick={() => openFamily(f)}>
-                {prettyFamily(f.name || f.id)}
-                <em>{(f.recipes || []).length}</em>
+              <button key={f.id} type="button" className="list-link template-coming-soon" disabled>
+                {prettyFamily(f.name || f.id)} · Coming soon
               </button>
             ))}
           </div>
@@ -595,10 +573,10 @@ export function Recipes() {
             {list === "soon" && !showSearch ? (
               // Photos first: a grid of the coming-soon cards to scroll through.
               <div className="photo-grid">
-                {visible.map((r) => <RecipeCard key={r.id} recipe={r} />)}
+                {visible.map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />)}
               </div>
             ) : (
-              visible.map((r) => <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} />)
+              visible.map((r) => <RecipeRow key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />)
             )}
           </div>
         )}

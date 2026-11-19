@@ -71,6 +71,7 @@ data class RecipeSummary(
     val ingredients: List<String> = emptyList(),
     /** Our photo is in but our own steps aren't written yet: shown greyed out, can't be opened. */
     @SerialName("coming_soon") val comingSoon: Boolean = false,
+    val reviewed: Boolean = false,
 ) {
     val isExtra: Boolean
         get() {
@@ -102,7 +103,13 @@ data class RecipeDetail(
     @SerialName("instructions_copied_from_third_party") val instructionsCopiedFromThirdParty: Boolean? = null,
     /** Where a kitchen's own recipe came from, when it has a web link. */
     @SerialName("source_url") val sourceUrl: String? = null,
+    val reviewed: Boolean = false,
+    val photos: List<RecipeGalleryPhoto>? = null,
 ) {
+    val galleryPhotos: List<RecipeGalleryPhoto>
+        get() = photos ?: photoPath?.takeIf { it.isNotBlank() }?.let {
+            listOf(RecipeGalleryPhoto(it, primary = true, ai = photoAI, shared = photoShared))
+        }.orEmpty()
     val sourceLink: String?
         get() {
             if (catalog) return null
@@ -113,6 +120,20 @@ data class RecipeDetail(
     val instructionsCustomized: Boolean
         get() = instructionsSource == "dinnerdesk" && instructionsCopiedFromThirdParty == false
     val prettyTags: String get() = tags.joinToString(" · ") { it.replace("_", " ") }
+}
+
+@Serializable
+data class RecipeGalleryPhoto(
+    val path: String,
+    val primary: Boolean = false,
+    val ai: Boolean = false,
+    val shared: Boolean = false,
+    val tested: Boolean = false,
+    val credit: String? = null,
+    @SerialName("source_url") val sourceUrl: String? = null,
+) {
+    val sourceLink: String?
+        get() = sourceUrl?.takeIf { it.startsWith("https://", ignoreCase = true) || it.startsWith("http://", ignoreCase = true) }
 }
 
 @Serializable
@@ -205,6 +226,8 @@ data class PrepMeal(
     val name: String = "",
     /** The meal's cook day on the plan ("Mon"), or null when it isn't scheduled. */
     val day: String? = null,
+    /** Plan day number for that cook day (orders the "By meal" view); null when unscheduled. */
+    @SerialName("day_index") val dayIndex: Int? = null,
     val instructions: List<String> = emptyList(),
     val steps: List<PrepStep>? = null,
 )
@@ -247,12 +270,62 @@ class PrepTaskPresentation(private val task: PrepTask) {
                     val quantities = step.quantities.filter { it.isNotEmpty() }
                     val added = step.added == true
                     val link = PrepInstructionMeal(meal.id, meal.name, meal.day)
-                    val index = groups.indexOfFirst { it.text.equals(text, ignoreCase = true) && it.quantities == quantities && it.added == added }
-                    if (index < 0) groups.add(PrepInstructionGroup(text, quantities, added, listOf(link)))
-                    else if (groups[index].meals.none { it.id == meal.id }) groups[index] = groups[index].copy(meals = groups[index].meals + link)
+                    // Equal wording is one row whatever each meal's amount is (#116); the amounts
+                    // are kept in first-seen order. An added step stays separate, as the apps mark it.
+                    val index = groups.indexOfFirst { it.text.equals(text, ignoreCase = true) && it.added == added }
+                    if (index < 0) {
+                        groups.add(PrepInstructionGroup(text, quantities, added, listOf(link)))
+                    } else {
+                        val group = groups[index]
+                        val merged = group.quantities + quantities.filterNot { it in group.quantities }
+                        val meals = if (group.meals.none { it.id == meal.id }) group.meals + link else group.meals
+                        groups[index] = group.copy(quantities = merged, meals = meals)
+                    }
                 }
             }
             return groups
+        }
+}
+
+/**
+ * "By meal" view: the same prep tasks under each meal (mirrors app/domain/prep_presentation.py
+ * PrepMealPresentation and tests/fixtures/prep_meal_groups.json). Built from the live tasks so
+ * checking a step in either view updates both. A task row holds only that meal's steps.
+ */
+data class PrepMealStep(val key: String?, val text: String, val quantities: List<String>, val added: Boolean, val done: Boolean)
+
+data class PrepMealTask(
+    val taskId: Int, val title: String, val quantities: List<String>, val storage: String,
+    val done: Boolean, val steps: List<PrepMealStep>,
+)
+
+data class PrepMealGroup(val id: Int, val name: String, val day: String?, val dayIndex: Int?, val tasks: List<PrepMealTask>)
+
+class PrepMealPresentation(private val tasks: List<PrepTask>) {
+    val mealGroups: List<PrepMealGroup>
+        get() {
+            val groups = linkedMapOf<Int, PrepMealGroup>()
+            for (task in tasks) {
+                for (meal in task.meals) {
+                    var steps = meal.steps.orEmpty().mapNotNull { step ->
+                        val text = (step.displayText?.takeIf { it.isNotEmpty() } ?: step.text).trim()
+                        if (text.isEmpty()) null
+                        else PrepMealStep(step.key, text, step.quantities.filter { it.isNotEmpty() }, step.added == true, step.done == true)
+                    }
+                    if (steps.isEmpty()) { // older cached tasks only carry plain instructions
+                        steps = meal.instructions.map { it.trim() }.filter { it.isNotEmpty() }
+                            .map { PrepMealStep(null, it, emptyList(), false, task.done) }
+                    }
+                    if (steps.isEmpty()) continue
+                    val quantities = steps.flatMap { it.quantities }.distinct()
+                    val row = PrepMealTask(task.id, task.title, quantities, task.storage ?: "", steps.all { it.done }, steps)
+                    val group = groups[meal.id]
+                    groups[meal.id] = group?.copy(tasks = group.tasks + row)
+                        ?: PrepMealGroup(meal.id, meal.name, meal.day, meal.dayIndex, listOf(row))
+                }
+            }
+            // Cook-day order, unscheduled last; sortedWith is stable for ties.
+            return groups.values.sortedWith(compareBy({ it.dayIndex == null }, { it.dayIndex ?: 0 }))
         }
 }
 
@@ -303,6 +376,8 @@ data class ShopAisle(val id: String, val name: String, val number: String = "") 
             ShopAisle("dairy", "Dairy, Cheese & Eggs"),
             ShopAisle("meat", "Meat & Seafood"),
             ShopAisle("pantry", "Pantry"),
+            ShopAisle("deli", "Deli"),
+            ShopAisle("frozen", "Frozen"),
             ShopAisle("other", "Other"),
         )
     }
@@ -394,6 +469,8 @@ data class AuthStatus(
     val authenticated: Boolean = false,
     val email: String? = null,
     @SerialName("has_email") val hasEmail: Boolean? = null,
+    @SerialName("recovery_email") val recoveryEmail: String? = null,
+    @SerialName("email_verified") val emailVerified: Boolean? = null,
     val admin: Boolean? = null,
 )
 
@@ -462,3 +539,15 @@ data class RecipeDraft(
 
 @Serializable
 data class CreatedRecipe(val id: Int)
+
+/**
+ * What a card's + or check just did, and how to put it back (#35). A new instance each time, so
+ * the bar's timer restarts even when the wording repeats.
+ */
+data class PlanToast(
+    val text: String,
+    val recipeId: Int,
+    val undoAdds: Boolean,
+    /** Tells one toast from the next, so the same wording twice still restarts the bar's timer. */
+    val id: Long = System.nanoTime(),
+)

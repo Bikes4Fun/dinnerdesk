@@ -981,7 +981,7 @@ struct AccountView: View {
           }
           .padding(EdgeInsets(top: 12, leading: 16, bottom: 16, trailing: 16))
         }
-        if resetTo != nil {
+        if resetTo != nil && session.status?.emailVerified == true {
           AccountDivider()
           AccountRow(title: "Reset password", subtitle: "We'll email you a reset link", chevron: true) {
             Task { await resetPassword() }

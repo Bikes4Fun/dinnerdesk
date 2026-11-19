@@ -25,28 +25,22 @@ function Link({ href, children, extra, onClick }) {
 export function emailNudge(status) {
   if (!status || !status.authenticated || status.email_verified) return "";
   return status.has_email || status.recovery_email
-    ? "Your email isn't verified yet, so a password reset link might not reach you."
+    ? "Your email isn't verified yet, so a password reset can't be sent."
     : "Your account has no email, so a forgotten password can't be reset.";
 }
 
 export function Settings() {
-  const [authEmail, setAuthEmail] = useState("");
-  const [nudge, setNudge] = useState("");
   const [admin, setAdmin] = useState(false);
-  const [syncSoon, setSyncSoon] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
     api.auth
       .status()
-      .then((s) => {
-        setAuthEmail(s.email ? (s.has_email && !s.email_verified ? `${s.email} · verify email` : s.email) : "");
-        setNudge(emailNudge(s));
-        setAdmin(Boolean(s.admin));
-      })
+      .then((s) => setAdmin(Boolean(s.admin)))
       .catch((e) => setErr(e.message));
   }, []);
 
+  // Matches iOS nested Settings; web-only extras (Social, Newsletter, Admin) stay below.
   return (
     <section className="screen">
       <header className="top">
@@ -55,11 +49,7 @@ export function Settings() {
       </header>
       <div className="scroll pad">
         {err && <p className="banner err" role="alert">{err}</p>}
-        {nudge && <p className="banner warn">{nudge} <a href="/settings/account" onClick={(e) => { e.preventDefault(); go("/settings/account"); }}>Fix it in Account &amp; security</a></p>}
-        <Link href="/settings/filters">Filters</Link>
-        <Link href="/settings/account" extra={authEmail || "Not signed in"}>
-          Account &amp; security
-        </Link>
+        <Link href="/support">Help &amp; support</Link>
         <Link
           onClick={() => {
             window.dispatchEvent(new Event("dinnerdesk-tour"));
@@ -67,26 +57,13 @@ export function Settings() {
         >
           Quick start tour
         </Link>
-        <Link href="/settings/social">Social</Link>
-        <Link href="/settings/newsletter">Email newsletter</Link>
-        <Link href="/support">Help &amp; support</Link>
-        <Link href="/settings/feedback">Report a bug or suggest a feature</Link>
-        <Link href="/privacy">Privacy</Link>
         <a className="list-link" href="https://x.com/DinnerDesk" target="_blank" rel="noopener noreferrer">
           Twitter
           <em>@DinnerDesk</em>
         </a>
+        <Link href="/settings/social">Social</Link>
+        <Link href="/settings/newsletter">Email newsletter</Link>
         {admin ? <Link href="/settings/admin">Admin</Link> : null}
-        <Link href="/settings/tastelab">Taste Lab</Link>
-        <Link extra="Coming soon" onClick={() => setSyncSoon(true)}>
-          Nutrition tracker sync
-        </Link>
-        {syncSoon ? (
-          <p className="help">
-            Coming soon: when you cook a meal, we’ll send that serving’s calories and macros to
-            Apple Health so Lose It, Cronometer, and other trackers can log it.
-          </p>
-        ) : null}
         <label className="block-label">About recipes &amp; photos</label>
       </div>
     </section>
@@ -339,7 +316,7 @@ export function Filters() {
   return (
     <section className="screen filters-screen">
       <header className="top sub">
-        <button type="button" className="icon-btn" onClick={() => go("/settings")} aria-label="Back">
+        <button type="button" className="icon-btn" onClick={() => go("/kitchen")} aria-label="Back">
           ←
         </button>
         <h1>Filters</h1>
@@ -731,7 +708,7 @@ export function AccountSecurity() {
   return (
     <section className="screen">
       <header className="acct-top">
-        <button type="button" className="acct-back" onClick={() => go("/settings")} aria-label="Back">
+        <button type="button" className="acct-back" onClick={() => go("/more")} aria-label="Back">
           <Chevron dir="left" size={20} color="var(--ink)" />
         </button>
         <h1>Account &amp; security</h1>
@@ -748,6 +725,7 @@ export function AccountSecurity() {
             <button type="button" className="btn-primary block" onClick={() => go("/login")}>
               Sign in or create an account
             </button>
+            <button type="button" className="list-link" onClick={() => go("/privacy")}>Privacy</button>
           </>
         ) : (
           <>
@@ -810,7 +788,7 @@ export function AccountSecurity() {
                     )}
                   </form>
                 )}
-                {resetTo && (
+                {resetTo && status.email_verified && (
                   <button type="button" className="acct-row has-sub" disabled={busy} onClick={emailResetLink}>
                     <span className="acct-row-text">
                       <span className="acct-row-title">Reset password</span>
@@ -920,6 +898,16 @@ export function AccountSecurity() {
                   </div>
                 </div>
               )}
+            </section>
+
+            <section className="acct-section">
+              <h2>Privacy</h2>
+              <div className="acct-card">
+                <button type="button" className="acct-row" onClick={() => go("/privacy")}>
+                  <span className="acct-row-title">Privacy</span>
+                  <Chevron />
+                </button>
+              </div>
             </section>
 
             <section className="acct-section is-danger">

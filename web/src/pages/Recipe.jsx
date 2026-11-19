@@ -1,5 +1,6 @@
 import FoodPhoto from "../FoodPhoto.jsx";
 import { RecipeGallery } from "../RecipeGallery.jsx";
+import { ReviewedBadge } from "../ReviewedBadge.jsx";
 import { scaleAmount } from "../quantity.js";
 import { useEffect, useRef, useState } from "react";
 
@@ -62,6 +63,7 @@ export function Recipe({ id }) {
   const [tags, setTags] = useState("");
   const [photoData, setPhotoData] = useState(null);
   const [photoLoading, setPhotoLoading] = useState(false);
+  const [saveNotice, setSaveNotice] = useState("");
   const [name, setName] = useState("");
   const [servings, setServings] = useState(4);
   const [minutes, setMinutes] = useState("");
@@ -169,15 +171,24 @@ export function Recipe({ id }) {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [showMore]);
 
+  function resetDraft(value = recipe) {
+    setPhotoData(null);
+    setTags((value.tags || []).join(", "));
+    setName(value.name);
+    setServings(value.servings);
+    setMinutes(value.cooking_minutes == null ? "" : String(value.cooking_minutes));
+    setIngs(ingLines(value));
+    setSteps(stepsFromRecipe(value.instructions));
+    setSaveNotice("");
+  }
+
+  useEffect(() => {
+    if (recipe && admin) resetDraft(recipe);
+  }, [recipe?.id, admin]);
+
   function startEdit() {
     if (!canEdit) return;
-    setPhotoData(null);
-    setTags((recipe.tags || []).join(", "));
-    setName(recipe.name);
-    setServings(recipe.servings);
-    setMinutes(recipe.cooking_minutes == null ? "" : String(recipe.cooking_minutes));
-    setIngs(ingLines(recipe));
-    setSteps(stepsFromRecipe(recipe.instructions));
+    resetDraft();
     setEditing(true);
     setShowMore(false);
     setErr("");
@@ -220,11 +231,15 @@ export function Recipe({ id }) {
 
   async function saveEdit(e) {
     e.preventDefault();
+    setErr("");
+    setSaveNotice("");
     setBusy(true);
     try {
       const next = await api.patchRecipe(recipe.id, { in_place: true, ...editPayload() });
       setRecipe(next);
+      resetDraft(next);
       setEditing(false);
+      setSaveNotice("Changes saved.");
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -276,7 +291,7 @@ export function Recipe({ id }) {
   async function toggleRetired() {
     setShowMore(false);
     const on = !recipe.retired;
-    if (on && !window.confirm(`Remove “${recipe.name}” from the app? No one will see it in recipes or suggestions. Plans that already use it keep it, and you can bring it back any time.`)) return;
+    if (on && !window.confirm(`Hide “${recipe.name}” from everyone’s recipe lists and suggestions? Existing plans keep it. You can show it again from Recipes to edit.`)) return;
     setBusy(true);
     try {
       setRecipe(await api.retireRecipe(recipe.id, on));
@@ -285,6 +300,14 @@ export function Recipe({ id }) {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function updateWorkflow(changes) {
+    setBusy(true);
+    setErr("");
+    try { setRecipe(await api.recipeWorkflow(recipe.id, changes)); }
+    catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
   }
 
   async function toggleCookPrep(i) {
@@ -474,14 +497,14 @@ export function Recipe({ id }) {
                   >
                     {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
                   </button>
-                  {!recipe.catalog ? (
+                  {!admin && !recipe.catalog ? (
                     <button type="button" role="menuitem" onClick={deleteOwn} disabled={busy}>
                       Delete recipe
                     </button>
                   ) : null}
                   {admin && recipe.catalog ? (
                     <button type="button" role="menuitem" onClick={toggleRetired} disabled={busy}>
-                      {recipe.retired ? "Bring back to the app" : "Remove from app"}
+                      {recipe.retired ? "Show to everyone" : "Hide from everyone"}
                     </button>
                   ) : null}
                   {admin && recipe.catalog && recipe.edited ? (
@@ -495,6 +518,19 @@ export function Recipe({ id }) {
           </div>
         )}
       </header>
+      {!editing && <ReviewedBadge reviewed={recipe.reviewed} detail />}
+      {!editing && admin && (
+        <label className="recipe-review-control">
+          <input type="checkbox" checked={Boolean(recipe.reviewed)} disabled={busy}
+            onChange={async (e) => {
+              const on = e.target.checked;
+              setBusy(true);
+              try { setRecipe(await api.reviewRecipe(recipe.id, on)); }
+              catch (e) { setErr(e.message); }
+              finally { setBusy(false); }
+            }} /> Kitchen-tested
+        </label>
+      )}
       {!editing && (
         <div className="tabs">
           {["overview", "cook"].map((t) => (
@@ -502,7 +538,7 @@ export function Recipe({ id }) {
               {t[0].toUpperCase() + t.slice(1)}
             </button>
           ))}
-          {canEdit && (
+          {canEdit && !admin && (
             <button type="button" className="tab-btn" onClick={startEdit}>
               Edit
             </button>
@@ -548,18 +584,41 @@ export function Recipe({ id }) {
         )}
         <div className="scroll pad recipe-body">
           {err && <p className="banner err">{err}</p>}
+          {saveNotice && <p className="banner ok" role="status">{saveNotice}</p>}
           {recipe.retired && (
             <p className="banner" role="status">
               Removed from the app. Only plans that already use it can open it.
             </p>
           )}
-          {editing && canEdit ? (
+              {admin && (
+                <fieldset className="recipe-admin-actions" disabled={busy || photoLoading}>
+                  <legend>Recipe management</legend>
+                  <button type="button" onClick={() => updateWorkflow({ to_edit: !recipe.to_edit })}>
+                    {recipe.to_edit ? "Remove To edit tag" : "Tag as To edit"}
+                  </button>
+                  {recipe.catalog && <button type="button" onClick={toggleRetired}>
+                    {recipe.retired ? "Show to everyone" : "Hide from everyone"}
+                  </button>}
+                  <button type="button" onClick={() => updateWorkflow({ delete_requested: !recipe.delete_requested })}>
+                    {recipe.delete_requested ? "Cancel deletion request" : "Delete — send for review"}
+                  </button>
+                  <p className="help">Deletion requests go to review; nothing is deleted. Hidden recipes stay in existing plans.</p>
+                  <button type="button" onClick={() => go("/settings/recipe-flags")}>Open Recipes to edit</button>
+                </fieldset>
+              )}
+          {admin && !editing && tab === "overview" && (
+            <RecipeGallery recipe={recipe} canEdit={canEdit} onChange={setRecipe} />
+          )}
+          {(editing || (admin && tab === "overview")) && canEdit ? (
             <form id="recipe-edit" onSubmit={saveEdit}>
+              <fieldset className="recipe-edit-fields" disabled={busy || photoLoading}>
+              {editing && <>
               <label className="block-label" htmlFor="recipe-photo">Primary photo</label>
               <FoodPhoto path={recipe.photo_path} hideUnavailable />
               <input id="recipe-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || photoLoading} onChange={selectPhoto} />
               <p className="help">Choose your own JPEG, PNG, or WebP photo under 5 MB. {recipe.catalog ? "Save updates the catalog photo for everyone. Save as copy uses it only on the new recipe." : "The photo is saved with this recipe."}</p>
               {photoData && <img src={photoData} alt="New recipe photo preview" style={{ width: "100%", maxWidth: 320, aspectRatio: "1", objectFit: "cover" }} />}
+              </>}
               <label className="block-label" htmlFor="recipe-tags">Tags</label>
               <input id="recipe-tags" className="field" value={tags} onChange={(e) => setTags(e.target.value)} disabled={busy} placeholder="low carb pasta, quick dinner" />
               <p className="help">Separate tags with commas. {recipe.catalog ? "Save updates these tags for everyone. Save as copy changes only the new recipe." : "Tags apply to this kitchen recipe."}</p>
@@ -581,6 +640,12 @@ export function Recipe({ id }) {
                     : "Save updates this kitchen recipe."
                 }
               />
+              {admin && !editing && <div className="recipe-inline-actions">
+                <button type="submit" className="btn-primary" disabled={busy || photoLoading}>{busy ? "Saving..." : "Save changes"}</button>
+                <button type="button" className="btn-secondary" disabled={busy || photoLoading} onClick={() => resetDraft()}>Discard changes</button>
+                {recipe.catalog && <button type="button" className="btn-secondary" disabled={busy || photoLoading} onClick={saveCopy}>Save as copy</button>}
+              </div>}
+              </fieldset>
             </form>
           ) : (
             <>
@@ -601,7 +666,14 @@ export function Recipe({ id }) {
                       </li>
                     ))}
                   </ul>
-{admin && (<>
+
+                  </>}
+                </>
+              )}
+              {tab === "cook" && !both && <CookBlock />}
+            </>
+          )}
+{admin && !editing && tab === "overview" && (<>
                   <label className="block-label" htmlFor="dev-notes">
                     Dev notes
                   </label>
@@ -619,12 +691,6 @@ export function Recipe({ id }) {
                     }}
                   />
                   </>)}
-                  </>}
-                </>
-              )}
-              {tab === "cook" && !both && <CookBlock />}
-            </>
-          )}
           {recipe.catalog && !editing && (reportedId === recipe.id
             ? <p className="muted recipe-report-done" role="status">Thanks. We'll take a look at this recipe.</p>
             : report === null

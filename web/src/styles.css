@@ -1465,9 +1465,12 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 }
 
 .tabbar .optional-prep { display: none; }
+/* Prep on More when the Prep tab is hidden; hide this row when the tab shows. */
+.more-prep-when-no-tab { display: flex; }
 @media (min-width: 390px) and (max-width: 767px) {
   .tabbar .optional-prep { display: flex; }
   .tabbar { grid-template-columns: repeat(5, 1fr); }
+  .more-prep-when-no-tab { display: none; }
 }
 
 .plan-meal-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -1845,9 +1848,13 @@ body.is-resizing { cursor: col-resize; user-select: none; }
 .pill-primary:hover { background: var(--brand-hover); }
 .pill-secondary { background: #f0e9e6; color: var(--ink); }
 .pill:disabled { opacity: 0.5; }
-/* Plan: New meal plan (and Fill in this plan) under the meals; ⋯ no longer has it (#104). */
 .plan-new { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 16px 0 96px; }
-.plan-new .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.plan-actions { display: flex; flex-wrap: wrap; gap: 10px; max-width: 100%; }
+.plan-actions .pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; font-size: 1rem; }
+.plan-actions .pill svg { flex: none; }
+.plan-actions-offscreen { visibility: hidden; }
+.plan-add-meals { background: #fff; color: var(--brand); border: 1px solid var(--brand); }
+.plan-add-meals:hover { background: #f1e7ef; }
 
 .suggest-bar {
   display: flex;
@@ -1896,9 +1903,8 @@ body.is-resizing { cursor: col-resize; user-select: none; }
   .plan-meal-list .meal-photo-wrap, .plan-meal-list .meal-photo-btn, .plan-meal-list .meal-photo-btn img, .plan-meal-list .meal-photo-btn .ph { width: 112px; height: 112px; }
   .plan-meal-list .meal-photo-wrap { flex: 0 0 112px; }
 }
-.fab-pill-wrap { position: fixed; left: 0; right: 0; bottom: calc(84px + var(--safe-bottom)); z-index: 6; display: flex; justify-content: center; pointer-events: none; }
-.fab-pill { pointer-events: auto; min-height: 52px; padding: 0 28px; border-radius: 999px; background: var(--brand); color: #fbf6ee; font-size: 17px; font-weight: 700; box-shadow: 0 6px 18px rgba(74, 22, 70, 0.25); }
-.fab-pill:hover { background: var(--brand-hover); }
+.fab-pill-wrap { position: fixed; left: 0; right: 0; bottom: calc(84px + var(--safe-bottom)); z-index: 6; justify-content: center; pointer-events: none; padding: 0 16px; }
+.fab-pill-wrap .pill { pointer-events: auto; min-height: 52px; box-shadow: 0 6px 18px rgba(74, 22, 70, 0.25); }
 @media (min-width: 880px) { .fab-pill-wrap { left: 232px; bottom: 28px; } }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -2053,3 +2059,129 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 /* Coming soon list: their photos in a grid to scroll. */
 .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
 .photo-grid .card { width: auto; flex: none; }
+/* Recipe review belongs to the recipe, independently of photo credits. */
+.recipe-review-control { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.recipe-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--line); border-radius: 12px; }
+.recipe-admin-actions button { min-height: 44px; padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.recipe-admin-actions .help { flex-basis: 100%; }
+.card-admin-actions { position: absolute; z-index: 3; bottom: 4px; left: 4px; right: 4px; display: flex; gap: 4px; }
+.card-admin-actions.is-inline { position: static; flex-wrap: wrap; margin-top: 4px; }
+.card-review { min-width: 0; min-height: 44px; padding: 4px 6px; border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 0.7rem; font-weight: 700; border: 1px solid var(--line); }
+.recipe-open-copy { display: block; width: 100%; text-align: left; }
+.recipe-edit-fields { min-width: 0; padding: 0; border: 0; }
+.recipe-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+.step-remove { min-height: 44px; padding: 0 8px; color: var(--heart); }
+.template-coming-soon, .add-menu button:disabled { opacity: 0.55; cursor: default; }
+
+.recipe-status-line { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; color: var(--muted); font-size: .75rem; margin-top: 4px; }
+.kitchen-tested { display: inline-flex; align-items: center; gap: 4px; color: var(--ink); font-size: inherit; font-weight: 600; }
+.kitchen-tested svg, .kitchen-tested-chip svg, .card-review svg { flex-shrink: 0; vertical-align: middle; }
+/* A child of .screen, which is a flex column, so without align-self the pill stretched the
+   full width and its rounded ends were sliced off by both screen edges. It keeps the page's
+   1rem gutter, like every other block on the recipe page. */
+.kitchen-tested-chip { display: inline-flex; align-self: start; align-items: center; gap: 6px; min-height: 44px; padding: 8px 12px; margin: 8px 1rem; border: 0; border-radius: 999px; color: var(--ink); background: #f1e7ef; font-weight: 600; }
+.kitchen-tested-sheet { position: fixed; inset: auto 0 0; box-sizing: border-box; width: min(100%, 560px); max-height: 85dvh; overflow-y: auto; margin: 0 auto; padding: 24px; border: 0; border-radius: 20px 20px 0 0; background: var(--surface); color: var(--ink); }
+.kitchen-tested-sheet::backdrop { background: #0006; }
+.kitchen-tested-sheet h2 { font-size: 1.25rem; }
+.kitchen-tested-sheet p { line-height: 1.5; }
+.card-review[aria-pressed="true"] { background: #f1e7ef; color: var(--ink); }
+
+/* What a recipe card's + or check just did (#35), since the icons carry no label. Mirrors the
+   Prep tab's check-off bar and the phone apps' version of the same bar. */
+.toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(84px + var(--safe-bottom));
+  z-index: 20;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 16px;
+  border-radius: 20px;
+  background: var(--brand);
+  color: var(--surface);
+  box-shadow: 0 10px 28px rgba(46, 26, 44, 0.28);
+}
+.toast-text { flex: 1; font-weight: 600; }
+.toast-undo { min-height: 44px; padding: 0 8px; color: var(--coral-tint); font-weight: 700; text-decoration: underline; }
+.toast-x { flex: none; width: 44px; height: 44px; font-size: 1.1rem; color: #f1e7ef; }
+@media (min-width: 880px) { .toast { left: 232px; bottom: 28px; } }
+
+/* Shared RecipeTile template (not wired to screens yet — see RecipeTile.jsx). */
+.recipe-tile { display: flex; flex-direction: column; gap: 8px; min-width: 0; text-align: left; }
+.recipe-tile--beside { flex-direction: row; align-items: flex-start; gap: 12px; }
+.recipe-tile-photo {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--soft);
+  flex-shrink: 0;
+}
+.recipe-tile--beside .recipe-tile-photo { width: 70px; height: 70px; }
+.recipe-tile-photo img, .recipe-tile-photo .ph-fill {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  pointer-events: none;
+}
+.recipe-tile-photo-hit {
+  position: absolute; inset: 0; z-index: 1; padding: 0; border: 0;
+  background: transparent; cursor: pointer;
+}
+.recipe-tile-photo .recipe-tile-overlay { z-index: 2; }
+.recipe-tile-photo.is-soon { filter: grayscale(0.6); }
+.recipe-tile-coming-soon {
+  position: absolute; inset: 0; display: grid; place-items: center; z-index: 1;
+  color: #fff; font-size: 0.8rem; font-weight: 700;
+  text-shadow: 0 1px 4px #0009; pointer-events: none;
+}
+.recipe-tile-open {
+  display: block; width: 100%; padding: 0; text-align: left;
+  background: none; border: 0; color: inherit; cursor: pointer;
+}
+.recipe-tile-menu {
+  position: fixed; z-index: 40; min-width: 180px; padding: 6px 0;
+  background: var(--surface, #fff); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+.recipe-tile-menu-item {
+  display: block; width: 100%; padding: 10px 14px; text-align: left;
+  background: none; border: 0; font: inherit; color: var(--ink); cursor: pointer;
+}
+.recipe-tile-menu-item:hover { background: var(--soft); }
+.recipe-tile-menu-item.is-danger { color: var(--destructive, #b00020); }
+.recipe-tile-name {
+  margin: 0; font-size: 0.9375rem; line-height: 1.3; font-weight: 600; color: var(--ink);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: calc(2 * 1.3em);
+}
+.recipe-tile-name.is-soon { color: var(--muted); font-weight: 400; font-size: 0.75rem; min-height: 0; }
+.recipe-tile-meta { display: flex; flex-direction: column; gap: 2px; }
+.recipe-tile-meta-status { min-height: 1.1rem; }
+.recipe-tile-meta-line { margin: 0; font-size: 0.75rem; color: var(--muted); min-height: 1.1rem; }
+.recipe-tile-body { min-width: 0; flex: 1; }
+.recipe-tile-overlay {
+  position: absolute; z-index: 2; width: 44px; height: 44px; padding: 0;
+  display: grid; place-items: center; appearance: none; -webkit-appearance: none;
+  background: none; border: 0; cursor: pointer;
+}
+.recipe-tile-overlay.is-static { cursor: default; pointer-events: none; }
+.recipe-tile-overlay.is-disabled { opacity: 0.4; pointer-events: none; }
+.recipe-tile-overlay--top-leading { top: 4px; left: 4px; }
+.recipe-tile-overlay--top-trailing { top: 4px; right: 4px; }
+.recipe-tile-overlay--bottom-leading { bottom: 4px; left: 4px; }
+.recipe-tile-overlay--bottom-trailing { bottom: 4px; right: 4px; }
+.recipe-tile-overlay--center { inset: 0; margin: auto; }
+.recipe-tile-overlay-chrome {
+  width: 28px; height: 28px; border-radius: 50%; background: #fff;
+  display: grid; place-items: center; font-weight: 700; font-size: 0.95rem; line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18); color: var(--ink);
+}
+.recipe-tile-overlay.is-on .recipe-tile-overlay-chrome { background: var(--ink); color: #fff; }
+.recipe-tile-overlay.is-heart.is-on .recipe-tile-overlay-chrome { color: var(--heart); background: #fff; }
+.recipe-tile-overlay.is-tag .recipe-tile-overlay-chrome {
+  width: auto; min-width: 28px; padding: 0 6px; border-radius: 999px; font-size: 0.65rem;
+}

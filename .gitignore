@@ -40,6 +40,7 @@ xcuserdata/
 *.xccheckout
 project.xcworkspace/xcshareddata/swiftpm/configuration/
 DerivedData/
+/ios/dinnerdesk.xcodeproj/project.pbxproj
 build/
 *.xcarchive/
 *.ipa

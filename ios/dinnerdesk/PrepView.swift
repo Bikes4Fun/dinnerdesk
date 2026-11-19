@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// Weekend prep, grouped by what the food is (#21; mirrors web/src/pages/Prep.jsx).
+/// Weekend prep (#21; mirrors web/src/pages/Prep.jsx). "By meal" shows one card per meal with a
+/// row per task (ring checks that meal's steps); "By task" groups by what the food is.
 /// One row per item however many meals use it. A progress ring and one bar per section up
 /// top; collapsible sections; 👍/👎 on every item (a 👎 asks why); and check-off that works like
 /// the grocery list: a done item leaves its section unless "Show completed" is on, and a short-lived bar at
@@ -13,6 +14,10 @@ struct PrepView: View {
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   @AppStorage("prep.showDone") private var showDone = false
+  /// "meal" (By meal: one card per meal, a row per task) or "task" (By task: by ingredient).
+  @AppStorage("prep.view") private var prepView = "meal"
+  /// The By meal task row that's open, as "mealId:taskId".
+  @State private var openMealTask: String?
   @AppStorage("prep.closed") private var closedRaw = ""
   @State private var whyOpen: Int?
   @State private var whyNote = ""
@@ -82,8 +87,16 @@ struct PrepView: View {
               .frame(maxWidth: .infinity, minHeight: 44)
             }
           } else {
-            header { key in withMotion { proxy.scrollTo(key, anchor: .top) } }
-            ForEach(groups) { group in section(group).id(group.key) }
+            header { key in
+              // The section bars jump to By task sections.
+              if prepView != "task" { prepView = "task" }
+              DispatchQueue.main.async { withMotion { proxy.scrollTo(key, anchor: .top) } }
+            }
+            if prepView == "task" {
+              ForEach(groups) { group in section(group).id(group.key) }
+            } else {
+              ForEach(mealGroups) { group in mealCard(group) }
+            }
             missingButton
           }
           // Room so the check-off bar never covers the last row.
@@ -138,10 +151,12 @@ struct PrepView: View {
               }
             }
             .frame(height: 8)
-            Text("\(g.short) ").font(Theme.count.weight(.bold)).foregroundStyle(Theme.ink)
-              + Text("\(g.done)/\(g.all.count)").font(Theme.count).foregroundStyle(Theme.muted)
+            // Name and count on their own lines so every bar sits at the same height.
+            Text(g.short).font(Theme.count.weight(.bold)).foregroundStyle(Theme.ink)
+              .lineLimit(1).minimumScaleFactor(0.75)
+            Text("\(g.done)/\(g.all.count)").font(Theme.count).foregroundStyle(Theme.muted)
           }
-          .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+          .frame(maxWidth: .infinity, minHeight: 44, alignment: .topLeading)
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -152,14 +167,10 @@ struct PrepView: View {
       } else {
         HStack(alignment: .top, spacing: 6) { bars }
       }
-      HStack {
-        Text("\(doneCount) completed").font(Theme.subtitle).foregroundStyle(Theme.muted)
-        Spacer()
-        if doneCount > 0 {
-          Button(showDone ? "Hide completed" : "Show completed") { showDone.toggle() }
-            .font(Theme.action).foregroundStyle(Theme.accent)
-            .frame(minHeight: 44)
-        }
+      // View switch and Show/Hide completed share one row; they stack at the largest text sizes.
+      ViewThatFits(in: .horizontal) {
+        HStack(spacing: 12) { viewSwitch; Spacer(minLength: 0); completedToggle }
+        VStack(alignment: .leading, spacing: 8) { viewSwitch; completedToggle }
       }
     }
   }
@@ -183,6 +194,186 @@ struct PrepView: View {
     }
     .buttonStyle(.plain)
     .padding(.top, 8)
+  }
+
+  // MARK: By meal
+
+  private var mealGroups: [PrepMealGroup] { PrepMealPresentation(tasks).mealGroups }
+
+  /// By meal / By task switch (mirrors .pz-view on web): compact, sized to its labels.
+  private var viewSwitch: some View {
+    HStack(spacing: 2) {
+      ForEach([("meal", "By meal"), ("task", "By task")], id: \.0) { key, label in
+        let on = prepView == key
+        Button { withMotion { prepView = key } } label: {
+          Text(label).font(Theme.count.weight(.semibold)).lineLimit(1)
+            .foregroundStyle(on ? Theme.surface : Theme.ink)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 30)
+            .background(on ? Theme.ink : .clear, in: Capsule())
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
+      }
+    }
+    .padding(.horizontal, 3)
+    .background(Theme.aubergineTint, in: Capsule().inset(by: 4))
+    .fixedSize()
+    .accessibilityElement(children: .contain)
+    .accessibilityLabel("Show prep")
+  }
+
+  @ViewBuilder private var completedToggle: some View {
+    if doneCount > 0 {
+      Button(showDone ? "Hide completed" : "Show completed (\(doneCount))") { showDone.toggle() }
+        .buttonStyle(.plain)
+        .font(Theme.count.weight(.semibold)).foregroundStyle(Theme.accent)
+        .lineLimit(1)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
+    }
+  }
+
+  private func mealCard(_ g: PrepMealGroup) -> some View {
+    let shown = showDone ? g.tasks : g.tasks.filter { !$0.done }
+    let left = g.tasks.filter { !$0.done }.count
+    return VStack(alignment: .leading, spacing: 0) {
+      NavigationLink { RecipeDetailView(id: g.id) } label: {
+        VStack(alignment: .leading, spacing: 2) {
+          Text(g.name).font(Theme.action).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
+          Text([g.day, left > 0 ? "\(left) to prep" : "All prepped"].compactMap { $0 }.joined(separator: " · "))
+            .font(Theme.subtitle).foregroundStyle(Theme.muted)
+        }
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        .padding(.bottom, 8)
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      ForEach(shown) { task in
+        Rectangle().fill(Theme.line).frame(height: 1)
+        mealTaskRow(g, task)
+      }
+    }
+    .padding(.horizontal, 16)
+    .padding(.top, 14)
+    .padding(.bottom, 4)
+    .background(Theme.surface, in: RoundedRectangle(cornerRadius: 16))
+    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Theme.line))
+  }
+
+  private func mealTaskRow(_ g: PrepMealGroup, _ t: PrepMealTask) -> some View {
+    let key = "\(g.id):\(t.taskId)"
+    let open = openMealTask == key
+    let done = t.steps.filter(\.done).count
+    let total = max(t.steps.count, 1)
+    let summary = t.quantities.isEmpty
+      ? (t.steps.count == 1 ? "1 step" : "\(t.steps.count) steps")
+      : t.quantities.joined(separator: " · ")
+    let progress = done > 0 && !t.done ? "\(done) of \(t.steps.count) · " : ""
+    return VStack(alignment: .leading, spacing: 0) {
+      HStack(spacing: 6) {
+        Button {
+          Task { await store.setPrepMealSteps(taskId: t.taskId, mealId: g.id, keys: t.steps.map(\.key), done: !t.done) }
+        } label: {
+          ZStack {
+            Circle().fill(t.done ? Self.coral : Theme.surface)
+            Circle().stroke(t.done ? Self.coral : Self.dash, lineWidth: 2.4)
+            if done > 0 && !t.done {
+              Circle().trim(from: 0, to: CGFloat(done) / CGFloat(total))
+                .stroke(Self.coral, style: StrokeStyle(lineWidth: 2.4, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+            }
+            if t.done {
+              Image(systemName: "checkmark").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.ink)
+            }
+          }
+          .frame(width: 24, height: 24)
+          .frame(width: 44, height: 44)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(t.done ? "Mark not done" : "Mark done"): \(t.title) for \(g.name)")
+        Button {
+          withMotion { openMealTask = open ? nil : key }
+        } label: {
+          HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+              Text(t.title).font(Theme.action)
+                .foregroundStyle(t.done ? Theme.muted : Self.bodyInk)
+                .strikethrough(t.done)
+                .multilineTextAlignment(.leading)
+              Text(progress + summary).font(Self.stepFont).foregroundStyle(Theme.muted)
+                .multilineTextAlignment(.leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Image(systemName: "chevron.down")
+              .scaledIcon(size: 13, weight: .semibold, width: 24, height: 24)
+              .foregroundStyle(Theme.muted)
+              .rotationEffect(.degrees(open ? 180 : 0))
+          }
+          .padding(.vertical, 10)
+          .frame(minHeight: 64)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(open ? "Expanded" : "Collapsed")
+      }
+      .padding(.leading, -8)
+
+      if open {
+        VStack(alignment: .leading, spacing: 4) {
+          ForEach(t.steps) { step in
+            HStack(alignment: .top, spacing: 10) {
+              if let stepKey = step.key {
+                Button {
+                  Task { await store.setPrepMealSteps(taskId: t.taskId, mealId: g.id, keys: [stepKey], done: !step.done) }
+                } label: {
+                  ZStack {
+                    Circle().fill(step.done ? Self.coral : Theme.surface)
+                    Circle().stroke(step.done ? Self.coral : Self.dash, lineWidth: 1.5)
+                    if step.done {
+                      Image(systemName: "checkmark").font(.system(size: 10, weight: .bold)).foregroundStyle(Theme.ink)
+                    }
+                  }
+                  .frame(width: 22, height: 22)
+                  .frame(width: 44, height: 44)
+                  .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, -11)
+                .padding(.horizontal, -11)
+                .accessibilityLabel("\(step.done ? "Mark not done" : "Mark done"): \(step.text)")
+              } else {
+                Circle().strokeBorder(Self.dash, style: StrokeStyle(lineWidth: 1.5, dash: [3]))
+                  .frame(width: 22, height: 22)
+                  .accessibilityHidden(true)
+              }
+              VStack(alignment: .leading, spacing: 2) {
+                Text(step.text).font(Self.stepFont)
+                  .foregroundStyle(step.done ? Theme.muted : Self.bodyInk)
+                  .strikethrough(step.done)
+                  .fixedSize(horizontal: false, vertical: true)
+                if !step.quantities.isEmpty {
+                  Text(step.quantities.joined(separator: " · ")).font(Theme.subtitle).foregroundStyle(Theme.muted)
+                }
+                if step.added {
+                  Text("Added by you").font(Theme.subtitle).foregroundStyle(Theme.muted)
+                }
+              }
+              .padding(.top, 1)
+              .frame(maxWidth: .infinity, alignment: .leading)
+            }
+          }
+          if !t.storage.isEmpty {
+            Text(t.storage).font(Theme.subtitle).foregroundStyle(Theme.muted).padding(.top, 4)
+          }
+        }
+        .padding(.leading, 38)
+        .padding(.bottom, 12)
+      }
+    }
   }
 
   // MARK: Sections

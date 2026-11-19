@@ -65,10 +65,11 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   let ingredients: [String]
   /// Our photo is in but the steps aren't written yet: shown dimmed and can't be opened.
   var comingSoon: Bool = false
+  var reviewed: Bool = false
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath
-    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon
+    case favorited, toTry, catalog, hidden, tags, ingredients, comingSoon, reviewed
   }
 
   init(from decoder: Decoder) throws {
@@ -85,6 +86,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
     tags = try c.decode([String].self, forKey: .tags)
     ingredients = try c.decode([String].self, forKey: .ingredients)
     comingSoon = try c.decodeIfPresent(Bool.self, forKey: .comingSoon) ?? false
+    reviewed = try c.decodeIfPresent(Bool.self, forKey: .reviewed) ?? false
   }
 
   func withFavorited(_ on: Bool) -> RecipeSummary {
@@ -96,6 +98,7 @@ nonisolated struct RecipeSummary: Decodable, Identifiable, Sendable {
   /// The list row for a recipe just saved from somewhere else (a Taste Lab meal that isn't in
   /// the loaded recipe list yet).
   init(_ detail: RecipeDetail) {
+    reviewed = detail.reviewed
     id = detail.id
     name = detail.name
     servings = detail.servings
@@ -140,6 +143,7 @@ nonisolated struct RecipeGalleryPhoto: Decodable, Identifiable, Sendable {
 }
 
 nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
+  var reviewed: Bool = false
   let id: Int
   var name: String
   let servings: Int?
@@ -173,7 +177,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
 
   enum CodingKeys: String, CodingKey {
     case id, name, servings, cookingMinutes, photoPath, photos, photoAi, photoShared
-    case favorited, toTry, hidden, catalog, tags, ingredients, instructions
+    case favorited, toTry, hidden, catalog, tags, ingredients, instructions, reviewed
     case instructionsSource, instructionsCopiedFromThirdParty, sourceUrl
   }
 
@@ -185,6 +189,7 @@ nonisolated struct RecipeDetail: Decodable, Identifiable, Sendable {
     cookingMinutes = try c.decodeIfPresent(Int.self, forKey: .cookingMinutes)
     photoPath = try c.decodeIfPresent(String.self, forKey: .photoPath)
     photoAI = try c.decodeIfPresent(Bool.self, forKey: .photoAi) ?? false
+    reviewed = try c.decodeIfPresent(Bool.self, forKey: .reviewed) ?? false
     photoShared = try c.decodeIfPresent(Bool.self, forKey: .photoShared) ?? false
     if let gallery = try c.decodeIfPresent([RecipeGalleryPhoto].self, forKey: .photos) {
       photos = gallery
@@ -343,6 +348,8 @@ nonisolated struct PrepMeal: Decodable, Identifiable, Sendable {
   let name: String
   /// The meal's cook day on the plan ("Mon"), or nil when it isn't scheduled.
   let day: String?
+  /// Plan day number for that cook day (orders the "By meal" view); nil when unscheduled.
+  let dayIndex: Int?
   let instructions: [String]
   var steps: [PrepStep]?
 }
@@ -369,7 +376,7 @@ nonisolated struct PrepInstructionMeal: Decodable, Identifiable, Sendable {
 
 nonisolated struct PrepInstructionGroup: Decodable, Sendable {
   let text: String
-  let quantities: [String]
+  var quantities: [String]
   let added: Bool
   var meals: [PrepInstructionMeal]
 }
@@ -396,9 +403,14 @@ nonisolated final class PrepTaskPresentation: Sendable {
         guard !text.isEmpty else { continue }
         let quantities = rawQuantities.filter { !$0.isEmpty }
         let link = PrepInstructionMeal(id: meal.id, name: meal.name, day: meal.day)
+        // Equal wording is one row whatever each meal's amount is (#116); the amounts are
+        // kept in first-seen order. An added step stays separate, since the apps mark it.
         if let index = groups.firstIndex(where: {
-          $0.text.caseInsensitiveCompare(text) == .orderedSame && $0.quantities == quantities && $0.added == added
+          $0.text.caseInsensitiveCompare(text) == .orderedSame && $0.added == added
         }) {
+          for quantity in quantities where !groups[index].quantities.contains(quantity) {
+            groups[index].quantities.append(quantity)
+          }
           if !groups[index].meals.contains(where: { $0.id == meal.id }) { groups[index].meals.append(link) }
         } else {
           groups.append(PrepInstructionGroup(text: text, quantities: quantities, added: added, meals: [link]))
@@ -406,6 +418,81 @@ nonisolated final class PrepTaskPresentation: Sendable {
       }
     }
     return groups
+  }
+}
+
+/// "By meal" view: the same prep tasks under each meal (mirrors app/domain/prep_presentation.py
+/// PrepMealPresentation and tests/fixtures/prep_meal_groups.json). Built from the live tasks so
+/// checking a step in either view updates both. A task row holds only that meal's steps.
+nonisolated struct PrepMealStep: Identifiable, Sendable {
+  var id: String { key ?? text }
+  let key: String?
+  let text: String
+  let quantities: [String]
+  let added: Bool
+  let done: Bool
+}
+
+nonisolated struct PrepMealTask: Identifiable, Sendable {
+  var id: Int { taskId }
+  let taskId: Int
+  let title: String
+  let quantities: [String]
+  let storage: String
+  let done: Bool
+  let steps: [PrepMealStep]
+}
+
+nonisolated struct PrepMealGroup: Identifiable, Sendable {
+  let id: Int
+  let name: String
+  let day: String?
+  let dayIndex: Int?
+  var tasks: [PrepMealTask]
+}
+
+nonisolated final class PrepMealPresentation: Sendable {
+  let tasks: [PrepTask]
+
+  init(_ tasks: [PrepTask]) { self.tasks = tasks }
+
+  var mealGroups: [PrepMealGroup] {
+    var groups: [PrepMealGroup] = []
+    for task in tasks {
+      for meal in task.meals {
+        var steps: [PrepMealStep] = (meal.steps ?? []).compactMap { step in
+          let display = step.displayText ?? ""
+          let text = (display.isEmpty ? step.text : display).trimmingCharacters(in: .whitespacesAndNewlines)
+          guard !text.isEmpty else { return nil }
+          return PrepMealStep(
+            key: step.key, text: text, quantities: (step.quantities ?? []).filter { !$0.isEmpty },
+            added: step.added == true, done: step.done == true)
+        }
+        if steps.isEmpty {  // older cached tasks only carry plain instructions
+          steps = meal.instructions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .map { PrepMealStep(key: nil, text: $0, quantities: [], added: false, done: task.done) }
+        }
+        guard !steps.isEmpty else { continue }
+        var quantities: [String] = []
+        for step in steps { for q in step.quantities where !quantities.contains(q) { quantities.append(q) } }
+        let row = PrepMealTask(
+          taskId: task.id, title: task.title, quantities: quantities, storage: task.storage ?? "",
+          done: steps.allSatisfy(\.done), steps: steps)
+        if let i = groups.firstIndex(where: { $0.id == meal.id }) {
+          groups[i].tasks.append(row)
+        } else {
+          groups.append(PrepMealGroup(id: meal.id, name: meal.name, day: meal.day, dayIndex: meal.dayIndex, tasks: [row]))
+        }
+      }
+    }
+    // Cook-day order, unscheduled last; stable for ties.
+    return groups.enumerated().sorted { a, b in
+      let ka = (a.element.dayIndex == nil ? 1 : 0, a.element.dayIndex ?? 0, a.offset)
+      let kb = (b.element.dayIndex == nil ? 1 : 0, b.element.dayIndex ?? 0, b.offset)
+      return ka < kb
+    }.map(\.element)
   }
 }
 
@@ -479,6 +566,8 @@ nonisolated struct ShopAisle: Decodable, Identifiable, Hashable, Sendable {
     ShopAisle(id: "dairy", name: "Dairy, Cheese & Eggs", number: ""),
     ShopAisle(id: "meat", name: "Meat & Seafood", number: ""),
     ShopAisle(id: "pantry", name: "Pantry", number: ""),
+    ShopAisle(id: "deli", name: "Deli", number: ""),
+    ShopAisle(id: "frozen", name: "Frozen", number: ""),
     ShopAisle(id: "other", name: "Other", number: ""),
   ]
 }
@@ -543,3 +632,12 @@ nonisolated struct SwapOption: Decodable, Identifiable, Sendable {
 }
 nonisolated struct SwapOptions: Decodable, Sendable { let recipes: [SwapOption] }
 
+/// What a card's ＋ or ✓ just did, and how to put it back (#35). The id changes with every
+/// action, so the bar's timer restarts even when the wording repeats.
+struct PlanToast: Identifiable, Equatable {
+  let id = UUID()
+  let text: String
+  let recipeId: Int
+  /// True when undoing means adding the meal back, i.e. the toast is about a removal.
+  let undoAdds: Bool
+}

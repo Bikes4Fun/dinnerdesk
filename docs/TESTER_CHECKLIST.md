@@ -6,6 +6,55 @@
 
 ## Daily essentials
 
+### User-visible recipe status parity (#288, November 11)
+
+- [ ] Open the same reviewed recipe on web/iPhone/Android. Its main photo and thumbnail show
+  Reviewed. A tested photo also shows its tested badge. Approval controls remain web-only.
+- [ ] Page between distinct photos: credit/source and AI/shared/tested notes follow the
+  displayed photo. Android's info button opens the recorded credit and safe source link.
+- [ ] Compare the Reviewed filter, deduplicated gallery and prep amounts/storage/feedback
+  on all clients. Test existing cached recipes too; missing metadata must not imply testing.
+
+### Admin recipe management (#167)
+
+- [ ] Web admin: open a catalog recipe. Without selecting Edit, tag as To edit; hide it from everyone;
+  request deletion. Admin → Recipes to edit shows it in each matching list after refresh.
+- [ ] Hidden recipes leave normal browsing/search, but existing plans still open them.
+  Show to everyone restores them. Deletion review keeps the recipe intact; Keep recipe
+  cancels the request. Remove To edit tag clears only that tag.
+- [ ] Ingredient fixes still appear and link to the in-app recipe when matched. Regular
+  users cannot access these controls/lists; another household's private recipes stay private.
+- [ ] Web admin: in Overview, edit recipe fields directly and Save changes. Refresh and
+  confirm persistence. Discard changes restores the saved recipe; a failed save retains the
+  draft. The photo gallery appears once, and Cook, review, queue and plan controls still work.
+- [ ] Remove unwanted steps, including empty ones. The remaining steps renumber and keep
+  their own amounts/Prep flags. Save and refresh: removed steps stay gone. Discard restores
+  unsaved removals, and Add step still works.
+
+### Admin recipe review (#167, November 11, 2026)
+
+- [ ] Web admin: toggle Review on the main recipe thumbnail without opening it. The badge,
+  Reviewed filter and detail checkbox update together; heart/plan controls still work.
+  Regular users see only the badge, never the Review button.
+- [ ] Toggle To edit beside Review, refresh, and check Admin → Recipes to edit. Toggle it
+  off to remove it from the queue. Regular users see neither admin button.
+- [ ] Create from a template is faded, labelled Coming soon, and cannot open a creation
+  flow from its cards, add menu, template list or an old family link.
+- [ ] A tested photo with an exact duplicate shows once, with Developer tested overlaid.
+  Review toggles do not create photos. Distinct photos remain separate; deleting the displayed
+  duplicate group does not bring back another identical copy.
+- [ ] On web, an approved recipe shows Reviewed over the main photo and regular-user
+  thumbnails, even when its photo has no Developer tested metadata. A photo that is also
+  tested shows both overlays without adding an image; unchecking review removes only Reviewed.
+
+- [ ] As admin, open a recipe and check Reviewed by Dinnerdesk. Refresh and confirm its
+  Reviewed badge on the detail page and recipe cards/search rows on web, iPhone and Android.
+  With iPhone VoiceOver, a reviewed Coming soon tile also announces “Reviewed by Dinnerdesk.”
+- [ ] As a regular user, see the badge and use the Reviewed filter, including with Favorites;
+  there is no review checkbox. Unchecking as admin removes the badge and filtered result.
+- [ ] A copied recipe starts unreviewed. Photo credits and Developer tested photo badges
+  are independent of recipe approval. Failed review saves show an error and keep the old state.
+
 ### Shared filters and tour wording (#288, November 8, 2026)
 
 - [ ] On web, iPhone and Android, compare Settings filters: diet, allergy, avoids, cuisine,
@@ -24,6 +73,7 @@
 - [ ] On web, downvote an expanded prep task without checking it off: choose a reason,
   add a note, send, and reload. Both remain visible. Retry with networking disabled:
   the editor keeps the draft and shows an error; restoring networking allows retry.
+  Prep feedback uses only thumbs up/down; there is no separate flag button.
 
 - [ ] **Cook opens promptly:** open a recipe, switch Overview → Cook → Overview. Steps and amounts remain readable; no freeze, crash, or timer buttons.
 - [ ] **Plan controls work:** add a recipe, then remove it. Toolbar/bottom controls agree, confirmation appears, and there is no duplicate meal.
@@ -184,3 +234,10 @@ iOS and native Android. All checks below remain manual acceptance work.
 - [ ] Before live cleanup: review the dry-run report and backup destination; resolve
   any conflicting alias placements/metadata. After approved cleanup, confirm recipes,
   pantry amounts/check-offs, grocery renames and each household's placements survived.
+
+
+## Kitchen-tested recipe status
+- On web as admin, toggle Kitchen-tested directly on a recipe card and list row. Refresh to confirm it persists; unmark to undo. Confirm photo count and files stay unchanged.
+- On web, iOS and Android as an ordinary user, compare the same marked recipe: one aubergine seal/check label beside cook time below its title; no status overlay on photos. Unmarked recipes show only cook time.
+- Open the recipe on each client: tap the one Kitchen-tested chip under the title. Check the explanation sheet, Done, back/Escape and drag dismissal as applicable; repeat with large text and a screen reader.
+- Use the Kitchen-tested filter. Check that photo credits/paging still work and native apps have no catalog-admin controls.

@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import re
-from app.auth import SESSION_COOKIE, session_info
+from app.auth import SESSION_COOKIE, household_for_token, session_info
 from app.db.database import PgConnection
 from collections import defaultdict
 from pathlib import Path
@@ -15,7 +15,7 @@ from fastapi.responses import Response
 
 from app.db.catalog import public_recipe_sql
 from app.db.database import ROOT
-from app.deps import AdminDep, DbDep, HhDep
+from app.deps import GUEST_COOKIE, AdminDep, DbDep, HhDep, guest_household
 from app.domain.diet_filter import clean_filters, fold_profiles
 from app.domain.recipe_photos import usable_photo
 
@@ -119,17 +119,21 @@ def catalog_from_db(db: PgConnection) -> list[dict]:
 @router.get("/catalog")
 def catalog(request: Request, db: PgConnection = DbDep):
     rows = catalog_from_db(db)
-    # Signed in: leave out meals the household gave a 👎 on their plan.
-    row = session_info(db, request.cookies.get(SESSION_COOKIE))
-    if row and row["household_id"]:
+    # A household (signed in or guest): only the pool suggestions use (diets, allergies, avoids
+    # and hidden meals already applied), minus meals it gave a 👎 on its plan.
+    household_id = (household_for_token(db, request.cookies.get(SESSION_COOKIE))
+                    or guest_household(db, request.cookies.get(GUEST_COOKIE)))
+    if household_id:
+        from app.routes import _pool_for  # routes imports this module
+        meals = {m["id"] for m in _pool_for(db, household_id).meals}
         down = {
             int(r["recipe_id"])
             for r in db.execute(
                 "SELECT recipe_id FROM household_meal_ratings WHERE household_id = ? AND rating < 0",
-                (row["household_id"],),
+                (household_id,),
             )
         }
-        rows = [r for r in rows if r["recipe_id"] not in down]
+        rows = [r for r in rows if r["recipe_id"] in meals and r["recipe_id"] not in down]
     return {"recipes": rows, "count": len(rows)}
 
 
