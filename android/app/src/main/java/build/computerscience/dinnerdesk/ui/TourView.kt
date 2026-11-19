@@ -118,6 +118,9 @@ fun TourView() {
     var isUpdate by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val pager = rememberPagerState { how.size }
+    val reduceMotion = isReduceMotion
+    // Reduce Motion: jump between tour pages instead of sliding.
+    suspend fun goToPage(page: Int) { if (reduceMotion) pager.scrollToPage(page) else pager.animateScrollToPage(page) }
     val o = FilterOptions
 
     LaunchedEffect(Unit) {
@@ -186,7 +189,7 @@ fun TourView() {
             TourStep.Welcome -> Unit
             TourStep.Ai -> step = TourStep.Welcome
             TourStep.Filters -> step = TourStep.Ai
-            TourStep.How -> if (pager.currentPage > 0) scope.launch { pager.animateScrollToPage(pager.currentPage - 1) } else step = TourStep.Filters
+            TourStep.How -> if (pager.currentPage > 0) scope.launch { goToPage(pager.currentPage - 1) } else step = TourStep.Filters
         }
     }
 
@@ -271,7 +274,7 @@ fun TourView() {
                         }
                     }
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (pager.currentPage < how.size - 1) AccentButton("Next") { scope.launch { pager.animateScrollToPage(pager.currentPage + 1) } }
+                        if (pager.currentPage < how.size - 1) AccentButton("Next") { scope.launch { goToPage(pager.currentPage + 1) } }
                         else {
                             // Last card (Taste Lab): start planning, or try Taste Lab now.
                             AccentButton(if (saving) "Saving…" else "Start planning", enabled = !saving) { finish() }

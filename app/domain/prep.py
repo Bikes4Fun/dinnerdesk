@@ -159,6 +159,13 @@ SHAPE_WORDS = {"floret", "bite", "size", "sized", "dice", "slice", "cube", "chun
                # Shapes named as nouns: "slice it into half-moons", "coins", "noodles".
                "split", "half", "moon", "coin", "noodle", "shred", "ribbon", "fry", "fries", "spear", "stick"}
 
+# A sentence that only continues the previous one: a cut verb, then nothing but how to cut it.
+# "Slice crosswise.", "Cut into half-moons." Anything naming a grocery fails _object_of's filter
+# first and never reaches here.
+CONTINUES = re.compile(
+    r"^\s*(?:then\s+)?(?:finely|thinly|roughly|coarsely|thickly)?\s*"
+    r"(?:chop|dice|mince|slice|cut|halve|quarter|cube|julienne|shred|grate|tear|break)\b", re.I)
+
 WASH_VERBS = ("wash", "rinse", "scrub")
 TRIM_VERBS = ("peel", "trim", "core", "seed", "stem")
 SAME_CUT = {"cube": "dice"}
@@ -297,6 +304,10 @@ class SemanticPrepEngine:
             cut = OBJECT_END.search(rest)
             phrase = rest[: cut.start()] if cut else rest
             words = [w for w in re.findall(r"[a-z]+", phrase.lower()) if w not in NOT_OBJECT]
+            # "Slice crosswise", "cut into wedges": those name the cut or the tool, not a
+            # grocery, so the step has no object of its own (it continues the step before).
+            words = [w for w in words
+                     if self._singular(w) not in SHAPE_WORDS and self._singular(w) not in PART_WORDS]
             if words:
                 return " ".join(words[-3:])
         return None
@@ -325,7 +336,7 @@ class SemanticPrepEngine:
         """Recognize explicit named components without inventing cooking instructions."""
         context = f"{recipe_name} {text}".casefold()
         if "mashed potato" in context and re.search(r"\b(potato|potatoes)\b", text, re.I):
-            return "Prep mashed potatoes"
+            return "Make mashed potatoes"
         if re.search(r"\b(tzatziki|tziki)\b", context) and re.search(r"\b(cucumber|yogurt|yoghurt|dill|garlic|tzatziki|tziki)\b", text, re.I):
             return "Make tzatziki"
         return None
@@ -607,11 +618,15 @@ class SemanticPrepEngine:
     def build(self, slots: list[dict]) -> list[dict]:
         groups: dict[str, dict] = {}
         seen = set()
+        # The groups the previous step of this recipe filled, so a follow-on sentence with no
+        # object of its own ("Slice crosswise.") lands on the thing it is still talking about.
+        carry: list[tuple[str, str]] = []
         for slot in slots:
             name = slot.get('recipe_name') or 'Meal'
             rid = slot.get('recipe_id')
             steps = slot.get('instructions') or []
             ingredients = slot.get('ingredients') or []
+            carry = []
             texts = [(s.get('text') or s.get('step') or '').strip() for s in steps]
             context = self._display_context(texts, ingredients)
             cooking = None
@@ -655,6 +670,12 @@ class SemanticPrepEngine:
                         else:
                             cooking = None
                     auto = True
+                if not items and auto and CONTINUES.match(text) and carry:
+                    # No ingredient named and nothing but prep words: a continuation of the
+                    # step before, not a task of its own.
+                    items = [(group, title, text, None) for group, title in carry]
+                elif items:
+                    carry = [(group, title) for group, title, _, _ in items]
                 for group, title, item_text, only in items:
                     task = groups.setdefault(group, {
                         'title': title, 'notes': '', 'recipe_id': rid, 'auto': auto, 'recipe_ids': [],
@@ -698,7 +719,7 @@ class SemanticPrepEngine:
             task['section'] = self._section(kind, task['title'], task['quantities'])
             task['item'], task['action'] = self._item(task['title'])
             task['storage'] = self._storage(task, kind)
-            if task['auto'] and kind in ('chop', 'grate'):  # not "Prep mashed potatoes" or sauces
+            if task['auto'] and kind in ('chop', 'grate'):  # not "Make mashed potatoes" or sauces
                 action = self._action(task)
                 if action:
                     task['action'] = action

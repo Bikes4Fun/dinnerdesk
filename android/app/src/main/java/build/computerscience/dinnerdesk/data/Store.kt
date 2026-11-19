@@ -61,6 +61,8 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     var showAisleNums by mutableStateOf(false)
     var showEmoji by mutableStateOf(false)
     var prepTasks by mutableStateOf<List<PrepTask>>(emptyList())
+    /** The confirmation shown after a card's + or check, which has no room for a label (#35). */
+    var planToast by mutableStateOf<PlanToast?>(null)
     var error by mutableStateOf<String?>(null)
 
     private var groceryPrefsLoaded = false
@@ -271,7 +273,22 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
     }
 
     suspend fun toggleWeek(recipe: RecipeSummary) {
-        if (onWeek(recipe.id)) removeFromWeek(recipe.id) else addToWeek(recipe.id, null)
+        val wasOn = onWeek(recipe.id)
+        if (wasOn) removeFromWeek(recipe.id) else addToWeek(recipe.id, null)
+        // A card's + and check carry no label, so say what happened (#35). Nothing to confirm if
+        // the change didn't take: the error banner covers that.
+        if (onWeek(recipe.id) == wasOn) return
+        planToast = PlanToast(
+            text = if (wasOn) "Removed from this week" else "Added to this week",
+            recipeId = recipe.id, undoAdds = wasOn,
+        )
+    }
+
+    /** Puts back what the toast just reported, and takes the toast away. */
+    suspend fun undoPlanToast() {
+        val toast = planToast ?: return
+        planToast = null
+        if (toast.undoAdds) addToWeek(toast.recipeId, null) else removeFromWeek(toast.recipeId)
     }
 
     suspend fun addToWeek(recipeId: Int, servings: Int?) {
