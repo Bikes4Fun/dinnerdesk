@@ -227,7 +227,7 @@ struct RecipeFormView: View {
             Text("Photo")
           } footer: {
             if ownPhoto == nil && imported && !siteImage.isEmpty {
-              Text("This is the photo from that page, saved for your kitchen only. Don't like it? Choose your own.")
+              Text("We selected a photo from that page, or choose your own.")
             } else if ownPhoto == nil {
               Text("Add a photo you took or one you're free to use.")
             }

@@ -225,7 +225,7 @@ struct RecipesView: View {
         ScrollView(.horizontal, showsIndicators: false) {
           LazyHStack(spacing: 12) {
             ForEach(browseOrder(rows)) { recipe in
-              RecipeTile(recipe: recipe)
+              BrowseRecipeTile(recipe: recipe)
                 .frame(width: typeSize.isAccessibilitySize ? 280 : 160)
             }
           }
@@ -288,7 +288,7 @@ struct RecipesView: View {
     } else {
       LazyVGrid(columns: recipeColumns(typeSize), spacing: 16) {
         ForEach(rows) { recipe in
-          RecipeTile(recipe: recipe)
+          BrowseRecipeTile(recipe: recipe)
         }
       }
     }
@@ -359,7 +359,7 @@ private struct RecipeGridPage: View {
       } else {
         LazyVGrid(columns: recipeColumns(typeSize), spacing: 16) {
           ForEach(recipes) { recipe in
-            RecipeTile(recipe: recipe)
+            BrowseRecipeTile(recipe: recipe)
           }
         }
         .padding()
@@ -464,14 +464,15 @@ private struct PlanStrip: View {
           }
         }
         .padding(.top, 6)
-        .background(Theme.surface)
+        .background(Theme.surface.opacity(0.5))
         .overlay(alignment: .top) { Theme.line.frame(height: 1) }
       }
     }
   }
 }
 
-struct RecipeTile: View {
+/// Temporary name until Recipes migrates to shared `RecipeTile` in RecipeTile.swift.
+struct BrowseRecipeTile: View {
   @EnvironmentObject private var store: Store
   let recipe: RecipeSummary
 

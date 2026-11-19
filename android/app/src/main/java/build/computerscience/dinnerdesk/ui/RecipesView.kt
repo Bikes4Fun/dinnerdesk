@@ -253,7 +253,7 @@ private fun BrowseSection(title: String, rows: List<RecipeSummary>, empty: Strin
             val ordered = remember(rows) { browseOrder(rows) }
             LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(ordered, key = { it.id }) { recipe ->
-                    Box(Modifier.width(if (large) 280.dp else 160.dp)) { RecipeTile(recipe) }
+                    Box(Modifier.width(if (large) 280.dp else 160.dp)) { BrowseRecipeTile(recipe) }
                 }
             }
         }
@@ -271,7 +271,7 @@ private fun RecipeGrid(rows: List<RecipeSummary>, empty: String?) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         for (row in rows.chunked(columns)) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                for (recipe in row) Box(Modifier.weight(1f)) { RecipeTile(recipe) }
+                for (recipe in row) Box(Modifier.weight(1f)) { BrowseRecipeTile(recipe) }
                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
@@ -289,10 +289,10 @@ fun RecipeGridPage(title: String, recipes: List<RecipeSummary>) {
     }
 }
 
-/** Square photo with a this-plan check, bold name underneath. Long-press for favorite / to try / hide. */
+/** Temporary name until Recipes migrates to shared `RecipeTile` in RecipeTile.kt. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun RecipeTile(recipe: RecipeSummary) {
+fun BrowseRecipeTile(recipe: RecipeSummary) {
     if (recipe.comingSoon) {
         // Our photo is in but the steps aren't written yet: dimmed, labelled, not clickable.
         Column(Modifier.fillMaxWidth().semantics {
