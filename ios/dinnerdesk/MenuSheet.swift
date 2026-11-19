@@ -2,7 +2,10 @@ import SwiftUI
 
 /// One row in a ⋯ menu sheet.
 struct MenuSheetItem: Identifiable {
-  let id = UUID()
+  /// The title, not a fresh UUID: the menu's items are rebuilt on every redraw, and new ids
+  /// made SwiftUI tear down and re-insert every row each time, which is what made the sheet
+  /// flash (#35). Titles are unique within a menu.
+  var id: String { title }
   let title: String
   let systemImage: String
   var destructive = false
@@ -26,12 +29,15 @@ private struct MenuSheetModifier: ViewModifier {
   let items: () -> [MenuSheetItem]
   @State private var pending: (() -> Void)?
   /// Measured height of the rows. Large text makes rows taller, so the sheet follows the content.
+  /// It only ever grows while the sheet is up, so measuring can't fight the detent it sets.
   @State private var contentHeight: CGFloat = 0
 
   func body(content: Content) -> some View {
     content.sheet(
       isPresented: $isPresented,
       onDismiss: {
+        // The next menu measures itself from scratch; it may have taller or fewer rows.
+        contentHeight = 0
         let run = pending
         pending = nil
         run?()
@@ -64,7 +70,11 @@ private struct MenuSheetBody: View {
     // Scrolls when the rows are taller than the screen (accessibility text sizes).
     ScrollView {
       rows
-        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { measured in
+          // Grow only. A height that also shrinks sets a detent that changes the space the
+          // rows are measured in, and the two chase each other (#35).
+          if measured > height + 1 { height = measured }
+        }
     }
     .scrollBounceBehavior(.basedOnSize)
   }
