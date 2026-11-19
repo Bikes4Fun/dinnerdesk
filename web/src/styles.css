@@ -2081,25 +2081,26 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .kitchen-tested-sheet p { line-height: 1.5; }
 .card-review[aria-pressed="true"] { background: #f1e7ef; color: var(--ink); }
 
-/* Pantry (#187): the whole row is the tap target, plus a select mode with a bottom action bar. */
-.have-row { width: 100%; text-align: left; font: inherit; color: var(--ink); background: none; border: 0; border-bottom: 1px solid var(--line); min-height: 44px; }
-.have-row:hover .have-name { text-decoration: underline; }
-.have-row.is-picked { background: var(--coral-tint); }
-.have-name { flex: 1; min-width: 0; font-weight: 600; }
-.have-tick { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border: 1.5px solid var(--brand); border-radius: 12px; font-size: 14px; font-weight: 700; color: var(--brand); }
-.have-row.is-picked .have-tick { background: var(--brand); color: var(--surface); }
-.have-chev { flex: none; color: var(--muted); font-size: 20px; line-height: 1; }
-.pantry-bulk-bar { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 1rem calc(12px + var(--safe-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
-.pantry-bulk-bar button { flex: 1 1 auto; min-height: 46px; }
-/* Examples placeholder: muted color rather than 45% opacity, which failed contrast (#35). */
-.pantry-examples { color: var(--muted); }
-.pantry-examples p { margin: 0 0 4px; }
-
-/* Stores (#187): item count, Rename, and a confirmation before Remove unassigns items. */
-.store-count { flex: none; color: var(--muted); font-size: 0.85rem; }
-.store-confirm { margin: 8px 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--coral-tint); }
-.store-confirm p { margin: 0 0 10px; color: #8a3a22; font-size: 0.95rem; line-height: 1.45; }
-.store-confirm-actions { display: flex; gap: 10px; }
-.store-confirm-actions button { flex: 1; min-height: 44px; }
-.btn-danger { border-radius: 999px; background: var(--heart); color: #fff; font-size: 16px; font-weight: 600; padding: 0 18px; }
-.btn-danger:hover { background: #99322a; }
+/* What a recipe card's + or check just did (#35), since the icons carry no label. Mirrors the
+   Prep tab's check-off bar and the phone apps' version of the same bar. */
+.toast {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(84px + var(--safe-bottom));
+  z-index: 20;
+  max-width: 520px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 8px 16px;
+  border-radius: 20px;
+  background: var(--brand);
+  color: var(--surface);
+  box-shadow: 0 10px 28px rgba(46, 26, 44, 0.28);
+}
+.toast-text { flex: 1; font-weight: 600; }
+.toast-undo { min-height: 44px; padding: 0 8px; color: var(--coral-tint); font-weight: 700; text-decoration: underline; }
+.toast-x { flex: none; width: 44px; height: 44px; font-size: 1.1rem; color: #f1e7ef; }
+@media (min-width: 880px) { .toast { left: 232px; bottom: 28px; } }

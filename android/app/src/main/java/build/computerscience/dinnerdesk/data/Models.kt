@@ -539,3 +539,15 @@ data class RecipeDraft(
 
 @Serializable
 data class CreatedRecipe(val id: Int)
+
+/**
+ * What a card's + or check just did, and how to put it back (#35). A new instance each time, so
+ * the bar's timer restarts even when the wording repeats.
+ */
+data class PlanToast(
+    val text: String,
+    val recipeId: Int,
+    val undoAdds: Boolean,
+    /** Tells one toast from the next, so the same wording twice still restarts the bar's timer. */
+    val id: Long = System.nanoTime(),
+)

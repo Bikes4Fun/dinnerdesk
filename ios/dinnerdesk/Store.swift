@@ -37,6 +37,8 @@ final class Store: ObservableObject {
   @Published var showAisleNums = false
   @Published var showEmoji = false
   @Published var prepTasks: [PrepTask] = []
+  /// The confirmation shown after a card's ＋ or ✓, which has no room for a label (#35).
+  @Published var planToast: PlanToast?
   @Published var error: String?
 
   private var groceryPrefsLoaded = false
@@ -297,10 +299,28 @@ final class Store: ObservableObject {
   }
 
   func toggleWeek(_ recipe: RecipeSummary) async {
-    if onWeek(recipe.id) {
+    let wasOn = onWeek(recipe.id)
+    if wasOn {
       await removeFromWeek(recipeId: recipe.id)
     } else {
       await addToWeek(recipeId: recipe.id, servings: nil)
+    }
+    // A card's ＋ and ✓ carry no label, so say what happened (#35). Nothing to confirm if the
+    // change didn't take: the error banner covers that.
+    guard onWeek(recipe.id) != wasOn else { return }
+    planToast = PlanToast(
+      text: wasOn ? "Removed from this week" : "Added to this week",
+      recipeId: recipe.id, undoAdds: wasOn)
+  }
+
+  /// Puts back what the toast just reported, and takes the toast away.
+  func undoPlanToast() async {
+    guard let toast = planToast else { return }
+    planToast = nil
+    if toast.undoAdds {
+      await addToWeek(recipeId: toast.recipeId, servings: nil)
+    } else {
+      await removeFromWeek(recipeId: toast.recipeId)
     }
   }
 
