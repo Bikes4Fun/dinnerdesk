@@ -129,6 +129,11 @@ export const api = {
     req("/api/feedback", { method: "POST", body: JSON.stringify({ kind, note, screen, screenshots, ...trail() }) }),
   feedbackList: () => req("/api/dev/feedback"),
   setFeedbackStatus: (id, status) => req(`/api/dev/feedback/${id}/status`, { method: "PUT", body: JSON.stringify({ status }) }),
+  // A crash the app caught. Nobody typed it, so it must never raise an error of its own:
+  // a failed report would be a second crash on top of the screen already apologizing.
+  reportCrash: (body) =>
+    req("/api/client-errors", { method: "POST", body: JSON.stringify({ ...body, ...trail() }) })
+      .catch(() => ({ ok: false })),
   reportRecipe: (id, reason, note) => req(`/api/recipes/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
   reportGroceryLine: (id, reason, note) => req(`/api/grocery/lines/${id}/report`, { method: "POST", body: JSON.stringify({ reason, note }) }),
   reportPlan: (id, note) => req(`/api/plans/${id}/report`, { method: "POST", body: JSON.stringify({ note }) }),
