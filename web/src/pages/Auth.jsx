@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Copy } from "../Copy.js";
+import { PrivacySummary } from "../PrivacySummary.jsx";
 
 function friendlyError(e) {
   return (e && e.body && e.body.message) || (e && e.message) || "Something went wrong.";
@@ -14,6 +16,7 @@ export function Auth({ onAuthed }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [sent, setSent] = useState(false);
+  const [agreed, setAgreed] = useState(false);
 
   async function submit(e) {
     e.preventDefault();
@@ -30,6 +33,7 @@ export function Auth({ onAuthed }) {
           email,
           password,
           household_name: householdName || "My household",
+          agreed_privacy: agreed,
         });
       } else {
         await api.auth.login({ email, password });
@@ -177,9 +181,24 @@ export function Auth({ onAuthed }) {
               </button>
             )}
 
-            <button type="submit" className="btn-primary block" disabled={busy}>
+            {mode === "signup" && (
+              <div className="signup-privacy">
+                <h2>Your privacy, in short</h2>
+                <PrivacySummary compact />
+                <label className="agree-check">
+                  <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                  <span>{Copy.text("privacy.signup.checkbox")}</span>
+                </label>
+                <button type="button" className="text-link" onClick={() => go("/privacy")}>
+                  {Copy.text("privacy.agree.read")}
+                </button>
+              </div>
+            )}
+
+            <button type="submit" className="btn-primary block" disabled={busy || (mode === "signup" && !agreed)}>
               {busy ? "Please wait…" : mode === "signup" ? "Create household" : "Sign in"}
             </button>
+            {mode === "signup" && !agreed && <p className="help">{Copy.text("privacy.signup.needed")}</p>}
             <button type="button" className="text-link" disabled={busy} onClick={() => go("/")}>
               Continue without an account
             </button>

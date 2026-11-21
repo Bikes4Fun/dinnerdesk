@@ -2223,3 +2223,13 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .privacy-note { margin: 0.75rem 0 0; padding: 0.75rem 0.9rem; border-radius: 12px; background: var(--soft); line-height: 1.4; }
 .privacy-summary.is-compact .privacy-rows li { padding: 0.5rem 0; }
 .privacy-details { border-top: 1px solid var(--line); padding-top: 1.25rem; }
+
+/* Signup: the privacy summary and the required checkbox (Auth.jsx). */
+.signup-privacy {
+  margin: 1.25rem 0 0.75rem; padding: 1rem; border: 1px solid var(--line);
+  border-radius: 16px; background: var(--surface);
+}
+.signup-privacy > h2 { margin: 0; font-size: 1.15rem; color: var(--accent-dark); }
+.signup-privacy .privacy-summary { margin: 0.5rem 0 0; }
+.agree-check { display: flex; gap: 0.75rem; align-items: flex-start; margin: 1rem 0 0.25rem; line-height: 1.45; cursor: pointer; }
+.agree-check input { flex: none; width: 1.4rem; height: 1.4rem; margin: 0.1rem 0 0; accent-color: var(--accent-dark); }
