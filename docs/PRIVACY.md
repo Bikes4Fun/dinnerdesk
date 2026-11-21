@@ -2,6 +2,10 @@
 
 Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it.
 
+## Agreeing to this policy
+
+The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
+
 ## Account
 
 If you create an account we store your email (or the username you chose instead, plus a recovery email if you add one), whether and when you confirmed your email, a hash of your password (not the password), and your household name. A cookie named `wp_session` keeps you signed in for 30 days. You can sign out of this device, or every device, from Account & security.
@@ -18,7 +22,7 @@ Plans, grocery lists, pantry, recipe edits, favorites, hides, to-try marks, filt
 
 Taste Lab stores the meals you like or pass, plus diet, allergy, and dislike choices. When you are signed in, those answers are tied to your account and used to suggest meals. Thumbs up or down on a planned meal, and on a prep step, are stored for your household and used to choose future meal suggestions. Prep step votes are kept so we can improve prep suggestions.
 
-Someone you invite joins that same household and can see and change it. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
+Someone you invite joins that same household and can see and change it, including its filters, allergies, and meal likes and dislikes. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
 
 ## Without an account
 
@@ -26,7 +30,7 @@ Guests use a private kitchen identified by a random device/browser cookie. All n
 
 ## What we don’t collect
 
-We don’t sell your data. We don’t take payment, location, or health data. Nutrition-tracker sync is not built. We don’t run ads or analytics.
+We don’t sell or share your data. If that ever changes, we’ll tell you first. We don’t take payment or location data, and we don’t look at your contacts or other apps. We don’t connect to health apps or medical records; the only health-related information we keep is the allergies and diets you choose to enter, used only to filter your meals. Nutrition-tracker sync is not built. We don’t run ads or analytics.
 
 Recipe photos in the app are ones we have marked as ours to use. We don’t collect photos, reviews, or comments from cooks yet.
 
