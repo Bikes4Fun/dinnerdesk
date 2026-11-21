@@ -887,7 +887,7 @@ def test_signup_checkbox_records_agreement(tmp_path):
         refused = client.post("/api/auth/signup", json={
             "email": "no@example.com", "password": "guestguest", "agreed_privacy": False})
         assert refused.status_code == 400
-        assert refused.json()["detail"]["detail"] == "privacy_not_agreed"
+        assert refused.json()["detail"] == "privacy_not_agreed"
         assert client.post("/api/auth/signup", json={
             "email": "yes@example.com", "password": "guestguest", "agreed_privacy": True}).status_code == 200
         assert client.get("/api/auth/status").json()["privacy_agreed"] is True
