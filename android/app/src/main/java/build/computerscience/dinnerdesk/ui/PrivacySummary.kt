@@ -8,10 +8,21 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.Copy
 
@@ -74,5 +85,52 @@ private fun PrivacyRows(prefix: String, count: Int, compact: Boolean) {
             }
             if (i < count) HorizontalDivider(color = Theme.line)
         }
+    }
+}
+
+
+/** The whole privacy policy for screens outside the app's navigation (sign up, first open). */
+@Composable
+fun PrivacyPolicyDialog(onClose: () -> Unit) {
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.fillMaxSize().background(Theme.bg)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                Text("Privacy", style = Theme.title, color = Theme.ink, modifier = Modifier.weight(1f).padding(vertical = 10.dp))
+                Text(
+                    "Done", style = Theme.action, color = Theme.accent,
+                    modifier = Modifier.heightIn(min = 44.dp).clickable(onClick = onClose).padding(10.dp),
+                )
+            }
+            Column(
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(Copy.text("privacy.intro"), style = Theme.body, color = Theme.ink)
+                PrivacySummary()
+                for ((title, body) in privacySections) {
+                    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(title, style = Theme.title, color = Theme.ink)
+                        Text(body, style = Theme.body, color = Theme.muted)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A square checkbox row for agreeing to the privacy policy: the whole row toggles it. */
+@Composable
+fun AgreeCheckbox(checked: Boolean, onChange: (Boolean) -> Unit, label: String) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp)
+            .toggleable(value = checked, role = Role.Checkbox, onValueChange = onChange)
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Checkbox(
+            checked = checked, onCheckedChange = null,
+            colors = CheckboxDefaults.colors(checkedColor = Theme.ink, uncheckedColor = Theme.muted),
+        )
+        Text(label, style = Theme.subtitle, color = Theme.ink, modifier = Modifier.weight(1f).padding(top = 12.dp))
     }
 }

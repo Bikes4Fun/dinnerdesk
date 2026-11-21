@@ -472,6 +472,8 @@ data class AuthStatus(
     @SerialName("recovery_email") val recoveryEmail: String? = null,
     @SerialName("email_verified") val emailVerified: Boolean? = null,
     val admin: Boolean? = null,
+    /** False until this account or guest kitchen agrees to the current privacy summary; null from an older server. */
+    @SerialName("privacy_agreed") val privacyAgreed: Boolean? = null,
 )
 
 @Serializable

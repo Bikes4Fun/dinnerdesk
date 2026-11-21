@@ -54,8 +54,11 @@ fun AuthView(isSheet: Boolean = false) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var forgot by remember { mutableStateOf(false) }
+    var agreedPrivacy by rememberSaveable { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
 
-    val canSubmit = !busy && email.trim().length >= 3 && password.length >= (if (mode == AuthMode.SignUp) 8 else 1)
+    val canSubmit = !busy && email.trim().length >= 3 && password.length >= (if (mode == AuthMode.SignUp) 8 else 1) &&
+        (mode == AuthMode.SignIn || agreedPrivacy)
     val usernameOnly = mode == AuthMode.SignUp && email.trim().isNotEmpty() && !email.contains("@")
 
     fun submit() {
@@ -68,7 +71,7 @@ fun AuthView(isSheet: Boolean = false) {
                     AuthApi.login(cleanEmail, password)
                 } else {
                     val name = householdName.trim()
-                    AuthApi.signup(cleanEmail, password, name.ifEmpty { "My household" })
+                    AuthApi.signup(cleanEmail, password, name.ifEmpty { "My household" }, agreedPrivacy)
                 }
                 password = ""
                 session.refresh()
@@ -111,6 +114,23 @@ fun AuthView(isSheet: Boolean = false) {
                     FormField(householdName, { householdName = it }, "Household name (optional)")
                 }
             }
+            if (mode == AuthMode.SignUp) {
+                Column(
+                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
+                        .background(Theme.surface, RoundedCornerShape(16.dp)).padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("Your privacy, in short", style = Theme.title, color = Theme.ink)
+                    PrivacySummary(compact = true)
+                    AgreeCheckbox(agreedPrivacy, { agreedPrivacy = it }, Copy.text("privacy.signup.checkbox"))
+                    Text(
+                        Copy.text("privacy.agree.read"), style = Theme.action, color = Theme.accent,
+                        modifier = Modifier.heightIn(min = 44.dp).clickable { showPrivacy = true }.padding(vertical = 10.dp),
+                    )
+                    if (!agreedPrivacy) Text(Copy.text("privacy.signup.needed"), style = Theme.subtitle, color = Theme.muted)
+                }
+            }
+            if (showPrivacy) PrivacyPolicyDialog { showPrivacy = false }
             error?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { ErrorBanner(it) } }
             Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Box(
