@@ -865,3 +865,53 @@ def test_deleted_account_addresses_leave_the_admin_log(tmp_path):
         assert user.post("/api/auth/delete-account", json={"password": "userpassword"}).status_code == 200
         page = admin.get("/admin/users").text
         assert "renamed@example.com" not in page and "gone@example.com" not in page
+
+
+# Privacy agreements (app/privacy.py): a guest kitchen agrees once from the first-open screen; an
+# account agrees with the signup checkbox; a new version asks again.
+
+def test_guest_agrees_once_per_kitchen(tmp_path):
+    with _client(tmp_path) as guest, TestClient(create_app()) as other:
+        status = guest.get("/api/auth/status").json()
+        assert status["privacy_agreed"] is False
+        assert status["privacy_version"]
+        assert guest.post("/api/privacy/agree").status_code == 200
+        assert guest.post("/api/privacy/agree").status_code == 200  # a second tap is harmless
+        assert guest.get("/api/auth/status").json()["privacy_agreed"] is True
+        # Another guest kitchen hasn't agreed.
+        assert other.get("/api/auth/status").json()["privacy_agreed"] is False
+
+
+def test_signup_checkbox_records_agreement(tmp_path):
+    with _client(tmp_path) as client:
+        refused = client.post("/api/auth/signup", json={
+            "email": "no@example.com", "password": "guestguest", "agreed_privacy": False})
+        assert refused.status_code == 400
+        assert refused.json()["detail"]["detail"] == "privacy_not_agreed"
+        assert client.post("/api/auth/signup", json={
+            "email": "yes@example.com", "password": "guestguest", "agreed_privacy": True}).status_code == 200
+        assert client.get("/api/auth/status").json()["privacy_agreed"] is True
+
+
+def test_older_app_signup_without_checkbox_is_asked_on_next_open(tmp_path):
+    with _client(tmp_path) as client:
+        assert client.post("/api/auth/signup", json={
+            "email": "old@example.com", "password": "guestguest"}).status_code == 200
+        assert client.get("/api/auth/status").json()["privacy_agreed"] is False
+        client.post("/api/privacy/agree")
+        assert client.get("/api/auth/status").json()["privacy_agreed"] is True
+
+
+def test_guest_agreement_does_not_stand_in_for_the_account(tmp_path):
+    with _client(tmp_path) as client:
+        client.post("/api/privacy/agree")
+        client.post("/api/auth/signup", json={"email": "acct@example.com", "password": "guestguest"})
+        assert client.get("/api/auth/status").json()["privacy_agreed"] is False
+
+
+def test_new_privacy_version_asks_again(tmp_path, monkeypatch):
+    from app import privacy
+    with _client(tmp_path) as client:
+        client.post("/api/privacy/agree")
+        monkeypatch.setattr(privacy, "PRIVACY_VERSION", "2099-01-01")
+        assert client.get("/api/auth/status").json()["privacy_agreed"] is False
