@@ -23,6 +23,7 @@ import { VerifyEmail } from "./pages/VerifyEmail.jsx";
 import { AccountSecurity, AdminHub, emailNudge, Filters, Newsletter, Settings, Social } from "./pages/Settings.jsx";
 import { TasteLab } from "./pages/TasteLab.jsx";
 import { Notice } from "./Notice.jsx";
+import { PrivacyAgreement } from "./PrivacyAgreement.jsx";
 import { Tour, WhatsNew } from "./Tour.jsx";
 import { useWeek } from "./week.jsx";
 import { PULL_DISTANCE, usePullToRefresh } from "./pullRefresh.js";
@@ -350,6 +351,11 @@ export function App() {
     );
   }
 
+  // First open, or the privacy summary changed: agree before using the app. An older server
+  // that doesn't send privacy_agreed never blocks.
+  if (authStatus.privacy_agreed === false) {
+    return <PrivacyAgreement signedIn={authStatus.authenticated} onAgreed={refreshAuth} />;
+  }
 
   return (
     <div className={page === "taste-lab" && !tasteHome ? "app is-taste" : "app"}>

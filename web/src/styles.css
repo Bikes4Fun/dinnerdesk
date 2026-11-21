@@ -2233,3 +2233,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .signup-privacy .privacy-summary { margin: 0.5rem 0 0; }
 .agree-check { display: flex; gap: 0.75rem; align-items: flex-start; margin: 1rem 0 0.25rem; line-height: 1.45; cursor: pointer; }
 .agree-check input { flex: none; width: 1.4rem; height: 1.4rem; margin: 0.1rem 0 0; accent-color: var(--accent-dark); }
+
+/* First-open privacy agreement (PrivacyAgreement.jsx). */
+.privacy-agreement .text-link { display: block; margin: 0.5rem auto 0; }
+.privacy-fine { text-align: center; font-size: 0.85rem; margin: 0.6rem 0 0.25rem; }

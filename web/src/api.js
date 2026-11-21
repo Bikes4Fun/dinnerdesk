@@ -230,6 +230,7 @@ export const api = {
       body: JSON.stringify({ resolution }),
     }),
   household: () => req("/api/household"),
+  agreeToPrivacy: () => req("/api/privacy/agree", { method: "POST" }),
   putHousehold: (body) => req("/api/household", { method: "PUT", body: JSON.stringify(body) }),
   templates: () => req("/api/templates"),
   auth: {
