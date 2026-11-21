@@ -6,7 +6,7 @@ import re
 IOS = Path(__file__).resolve().parents[1] / "ios" / "dinnerdesk"
 TABS = ["PlanView.swift", "RecipesView.swift", "GroceryView.swift", "PrepView.swift", "MoreView.swift"]
 # Full-screen welcome titles that aren't tabs.
-BIG_TITLE_ELSEWHERE = {"Theme.swift", "AuthView.swift", "TourView.swift"}
+BIG_TITLE_ELSEWHERE = {"Theme.swift", "AuthView.swift", "TourView.swift", "PrivacyAgreementView.swift"}
 
 
 def _main_view(name: str) -> str:
