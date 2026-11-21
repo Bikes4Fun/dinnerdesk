@@ -51,6 +51,7 @@ import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PanTool
 import androidx.compose.material.icons.outlined.Replay
 import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -904,6 +905,8 @@ fun PrivacyView() {
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar("Privacy")
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(Copy.text("privacy.intro"), style = Theme.body, color = Theme.ink)
+            PrivacySummary()
             // "Download my data" (#64): everything stored for this household as one JSON file.
             Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Your data", style = Theme.title, color = Theme.ink)
@@ -946,7 +949,8 @@ fun PrivacyView() {
                 }
                 exportError?.let { Text(it, style = Theme.subtitle, color = Theme.accent) }
             }
-            Text("Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it.", style = Theme.body, color = Theme.ink)
+            HorizontalDivider(color = Theme.line, modifier = Modifier.padding(vertical = 8.dp))
+            Text(Copy.text("privacy.details.title"), style = Theme.title, color = Theme.ink)
             for ((title, body) in privacySections) {
                 Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(title, style = Theme.title, color = Theme.ink)
@@ -958,6 +962,9 @@ fun PrivacyView() {
 }
 
 private val privacySections = listOf(
+    "Agreeing to this policy" to """
+        The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
+    """.trimIndent(),
     "Account" to """
         If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
 
@@ -968,13 +975,13 @@ private val privacySections = listOf(
     "Your kitchen" to """
         Plans, grocery lists, pantry, recipe edits, favorites, hides, to-try marks, filters, and store or aisle choices are stored for your household. Taste Lab stores the meals you like or pass, plus diet, allergy, and dislike choices. When you are signed in, those answers are tied to your account and used to suggest meals. Thumbs up or down on a planned meal, and on a prep step, are stored for your household and used to choose future meal suggestions. Prep step votes are kept so we can improve prep suggestions.
 
-        Someone you invite joins that same household and can see and change it. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
+        Someone you invite joins that same household and can see and change it, including its filters, allergies, and meal likes and dislikes. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
     """.trimIndent(),
     "Without an account" to """
         Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it.
     """.trimIndent(),
     "What we don’t collect" to """
-        We don’t sell your data. We don’t take payment, location, or health data. Nutrition-tracker sync is not built. We don’t run ads or analytics.
+        We don’t sell or share your data. If that ever changes, we’ll tell you first. We don’t take payment or location data, and we don’t look at your contacts or other apps. We don’t connect to health apps or medical records; the only health-related information we keep is the allergies and diets you choose to enter, used only to filter your meals. Nutrition-tracker sync is not built. We don’t run ads or analytics.
 
         Recipe photos in the app are ones we have marked as ours to use. We don’t collect photos, reviews, or comments from cooks yet.
     """.trimIndent(),
