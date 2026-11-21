@@ -93,6 +93,8 @@
 				PrepView.swift,
 				RecipeCollections.swift,
 				ReviewedBadge.swift,
+				PrivacyAgreementView.swift,
+				PrivacySummaryView.swift,
 				PrivacyInfo.xcprivacy,
 				Quantity.swift,
 				RecipePhoto.swift,
