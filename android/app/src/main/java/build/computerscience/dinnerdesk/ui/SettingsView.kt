@@ -686,6 +686,35 @@ private fun DeleteAccountSheet(alone: Boolean, onDeleted: () -> Unit) {
     }
 }
 
+private const val TASTE_LAB_NOTE_KEY = "dinnerdesk.tasteLabPrivacyNote"
+
+/** A reminder where the data is made: what Taste Lab keeps, with a link to Privacy. Dismissed once per device. */
+@Composable
+private fun TasteLabPrivacyNote() {
+    val nav = LocalNav.current
+    var dismissed by remember { mutableStateOf(ResponseCache.prefs.getBoolean(TASTE_LAB_NOTE_KEY, false)) }
+    if (dismissed) return
+    Row(
+        Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
+            .background(Theme.aubergineTint, RoundedCornerShape(14.dp)).padding(start = 14.dp, top = 10.dp),
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(Copy.text("privacy.tastelab.note"), style = Theme.subtitle, color = Theme.ink)
+            Text(
+                Copy.text("privacy.tastelab.link"), style = Theme.chipLabel, color = Theme.accent,
+                modifier = Modifier.heightIn(min = 44.dp).clickable { nav.push(Route.Privacy) }.padding(vertical = 10.dp),
+            )
+        }
+        Box(
+            Modifier.size(44.dp).clickable {
+                ResponseCache.prefs.edit().putBoolean(TASTE_LAB_NOTE_KEY, true).apply()
+                dismissed = true
+            }.semantics { contentDescription = "Dismiss note" },
+            contentAlignment = Alignment.Center,
+        ) { Text("×", style = Theme.title, color = Theme.muted) }
+    }
+}
+
 /** Taste Lab shares the web swipe engine; its app presentation mirrors native plan review. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -703,6 +732,7 @@ fun TasteLabView(swipe: Boolean = false) {
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar("Taste Lab")
+        TasteLabPrivacyNote()
         Box(Modifier.weight(1f).fillMaxWidth()) {
             androidx.compose.runtime.key(attempt) {
                 AndroidView(
