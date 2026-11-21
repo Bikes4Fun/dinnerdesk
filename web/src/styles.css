@@ -2237,3 +2237,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 /* First-open privacy agreement (PrivacyAgreement.jsx). */
 .privacy-agreement .text-link { display: block; margin: 0.5rem auto 0; }
 .privacy-fine { text-align: center; font-size: 0.85rem; margin: 0.6rem 0 0.25rem; }
+
+/* Taste Lab privacy reminder (pages/TasteLab.jsx). */
+.taste-privacy-note {
+  display: flex; align-items: flex-start; gap: 0.5rem; margin: 0.5rem 1rem;
+  padding: 0.6rem 0.4rem 0.6rem 0.9rem; border-radius: 14px; background: var(--soft);
+}
+.taste-privacy-note p { flex: 1; margin: 0; line-height: 1.4; }
+.taste-privacy-note .icon-btn { flex: none; min-width: 44px; min-height: 44px; }
