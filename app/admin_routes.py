@@ -150,6 +150,7 @@ INBOX_STATUSES = ("new", "planned", "done", "declined")
 # Each Inbox source: its table and how one item is found. Prep items are keyed household:recipe:step.
 INBOX_SOURCES = {
     "feedback": ("feedback", "id = ?"),
+    "crash": ("client_errors", "id = ?"),
     "recipe": ("recipe_reports", "id = ?"),
     "ingredient": ("ingredient_reports", "id = ?"),
     "plan": ("plan_reports", "id = ?"),
@@ -165,7 +166,8 @@ def _since(days: int) -> str:
 
 def _inbox_new(db: PgConnection) -> int:
     return db.execute(f"""SELECT
-        (SELECT COUNT(*) FROM feedback WHERE status = 'new') + (SELECT COUNT(*) FROM recipe_reports WHERE status = 'new') +
+        (SELECT COUNT(*) FROM feedback WHERE status = 'new') + (SELECT COUNT(*) FROM client_errors WHERE status = 'new') +
+        (SELECT COUNT(*) FROM recipe_reports WHERE status = 'new') +
         (SELECT COUNT(*) FROM plan_reports WHERE status = 'new') +
         (SELECT COUNT(*) FROM ingredient_reports WHERE status = 'new') +
         (SELECT COUNT(*) FROM prep_step_feedback WHERE status = 'new' AND {PREP_ISSUE}) AS n""").fetchone()["n"]
@@ -191,6 +193,22 @@ def _inbox(db: PgConnection) -> dict:
               "screenshots": [f"/api/dev/feedback/{r['id']}/screenshots/{i}"
                               for i in range(len(r["snapshot"].get("screenshots") or []))]}
              for r in feedback]
+    crashes = [{**dict(r), "snapshot": json.loads(r["snapshot_json"] or "{}")} for r in db.execute(
+        f"""SELECT c.*, h.name AS household_name, u.email, {_has_account_sql("c")} AS has_account
+            FROM client_errors c LEFT JOIN households h ON h.id = c.household_id
+            LEFT JOIN users u ON u.id = c.user_id""")]
+    items += [{"source": "crash", "id": r["id"], "kind": "crash", "status": r["status"],
+               "admin_note": r["admin_note"], "planned_issue": r["planned_issue"],
+               "created_at": r["created_at"], "last_seen_at": r["last_seen_at"], "seen": r["seen"],
+               "note": r["message"], "message": r["message"], "stack": r["snapshot"].get("stack", ""),
+               **who(r), "user_id": r["user_id"], "screen": r["screen"],
+               "version": r["snapshot"].get("app") or "unknown", "behind": "",
+               "user_agent": r["snapshot"].get("user_agent", ""),
+               "device": r["snapshot"].get("device") or auth.describe_device(
+                   r["snapshot"].get("user_agent", ""), r["snapshot"].get("app", "")),
+               "settings": r["snapshot"].get("settings"), "pages": r["snapshot"].get("pages", []),
+               "errors": r["snapshot"].get("errors", []), "screenshots": []}
+              for r in crashes]
     items += [{"source": "recipe", "id": r["id"], "kind": "recipe", "status": r["status"], "admin_note": r["admin_note"], "planned_issue": r["planned_issue"],
                "created_at": r["created_at"], "note": r["note"], **who(r), "reason": r["reason"],
                "recipe_id": r["recipe_id"], "recipe_name": r["recipe_name"],

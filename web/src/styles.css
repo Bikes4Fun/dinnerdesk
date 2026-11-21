@@ -2185,3 +2185,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .recipe-tile-overlay.is-tag .recipe-tile-overlay-chrome {
   width: auto; min-width: 28px; padding: 0 6px; border-radius: 999px; font-size: 0.65rem;
 }
+
+/* The apology shown when a screen crashes (#357). Roomy and calm: whoever sees it has just
+   had the app stop on them. */
+.crash { max-width: 32rem; }
+.crash h1 { margin-bottom: 8px; }
+.crash p { color: var(--muted); }
+.crash-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.crash-actions button { flex: 1 1 12rem; }
