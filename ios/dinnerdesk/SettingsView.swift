@@ -1772,7 +1772,7 @@ struct FeedbackView: View {
   }
 }
 
-private struct PrivacyView: View {
+struct PrivacyView: View {
   @EnvironmentObject private var session: Session
   @State private var exportFile: URL?
   @State private var exporting = false

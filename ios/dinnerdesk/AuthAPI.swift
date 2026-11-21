@@ -9,12 +9,20 @@ enum AuthAPI {
       "auth/login", method: "POST", body: ["email": email, "password": password])
   }
 
-  static func signup(email: String, password: String, householdName: String) async throws {
+  static func signup(email: String, password: String, householdName: String, agreedPrivacy: Bool) async throws {
     let _: Ok = try await API.send(
       "auth/signup",
       method: "POST",
-      body: ["email": email, "password": password, "household_name": householdName]
+      body: [
+        "email": email, "password": password, "household_name": householdName,
+        "agreed_privacy": agreedPrivacy,
+      ]
     )
+  }
+
+  /// The first-open privacy screen's "I understand, continue" (this account, or this guest kitchen).
+  static func agreeToPrivacy() async throws {
+    let _: Ok = try await API.send("privacy/agree", method: "POST")
   }
 
   /// Emails a reset link if the address has an account. Same answer either way.
@@ -71,6 +79,9 @@ nonisolated struct AuthStatus: Decodable, Sendable {
   let recoveryEmail: String?
   let emailVerified: Bool?
   let admin: Bool?
+  /// False until this account or guest kitchen agrees to the current privacy summary. Nil from an
+  /// older server, which never blocks.
+  let privacyAgreed: Bool?
 
   /// Why a signed-in account should verify (or add) an email, or nil once it's verified.
   var emailNudge: String? {

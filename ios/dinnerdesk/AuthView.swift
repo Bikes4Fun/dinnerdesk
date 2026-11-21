@@ -256,6 +256,8 @@ struct AuthView: View {
   @State private var busy = false
   @State private var error: String?
   @State private var forgot = false
+  @State private var agreedPrivacy = false
+  @State private var showPrivacy = false
 
   init(isSheet: Bool = false) {
     self.isSheet = isSheet
@@ -264,6 +266,7 @@ struct AuthView: View {
   private var canSubmit: Bool {
     !busy && email.trimmingCharacters(in: .whitespaces).count >= 3
       && password.count >= (mode == .signUp ? 8 : 1)
+      && (mode == .signIn || agreedPrivacy)
   }
 
   /// Signing up with a username instead of an email.
@@ -323,6 +326,24 @@ struct AuthView: View {
           }
         }
 
+        if mode == .signUp {
+          Section {
+            PrivacySummaryView(compact: true)
+              .padding(.vertical, 6)
+            Toggle(isOn: $agreedPrivacy) {
+              Text(Copy.text("privacy.signup.checkbox")).font(Theme.subtitle).foregroundStyle(Theme.ink)
+            }
+            .toggleStyle(CheckboxToggleStyle())
+            Button(Copy.text("privacy.agree.read")) { showPrivacy = true }
+              .font(Theme.action)
+              .foregroundStyle(Theme.accent)
+          } header: {
+            Text("Your privacy, in short")
+          } footer: {
+            if !agreedPrivacy { Text(Copy.text("privacy.signup.needed")) }
+          }
+        }
+
         if let error {
           Section {
             ErrorBanner(message: error)
@@ -370,6 +391,12 @@ struct AuthView: View {
       .sheet(isPresented: $forgot) {
         ForgotPasswordView(email: email)
       }
+      .sheet(isPresented: $showPrivacy) {
+        NavigationStack {
+          PrivacyView().environmentObject(session)
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showPrivacy = false } } }
+        }
+      }
     }
   }
 
@@ -386,7 +413,8 @@ struct AuthView: View {
         try await AuthAPI.signup(
           email: cleanEmail,
           password: password,
-          householdName: name.isEmpty ? "My household" : name
+          householdName: name.isEmpty ? "My household" : name,
+          agreedPrivacy: agreedPrivacy
         )
         session.accountCreated()
       }
@@ -484,5 +512,26 @@ struct ForgotPasswordView: View {
     } catch {
       self.error = KitchenAPI.message(error)
     }
+  }
+}
+
+/// A square checkbox for the privacy agreement: a switch reads as a setting, not an agreement.
+struct CheckboxToggleStyle: ToggleStyle {
+  func makeBody(configuration: Configuration) -> some View {
+    Button { configuration.isOn.toggle() } label: {
+      HStack(alignment: .top, spacing: 12) {
+        Image(systemName: configuration.isOn ? "checkmark.square.fill" : "square")
+          .font(.title2)
+          .foregroundStyle(Theme.ink)
+        configuration.label
+          .multilineTextAlignment(.leading)
+          .frame(maxWidth: .infinity, alignment: .leading)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .frame(minHeight: 44)
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(configuration.isOn ? [.isButton, .isSelected] : .isButton)
   }
 }
