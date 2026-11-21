@@ -28,6 +28,12 @@ final class Session: ObservableObject {
 
   var canContinueAsGuest: Bool { true }
 
+  /// Show the first-open privacy screen: this account or guest kitchen hasn't agreed to the
+  /// current privacy summary yet. An older server that doesn't say never blocks.
+  var needsPrivacyAgreement: Bool {
+    !needsSignIn && status?.privacyAgreed == false
+  }
+
   /// Show the quick start tour. Set it from anywhere (More, Settings) to replay the tour.
   @Published var showTour = false
   /// The household the tour was last checked for, so signing in from a guest kitchen checks again.
@@ -42,7 +48,7 @@ final class Session: ObservableObject {
 
   /// Give the TestFlight feedback tip priority over onboarding and release announcements.
   func checkTour() async {
-    guard let status, !needsSignIn else { return }
+    guard let status, !needsSignIn, !needsPrivacyAgreement else { return }
     let key = "\(status.householdId ?? 0)"
     if tourCheckedFor != key {
       do {
@@ -162,6 +168,8 @@ struct AuthGate<Content: View>: View {
         .background(Theme.bg)
       } else if session.needsSignIn {
         AuthView()
+      } else if session.needsPrivacyAgreement {
+        PrivacyAgreementView()
       } else {
         content()
           .safeAreaInset(edge: .top) {
