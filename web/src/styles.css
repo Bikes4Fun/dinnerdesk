@@ -2253,3 +2253,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .privacy-summary.is-compact h2 { margin-top: 1rem; }
 .privacy-summary.is-compact .privacy-note { margin-top: 0.6rem; }
 .privacy-device-note { margin: 0.75rem 0; color: var(--muted); }
+
+/* One-screen fit (measured down to 360x780): tighter first open, links on one row, plain signup box. */
+.privacy-agreement .privacy-links { display: flex; justify-content: center; gap: 1.25rem; }
+.privacy-agreement .privacy-links .text-link { margin: 0; min-height: 44px; }
+.privacy-agreement .auth-title { margin-bottom: 0.25rem; }
+.privacy-agreement .privacy-promise { padding: 0.75rem 0.9rem; }
+.signup-privacy { padding: 0; border: 0; background: none; margin: 0.75rem 0 0.5rem; }
+.signup-privacy .agree-check { margin-top: 0.75rem; }

@@ -42,14 +42,16 @@ export function PrivacyAgreement({ signedIn, onAgreed }) {
             {Copy.text("privacy.agree.button")}
           </button>
           <p className="help privacy-fine">{Copy.text("privacy.agree.fine")}</p>
-          <button type="button" className="text-link" onClick={() => go("/privacy")}>
-            {Copy.text("privacy.agree.read")}
-          </button>
-          {!signedIn && (
-            <button type="button" className="text-link" onClick={() => go("/login")}>
-              Create an account instead
+          <div className="privacy-links">
+            <button type="button" className="text-link" onClick={() => go("/privacy")}>
+              {Copy.text("privacy.link")}
             </button>
-          )}
+            {!signedIn && (
+              <button type="button" className="text-link" onClick={() => go("/login")}>
+                {Copy.text("privacy.agree.account")}
+              </button>
+            )}
+          </div>
         </div>
       </section>
     </div>
