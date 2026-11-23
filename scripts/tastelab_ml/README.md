@@ -29,8 +29,8 @@ python3 scripts/tastelab_ml/main.py /tmp/tastelab-example.json
 
 ## Refresh and chart the catalog
 
-From the Dinnerdesk checkout, point the refresh command at your local
-`dd_support` checkout:
+Set `DATABASE_URL` to the Dinnerdesk database you want to snapshot, preferably
+using read-only credentials. From the Dinnerdesk checkout, run:
 
 ```sh
 python3 scripts/tastelab_ml/refresh_snapshot.py \
@@ -38,11 +38,11 @@ python3 scripts/tastelab_ml/refresh_snapshot.py \
 python3 scripts/tastelab_ml/charts.py /tmp/tastelab-catalog.json /tmp/tastelab-charts
 ```
 
-The refresh joins recipes and AI tag proposals by slug, preserves the tag
-dimension and source, and records the export time. It parses quantities out
-of catalog ingredient names and applies the same aliases and canonical names
-used by Dinnerdesk. Admin review proposals take effect here once applied to
-the catalog. The snapshot contains no swipe history.
+The refresh reads shared, non-retired recipes and stored ingredient names
+from PostgreSQL in a read-only transaction. It joins AI tag proposals from
+the supplied catalog by slug and records the export time. The JSON contains
+no household recipes or swipe history. Refresh again after a catalog import
+or edit to pick up the new stored values.
 
 Open `tags.html` and `ingredients.html` in the output directory. Dot size
 shows recipe count. Links get thicker as lift increases. Lift measures how
