@@ -341,7 +341,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Dinnerdesk;
+				INFOPLIST_KEY_CFBundleDisplayName = "Dinner Desk";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = dinnerdesk.dinnerdesk;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;
@@ -364,7 +364,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Dinnerdesk;
+				INFOPLIST_KEY_CFBundleDisplayName = "Dinner Desk";
 				INFOPLIST_KEY_WKApplication = YES;
 				INFOPLIST_KEY_WKCompanionAppBundleIdentifier = dinnerdesk.dinnerdesk;
 				INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp = NO;

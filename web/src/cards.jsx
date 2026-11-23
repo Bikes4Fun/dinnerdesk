@@ -49,9 +49,9 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
   return (
     <div className="card">
       <div className="card-img">
-        <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
+        <a href={`/recipes/${recipe.id}`} className="card-open" onClick={(e) => { e.preventDefault(); go(`/recipes/${recipe.id}`); }}>
           <FoodPhoto path={recipe.photo_path} />
-        </button>
+        </a>
         <button
           type="button"
           className={`card-heart${recipe.favorited ? " is-on" : ""}`}
@@ -70,10 +70,10 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
         </button>
         {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} />}
       </div>
-      <button type="button" className="card-open" onClick={() => go(`/recipes/${recipe.id}`)}>
+      <a href={`/recipes/${recipe.id}`} className="card-open" onClick={(e) => { e.preventDefault(); go(`/recipes/${recipe.id}`); }}>
         <p className="card-name">{recipe.name}</p>
         <RecipeStatusLine recipe={recipe} />
-      </button>
+      </a>
     </div>
   );
 }
@@ -109,9 +109,9 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
   return (
     <div className="recipe-row">
       <div className="thumb-wrap">
-        <button type="button" className="recipe-open-photo" onClick={() => go(`/recipes/${recipe.id}`)}>
+        <a href={`/recipes/${recipe.id}`} className="recipe-open-photo" onClick={(e) => { e.preventDefault(); go(`/recipes/${recipe.id}`); }}>
           <FoodPhoto className="thumb-sq" path={recipe.photo_path} />
-        </button>
+        </a>
         <button
           type="button"
           className={on ? "check-circle" : "add-circle"}
@@ -122,10 +122,10 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
         </button>
       </div>
       <div className="recipe-copy">
-      <button type="button" className="recipe-open-copy" onClick={() => go(`/recipes/${recipe.id}`)}>
+      <a href={`/recipes/${recipe.id}`} className="recipe-open-copy" onClick={(e) => { e.preventDefault(); go(`/recipes/${recipe.id}`); }}>
         <strong>{recipe.name}</strong>
         <RecipeStatusLine recipe={recipe} />
-      </button>
+      </a>
       {admin && <RecipeThumbnailActions recipe={recipe} onChange={onChange} inline />}
       </div>
       <button

@@ -1,8 +1,8 @@
 {
   "_about": "Shared user-facing text for the website (web/src/copy.js) and the iOS app (Copy.swift). Edit text here only. {app} is replaced with app.name.",
-  "app.name": "Dinnerdesk",
+  "app.name": "Dinner Desk",
   "recipe.reviewed": "Kitchen-tested",
-  "recipe.reviewed.description": "Kitchen-tested by Dinnerdesk",
+  "recipe.reviewed.description": "Kitchen-tested by {app}",
   "recipe.kitchen-tested.explanation": "We cooked this recipe in our own kitchen and made sure it works as written.",
   "app.tagline": "Pick your favorite meals, shop once, cook without thinking.",
   "settings.gold-star": "Kitchen-tested identifies recipes marked by {app} as tried in our kitchen. The mark applies to the recipe, independently of its photos. Tap the recipe’s Kitchen-tested chip to learn more; the photo’s info button shows its credit and source.",

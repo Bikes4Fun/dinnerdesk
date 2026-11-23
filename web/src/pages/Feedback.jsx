@@ -5,7 +5,7 @@ import { go } from "../nav.js";
 // Ids match app/models.py FEEDBACK_KINDS.
 const KINDS = [
   ["bug", "Report a bug", "Something broke or didn't work the way it should."],
-  ["feature", "Suggest a feature", "Something you wish Dinnerdesk did."],
+  ["feature", "Suggest a feature", "Something you wish Dinner Desk did."],
 ];
 const PLACEHOLDER = {
   bug: "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh.",
