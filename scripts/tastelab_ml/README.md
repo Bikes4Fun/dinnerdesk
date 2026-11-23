@@ -47,15 +47,16 @@ no household recipes or swipe history. Refresh again after a catalog import
 or edit to pick up the new stored values.
 
 Open `tags.html` and `ingredients.html` in the output directory. Dot size
-shows recipe count. Links get thicker as lift increases. Lift measures how
-often a pair appears together relative to how often each item appears on its
-own. Focus on a dot to see shared recipe counts and lift.
+shows recipe count. Lines get thicker with more shared recipes, and pairs
+seen once use dashed lines. Lift measures how often a pair appears together
+relative to how often each item appears on its own.
 
 The tag graph measures associations among recipes with AI tags. The ingredient
-graph uses the full snapshot. Links require three shared recipes by default.
-Use `--min-shared` to change that threshold. The overview displays up to 120
-linked items. **Show staples** reveals seasoning nodes such as salt, black
-pepper, and red pepper flakes.
+graph uses the full snapshot. The overview starts at three shared recipes.
+Adjust the threshold in the chart or set its initial value with `--min-shared`.
+Focus lists every visible co-occurrence for the selected item and draws up to
+40. Expand a connection to see the recipes they share. **Show staples**
+reveals seasoning nodes such as salt, black pepper, and red pepper flakes.
 
 ## Future meal-plan handoff
 

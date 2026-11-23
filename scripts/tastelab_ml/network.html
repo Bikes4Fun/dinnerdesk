@@ -11,6 +11,7 @@
 </style>
 <h1>__TITLE__</h1>
 <label>Focus <select id="focus"><option value="">Overview</option></select></label>
+<label id="overview-filter">Minimum shared recipes <input id="min-shared" type="number" min="1" step="1" size="3" style="width:4em"></label>
 <label id="staple-control" hidden><input id="staples" type="checkbox"> Show staples</label>
 <canvas id="graph" aria-label="Co-occurrence network. Use Focus to inspect a node and its connections."></canvas>
 <p id="summary" aria-live="polite"></p>
@@ -22,6 +23,9 @@ const canvas = document.querySelector("#graph");
 const ctx = canvas.getContext("2d");
 const focus = document.querySelector("#focus");
 const staples = document.querySelector("#staples");
+const overviewFilter = document.querySelector("#overview-filter");
+const minShared = document.querySelector("#min-shared");
+minShared.value = data.minShared;
 const summary = document.querySelector("#summary");
 const neighbors = document.querySelector("#neighbors");
 document.querySelector("#staple-control").hidden = "__FIELD__" !== "ingredients";
@@ -32,12 +36,25 @@ function render() {
   const visible = data.nodes.filter(node => staples.checked || !node.staple);
   const visibleNames = new Set(visible.map(node => node.name));
   const selected = focus.value;
-  const visibleLinks = data.links.filter(link => visibleNames.has(link.left) && visibleNames.has(link.right));
-  const connected = visibleLinks.filter(link => link.left === selected || link.right === selected);
-  const nearby = new Set([selected, ...connected.flatMap(link => [link.left, link.right])]);
-  const linked = new Set(visibleLinks.flatMap(link => [link.left, link.right]));
-  const displayed = selected ? visible.filter(node => nearby.has(node.name))
-    : visible.filter(node => linked.has(node.name)).sort((a, b) => b.count - a.count).slice(0, 120);
+  overviewFilter.hidden = Boolean(selected);
+  const available = data.links.filter(link => visibleNames.has(link.left) && visibleNames.has(link.right));
+  const connected = selected ? available.filter(link => link.left === selected || link.right === selected)
+    .sort((a, b) => b.shared - a.shared || b.lift - a.lift) : [];
+  const threshold = Math.max(1, minShared.valueAsNumber || data.minShared);
+  const degree = new Map();
+  const graphLinks = selected ? connected.slice(0, 40) : available
+    .filter(link => link.shared >= threshold && link.lift > 1)
+    .sort((a, b) => b.lift - a.lift || b.shared - a.shared)
+    .filter(({ left, right }) => {
+      if ((degree.get(left) || 0) >= 5 || (degree.get(right) || 0) >= 5) return false;
+      degree.set(left, (degree.get(left) || 0) + 1);
+      degree.set(right, (degree.get(right) || 0) + 1);
+      return true;
+    });
+  const linked = new Set(graphLinks.flatMap(link => [link.left, link.right]));
+  if (selected) linked.add(selected);
+  const displayed = visible.filter(node => linked.has(node.name))
+    .sort((a, b) => b.count - a.count).slice(0, 120);
 
   width = canvas.clientWidth;
   height = canvas.clientHeight;
@@ -52,16 +69,26 @@ function render() {
       radius: Math.min(12, 4 + Math.log2(node.count)) };
   });
   const byName = new Map(nodes.map(node => [node.name, node]));
-  links = visibleLinks.filter(link => byName.has(link.left) && byName.has(link.right))
+  links = graphLinks.filter(link => byName.has(link.left) && byName.has(link.right))
     .map(link => ({ ...link, a: byName.get(link.left), b: byName.get(link.right) }));
   neighbors.replaceChildren();
   if (selected) {
     const item = byName.get(selected);
-    summary.textContent = item ? selected + " · " + item.count + " recipes" : "";
-    for (const link of connected.sort((a, b) => b.lift - a.lift)) {
+    const count = item.count;
+    const drawn = connected.length > 40 ? " · first 40 drawn" : "";
+    summary.textContent = selected + " · " + count + (count === 1 ? " recipe" : " recipes")
+      + " · " + connected.length + " connections" + drawn;
+    for (const link of connected) {
       const row = document.createElement("li");
+      const details = document.createElement("details");
+      const label = document.createElement("summary");
       const name = link.left === selected ? link.right : link.left;
-      row.textContent = name + " · " + link.shared + " shared recipes · " + link.lift.toFixed(1) + "× lift";
+      label.textContent = name + " · " + link.shared + " of " + count
+        + " recipes with " + selected + " · " + link.lift.toFixed(1) + "× lift";
+      const examples = document.createElement("p");
+      examples.textContent = link.recipes.map(index => data.recipes[index]).join(" · ");
+      details.append(label, examples);
+      row.append(details);
       neighbors.append(row);
     }
   } else {
@@ -98,14 +125,16 @@ function simulate(remaining) {
     node.y = Math.min(height - 16, Math.max(16, node.y + (height / 2 - node.y) * 0.003));
   }
   ctx.clearRect(0, 0, width, height);
-  for (const { a, b, lift } of links) {
+  for (const { a, b, shared } of links) {
     ctx.strokeStyle = "#81938c77";
-    ctx.lineWidth = Math.min(4, 0.7 + Math.log2(lift));
+    ctx.lineWidth = Math.min(4, 0.7 + Math.log2(shared));
+    ctx.setLineDash(shared === 1 ? [3, 4] : []);
     ctx.beginPath();
     ctx.moveTo(a.x, a.y);
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
   }
+  ctx.setLineDash([]);
   for (const node of nodes) {
     ctx.fillStyle = node.name === focus.value ? "#ba6631" : "#276b60";
     ctx.beginPath();
@@ -149,6 +178,7 @@ canvas.addEventListener("mousemove", event => {
   canvas.style.cursor = node ? "pointer" : "default";
 });
 focus.addEventListener("change", render);
+minShared.addEventListener("input", render);
 staples.addEventListener("change", updateFocus);
 window.addEventListener("resize", render);
 updateFocus();
