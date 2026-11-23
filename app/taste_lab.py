@@ -6,7 +6,7 @@ import importlib.util
 import json
 import re
 from app.auth import SESSION_COOKIE, household_for_token, session_info
-from app.db.database import PgConnection
+from app.db.database import PgConnection, transaction
 from collections import defaultdict
 from pathlib import Path
 
@@ -17,11 +17,11 @@ from app.db.catalog import public_recipe_sql
 from app.db.database import ROOT
 from app.deps import GUEST_COOKIE, AdminDep, DbDep, HhDep, guest_household
 from app.domain.diet_filter import clean_filters, fold_profiles
+from app.domain.recipe_identity import archive_id
 from app.domain.recipe_photos import usable_photo
 
 TASTE_SERVER = ROOT / "tastelab" / "server.py"
 SKIP = {"incomplete", "side", "sauce", "dressing", "meal_component"}
-ARCHIVE_ID = re.compile(r"/(\d+)/?$")
 # The random id a guest's browser keeps for Taste Lab (crypto.randomUUID or similar).
 ANON_ID = re.compile(r"[A-Za-z0-9-]{8,64}")
 # Shared stand-in photos. usable_photo can still return one; don't put it on the wrong dish.
@@ -51,17 +51,6 @@ def taste():
         mod.init_db()
         _mod = mod
     return _mod
-
-
-def archive_id(row) -> str:
-    url = (row["source_url"] or "").split("?")[0].rstrip("/")
-    m = ARCHIVE_ID.search(url)
-    if m:
-        return m.group(1)
-    slug = str(row["slug"] or "")
-    if slug.isdigit():
-        return slug
-    return str(row["id"])
 
 
 def catalog_from_db(db: PgConnection) -> list[dict]:
@@ -224,14 +213,21 @@ def household_filters(db: PgConnection, household_id: int) -> dict:
     filters = prefs.get("filters") if isinstance(prefs.get("filters"), dict) else {}
     if filters.get("lab_folded"):
         return clean_filters(filters)
-    accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
-    accounts.append(f"guest:{household_id}")
-    folded = fold_profiles(filters, lab_profiles(snapshots_for_accounts(accounts)))
-    folded["lab_folded"] = True
-    if row is not None:
-        prefs["filters"] = folded
-        db.execute("UPDATE households SET prefs_json = ? WHERE id = ?", (json.dumps(prefs), household_id))
-        db.commit()
+    with transaction(db):
+        row = db.execute("SELECT prefs_json FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
+        prefs = json.loads((row["prefs_json"] if row else None) or "{}")
+        if not isinstance(prefs, dict):
+            prefs = {}
+        filters = prefs.get("filters") if isinstance(prefs.get("filters"), dict) else {}
+        if filters.get("lab_folded"):
+            return clean_filters(filters)
+        accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
+        accounts.append(f"guest:{household_id}")
+        folded = fold_profiles(filters, lab_profiles(snapshots_for_accounts(accounts)))
+        folded["lab_folded"] = True
+        if row is not None:
+            prefs["filters"] = folded
+            db.execute("UPDATE households SET prefs_json = ? WHERE id = ?", (json.dumps(prefs), household_id))
     return folded
 
 

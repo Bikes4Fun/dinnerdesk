@@ -29,8 +29,8 @@ python3 scripts/tastelab_ml/main.py /tmp/tastelab-example.json
 
 ## Refresh and chart the catalog
 
-From the Dinnerdesk checkout, point the refresh command at your local
-`dd_support` checkout:
+Set `DATABASE_URL` to the Dinnerdesk database you want to snapshot, preferably
+using read-only credentials. From the Dinnerdesk checkout, run:
 
 ```sh
 python3 scripts/tastelab_ml/refresh_snapshot.py \
@@ -38,20 +38,25 @@ python3 scripts/tastelab_ml/refresh_snapshot.py \
 python3 scripts/tastelab_ml/charts.py /tmp/tastelab-catalog.json /tmp/tastelab-charts
 ```
 
-The refresh joins recipes and AI tag proposals by slug, preserves the tag
-dimension and source, and records the export time. Ingredients come from
-catalog recipe files. The snapshot contains no swipe history.
+The refresh reads shared, non-retired recipes and stored ingredient names
+from PostgreSQL in a read-only transaction. Recipe IDs match Taste Lab swipes.
+Recipes without an archive ID use the database ID fallback and must be joined
+to swipes from the same database. The export joins AI tag proposals from
+the supplied catalog by slug and records the export time. The JSON contains
+no household recipes or swipe history. Refresh again after a catalog import
+or edit to pick up the new stored values.
 
 Open `tags.html` and `ingredients.html` in the output directory. Dot size
-shows recipe count. Links get thicker as lift increases. Lift measures how
-often a pair appears together relative to how often each item appears on its
-own. Focus on a dot to see shared recipe counts and lift.
+shows recipe count. Lines get thicker with more shared recipes, and pairs
+seen once use dashed lines. Lift measures how often a pair appears together
+relative to how often each item appears on its own.
 
 The tag graph measures associations among recipes with AI tags. The ingredient
-graph uses the full snapshot. Links require three shared recipes by default.
-Use `--min-shared` to change that threshold. The overview displays up to 120
-linked items. **Show staples** reveals seasoning nodes such as salt, black
-pepper, and red pepper flakes.
+graph uses the full snapshot. The overview starts at three shared recipes.
+Adjust the threshold in the chart or set its initial value with `--min-shared`.
+Focus lists every visible co-occurrence for the selected item and draws up to
+40. Expand a connection to see the recipes they share. **Show staples**
+reveals seasoning nodes such as salt, black pepper, and red pepper flakes.
 
 ## Future meal-plan handoff
 

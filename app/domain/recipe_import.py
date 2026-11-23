@@ -78,8 +78,11 @@ def _check_url(url: str) -> str:
 def _get(url: str, accept: str, max_bytes: int) -> tuple[bytes, str, str]:
     """GET a public URL, following redirects only to other public URLs.
 
-    Returns (body, final url, content type)."""
-    url = _check_url(url)
+    Returns (body, final url, content type). Each hop is re-checked with `_check_url` so a
+    redirect can't point at the server's own network (SSRF). CodeQL still flags the stream
+    call because the URL is user-supplied by design; the host/IP checks are the control.
+    """
+    safe_url = _check_url(url)
     with httpx.Client(
         timeout=TIMEOUT,
         follow_redirects=False,
@@ -87,9 +90,11 @@ def _get(url: str, accept: str, max_bytes: int) -> tuple[bytes, str, str]:
     ) as client:
         for _ in range(MAX_REDIRECTS + 1):
             try:
-                with client.stream("GET", url) as response:
+                # Re-validate immediately before the request (and after every redirect).
+                safe_url = _check_url(safe_url)
+                with client.stream("GET", safe_url) as response:
                     if response.is_redirect:
-                        url = _check_url(urljoin(url, response.headers.get("location", "")))
+                        safe_url = _check_url(urljoin(safe_url, response.headers.get("location", "")))
                         continue
                     if response.status_code in (401, 403, 429):
                         raise RecipeImportError(
@@ -107,7 +112,7 @@ def _get(url: str, accept: str, max_bytes: int) -> tuple[bytes, str, str]:
                         if len(body) > max_bytes:
                             raise RecipeImportError("too_big", "That page is too big to read.")
                     kind = response.headers.get("content-type", "").split(";")[0].strip().lower()
-                    return body, url, kind
+                    return body, safe_url, kind
             except httpx.HTTPError as exc:
                 raise RecipeImportError("fetch_failed", "Couldn't reach that site.") from exc
     raise RecipeImportError("fetch_failed", "That page redirected too many times.")

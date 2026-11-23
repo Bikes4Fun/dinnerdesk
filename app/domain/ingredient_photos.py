@@ -88,10 +88,21 @@ def photo_path(name: str) -> str | None:
 
 
 def photo_file(filename: str) -> Path | None:
+    """Serve only filenames from the fixed PHOTOS map, never a free-form path."""
     directory = photo_directory()
+    # Whitelist first: reject anything not an exact known photo file.
     if directory is None or filename not in PHOTOS.values():
         return None
-    path = directory / filename
+    # Basename-only + resolve under the gallery root (same pattern as /food/{name}).
+    name = Path(filename).name
+    if name != filename or name not in PHOTOS.values():
+        return None
+    root = directory.resolve()
+    path = (root / name).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        return None
     if not path.is_file():
         raise RuntimeError(f'Mapped ingredient photo is missing: {filename}')
     return path
