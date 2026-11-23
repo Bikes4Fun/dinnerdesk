@@ -33,6 +33,9 @@ struct GroceryView: View {
               ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                   chip("All", on: storeFilter.isEmpty) { storeFilter = "" }
+                  chip("No assigned store", on: storeFilter == "none") {
+                    storeFilter = storeFilter == "none" ? "" : "none"
+                  }
                   ForEach(store.stores) { shop in
                     chip(shop.name, on: storeFilter == shop.id) {
                       storeFilter = storeFilter == shop.id ? "" : shop.id
@@ -184,7 +187,7 @@ struct GroceryView: View {
           GroceryStoreView()
         }
         .sheet(isPresented: $adding) {
-          AddGrocerySheet(storeId: storeFilter.isEmpty ? nil : storeFilter)
+          AddGrocerySheet(storeId: (storeFilter.isEmpty || storeFilter == "none") ? nil : storeFilter)
         }
         .navigationDestination(item: $openItem) { id in
           GroceryItemView(lineId: id)
@@ -197,7 +200,9 @@ struct GroceryView: View {
 
   /// Lines for the selected store (or every store), before hiding completed ones.
   private var storeLines: [GroceryLine] {
-    storeFilter.isEmpty ? store.grocery : store.grocery.filter { $0.store == storeFilter }
+    if storeFilter.isEmpty { return store.grocery }
+    if storeFilter == "none" { return store.grocery.filter(\.store.isEmpty) }
+    return store.grocery.filter { $0.store == storeFilter }
   }
 
   private var visible: [GroceryLine] {
@@ -209,7 +214,9 @@ struct GroceryView: View {
   /// What's left to buy, grouped by aisle in walk-the-store order, for the selected store.
   private var shareText: String {
     let left = storeLines.filter { !$0.checked && !$0.neverShop }
-    let storeName = store.stores.first { $0.id == storeFilter }?.name
+    let storeName = storeFilter == "none"
+      ? "No assigned store"
+      : store.stores.first { $0.id == storeFilter }?.name
     let title = storeName.map { "Grocery list — \($0)" } ?? "Grocery list"
     guard !left.isEmpty else { return "\(title)\n\nNothing left to buy." }
     var blocks = store.aisles.map { aisle in (aisle.name, left.filter { $0.aisle == aisle.id }) }
@@ -228,7 +235,9 @@ struct GroceryView: View {
   }
 
   private var allDoneMessage: String {
-    let name = store.stores.first { $0.id == storeFilter }?.name
+    let name = storeFilter == "none"
+      ? "No assigned store"
+      : store.stores.first { $0.id == storeFilter }?.name
     if storeLines.isEmpty {
       return name.map { "Nothing on the list for \($0)." } ?? "Nothing on the list."
     }
