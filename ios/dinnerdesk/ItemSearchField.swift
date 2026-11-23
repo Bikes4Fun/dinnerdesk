@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Search foods and pick several: each match is a "+ name" chip that adds to `selected`.
-/// Shared by Filters (allergies, not a fan of) and the Kitchen pickers (pantry, always checked off).
+/// Shared by Filters (allergies, dislikes) and the Kitchen pickers (pantry, always checked off).
 /// Return adds the first match and keeps the field open for the next one.
 struct ItemSearchField: View {
   let label: String

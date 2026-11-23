@@ -163,7 +163,7 @@ function ChoiceBlock({ label, items, saved, onChange, otherLabel, compact }) {
           })}
         </div>
         <label>
-          <input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods to avoid" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <input className="field" aria-label={`Search ${label.toLowerCase()}`} placeholder="Search foods" value={query} onChange={(event) => setQuery(event.target.value)} />
         </label>
         {presets.length > 0 && (
           <div className="chip-row wrap filter-chips">
@@ -341,13 +341,19 @@ export function Filters() {
             {choice("Other", open === "allergies", () => setOpen(open === "allergies" ? "" : "allergies"))}
           </div>
           {open === "allergies" && <FoodFilterPicker label="Other allergies" selected={allergens.filter((id) => !ALLERGENS.some(([key]) => key === id))} onAdd={(name) => setFilter({ allergens: [...new Set([...allergens, name])] })} onRemove={(name) => setFilter({ allergens: allergens.filter((a) => a !== name) })} />}
-          <h2>I avoid</h2>
+        </div>
+        <div className="filters-card">
+          <div className="filters-kicker">
+            <span className="filters-badge">Shows fewer</span>
+            <span>Suggested less often. You can still add them yourself.</span>
+          </div>
+          <h2>Dislikes</h2>
           <div className="chip-row wrap filter-chips">
             {commonAvoids.map((id) => choice(avoidLabel(id), avoids.includes(id), () => setFilter({ avoids: avoids.includes(id) ? avoids.filter((a) => a !== id) : [...avoids, id] })))}
             {avoids.filter((id) => !commonAvoids.includes(id)).map((id) => choice(`${avoidLabel(id)} ×`, true, () => setFilter({ avoids: avoids.filter((a) => a !== id) })))}
             {choice("Other", open === "avoids", () => setOpen(open === "avoids" ? "" : "avoids"))}
           </div>
-          {open === "avoids" && <FoodFilterPicker label="Foods to avoid" selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6).filter((id) => !avoids.includes(id))} skip={[...commonAvoids, ...avoids]} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
+          {open === "avoids" && <FoodFilterPicker label="Other dislikes" selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6).filter((id) => !avoids.includes(id))} skip={[...commonAvoids, ...avoids]} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
         </div>
         <div className="filters-soft">
           <div className="filters-kicker">

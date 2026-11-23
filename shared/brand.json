@@ -1,0 +1,18 @@
+{
+  "_about": "Dinner Desk's brand colors, written once. Each app keeps its own copy in its own format (web/src/styles.css, ios/dinnerdesk/Theme.swift, android/.../ui/Theme.kt) because native apps can't read this file at build time; tests/test_brand_consistency.py fails if any copy drifts from here. Change a color here first, then in each app. Each color lists its name in each app; null means that app doesn't define it.",
+  "name": "Dinner Desk",
+  "colors": {
+    "background":     {"hex": "#FFFBF6", "use": "Page background",                          "web": "--bg",         "ios": "bg",            "android": "bg"},
+    "surface":        {"hex": "#FFFDF9", "use": "Cards, list rows, tab bar",                "web": "--surface",    "ios": "surface",       "android": "surface"},
+    "line":           {"hex": "#ECE2DC", "use": "Hairlines, chip borders",                  "web": "--line",       "ios": "line",          "android": "line"},
+    "aubergine":      {"hex": "#4A1646", "use": "Titles, the main button, selected chips",  "web": "--brand",      "ios": "ink",           "android": "ink"},
+    "body_ink":       {"hex": "#2E1A2C", "use": "Body text",                                "web": "--ink",        "ios": null,            "android": "bodyInk"},
+    "muted":          {"hex": "#746570", "use": "Subtitles, counts",                        "web": "--muted",      "ios": "muted",         "android": "muted"},
+    "deep_coral":     {"hex": "#B84228", "use": "Text links and actions",                   "web": "--accent",     "ios": "accent",        "android": "accent"},
+    "coral":          {"hex": "#FA7E5A", "use": "Fills only, never text",                   "web": "--coral",      "ios": null,            "android": "coral"},
+    "coral_tint":     {"hex": "#FDE6DD", "use": "Highlight rows",                           "web": "--coral-tint", "ios": null,            "android": "coralTint"},
+    "aubergine_tint": {"hex": "#F1E7EF", "use": "Tips, badges, quiet chips",                "web": null,           "ios": "aubergineTint", "android": "aubergineTint"},
+    "ok":             {"hex": "#3F6B4A", "use": "Success and status",                       "web": "--ok",         "ios": "ok",            "android": "ok"}
+  },
+  "fonts": {"display": "Fraunces", "text": "DM Sans"}
+}

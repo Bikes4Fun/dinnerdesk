@@ -16,7 +16,7 @@ import time
 from app.db.database import PgConnection
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from app.db.catalog import COMING_SOON_MARK, public_recipe_sql
@@ -28,6 +28,7 @@ from app.db.seed import pantry_catalog
 from app.db.database import ROOT, connect, now, transaction
 from app.assets import catalog_dir, feedback_dir, food_dir
 from app.auth import SESSION_COOKIE, describe_device, session_info
+from app import crash_alerts
 from app.deps import AdminDep, DbDep, HhDep, OptionalAdminDep
 from fractions import Fraction
 
@@ -2906,8 +2907,8 @@ def _sender(request: Request, db: PgConnection, household_id: int) -> dict:
 
 
 @router.post("/client-errors")
-def report_client_error(body: ClientErrorCreate, request: Request, db: PgConnection = DbDep,
-                        household_id: int = HhDep):
+def report_client_error(body: ClientErrorCreate, request: Request, background: BackgroundTasks,
+                        db: PgConnection = DbDep, household_id: int = HhDep):
     """A crash the app caught in someone's browser. It goes to the Inbox so the person sees a
     plain apology instead of the error, and so nobody has to report it by hand.
 
@@ -2940,6 +2941,9 @@ def report_client_error(body: ClientErrorCreate, request: Request, db: PgConnect
                    VALUES (?, ?, ?, ?, ?, ?, ?)""",
                 (household_id, snapshot.get("user_id"), message, screen, json.dumps(snapshot), stamp, stamp),
             )
+        email_count = crash_alerts.due(db, message, screen)
+    if email_count is not None:
+        background.add_task(crash_alerts.send, message, screen, email_count, snapshot.get("device") or "")
     return {"ok": True}
 
 
