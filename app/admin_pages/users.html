@@ -43,13 +43,17 @@
   .panel { background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
   .list { flex: 999 1 560px; min-width: 0; overflow: hidden; }
   .scrollx { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; min-width: 680px; }
+  table { width: 100%; border-collapse: collapse; min-width: 810px; }
   th { text-align: left; color: var(--muted); font-size: 13px; font-weight: 500; padding: 10px 14px; border-bottom: 1px solid var(--line); }
   td { padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
   tbody tr { cursor: pointer; }
   tbody tr:hover, tbody tr[aria-selected="true"] { background: var(--sel); }
   tbody tr:last-child td { border-bottom: 0; }
   td a { display: block; text-decoration: none; font-weight: 600; overflow-wrap: anywhere; }
+  #ratings { width: min(480px, calc(100% - 32px)); max-height: 80dvh; padding: 0; color: var(--ink); }
+  #ratings::backdrop { background: #0008; }
+  #ratings ul { padding-left: 20px; margin: 4px 0 8px; overflow-wrap: anywhere; }
+  td .link { white-space: nowrap; }
   .num { text-align: right; font-variant-numeric: tabular-nums; }
   .nowrap { white-space: nowrap; color: var(--muted); }
   .empty { padding: 24px 14px; text-align: center; color: var(--muted); }
@@ -106,10 +110,15 @@
   <div class="split">
     <section class="panel list" aria-label="User list"><div class="scrollx"><table>
       <thead><tr><th scope="col">Account</th><th scope="col">Status</th><th scope="col">Household</th>
-        <th scope="col" class="num">Sessions</th><th scope="col">Last seen</th></tr></thead>
+        <th scope="col" class="num">Sessions</th><th scope="col">Taste Lab</th><th scope="col">Last seen</th></tr></thead>
       <tbody id="rows"></tbody></table></div></section>
     <aside class="panel" id="detail" aria-label="Selected user" hidden></aside>
   </div>
+  <dialog class="panel" id="ratings" aria-labelledby="ratings-title">
+    <div class="d-head"><h2 id="ratings-title"></h2><form method="dialog"><button class="btn">Close</button></form></div>
+    <div class="section" id="ratings-list" aria-live="polite"></div>
+    <div class="section" id="ratings-actions"></div>
+  </dialog>
   <section class="panel" id="log" aria-label="Admin log"></section>
 </main>
 <div id="toast" role="status"></div>
@@ -184,6 +193,12 @@ function household(u) {
     (others.length ? `with ${others.map(x => esc(x.login)).join(", ")}` : "only member");
 }
 
+const tasteCounts = u => `${plural(u.taste_likes, "like")} · ${plural(u.taste_dislikes, "dislike")}`;
+const canChange = u => !u.admin || DATA.super || u.id === DATA.me;
+const clearTaste = u => u.taste_sessions && canChange(u)
+  ? `<button class="link" data-a="reset-taste" data-user="${u.id}" data-confirm="Clear all Taste Lab sessions and ratings for this account? Swipe votes are retained without an account link.">Clear Taste Lab history</button>`
+  : "";
+
 function row(u) {
   const [text, bad] = status(u);
   const meta = [`#${u.id}`, u.super ? "super admin" : u.admin ? "admin" : "", `joined ${day(u.created_at)}`].filter(Boolean).join(" · ");
@@ -193,6 +208,9 @@ function row(u) {
     <td><span style="display:block">${esc(u.household_name)} (h${u.household_id})</span>
       <span class="faint">${esc(u.role)}${housemates(u).length ? "" : " · only member"}</span></td>
     <td class="num">${u.sessions.length}</td>
+    <td><span class="nowrap">${plural(u.taste_sessions, "session")}</span>
+      <div class="faint nowrap">${tasteCounts(u)}</div>
+      ${u.taste_likes || u.taste_dislikes ? '<button class="link" data-ratings>View ratings</button>' : ""}</td>
     <td class="nowrap">${ago(u.last_seen)}</td></tr>`;
 }
 
@@ -225,8 +243,8 @@ function detail(u) {
         <span class="btns">${u.failed_attempts || locked(u) ? `<button class="link" data-a="unlock">Clear lockout</button>` : ""}
           ${address(u) ? `<button class="link" data-a="send-reset">Send reset link</button>` : ""}</span></div></dd>
       <dt>Household</dt><dd>${household(u)}</dd>
-      <dt>Taste Lab</dt><dd><div class="between"><span>${plural(u.taste_sessions, "session")}</span>
-        ${u.taste_sessions ? `<button class="link" data-a="reset-taste" data-confirm="Clear their Taste Lab history? Votes are kept, unlinked from them.">Reset</button>` : ""}</div></dd>
+      <dt>Taste Lab</dt><dd><span>${plural(u.taste_sessions, "session")} · ${tasteCounts(u)}</span>
+        ${clearTaste(u)}</dd>
       <dt>Admin</dt><dd><div class="between"><span>${u.super ? "Super admin (set on the server)" : u.admin ? "Admin" : "No"}</span>
         ${DATA.super && !u.super ? `<button class="link" data-a="site-admin" data-admin="${u.admin ? "" : "1"}"
           data-confirm="${u.admin ? "Remove their admin access?" : "Make them an admin? They'll see every account and report, but can't change other admins."}">${u.admin ? "Remove admin" : "Make admin"}</button>` : ""}</div></dd>
@@ -271,7 +289,7 @@ function render() {
   const test = (FILTERS.find(f => f[0] === show) || FILTERS[0])[2];
   const shown = users.filter(test);
   document.getElementById("rows").innerHTML = shown.map(row).join("")
-    || `<tr><td colspan="5" class="empty">${DATA.users.length ? "No accounts match." : "No accounts yet."}</td></tr>`;
+    || `<tr><td colspan="6" class="empty">${DATA.users.length ? "No accounts match." : "No accounts yet."}</td></tr>`;
   const u = DATA.users.find(x => x.id === selected);
   const aside = document.getElementById("detail");
   aside.hidden = !u;
@@ -288,19 +306,46 @@ function toast(text, err) {
   clearTimeout(toast.timer); toast.timer = setTimeout(() => (t.style.display = "none"), 4000);
 }
 
-const SENT = { "send-reset": "Reset link sent.", "resend-confirmation": "Confirmation email sent." };
-document.getElementById("detail").addEventListener("click", async e => {
+async function showRatings(u) {
+  const dialog = document.getElementById("ratings");
+  const list = document.getElementById("ratings-list");
+  document.getElementById("ratings-title").textContent = `Taste Lab ratings for ${u.login}`;
+  document.getElementById("ratings-actions").innerHTML = clearTaste(u);
+  document.getElementById("ratings-actions").hidden = !clearTaste(u);
+  list.textContent = "Loading ratings…";
+  dialog.showModal();
+  const request = Symbol();
+  dialog.ratingsRequest = request;
+  try {
+    const res = await fetch(`/admin/users/${u.id}/taste`);
+    if (!res.ok) throw new Error(`Could not load ratings (${res.status}).`);
+    const { ratings } = await res.json();
+    if (dialog.ratingsRequest !== request) return;
+    list.innerHTML = ratings.length ? [true, false].map(liked => {
+      const matching = ratings.filter(rating => rating.liked === liked);
+      return `<h3>${liked ? "Likes" : "Dislikes"} (${matching.length})</h3>`
+        + (matching.length ? `<ul>${matching.map(rating =>
+          `<li>${esc(rating.name || `Recipe #${rating.recipe_id}`)}</li>`).join("")}</ul>` : "");
+    }).join("") : "No Taste Lab ratings.";
+  } catch (err) {
+    if (dialog.ratingsRequest === request) list.textContent = err.message;
+  }
+}
+
+const SENT = { "reset-taste": "Taste Lab history cleared.", "send-reset": "Reset link sent.", "resend-confirmation": "Confirmation email sent." };
+document.querySelector("main").addEventListener("click", async e => {
+  const detailPanel = document.getElementById("detail");
   if (e.target.closest("[data-close]")) { selected = null; return render(); }
   const opener = e.target.closest("[data-open]");
   if (opener) {
-    const form = e.currentTarget.querySelector(`[data-form="${opener.dataset.open}"]`);
+    const form = detailPanel.querySelector(`[data-form="${opener.dataset.open}"]`);
     form.hidden = !form.hidden;
     if (!form.hidden) form.querySelector("input").focus();
     return;
   }
   const b = e.target.closest("[data-a]"); if (!b) return;
   const body = {};
-  e.currentTarget.querySelectorAll("[data-k]").forEach(i => (body[i.dataset.k] = i.value.trim()));
+  if (!b.dataset.user) detailPanel.querySelectorAll("[data-k]").forEach(i => (body[i.dataset.k] = i.value.trim()));
   if (b.dataset.session) body.session = b.dataset.session;
   if (b.dataset.a === "site-admin") body.admin = Boolean(b.dataset.admin);
   if (b.dataset.solo) body.household_id = null;
@@ -309,21 +354,33 @@ document.getElementById("detail").addEventListener("click", async e => {
   if (b.dataset.confirm && !confirm(b.dataset.confirm)) return;
   b.disabled = true;
   try {
-    const res = await fetch(`/admin/users/${selected}/${b.dataset.a}`, {
+    const res = await fetch(`/admin/users/${b.dataset.user || selected}/${b.dataset.a}`, {
       method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const out = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(out.message || `Failed (${res.status})`);
+    if (!res.ok) throw new Error(out.detail?.message || out.message || `Failed (${res.status})`);
     try { sessionStorage.setItem("dd-users-toast", SENT[b.dataset.a] || "Saved."); } catch (err) {}
     location.reload();
   } catch (err) {
     b.disabled = false;
-    toast(err.message, true);
+    if (b.closest("#ratings")) {
+      document.getElementById("ratings-error")?.remove();
+      const error = document.createElement("p");
+      error.id = "ratings-error";
+      error.setAttribute("role", "alert");
+      error.className = "warn";
+      error.textContent = err.message;
+      b.after(error);
+    } else {
+      toast(err.message, true);
+    }
   }
 });
 document.getElementById("rows").addEventListener("click", e => {
   const tr = e.target.closest("tr[data-id]"); if (!tr) return;
   e.preventDefault();
-  selected = Number(tr.dataset.id);
+  const id = Number(tr.dataset.id);
+  if (e.target.closest("[data-ratings]")) return showRatings(DATA.users.find(u => u.id === id));
+  selected = id;
   render();
   if (window.innerWidth < 900) document.getElementById("detail").scrollIntoView({ behavior: "smooth" });
 });
