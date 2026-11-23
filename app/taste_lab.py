@@ -6,7 +6,7 @@ import importlib.util
 import json
 import re
 from app.auth import SESSION_COOKIE, household_for_token, session_info
-from app.db.database import PgConnection
+from app.db.database import PgConnection, transaction
 from collections import defaultdict
 from pathlib import Path
 
@@ -224,14 +224,21 @@ def household_filters(db: PgConnection, household_id: int) -> dict:
     filters = prefs.get("filters") if isinstance(prefs.get("filters"), dict) else {}
     if filters.get("lab_folded"):
         return clean_filters(filters)
-    accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
-    accounts.append(f"guest:{household_id}")
-    folded = fold_profiles(filters, lab_profiles(snapshots_for_accounts(accounts)))
-    folded["lab_folded"] = True
-    if row is not None:
-        prefs["filters"] = folded
-        db.execute("UPDATE households SET prefs_json = ? WHERE id = ?", (json.dumps(prefs), household_id))
-        db.commit()
+    with transaction(db):
+        row = db.execute("SELECT prefs_json FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
+        prefs = json.loads((row["prefs_json"] if row else None) or "{}")
+        if not isinstance(prefs, dict):
+            prefs = {}
+        filters = prefs.get("filters") if isinstance(prefs.get("filters"), dict) else {}
+        if filters.get("lab_folded"):
+            return clean_filters(filters)
+        accounts = [str(r["id"]) for r in db.execute("SELECT id FROM users WHERE household_id = ?", (household_id,))]
+        accounts.append(f"guest:{household_id}")
+        folded = fold_profiles(filters, lab_profiles(snapshots_for_accounts(accounts)))
+        folded["lab_folded"] = True
+        if row is not None:
+            prefs["filters"] = folded
+            db.execute("UPDATE households SET prefs_json = ? WHERE id = ?", (json.dumps(prefs), household_id))
     return folded
 
 
