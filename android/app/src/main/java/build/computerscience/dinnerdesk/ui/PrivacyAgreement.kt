@@ -67,7 +67,7 @@ fun PrivacyAgreement() {
     Column(
         Modifier.fillMaxSize().background(Theme.bg).statusBarsPadding().navigationBarsPadding()
             .verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(Copy.appName, style = Theme.action, color = Theme.accent)
         Text(Copy.text("privacy.agree.title"), style = Theme.bigTitle, color = Theme.ink)
@@ -76,10 +76,7 @@ fun PrivacyAgreement() {
         PrivacySummary(compact = true)
 
         if (!signedIn) {
-            Text(
-                Copy.text("privacy.agree.device"), style = Theme.subtitle, color = Theme.accent,
-                modifier = Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
-            )
+            Text(Copy.text("privacy.agree.device"), style = Theme.subtitle, color = Theme.muted)
         }
         error?.let { ErrorBanner(it) }
 
