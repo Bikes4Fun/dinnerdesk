@@ -29,7 +29,7 @@ export function AcceptInvite({ token, onAuthed }) {
     setBusy(true);
     try {
       if (signedIn || existing) {
-        if (!confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) return;
+        if (!confirm(`Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.\n\n${Copy.text("privacy.join.note")}`)) return;
         if (signedIn) await api.joinHousehold(token);
         else await api.acceptInvite({ token, email, password, existing: true });
       } else await api.acceptInvite({ token, email, password, agreed_privacy: agreed });
@@ -46,7 +46,7 @@ export function AcceptInvite({ token, onAuthed }) {
     <div className="app is-auth">
       <section className="screen auth-screen">
         <div className="scroll pad auth-pad">
-          <div className="brand auth-brand">Dinnerdesk</div>
+          <div className="brand auth-brand">{Copy.text("app.name")}</div>
 
           {previewErr ? (
             <p className="banner err">{previewErr}</p>
@@ -55,6 +55,7 @@ export function AcceptInvite({ token, onAuthed }) {
           ) : (
             <>
               <h1 className="auth-title">Join {preview.household_name}</h1>
+              <p className="privacy-note">{Copy.text("privacy.join.note")}</p>
               {err ? <p className="banner err">{err}</p> : null}
               <form onSubmit={submit}>
                 {!signedIn && <>
@@ -107,7 +108,7 @@ export function AcceptInvite({ token, onAuthed }) {
               </form>
               {!signedIn && (
                 <button type="button" className="text-link" onClick={() => { setExisting(!existing); setErr(""); }}>
-                  {existing ? "New to Dinnerdesk? Create an account" : "Already have an account? Sign in to join"}
+                  {existing ? "New to Dinner Desk? Create an account" : "Already have an account? Sign in to join"}
                 </button>
               )}
             </>

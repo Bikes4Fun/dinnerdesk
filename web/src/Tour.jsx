@@ -145,7 +145,7 @@ export function Tour() {
       <div className="tour-card">
         {step === "welcome" && (
           <>
-            <h2 id="tour-title">Welcome to Dinnerdesk</h2>
+            <h2 id="tour-title">Welcome to {Copy.text("app.name")}</h2>
             <p className="help" data-tip="tour.welcome">
               Quick start walks through eat and how. Taste Lab is the swipe kitchen. Skip anytime.
             </p>

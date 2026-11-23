@@ -1,3 +1,4 @@
+import { Copy } from "../Copy.js";
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 
@@ -17,7 +18,7 @@ export function VerifyEmail({ token, onDone }) {
     <div className="app is-auth">
       <section className="screen auth-screen">
         <div className="scroll pad auth-pad">
-          <div className="brand auth-brand">Dinnerdesk</div>
+          <div className="brand auth-brand">{Copy.text("app.name")}</div>
           <h1 className="auth-title">Confirm email</h1>
           {err ? <p className="banner err">{err}</p> : null}
           {email ? <p className="banner ok">Confirmed. You sign in as {email} from now on.</p> : null}

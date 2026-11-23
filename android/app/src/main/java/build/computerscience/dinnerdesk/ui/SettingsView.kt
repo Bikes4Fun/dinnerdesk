@@ -547,6 +547,11 @@ fun AccountView() {
                         }
                     }
                     Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { StarTip("settings.invite-link") }
+                    Text(
+                        Copy.text("privacy.invite.note"), style = Theme.subtitle, color = Theme.ink,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth()
+                            .background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
+                    )
                 } else {
                     ActionRow("Invite someone to this household", enabled = !busy) { action { inviteUrl = KitchenApi.createInvite(); error = null } }
                 }
@@ -584,6 +589,7 @@ fun AccountView() {
                 }
                 ActionRow("Leave household", enabled = !busy) { confirmLeave = true }
                 ListRow { FormField(joinToken, { joinToken = it }, "Invite link or token", KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false)) }
+                Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { Text(Copy.text("privacy.join.note"), style = Theme.subtitle, color = Theme.muted) }
                 ActionRow("Join household", enabled = !busy && joinToken.isNotBlank()) { confirmJoin = true }
                 if (canManage) {
                     ActionRow("Delete household", destructive = true) { deletingHome = !deletingHome }
@@ -621,7 +627,7 @@ fun AccountView() {
     if (confirmLeave) ConfirmDialog("Leave this household and start an empty solo household?", "Leave household", onConfirm = {
         householdAction { KitchenApi.leaveHousehold() }
     }, onDismiss = { confirmLeave = false })
-    if (confirmJoin) ConfirmDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", "Join household", destructive = false, onConfirm = {
+    if (confirmJoin) ConfirmDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", "Join household", destructive = false, message = Copy.text("privacy.join.note"), onConfirm = {
         val token = joinToken.trim().split("/").lastOrNull() ?: ""
         householdAction { KitchenApi.joinHousehold(token) }
     }, onDismiss = { confirmJoin = false })
@@ -963,7 +969,7 @@ fun PrivacyView() {
                                 } catch (e: Throwable) {
                                     exportError = when {
                                         e is ApiError && e.code == 401 -> "Please sign in again to continue."
-                                        e is ApiError && e.code == 404 -> "Data export needs the updated Dinnerdesk server. Please try again after the server update."
+                                        e is ApiError && e.code == 404 -> "Data export needs the updated Dinner Desk server. Please try again after the server update."
                                         else -> "Couldn’t prepare your data. Please try again."
                                     }
                                 } finally {
@@ -993,7 +999,7 @@ fun PrivacyView() {
 
 internal val privacySections = listOf(
     "Agreeing to this policy" to """
-        The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
+        The first time you open Dinner Desk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
     """.trimIndent(),
     "Account" to """
         If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.
@@ -1005,7 +1011,7 @@ internal val privacySections = listOf(
     "Your kitchen" to """
         Plans, grocery lists, pantry, recipe edits, favorites, hides, to-try marks, filters, and store or aisle choices are stored for your household. Taste Lab stores the meals you like or pass, plus diet, allergy, and dislike choices. When you are signed in, those answers are tied to your account and used to suggest meals. Thumbs up or down on a planned meal, and on a prep step, are stored for your household and used to choose future meal suggestions. Prep step votes are kept so we can improve prep suggestions.
 
-        Someone you invite joins that same household and can see and change it, including its filters, allergies, and meal likes and dislikes. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
+        Someone you invite joins that same household and can see and change it, including its filters and allergies, and can see everyone's meal likes and dislikes and Taste Lab history. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
     """.trimIndent(),
     "Without an account" to """
         Guests use a private kitchen identified by a random device/browser cookie. All normal features work without an account. Reinstalling the app or clearing browser data can lose access to guest data. Create an account to protect it.

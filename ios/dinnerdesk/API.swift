@@ -161,7 +161,7 @@ enum APIError: LocalizedError {
   var errorDescription: String? {
     switch self {
     case .http(let code, let body):
-      if code == 404 || code == 405 { return "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support." }
+      if code == 404 || code == 405 { return "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support." }
       if code == 401 { return "Please sign in again to continue." }
       if code == 403 { return "You don't have access to this action." }
       if code >= 500 { return "The server couldn't complete this action. Please try again shortly." }

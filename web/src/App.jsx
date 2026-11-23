@@ -1,3 +1,4 @@
+import { Copy } from "./Copy.js";
 import { api } from "./api.js";
 import { CrashNotice, ErrorBoundary } from "./ErrorBoundary.jsx";
 import { Icon } from "./icons.jsx";
@@ -360,7 +361,7 @@ export function App() {
   return (
     <div className={page === "taste-lab" && !tasteHome ? "app is-taste" : "app"}>
       <aside className="sidebar">
-        <div className="brand">Dinnerdesk</div>
+        <div className="brand">{Copy.text("app.name")}</div>
         <nav className="side-nav">
           <NavLink href="/" navKey="plan" label="Plan" icon="plan" page={page} count={mealCount} />
           <NavLink href="/recipes" navKey="recipes" label="Recipes" icon="recipes" page={page} />

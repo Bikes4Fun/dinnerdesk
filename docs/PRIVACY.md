@@ -1,10 +1,10 @@
 # Privacy policy
 
-Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it.
+Dinner Desk is a meal planner for a household. This is what we store, and what we do with it.
 
 ## Agreeing to this policy
 
-The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
+The first time you open Dinner Desk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
 
 ## Account
 
@@ -22,7 +22,7 @@ Plans, grocery lists, pantry, recipe edits, favorites, hides, to-try marks, filt
 
 Taste Lab stores the meals you like or pass, plus diet, allergy, and dislike choices. When you are signed in, those answers are tied to your account and used to suggest meals. Thumbs up or down on a planned meal, and on a prep step, are stored for your household and used to choose future meal suggestions. Prep step votes are kept so we can improve prep suggestions.
 
-Someone you invite joins that same household and can see and change it, including its filters, allergies, and meal likes and dislikes. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
+Someone you invite joins that same household and can see and change it, including its filters and allergies, and can see everyone's meal likes and dislikes and Taste Lab history. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
 
 ## Without an account
 

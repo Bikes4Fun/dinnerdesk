@@ -269,10 +269,10 @@ display entry and retain tested/AI/shared attribution. The primary path is kept;
 files are unchanged. Deleting that gallery entry removes its duplicate references too,
 so the same photo cannot immediately return under another filename.
 
-Admins can independently mark a visible recipe “Reviewed by Dinnerdesk” on its detail page
+Admins can independently mark a visible recipe Kitchen-tested on its detail page
 on web, iPhone and Android. A checked badge appears on recipe cards, rows and detail pages;
-Recipes search offers a Reviewed filter that combines with other filters. Web admins can
-also toggle review directly on recipe thumbnails beside the plan and favorite controls.
+Recipes search offers a Kitchen-tested filter that combines with other filters. Web admins can
+also toggle it directly on recipe thumbnails beside the plan and favorite controls.
 An admin-only To edit toggle sits beside Review and adds/removes the recipe from the
 existing editing queue. Its saved state is included only in admin recipe-list responses.
 This changes recipe approval only, without uploading or changing any photos. On web it also
@@ -634,7 +634,7 @@ ingredient words remain readable at accessibility sizes.
 
 ### Recipe instruction attribution and suggestion review (Oct 9)
 
-Recipes with existing Dinnerdesk-authored rewrite provenance, show “Instructions customized by Dinnerdesk” above Cook steps on iPhone and web. The importer retains the original rewrite source. This editorial label does not indicate kitchen testing. Private recipe revisions and original backups stay outside Git; publishing them requires the explicit catalog import.
+Recipes with existing Dinnerdesk-authored rewrite provenance, show “Instructions customized by Dinner Desk” above Cook steps on iPhone and web. The importer retains the original rewrite source. This editorial label does not indicate kitchen testing. Private recipe revisions and original backups stay outside Git; publishing them requires the explicit catalog import.
 
 Suggestion review uses one navigation heading, photo-corner circular swap buttons with recipe-specific accessibility labels, and adjacent approve/suggest-another actions where space permits. All food photos use shared square components with center-cropped fill across iOS, web, and Taste Lab. Photo shape stays square at every meal count and text size. Very short screens, additional meals, and accessibility text can scroll. Clients derive the visible note directly from existing `instructions_source` and `instructions_copied_from_third_party` provenance; there is no additional customization flag in the catalog or API. Improve suggestions is below the actions. The current-plan explanation is retained as a hidden `plan.proposal-keeps-current` tip on web.
 

@@ -402,7 +402,7 @@ export function Recipe({ id }) {
     return (
       <>
         {headed ? <h3>Cook</h3> : null}
-        {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinnerdesk</p>}
+        {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinner Desk</p>}
         {sourceHost(recipe.source_url) && !recipe.catalog && (
           <p className="muted">
             {recipe.instructions_source === "import" ? "Steps from " : "Original recipe: "}
