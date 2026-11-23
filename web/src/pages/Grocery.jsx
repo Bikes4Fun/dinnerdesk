@@ -157,7 +157,7 @@ export function Grocery() {
     e.preventDefault();
     const names = addName.split(",").map((n) => n.trim()).filter(Boolean);
     if (!planId || !names.length) return;
-    const store = storeFilter === "all" ? "" : storeFilter;
+    const store = storeFilter === "all" || storeFilter === "none" ? "" : storeFilter;
     try {
       const added = [];
       for (const name of names) {
@@ -185,9 +185,12 @@ export function Grocery() {
   /** What's left to buy, grouped by aisle in store order, for the selected store. */
   function shareText() {
     const left = lines.filter((l) => !l.checked && !l.never_shop
-      && (storeFilter === "all" || l.store === storeFilter));
+      && (storeFilter === "all"
+        || (storeFilter === "none" ? !l.store : l.store === storeFilter)));
     const store = stores.find((s) => s.id === storeFilter);
-    const title = store ? `Grocery list — ${store.name}` : "Grocery list";
+    const title = storeFilter === "none"
+      ? "Grocery list — No assigned store"
+      : store ? `Grocery list — ${store.name}` : "Grocery list";
     if (!left.length) return `${title}\n\nNothing left to buy.`;
     const known = new Set(aisles.map((a) => a.id));
     const blocks = [...aisles.map((a) => [a.name, left.filter((l) => l.aisle === a.id)]),
@@ -227,7 +230,8 @@ export function Grocery() {
     return lines.filter((l) => {
       if (l.never_shop) return false;
       if (hideChecked && l.checked) return false;
-      const sid = l.store;
+      const sid = l.store || "";
+      if (storeFilter === "none") return !sid;
       if (storeFilter !== "all" && sid !== storeFilter) return false;
       return true;
     });
@@ -343,7 +347,9 @@ export function Grocery() {
     );
   }
 
-  const storeOrder = storeFilter === "all" ? [...stores.map((s) => s.id), ""] : [storeFilter];
+  const storeOrder = storeFilter === "all"
+    ? [...stores.map((s) => s.id), ""]
+    : storeFilter === "none" ? [""] : [storeFilter];
   const grouped = storeOrder.map((sid) => ({
     sid,
     name: storeOf(stores, sid)?.name || "Unassigned",
@@ -359,6 +365,7 @@ export function Grocery() {
             <span className="sr-only">Store</span>
             <select aria-label="Filter by store" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
               <option value="all">All stores</option>
+              <option value="none">No assigned store</option>
               {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             <Icon name="chevron-down" size={14} />
