@@ -163,7 +163,7 @@ object Api {
         is SocketTimeoutException -> "The request timed out."
         is SerializationException, is IllegalArgumentException -> "The data couldn’t be read because it isn’t in the correct format."
         is IOException -> "Couldn’t connect to the server. Please try again."
-        else -> error.message ?: "Couldn't complete this action. Please try again."
+        else -> error.message ?: Copy.text("ui.couldnt.complete.this.action.please")
     }
 
     private fun apiUrl(path: String, query: Map<String, String> = emptyMap()): HttpUrl {
@@ -221,23 +221,23 @@ object Api {
 class ApiError(val code: Int, val body: String) : Exception() {
     override val message: String
         get() {
-            if (code == 404 || code == 405) return "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support."
-            if (code >= 500) return "The server couldn't complete this action. Please try again shortly."
+            if (code == 404 || code == 405) return Copy.text("ui.this.action.is.currently.unavailable")
+            if (code >= 500) return Copy.text("ui.the.server.couldnt.complete.this")
             try {
                 val obj = Api.json.parseToJsonElement(body) as? JsonObject
                 if (obj != null) {
                     (obj["message"] as? JsonPrimitive)?.let { if (it.isString && it.content.isNotBlank()) return it.content }
                     val detail = obj["detail"]
                     if (detail is JsonObject) (detail["message"] as? JsonPrimitive)?.let { if (it.isString && it.content.isNotBlank()) return it.content }
-                    if (code == 401) return "Please sign in again to continue."
-                    if (code == 403) return "You don't have access to this action."
+                    if (code == 401) return Copy.text("ui.please.sign.in.again.to")
+                    if (code == 403) return Copy.text("ui.you.dont.have.access.to")
                     if (detail is JsonPrimitive && detail.isString) return detail.content
                 }
             } catch (_: Exception) {
             }
-            if (code == 401) return "Please sign in again to continue."
-            if (code == 403) return "You don't have access to this action."
-            return "Couldn't complete this action. Please try again."
+            if (code == 401) return Copy.text("ui.please.sign.in.again.to")
+            if (code == 403) return Copy.text("ui.you.dont.have.access.to")
+            return Copy.text("ui.couldnt.complete.this.action.please")
         }
 }
 

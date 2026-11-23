@@ -164,7 +164,7 @@ fun TourView() {
         savedFilters = filters
         val caps: SuggestionCapabilities = Api.get("suggestions/capabilities")
         if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) {
-            throw IllegalStateException("Meal planning needs the updated server. Please try again after the server update.")
+            throw IllegalStateException(Copy.text("ui.meal.planning.needs.the.updated"))
         }
         val created: Plan = Api.send("plans", "POST", mapOf("title" to "This week", "meal_count" to dinners, "keep_current" to false))
         proposal = created
@@ -230,34 +230,34 @@ fun TourView() {
             when (step) {
                 TourStep.Welcome -> {
                     Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Text("Free. No ads, ever.", style = Theme.chipLabel, color = Theme.ink,
+                        Text(Copy.text("ui.free.no.ads.ever"), style = Theme.chipLabel, color = Theme.ink,
                             modifier = Modifier.clip(CircleShape).background(Theme.aubergineTint).padding(horizontal = 14.dp, vertical = 6.dp))
                         Spacer(Modifier.height(16.dp))
-                        Text("Custom meal plans in 5 minutes.", style = Theme.bigTitle, color = Theme.ink, textAlign = TextAlign.Center)
+                        Text(Copy.text("ui.custom.meal.plans.in.5"), style = Theme.bigTitle, color = Theme.ink, textAlign = TextAlign.Center)
                         Spacer(Modifier.height(28.dp))
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Benefit(Icons.Outlined.Checklist, "Grocery list built for you")
-                            Benefit(Icons.Outlined.Timer, "Prep-ahead steps for busy nights")
-                            Benefit(Icons.Outlined.Eco, "Less waste, using your pantry")
+                            Benefit(Icons.Outlined.Checklist, Copy.text("ui.grocery.list.built.for.you"))
+                            Benefit(Icons.Outlined.Timer, Copy.text("ui.prepahead.steps.for.busy.nights"))
+                            Benefit(Icons.Outlined.Eco, Copy.text("ui.less.waste.using.your.pantry"))
                         }
                         if (isUpdate) {
                             Spacer(Modifier.height(20.dp))
                             Text(Copy.text("tour.update"), style = Theme.subtitle, color = Theme.muted)
                         }
                     }
-                    Primary("Get started", error, busy) { step = TourStep.Household }
-                    LinkButton("Skip, I’ll look around", Modifier.fillMaxWidth(), enabled = !busy, style = Theme.chipLabel) { finish() }
-                    LinkButton("How we use AI", Modifier.fillMaxWidth(), style = Theme.chipLabel) { openUrl(Api.url("support") + "#ai") }
+                    Primary(Copy.text("ui.get.started"), error, busy) { step = TourStep.Household }
+                    LinkButton(Copy.text("ui.skip.ill.look.around"), Modifier.fillMaxWidth(), enabled = !busy, style = Theme.chipLabel) { finish() }
+                    LinkButton(Copy.text("tour.ai.title"), Modifier.fillMaxWidth(), style = Theme.chipLabel) { openUrl(Api.url("support") + "#ai") }
                 }
                 TourStep.Household -> {
                     Page {
-                        Heading("Who’s eating dinner?", "We’ll size recipes and the grocery list to match.")
+                        Heading(Copy.text("ui.whos.eating.dinner"), Copy.text("ui.well.size.recipes.and.the"))
                         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Theme.surface).border(1.dp, Theme.line, RoundedCornerShape(18.dp)).padding(vertical = 22.dp),
                             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             Stepper(people, 1, 12, "people", big = true, busy = busy) { people = it }
                             Text("people, most nights", style = Theme.body, color = Theme.ink)
                         }
-                        Text("Weeknight cook time", style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+                        Text(Copy.text("ui.weeknight.cook.time"), style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
                         Row(Modifier.fillMaxWidth().clip(CircleShape).background(Theme.surface).border(1.dp, Theme.line, CircleShape).padding(3.dp)) {
                             for ((id, label) in o.times) {
                                 val on = time == id
@@ -267,29 +267,29 @@ fun TourView() {
                                 }
                             }
                         }
-                        Text("Feeding a crowd one night? Change servings on any single meal later.", style = small, color = Theme.ink,
+                        Text(Copy.text("ui.feeding.a.crowd.one.night"), style = small, color = Theme.ink,
                             modifier = Modifier.padding(top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Theme.aubergineTint).padding(14.dp))
                     }
                     Primary(if (busy) "Saving…" else "Next", error, busy) { saveHousehold() }
                 }
                 TourStep.Avoid -> {
                     Page {
-                        Heading("Anything to avoid?", null)
-                        Group("Diet", "Only show recipes that fit.")
+                        Heading(Copy.text("ui.anything.to.avoid"), null)
+                        Group("Diet", Copy.text("ui.only.show.recipes.that.fit"))
                         Flow(6.dp) { for (d in o.diets) TourChip(o.dietLabels[d] ?: d, d in diets) { diets = o.toggled(diets, d) } }
-                        Group("Allergies", "Never shown. We check every ingredient.")
+                        Group("Allergies", Copy.text("ui.never.shown.we.check.every"))
                         Flow(6.dp) { for ((id, label) in o.allergens) TourChip(label, id in allergens) { allergens = if (id in allergens) allergens - id else allergens + id } }
-                        Group("Dislikes", "Suggested less often. You can still add them yourself.")
+                        Group("Dislikes", Copy.text("ui.suggested.less.often.you.can"))
                         Flow(6.dp) { for (id in commonAvoids) TourChip(id.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }, id in avoids) { avoids = if (id in avoids) avoids - id else avoids + id } }
                     }
-                    Primary(if (busy) "Planning your week…" else "Next", error, busy) { saveFilters() }
+                    Primary(if (busy) Copy.text("ui.planning.your.week") else "Next", error, busy) { saveFilters() }
                 }
                 TourStep.Week -> {
                     Page {
-                        Heading("Here’s your week", "Picked for you. Swap anything that doesn’t sound good.")
+                        Heading(Copy.text("ui.heres.your.week"), Copy.text("ui.picked.for.you.swap.anything"))
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Theme.surface).border(1.dp, Theme.line, RoundedCornerShape(18.dp)).padding(start = 16.dp, top = 6.dp, end = 6.dp, bottom = 6.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text("Dinners this week", style = Theme.action, color = Theme.ink, modifier = Modifier.weight(1f))
+                            Text(Copy.text("ui.dinners.this.week"), style = Theme.action, color = Theme.ink, modifier = Modifier.weight(1f))
                             Stepper(dinners, 1, MAX_DINNERS, "dinners", big = false, busy = busy) { resize(it) }
                         }
                         Spacer(Modifier.height(12.dp))
@@ -314,21 +314,21 @@ fun TourView() {
                             }
                         }
                     }
-                    Primary("Looks good", error, busy || proposal?.slots.isNullOrEmpty()) { approve() }
+                    Primary(Copy.text("ui.looks.good"), error, busy || proposal?.slots.isNullOrEmpty()) { approve() }
                 }
                 TourStep.Ready -> {
                     val count = (plan ?: proposal)?.slots?.size ?: 0
                     val sub = "$count dinner${if (count == 1) "" else "s"} for $people" + (toBuy?.let { " · $it thing${if (it == 1) "" else "s"} to buy" } ?: "")
                     Page {
-                        Heading("Your week is ready", sub)
+                        Heading(Copy.text("ui.your.week.is.ready"), sub)
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                            Tip(1, "Plan", "Give meals a day when you know it. No rush, they stay on your list.")
-                            Tip(2, "Grocery", "Your list builds itself. Check things off in the store.")
-                            Tip(3, "Prep ahead", "Got time on the weekend? See what you can chop and cook early.")
+                            Tip(1, "Plan", Copy.text("ui.give.meals.a.day.when"))
+                            Tip(2, "Grocery", Copy.text("ui.your.list.builds.itself.check"))
+                            Tip(3, Copy.text("ui.prep.ahead"), Copy.text("ui.got.time.on.the.weekend"))
                         }
                         Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Theme.aubergineTint).padding(horizontal = 14.dp, vertical = 4.dp)) {
-                            Text("Want better picks next week?", style = small, color = Theme.ink, modifier = Modifier.padding(top = 8.dp))
-                            LinkButton("Try Taste Lab (about 2 min)", enabled = !busy, style = Theme.chipLabel) {
+                            Text(Copy.text("ui.want.better.picks.next.week"), style = small, color = Theme.ink, modifier = Modifier.padding(top = 8.dp))
+                            LinkButton(Copy.text("ui.try.taste.lab.about.2"), enabled = !busy, style = Theme.chipLabel) {
                                 run { markDone(); showTasteLab = true }
                             }
                         }

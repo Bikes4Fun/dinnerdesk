@@ -39,7 +39,7 @@ object AuthApi {
 object KitchenApi {
     suspend fun prefs(): JsonObject {
         val household = Api.jsonObject("household")
-        return household["prefs"] as? JsonObject ?: throw ApiError(200, "Missing or invalid household preferences")
+        return household["prefs"] as? JsonObject ?: throw ApiError(200, Copy.text("ui.missing.or.invalid.household.preferences"))
     }
 
     /** Server merges top-level keys, so send only what changed. */
@@ -135,7 +135,7 @@ object KitchenDefaults {
             }
         }
         while (out.endsWith("-")) out.setLength(out.length - 1)
-        if (out.isEmpty()) throw ApiError(400, """{"detail":"A name must contain a letter or number"}""")
+        if (out.isEmpty()) throw ApiError(400, """{"detail":Copy.text("ui.a.name.must.contain.a")}""")
         return out.toString()
     }
 }

@@ -59,6 +59,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import build.computerscience.dinnerdesk.data.ResponseCache
 import kotlinx.coroutines.launch
+import build.computerscience.dinnerdesk.data.Copy
 
 /** Who is using the app decides what shows: loading, sign-in, or the tabs (AuthGate in AuthView.swift). */
 @Composable
@@ -81,7 +82,7 @@ fun AuthGate(content: @Composable () -> Unit) {
                 val err = session.loadError
                 if (err != null) {
                     Text(err, color = Theme.muted, textAlign = TextAlign.Center, style = Theme.body)
-                    AccentButton("Try again", Modifier.widthIn(max = 220.dp)) { scope.launch { session.refresh() } }
+                    AccentButton(Copy.text("ui.try.again"), Modifier.widthIn(max = 220.dp)) { scope.launch { session.refresh() } }
                 } else {
                     CircularProgressIndicator(color = Theme.muted, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
                 }
@@ -92,9 +93,9 @@ fun AuthGate(content: @Composable () -> Unit) {
                 Column(Modifier.fillMaxSize()) {
                     if (status.authenticated != true && !guestNoticeDismissed) {
                         Column(Modifier.fillMaxWidth().background(Theme.bg).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Guest data can be lost if you reinstall the app. Create an account to protect it.", style = Theme.subtitle, color = Theme.muted)
+                            Text(Copy.text("ui.guest.data.can.be.lost"), style = Theme.subtitle, color = Theme.muted)
                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Sign in or create account", style = Theme.subtitle, color = Theme.accent, modifier = Modifier.clickable { showSignIn = true })
+                                Text(Copy.text("ui.sign.in.or.create.account"), style = Theme.subtitle, color = Theme.accent, modifier = Modifier.clickable { showSignIn = true })
                                 Text("Dismiss", style = Theme.subtitle, color = Theme.accent, modifier = Modifier.clickable { guestNoticeDismissed = true })
                             }
                         }

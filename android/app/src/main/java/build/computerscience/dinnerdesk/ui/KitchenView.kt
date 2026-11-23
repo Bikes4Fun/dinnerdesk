@@ -80,6 +80,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import build.computerscience.dinnerdesk.data.Copy
 
 /** Everything that isn't Plan, Recipes or Grocery: one list of grey-icon rows. */
 @Composable
@@ -90,16 +91,16 @@ fun MoreView() {
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         ThemeList {
             LargeTitle("More")
-            ListRow({ nav.push(Route.Kitchen) }) { ThemeIconRow("My Kitchen", Icons.Outlined.Kitchen) }
+            ListRow({ nav.push(Route.Kitchen) }) { ThemeIconRow(Copy.text("ui.my.kitchen"), Icons.Outlined.Kitchen) }
             if (!showPrep) {
-                ListRow({ nav.push(Route.PrepHome) }) { ThemeIconRow("Weekend prep", Icons.AutoMirrored.Outlined.Assignment) }
+                ListRow({ nav.push(Route.PrepHome) }) { ThemeIconRow(Copy.text("tour.how.4.title"), Icons.AutoMirrored.Outlined.Assignment) }
             }
-            ListRow({ nav.push(Route.TasteLab()) }) { ThemeIconRow("Taste Lab", Icons.Outlined.Gesture) }
+            ListRow({ nav.push(Route.TasteLab()) }) { ThemeIconRow(Copy.text("tour.how.6.title"), Icons.Outlined.Gesture) }
             ListRow({ nav.push(Route.Account) }) {
                 ThemeIconRow("Account & security", Icons.Outlined.AccountCircle, session.status?.email ?: "Guest")
             }
             ListRow({ nav.push(Route.Feedback) }) {
-                ThemeIconRow("Report a bug or suggest a feature", Icons.Outlined.Feedback)
+                ThemeIconRow(Copy.text("ui.report.a.bug.or.suggest"), Icons.Outlined.Feedback)
             }
             ListRow({ nav.push(Route.Settings) }) { ThemeIconRow("Settings", Icons.Outlined.Settings) }
         }
@@ -151,24 +152,24 @@ fun KitchenView() {
             ListRow {
                 if (isAccessibilitySize) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ThemeIconRow("Family portions", Icons.Outlined.Group, "$portions")
-                        Box(Modifier.padding(start = 40.dp)) { Stepper(portions, 1..50, "Family portions", ::setPortions) }
+                        ThemeIconRow(Copy.text("ui.family.portions"), Icons.Outlined.Group, "$portions")
+                        Box(Modifier.padding(start = 40.dp)) { Stepper(portions, 1..50, Copy.text("ui.family.portions"), ::setPortions) }
                     }
                 } else {
-                    Box(Modifier.weight(1f)) { ThemeIconRow("Family portions", Icons.Outlined.Group, "$portions") }
-                    Box(Modifier.padding(start = 14.dp)) { Stepper(portions, 1..50, "Family portions", ::setPortions) }
+                    Box(Modifier.weight(1f)) { ThemeIconRow(Copy.text("ui.family.portions"), Icons.Outlined.Group, "$portions") }
+                    Box(Modifier.padding(start = 14.dp)) { Stepper(portions, 1..50, Copy.text("ui.family.portions"), ::setPortions) }
                 }
             }
             ListRow({ nav.push(Route.Pantry) }) { ThemeIconRow("Pantry", Icons.Outlined.Inventory2) }
-            ListHeader("Grocery list")
-            ListRow({ nav.push(Route.AlwaysChecked) }) { ThemeIconRow("Always checked off", Icons.Outlined.CheckCircleOutline) }
+            ListHeader(Copy.text("ui.grocery.list"))
+            ListRow({ nav.push(Route.AlwaysChecked) }) { ThemeIconRow(Copy.text("ui.always.checked.off"), Icons.Outlined.CheckCircleOutline) }
             ListRow({ nav.push(Route.Substitutions) }) { ThemeIconRow("Substitutions", Icons.Outlined.SwapHoriz) }
             ListRow({ nav.push(Route.GroceryStores) }) { ThemeIconRow("Stores & aisles", Icons.Outlined.Storefront) }
             ListHeader("Recipes")
             ListRow({ nav.push(Route.Filters) }) { ThemeIconRow("Filters", Icons.Outlined.Tune) }
-            ListRow({ nav.push(Route.HiddenRecipes) }) { ThemeIconRow("Hidden recipes", Icons.Outlined.VisibilityOff) }
-            ListRow({ nav.push(Route.MyRecipes) }) { ThemeIconRow("My recipes", Icons.Outlined.Book) }
-            ListRow { ThemeIconRow("Recipe templates", Icons.AutoMirrored.Outlined.List, "Coming soon") }
+            ListRow({ nav.push(Route.HiddenRecipes) }) { ThemeIconRow(Copy.text("ui.hidden.recipes"), Icons.Outlined.VisibilityOff) }
+            ListRow({ nav.push(Route.MyRecipes) }) { ThemeIconRow(Copy.text("ui.my.recipes"), Icons.Outlined.Book) }
+            ListRow { ThemeIconRow(Copy.text("ui.recipe.templates"), Icons.AutoMirrored.Outlined.List, Copy.text("ui.coming.soon")) }
         }
     }
 }
@@ -194,8 +195,8 @@ fun SubstitutionsView() {
         ThemeList({ load() }) {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { StarTip("kitchen.substitutions") }
-            ListHeader("Your substitutions")
-            if (items.isEmpty()) ListRow { Text("None yet", style = Theme.body, color = Theme.muted) }
+            ListHeader(Copy.text("ui.your.substitutions"))
+            if (items.isEmpty()) ListRow { Text(Copy.text("ui.none.yet"), style = Theme.body, color = Theme.muted) }
             for (item in items) {
                 androidx.compose.runtime.key(item.id) {
                     SwipeToDelete(item.id, onDelete = {
@@ -217,10 +218,10 @@ fun SubstitutionsView() {
                     }
                 }
             }
-            ListHeader("Add one")
-            ListRow { FormField(from, { from = it }, "Recipe says (e.g. vegetable oil)", KeyboardOptions(capitalization = KeyboardCapitalization.None)) }
-            ListRow { FormField(to, { to = it }, "Buy instead (e.g. olive oil)", KeyboardOptions(capitalization = KeyboardCapitalization.None)) }
-            ThemeAddRow("Save substitution", enabled = canAdd) {
+            ListHeader(Copy.text("ui.add.one"))
+            ListRow { FormField(from, { from = it }, Copy.text("ui.recipe.says.eg.vegetable.oil"), KeyboardOptions(capitalization = KeyboardCapitalization.None)) }
+            ListRow { FormField(to, { to = it }, Copy.text("ui.buy.instead.eg.olive.oil"), KeyboardOptions(capitalization = KeyboardCapitalization.None)) }
+            ThemeAddRow(Copy.text("ui.save.substitution"), enabled = canAdd) {
                 scope.launch {
                     try {
                         items = KitchenApi.addOverride(from.trim(), to.trim())
@@ -247,13 +248,13 @@ fun HiddenRecipesView() {
     suspend fun load() { recipes = store.loadHiddenRecipes(); loaded = true }
     LaunchedEffect(Unit) { load() }
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        NavBar("Hidden recipes")
+        NavBar(Copy.text("ui.hidden.recipes"))
         ThemeList({ load() }) {
             Text(
-                "Recipes you hid from Recipes. They stay out of browse and search until you unhide them.",
+                Copy.text("ui.recipes.you.hid.from.recipes"),
                 style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
             )
-            if (loaded && recipes.isEmpty()) Text("Nothing hidden", style = Theme.body, color = Theme.muted, modifier = Modifier.padding(horizontal = 20.dp))
+            if (loaded && recipes.isEmpty()) Text(Copy.text("ui.nothing.hidden"), style = Theme.body, color = Theme.muted, modifier = Modifier.padding(horizontal = 20.dp))
             for (recipe in recipes) {
                 ListRow(chevron = false) {
                     Row(Modifier.weight(1f).clickable { nav.push(Route.Recipe(recipe.id)) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -306,7 +307,7 @@ fun PantryView() {
 
     fun placeText(item: KitchenPantryItem): String? {
         if (item.store == null && item.aisle == null) return null
-        val s = stores.firstOrNull { it.id == item.store }?.name ?: "Any store"
+        val s = stores.firstOrNull { it.id == item.store }?.name ?: Copy.text("ui.any.store")
         val a = aisles.firstOrNull { it.id == (item.aisle ?: "other") }?.name ?: "Other"
         return "$s, $a"
     }
@@ -315,8 +316,8 @@ fun PantryView() {
         NavBar("Pantry")
         ThemeList({ load() }) {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
-            ThemeAddRow("Add item") { adding = true }
-            SwitchRow("Always check off pantry items", autoCheck, style = Theme.mealName) { on ->
+            ThemeAddRow(Copy.text("ui.add.item")) { adding = true }
+            SwitchRow(Copy.text("ui.always.check.off.pantry.items"), autoCheck, style = Theme.mealName) { on ->
                 autoCheck = on
                 scope.launch {
                     try {
@@ -331,7 +332,7 @@ fun PantryView() {
             // The tip sits right under the toggle it explains, outside its tap target.
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { StarTip("kitchen.pantry-auto-check") }
             ListHeader("In your pantry · ${items.size}")
-            if (items.isEmpty()) ListRow { Text("Nothing here yet.", style = Theme.body, color = Theme.muted) }
+            if (items.isEmpty()) ListRow { Text(Copy.text("ui.nothing.here.yet"), style = Theme.body, color = Theme.muted) }
             for (item in items) {
                 androidx.compose.runtime.key(item.name) {
                     SwipeToDelete(item.name, onDelete = {
@@ -348,7 +349,7 @@ fun PantryView() {
                                 placeText(item)?.let { Text(it, style = Theme.subtitle, color = Theme.muted, maxLines = 1) }
                             }
                             if (item.neverShop || autoCheck) {
-                                Icon(Icons.Filled.CheckCircle, "Checked off on the grocery list", tint = Theme.muted.copy(alpha = 0.6f))
+                                Icon(Icons.Filled.CheckCircle, Copy.text("ui.checked.off.on.the.grocery"), tint = Theme.muted.copy(alpha = 0.6f))
                             }
                         }
                     }
@@ -359,7 +360,7 @@ fun PantryView() {
     if (adding) {
         // A stray swipe shouldn't throw away the picks.
         Sheet(onDismiss = { adding = false; picks = emptyList() }, blockDismiss = picks.isNotEmpty()) {
-            KitchenItemPicker("Add to pantry", picks, { picks = it }) { names ->
+            KitchenItemPicker(Copy.text("ui.add.to.pantry"), picks, { picks = it }) { names ->
                 val result = savePantrySelection(names) { name -> KitchenApi.upsertPantry(name, have = true, neverShop = false) }
                 load()
                 store.loadGrocery()
@@ -385,7 +386,7 @@ fun AlwaysCheckedView() {
     LaunchedEffect(Unit) { load() }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        NavBar("Always checked off")
+        NavBar(Copy.text("ui.always.checked.off"))
         ThemeList({ load() }) {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { StarTip("kitchen.always-checked") }
@@ -393,7 +394,7 @@ fun AlwaysCheckedView() {
             if (items.isEmpty()) {
                 ListRow {
                     Column(Modifier.alpha(0.5f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        for (line in listOf("Examples — add the items you always keep on hand", "Salt", "Olive oil", "Black pepper")) Text(line, style = Theme.body, color = Theme.muted)
+                        for (line in listOf(Copy.text("ui.examples.add.the.items.you"), "Salt", Copy.text("ui.olive.oil"), Copy.text("ui.black.pepper"))) Text(line, style = Theme.body, color = Theme.muted)
                     }
                 }
             }
@@ -410,13 +411,13 @@ fun AlwaysCheckedView() {
                     }
                 }
             }
-            ThemeAddRow("Add item") { adding = true }
+            ThemeAddRow(Copy.text("ui.add.item")) { adding = true }
         }
     }
     if (adding) {
         // A stray swipe shouldn't throw away the picks.
         Sheet(onDismiss = { adding = false; picks = emptyList() }, blockDismiss = picks.isNotEmpty()) {
-            KitchenItemPicker("Always check off", picks, { picks = it }) { names ->
+            KitchenItemPicker(Copy.text("ui.always.check.off"), picks, { picks = it }) { names ->
                 val result = savePantrySelection(names) { name -> KitchenApi.upsertPantry(name, have = true, neverShop = true) }
                 load()
                 store.loadGrocery()
@@ -488,7 +489,7 @@ private fun KitchenItemPicker(
         )
         saveError?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { ErrorBanner(it) } }
         TextBox(
-            query, { query = it }, "Type an item, like garlic or rice",
+            query, { query = it }, Copy.text("ui.type.an.item.like.garlic"),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focus),
             keyboard = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Done),
             actions = KeyboardActions(onDone = { if (!saving) hits.firstOrNull()?.let { onPicked(picked + it); query = "" } }),
@@ -519,7 +520,7 @@ private fun KitchenItemPicker(
             val err = searchError
             if (err != null) Box(Modifier.padding(16.dp)) { ErrorBanner(err) }
             else if (hits.isEmpty()) Text(
-                if (query.isEmpty()) "Type an item, like garlic or rice." else if (matches.isEmpty()) "No matches" else "", style = Theme.body, color = Theme.muted,
+                if (query.isEmpty()) "Type an item, like garlic or rice." else if (matches.isEmpty()) Copy.text("ui.no.matches") else "", style = Theme.body, color = Theme.muted,
                 modifier = Modifier.align(Alignment.Center),
             )
         }
@@ -535,7 +536,7 @@ private fun KitchenItemPicker(
             dismissButton = {
                 Row {
                     TextButton(onClick = { confirmingCancel = false; onPicked(emptyList()); dismiss() }) { Text("Discard", style = Theme.body, color = Theme.destructive) }
-                    TextButton(onClick = { confirmingCancel = false }) { Text("Keep editing", style = Theme.body, color = Theme.accent) }
+                    TextButton(onClick = { confirmingCancel = false }) { Text(Copy.text("ui.keep.editing"), style = Theme.body, color = Theme.accent) }
                 }
             },
         )
@@ -597,9 +598,9 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             FormSection {
                 error?.let { Box(Modifier.padding(vertical = 8.dp)) { ErrorBanner(it) } }
-                FormSwitch("Have this item", have) { have = it; save(have = it) }
+                FormSwitch(Copy.text("ui.have.this.item"), have) { have = it; save(have = it) }
                 Hairline()
-                FormSwitch("Always check off", neverShop) { neverShop = it; save(neverShop = it) }
+                FormSwitch(Copy.text("ui.always.check.off"), neverShop) { neverShop = it; save(neverShop = it) }
                 Hairline()
                 FormField(
                     quantity, { quantity = it }, "Amount (optional)",
@@ -608,7 +609,7 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
                 )
                 placement?.let { p ->
                     Hairline()
-                    PickerRow("Store", store.stores.firstOrNull { it.id == p.store }?.name ?: "Not set", listOf("" to "Not set") + store.stores.map { it.id to it.name }) { setPlace(storeId = it) }
+                    PickerRow("Store", store.stores.firstOrNull { it.id == p.store }?.name ?: Copy.text("ui.not.set"), listOf("" to Copy.text("ui.not.set")) + store.stores.map { it.id to it.name }) { setPlace(storeId = it) }
                     Hairline()
                     PickerRow("Aisle", store.aisles.firstOrNull { it.id == p.aisle }?.name ?: "Other", store.aisles.map { it.id to it.name }) { setPlace(aisleId = it) }
                 }
@@ -629,7 +630,7 @@ fun PantryItemEditor(item: KitchenPantryItem, onChanged: suspend () -> Unit) {
                         }
                     },
                     contentAlignment = Alignment.CenterStart,
-                ) { Text("Delete item", style = Theme.body, color = Theme.destructive) }
+                ) { Text(Copy.text("ui.delete.item"), style = Theme.body, color = Theme.destructive) }
             }
         }
     }

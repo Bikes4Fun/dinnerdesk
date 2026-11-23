@@ -97,7 +97,7 @@ fun GroceryView() {
     val visible = storeLines.filter { !(store.hideChecked && (it.checked || it.neverShop)) }
     val completedCount = storeLines.count { it.checked || it.neverShop }
     val filterName = when {
-        storeFilter == "none" -> "No assigned store"
+        storeFilter == "none" -> Copy.text("ui.no.assigned.store")
         else -> store.stores.firstOrNull { it.id == storeFilter }?.name
     }
 
@@ -113,7 +113,7 @@ fun GroceryView() {
     /** What's left to buy, grouped by aisle in walk-the-store order, for the selected store. */
     fun shareText(): String {
         val left = storeLines.filter { !it.checked && !it.neverShop }
-        val title = filterName?.let { "Grocery list — $it" } ?: "Grocery list"
+        val title = filterName?.let { "Grocery list — $it" } ?: Copy.text("ui.grocery.list")
         if (left.isEmpty()) return "$title\n\nNothing left to buy."
         val groups = store.aisles.map { aisle -> aisle.name to left.filter { it.aisle == aisle.id } } +
             ("Other" to left.filter { line -> store.aisles.none { it.id == line.aisle } })
@@ -127,8 +127,8 @@ fun GroceryView() {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Grocery", style = Theme.bigTitle, color = Theme.ink, modifier = Modifier.weight(1f))
-                IconAction(Icons.Outlined.IosShare, "Share list") { shareText(context, shareText()) }
-                IconAction(Icons.Filled.MoreHoriz, "Grocery List Settings") { menuStatus = null; menu = true }
+                IconAction(Icons.Outlined.IosShare, Copy.text("ui.share.list")) { shareText(context, shareText()) }
+                IconAction(Icons.Filled.MoreHoriz, Copy.text("ui.grocery.list.settings")) { menuStatus = null; menu = true }
             }
             RefreshBox({ store.loadGrocery(rebuild = true) }) {
                 LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 72.dp)) {
@@ -136,21 +136,21 @@ fun GroceryView() {
                     if (store.stores.isNotEmpty()) item {
                         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Chip("All", storeFilter.isEmpty()) { storeFilter = "" }
-                            Chip("No assigned store", storeFilter == "none") {
+                            Chip(Copy.text("ui.no.assigned.store"), storeFilter == "none") {
                                 storeFilter = if (storeFilter == "none") "" else "none"
                             }
                             for (shop in store.stores) Chip(shop.name, storeFilter == shop.id) { storeFilter = if (storeFilter == shop.id) "" else shop.id }
                         }
                     }
                     if (store.grocery.isEmpty()) {
-                        item { EmptyState("List is empty", "Choose meals to build your grocery list.", Icons.Outlined.ShoppingCart) }
+                        item { EmptyState(Copy.text("ui.list.is.empty"), Copy.text("ui.choose.meals.to.build.your"), Icons.Outlined.ShoppingCart) }
                         if (store.plan?.slots?.isEmpty() != false) item {
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CreateMealPlanButton { store.launch { openSuggestions() } } }
                         }
                     } else {
                         if (blocks.isEmpty()) item {
-                            val message = if (storeLines.isEmpty()) filterName?.let { "Nothing on the list for $it." } ?: "Nothing on the list."
-                            else filterName?.let { "Everything for $it is checked off." } ?: "Everything is checked off."
+                            val message = if (storeLines.isEmpty()) filterName?.let { "Nothing on the list for $it." } ?: Copy.text("ui.nothing.on.the.list")
+                            else filterName?.let { "Everything for $it is checked off." } ?: Copy.text("ui.everything.is.checked.off")
                             Text(message, style = Theme.subtitle, color = Theme.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp))
                         }
                         for ((id, name, rows) in blocks) {
@@ -169,7 +169,7 @@ fun GroceryView() {
                                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Icon(if (store.hideChecked) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
-                                Text(if (store.hideChecked) "Show $completedCount completed" else "Hide completed", style = Theme.action, color = Theme.accent)
+                                Text(if (store.hideChecked) "Show $completedCount completed" else Copy.text("ui.hide.completed"), style = Theme.action, color = Theme.accent)
                             }
                         }
                     }
@@ -179,18 +179,18 @@ fun GroceryView() {
         Box(
             Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 16.dp).size(60.dp)
                 .shadow(10.dp, CircleShape, spotColor = Theme.ink.copy(alpha = 0.2f)).background(Theme.accent, CircleShape)
-                .clickable { adding = true }.semantics { contentDescription = "Add item" },
+                .clickable { adding = true }.semantics { contentDescription = Copy.text("ui.add.item") },
             contentAlignment = Alignment.Center,
         ) { Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
     }
 
     if (menu) {
         MenuSheet(onDismiss = { menu = false }, items = listOf(
-            MenuItem("Show completed items", Icons.Outlined.Visibility, dismissOnSelection = false, isOn = !store.hideChecked) {
+            MenuItem(Copy.text("ui.show.completed.items"), Icons.Outlined.Visibility, dismissOnSelection = false, isOn = !store.hideChecked) {
                 store.hideChecked = !store.hideChecked; persist()
             },
             MenuItem(
-                if (allComplete) "Uncheck all" else "Complete all", if (allComplete) Icons.AutoMirrored.Outlined.Undo else Icons.Outlined.CheckCircleOutline,
+                if (allComplete) Copy.text("ui.uncheck.all") else Copy.text("ui.complete.all"), if (allComplete) Icons.AutoMirrored.Outlined.Undo else Icons.Outlined.CheckCircleOutline,
                 dismissOnSelection = false, status = menuStatus,
             ) {
                 val uncheck = allComplete
@@ -199,13 +199,13 @@ fun GroceryView() {
                     if (error == null) menuStatus = if (uncheck) "Unchecked" else "Completed"
                 }
             },
-            MenuItem("Show meals under each item", Icons.Outlined.Restaurant, dismissOnSelection = false, isOn = store.showMeals) {
+            MenuItem(Copy.text("ui.show.meals.under.each.item"), Icons.Outlined.Restaurant, dismissOnSelection = false, isOn = store.showMeals) {
                 store.showMeals = !store.showMeals; persist()
             },
-            MenuItem("Show aisle numbers", Icons.Outlined.Numbers, dismissOnSelection = false, isOn = store.showAisleNums) {
+            MenuItem(Copy.text("ui.show.aisle.numbers"), Icons.Outlined.Numbers, dismissOnSelection = false, isOn = store.showAisleNums) {
                 store.showAisleNums = !store.showAisleNums; persist()
             },
-            MenuItem("Edit stores & aisles", Icons.Outlined.Storefront) { nav.push(Route.GroceryStores) },
+            MenuItem(Copy.text("ui.edit.stores.aisles"), Icons.Outlined.Storefront) { nav.push(Route.GroceryStores) },
         ))
     }
     if (adding) Sheet(onDismiss = { adding = false }) {
@@ -273,7 +273,7 @@ fun GroceryItemView(lineId: Int) {
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar(actions = { if (line != null) LinkButton("Edit") { editing = true } })
         if (line == null) {
-            EmptyState("Item gone", "", Icons.Outlined.ShoppingCart)
+            EmptyState(Copy.text("ui.item.gone"), "", Icons.Outlined.ShoppingCart)
             return@Column
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -287,7 +287,7 @@ fun GroceryItemView(lineId: Int) {
                     subName = q
                     suggestJob?.cancel()
                     suggestJob = scope.launch { delay(220); suggestions = store.suggestGroceryItems(q) }
-                }, "Try another item", modifier = m, corner = 8.dp)
+                }, Copy.text("ui.try.another.item"), modifier = m, corner = 8.dp)
             }
             if (isAccessibilitySize) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Text("Substitute", style = Theme.mealName, color = Theme.ink); field(Modifier) }
@@ -301,7 +301,7 @@ fun GroceryItemView(lineId: Int) {
                 Text(name, style = Theme.body, color = Theme.ink, modifier = Modifier.fillMaxWidth().clickable { subName = name; suggestions = emptyList() }.padding(vertical = 6.dp))
             }
             if (subName.isNotBlank()) {
-                LinkButton("Save substitution", style = Theme.body) {
+                LinkButton(Copy.text("ui.save.substitution"), style = Theme.body) {
                     val target = subName.trim().lowercase()
                     val current = line.id
                     scope.launch {
@@ -316,23 +316,23 @@ fun GroceryItemView(lineId: Int) {
                     }
                 }
             }
-            Text("You'll use this in…", style = Theme.subtitle, color = Theme.ink, modifier = Modifier.semantics { heading() })
+            Text(Copy.text("ui.youll.use.this.in"), style = Theme.subtitle, color = Theme.ink, modifier = Modifier.semantics { heading() })
             when {
                 line.usedIn.isNotEmpty() -> for (meal in line.usedIn) {
                     val rid = meal.recipeId
                     Box(if (rid != null) Modifier.clickable { nav.push(Route.Recipe(rid)) } else Modifier) { MealLabel(meal) }
                 }
                 line.usedBy.isNotEmpty() -> for (name in line.usedBy) Text(name, style = Theme.body, color = Theme.ink)
-                else -> Text("Added by you", style = Theme.body, color = Theme.muted)
+                else -> Text(Copy.text("ui.added.by.you"), style = Theme.body, color = Theme.muted)
             }
             Column {
                 PickerRow("Store", store.storeName(line), store.stores.map { it.id to it.name }) { id -> store.launch { setGroceryStore(line, id) } }
                 Hairline()
                 PickerRow("Aisle", store.aisleName(line.aisle), store.aisles.map { it.id to it.name }) { id -> store.launch { setGroceryAisle(line, id) } }
                 Hairline()
-                ToggleLine("In my pantry", line.fromPantry) { next -> store.launch { setPantryFlags(line.name, next, line.neverShop) } }
+                ToggleLine(Copy.text("ui.in.my.pantry"), line.fromPantry) { next -> store.launch { setPantryFlags(line.name, next, line.neverShop) } }
                 Hairline()
-                ToggleLine("Always check off", line.neverShop) { next -> store.launch { setPantryFlags(line.name, line.fromPantry, next) } }
+                ToggleLine(Copy.text("ui.always.check.off"), line.neverShop) { next -> store.launch { setPantryFlags(line.name, line.fromPantry, next) } }
                 Hairline()
                 if (line.id in reportedIds) {
                     Row(Modifier.fillMaxWidth().heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -345,7 +345,7 @@ fun GroceryItemView(lineId: Int) {
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Icon(Icons.Outlined.Flag, null, tint = Theme.ink, modifier = Modifier.size(20.dp))
-                        Text("Report a problem with this item", style = Theme.rowTitle, color = Theme.ink)
+                        Text(Copy.text("ui.report.a.problem.with.this"), style = Theme.rowTitle, color = Theme.ink)
                     }
                 }
             }
@@ -370,19 +370,19 @@ private fun ReportGrocerySheet(lineId: Int, onDraft: (Boolean) -> Unit, onSent: 
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(reason, note) { onDraft(reason != null || note.isNotEmpty()) }
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar("Report a problem")
+        SheetBar(Copy.text("ui.report.a.problem"))
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("What's wrong?", style = Theme.action, color = Theme.ink)
             for (option in IngredientReportReason.entries) {
                 RadioRow(reason == option, { reason = option }) { Text(option.label, style = Theme.body, color = Theme.ink) }
             }
-            Text("Anything to add? (optional)", style = Theme.action, color = Theme.ink)
+            Text(Copy.text("ui.anything.to.add.optional"), style = Theme.action, color = Theme.ink)
             // The server caps the note at 1000 characters (code points).
             TextBox(note, { next ->
                 note = if (next.codePointCount(0, next.length) > 1000) next.substring(0, next.offsetByCodePoints(0, 1000)) else next
             }, "e.g. Feta should be in Dairy, not Deli", style = Theme.subtitle, minLines = 3)
             error?.let { ErrorBanner(it) }
-            FilledButton(if (sending) "Sending…" else "Send report", enabled = reason != null && !sending) {
+            FilledButton(if (sending) "Sending…" else Copy.text("ui.send.report"), enabled = reason != null && !sending) {
                 val picked = reason ?: return@FilledButton
                 sending = true
                 error = null
@@ -444,7 +444,7 @@ private fun EditGrocerySheet(line: GroceryLine) {
     var qty by remember { mutableStateOf(line.quantity) }
     var itemName by remember { mutableStateOf(line.name) }
     Column(Modifier.fillMaxWidth().background(Theme.bg).padding(bottom = 24.dp)) {
-        SheetBar("Edit item", confirm = "Save", confirmEnabled = itemName.isNotBlank(), onConfirm = {
+        SheetBar(Copy.text("ui.edit.item"), confirm = "Save", confirmEnabled = itemName.isNotBlank(), onConfirm = {
             scope.launch {
                 store.error = null
                 val name = itemName.trim()
@@ -461,7 +461,7 @@ private fun EditGrocerySheet(line: GroceryLine) {
         FormSection {
             FormField(qty, { qty = it }, "Amount")
             Hairline()
-            FormField(itemName, { itemName = it }, "Item name")
+            FormField(itemName, { itemName = it }, Copy.text("ui.item.name"))
         }
     }
 }
@@ -489,7 +489,7 @@ private fun AddGrocerySheet(storeId: String?) {
     }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar("Add item", confirm = "Add", confirmEnabled = canAdd, onConfirm = ::add)
+        SheetBar(Copy.text("ui.add.item"), confirm = "Add", confirmEnabled = canAdd, onConfirm = ::add)
         store.error?.let { ErrorBanner(it, Modifier.padding(16.dp)) }
         FormSection {
             FormField(newName, { q ->
@@ -515,7 +515,7 @@ private fun AddGrocerySheet(storeId: String?) {
             FormField(newQty, { newQty = it }, "Quantity (optional)", keyboard = KeyboardOptions.Default, actions = KeyboardActions(onDone = { if (canAdd) add() }))
             Hairline()
             Box(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(enabled = canAdd) { add() }, contentAlignment = Alignment.CenterStart) {
-                Text("Add to list", style = Theme.body, color = if (canAdd) Theme.accent else Theme.muted.copy(alpha = 0.5f))
+                Text(Copy.text("ui.add.to.list"), style = Theme.body, color = if (canAdd) Theme.accent else Theme.muted.copy(alpha = 0.5f))
             }
         }
         Spacer(Modifier.height(8.dp))

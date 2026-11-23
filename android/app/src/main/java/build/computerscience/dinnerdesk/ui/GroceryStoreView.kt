@@ -61,6 +61,7 @@ import build.computerscience.dinnerdesk.data.ShopAisle
 import build.computerscience.dinnerdesk.data.ShopStore
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
+import build.computerscience.dinnerdesk.data.Copy
 
 private enum class PlacementTab { Unset, All }
 
@@ -141,13 +142,13 @@ fun GroceryStoreView() {
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         NavBar("Stores & aisles")
         TextBox(
-            query, { query = it }, "Search items", modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), corner = 10.dp,
+            query, { query = it }, Copy.text("ui.search.items"), modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp), corner = 10.dp,
             background = Color(0x1F767680), border = Color.Transparent,
             leading = { Icon(Icons.Filled.Search, null, tint = Theme.muted, modifier = Modifier.size(18.dp)) },
         )
         ThemeList({ load() }) {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
-            ListHeader("Your stores")
+            ListHeader(Copy.text("ui.your.stores"))
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
                 Flow(8.dp) {
                     for (shop in stores) key(shop.id) {
@@ -170,16 +171,16 @@ fun GroceryStoreView() {
             }
             Box(Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) { StarTip("kitchen.store-chips") }
             ListRow(onClick = { nav.push(Route.AisleOrder) }) {
-                ThemeIconRow("Aisle order", Icons.Outlined.FormatListNumbered, "${aisles.size} aisles")
+                ThemeIconRow(Copy.text("ui.aisle.order"), Icons.Outlined.FormatListNumbered, "${aisles.size} aisles")
             }
-            ListHeader("Store & aisle for each item")
+            ListHeader(Copy.text("ui.store.aisle.for.each.item"))
             Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
                 Segmented(listOf(PlacementTab.Unset to "Not set · ${unset.size}", PlacementTab.All to "All items · ${items.size}"), tab) { tab = it }
             }
             Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { StarTip("kitchen.store-per-item") }
             if (groups.isEmpty()) {
                 Text(
-                    if (tab == PlacementTab.Unset) "Every item has a store." else "Items show up here once they're on a grocery list or in your pantry.",
+                    if (tab == PlacementTab.Unset) Copy.text("ui.every.item.has.a.store") else Copy.text("ui.items.show.up.here.once"),
                     style = Theme.body, color = Theme.muted, modifier = Modifier.padding(20.dp),
                 )
             }
@@ -193,7 +194,7 @@ fun GroceryStoreView() {
     }
 
     if (addingStore) {
-        TextFieldAlert("Add a store", newStore, { newStore = it }, "Store name", "Add", onConfirm = {
+        TextFieldAlert(Copy.text("ui.add.a.store"), newStore, { newStore = it }, Copy.text("ui.store.name"), "Add", onConfirm = {
             val name = newStore.trim()
             newStore = ""
             if (name.isNotEmpty()) {
@@ -207,7 +208,7 @@ fun GroceryStoreView() {
         }, onDismiss = { addingStore = false; newStore = "" })
     }
     renamingStore?.let { shop ->
-        TextFieldAlert("Rename ${shop.name}", renamedTo, { renamedTo = it }, "Store name", "Save", onConfirm = {
+        TextFieldAlert("Rename ${shop.name}", renamedTo, { renamedTo = it }, Copy.text("ui.store.name"), "Save", onConfirm = {
             val name = renamedTo.trim()
             // Keep the id so assignments survive; only the name people see changes.
             if (name.isNotEmpty() && name != shop.name) {
@@ -220,7 +221,7 @@ fun GroceryStoreView() {
         // Say how many items lose their store, so Remove is never a surprise.
         val n = items.count { it.store == shop.id }
         val message = when {
-            n == 0 -> "No items are assigned to it. You can add it back anytime."
+            n == 0 -> Copy.text("ui.no.items.are.assigned.to")
             n == 1 -> "1 item moves to Any store. You can add it back anytime."
             else -> "$n items move to Any store. You can add it back anytime."
         }
@@ -238,7 +239,7 @@ private fun PlacementRow(item: ItemPlacement, stores: List<ShopStore>, aisles: L
     val pickers: @Composable () -> Unit = {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             MenuChip(storeName, unset = item.store.isEmpty(), label = "Store for ${item.name}: $storeName",
-                options = listOf("" to "Not set") + stores.map { it.id to it.name }) { onChange(it, null) }
+                options = listOf("" to Copy.text("ui.not.set")) + stores.map { it.id to it.name }) { onChange(it, null) }
             MenuChip(aisleName, unset = false, label = "Aisle for ${item.name}: $aisleName", options = aisles.map { it.id to it.name }) { onChange(null, it) }
         }
     }
@@ -333,11 +334,11 @@ fun AisleOrderView() {
     }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        NavBar("Aisle order")
+        NavBar(Copy.text("ui.aisle.order"))
         ThemeList({ load() }) {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
             if (savedAisles == null) LinkButton("Try loading aisles again") { scope.launch { load() } }
-            ListHeader("Walk-the-store order")
+            ListHeader(Copy.text("ui.walkthestore.order"))
             for (aisle in aisles) key(aisle.id) {
                 val isDragged = dragging == aisle.id
                 Box(
@@ -387,12 +388,12 @@ fun AisleOrderView() {
                     }
                 }
             }
-            ThemeAddRow("Add aisle", enabled = savedAisles != null) { addingAisle = true }
+            ThemeAddRow(Copy.text("ui.add.aisle"), enabled = savedAisles != null) { addingAisle = true }
             Box(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) { StarTip("kitchen.aisle-order") }
         }
     }
     if (addingAisle) {
-        TextFieldAlert("Add an aisle", newAisle, { newAisle = it }, "Aisle name", "Add", onConfirm = {
+        TextFieldAlert(Copy.text("ui.add.an.aisle"), newAisle, { newAisle = it }, Copy.text("ui.aisle.name"), "Add", onConfirm = {
             val name = newAisle.trim()
             newAisle = ""
             if (name.isNotEmpty()) {
