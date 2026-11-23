@@ -4,7 +4,7 @@ import logging
 import os
 
 from fastapi import APIRouter, HTTPException, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
 from app.auth import leave_household, join_household, delete_household, manage_member
 from app.auth import record_device
@@ -65,8 +65,13 @@ ERROR_MESSAGES = {
 }
 
 
+def _password(value: SecretStr | str) -> str:
+    """Plain password for auth checks. SecretStr keeps it out of logs/repr (CodeQL #6)."""
+    return value.get_secret_value() if isinstance(value, SecretStr) else value
+
+
 class PasswordBody(BaseModel):
-    password: str
+    password: SecretStr
 
 
 class ForgotPasswordBody(BaseModel):
@@ -75,12 +80,12 @@ class ForgotPasswordBody(BaseModel):
 
 class ResetPasswordBody(BaseModel):
     token: str
-    password: str
+    password: SecretStr
 
 
 class SignupBody(BaseModel):
     email: str
-    password: str
+    password: SecretStr
     household_name: str = "My household"
     # The privacy checkbox. None means an older app that predates the checkbox: the account is
     # made, and the agreement screen asks on the next open instead. False is refused.
@@ -89,16 +94,16 @@ class SignupBody(BaseModel):
 
 class LoginBody(BaseModel):
     email: str
-    password: str
+    password: SecretStr
 
 
 class ChangePasswordBody(BaseModel):
-    current_password: str
-    new_password: str
+    current_password: SecretStr
+    new_password: SecretStr
 
 
 class DeleteAccountBody(BaseModel):
-    password: str
+    password: SecretStr
 
 
 class ClearDataBody(BaseModel):
@@ -107,7 +112,7 @@ class ClearDataBody(BaseModel):
 
 class VerifyEmailBody(BaseModel):
     email: str = ""
-    password: str = ""
+    password: SecretStr = SecretStr("")
 
 
 class ConfirmEmailBody(BaseModel):
@@ -116,13 +121,13 @@ class ConfirmEmailBody(BaseModel):
 
 class UseUsernameBody(BaseModel):
     username: str
-    password: str
+    password: SecretStr
 
 
 class AcceptInviteBody(BaseModel):
     token: str
     email: str
-    password: str
+    password: SecretStr
     existing: bool = False
     agreed_privacy: bool | None = None  # As in SignupBody; only asked when making a new account.
 
@@ -164,7 +169,7 @@ def signup(body: SignupBody, request: Request, response: Response, conn=DbDep):
         raise _auth_error(AuthError("privacy_not_agreed"), 400)
     try:
         guest_id = guest_household(conn, request.cookies.get(GUEST_COOKIE))
-        token = do_signup(conn, body.email, body.password, body.household_name, guest_id)
+        token = do_signup(conn, body.email, _password(body.password), body.household_name, guest_id)
         if guest_id is not None:
             # Account creation keeps the guest kitchen, but revokes anonymous access to it.
             conn.execute("DELETE FROM guest_sessions WHERE household_id = ?", (guest_id,))
@@ -184,7 +189,7 @@ def signup(body: SignupBody, request: Request, response: Response, conn=DbDep):
 @router.post("/auth/login")
 def login(body: LoginBody, request: Request, response: Response, conn=DbDep):
     try:
-        token = do_login(conn, body.email, body.password)
+        token = do_login(conn, body.email, _password(body.password))
     except AuthError as e:
         status = 423 if e.detail == "account_locked" else 401
         raise _auth_error(e, status)
@@ -219,7 +224,7 @@ def delete_account(body: DeleteAccountBody, response: Response, conn=DbDep, user
     """Delete the signed-in account (#65). Asks for the password again so a borrowed, unlocked
     phone can't do it. Signs out everywhere: every session belonged to the deleted account."""
     try:
-        household_deleted = do_delete_account(conn, user_id, body.password)
+        household_deleted = do_delete_account(conn, user_id, _password(body.password))
     except AuthError as e:
         raise _auth_error(e, 400)
     response.delete_cookie(SESSION_COOKIE, path="/")
@@ -310,11 +315,11 @@ def me(request: Request, conn=DbDep):
 @router.post("/auth/change-password")
 def change_password(body: ChangePasswordBody, request: Request, response: Response, conn=DbDep, user_id=UserDep):
     try:
-        do_change_password(conn, user_id, body.current_password, body.new_password)
+        do_change_password(conn, user_id, _password(body.current_password), _password(body.new_password))
     except AuthError as e:
         raise _auth_error(e, 400)
     row = conn.execute("SELECT email FROM users WHERE id = ?", (user_id,)).fetchone()
-    token = do_login(conn, row["email"], body.new_password)
+    token = do_login(conn, row["email"], _password(body.new_password))
     _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
@@ -322,7 +327,7 @@ def change_password(body: ChangePasswordBody, request: Request, response: Respon
 @router.post("/auth/remove-recovery-email")
 def remove_recovery_email(body: PasswordBody, conn=DbDep, user_id=UserDep):
     try:
-        do_remove_recovery_email(conn, user_id, body.password)
+        do_remove_recovery_email(conn, user_id, _password(body.password))
     except AuthError as e:
         raise _auth_error(e, 400)
     return {"ok": True}
@@ -365,7 +370,7 @@ def verify_email(body: VerifyEmailBody, conn=DbDep, user_id=UserDep):
     row = conn.execute("SELECT email, recovery_email, password_hash FROM users WHERE id = ?", (user_id,)).fetchone()
     current = reset_address(row)
     email = (body.email or "").strip().lower() or current or row["email"]
-    if email != current and not verify_password(body.password, row["password_hash"]):
+    if email != current and not verify_password(_password(body.password), row["password_hash"]):
         raise _auth_error(AuthError("wrong_password"), 400)
     if not mail_ready():
         log.error("Email confirm requested but email isn't configured (RESEND_API_KEY, MAIL_FROM, PUBLIC_URL)")
@@ -397,7 +402,7 @@ def confirm_email(body: ConfirmEmailBody, conn=DbDep):
 def use_username(body: UseUsernameBody, conn=DbDep, user_id=UserDep):
     """Remove the account's email by signing in with a username instead."""
     try:
-        do_use_username(conn, user_id, body.password, body.username)
+        do_use_username(conn, user_id, _password(body.password), body.username)
     except AuthError as e:
         raise _auth_error(e, 400)
     return {"ok": True}
@@ -406,7 +411,7 @@ def use_username(body: UseUsernameBody, conn=DbDep, user_id=UserDep):
 @router.post("/auth/reset-password")
 def reset_password(body: ResetPasswordBody, request: Request, response: Response, conn=DbDep):
     try:
-        token = finish_password_reset(conn, body.token, body.password)
+        token = finish_password_reset(conn, body.token, _password(body.password))
     except AuthError as e:
         raise _auth_error(e, 400)
     _set_session_cookie(response, token, request, conn)
@@ -436,7 +441,7 @@ def accept_invite(body: AcceptInviteBody, request: Request, response: Response, 
     if not body.existing and body.agreed_privacy is False:
         raise _auth_error(AuthError("privacy_not_agreed"), 400)
     try:
-        token = do_accept_invite(conn, body.token, body.email, body.password, body.existing)
+        token = do_accept_invite(conn, body.token, body.email, _password(body.password), body.existing)
     except AuthError as e:
         raise _auth_error(e, 400)
     if not body.existing:
@@ -502,7 +507,7 @@ def join(body: JoinHouseholdBody, conn=DbDep, user_id=UserDep):
 @router.post("/household/delete")
 def delete_home(body: DeleteAccountBody, conn=DbDep, user_id=UserDep):
     try:
-        delete_household(conn, user_id, body.password)
+        delete_household(conn, user_id, _password(body.password))
     except AuthError as e:
         raise _auth_error(e, 400)
     return {"ok": True}
