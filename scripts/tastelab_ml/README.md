@@ -39,8 +39,10 @@ python3 scripts/tastelab_ml/charts.py /tmp/tastelab-catalog.json /tmp/tastelab-c
 ```
 
 The refresh joins recipes and AI tag proposals by slug, preserves the tag
-dimension and source, and records the export time. Ingredients come from
-catalog recipe files. The snapshot contains no swipe history.
+dimension and source, and records the export time. It parses quantities out
+of catalog ingredient names and applies the same aliases and canonical names
+used by Dinnerdesk. Admin review proposals take effect here once applied to
+the catalog. The snapshot contains no swipe history.
 
 Open `tags.html` and `ingredients.html` in the output directory. Dot size
 shows recipe count. Links get thicker as lift increases. Lift measures how

@@ -36,6 +36,7 @@ _UNIT_ALIASES = {
     "cup": "cup",
     "cups": "cup",
     "tbsp": "tbsp",
+    "tbls": "tbsp",
     "tablespoon": "tbsp",
     "tablespoons": "tbsp",
     "tsp": "tsp",
@@ -224,7 +225,7 @@ _PAREN_WT_RE = re.compile(
 )
 _UNIT_RE = re.compile(
     r"^(?:fluid\s+ounces?|fl(?:uid)?\s+oz|tablespoons?|teaspoons?|pounds?|ounces?|"
-    r"cups?|tbsp|tsp|lbs?|oz|cloves?|heads?|pints?|bunches?|bunch|cans?|"
+    r"cups?|tbsp|tbls|tsp|lbs?|oz|cloves?|heads?|pints?|bunches?|bunch|cans?|"
     r"packages?|pkgs?|pkg|slices?|pinch(?:es)?|dash(?:es)?)\b",
     re.I,
 )

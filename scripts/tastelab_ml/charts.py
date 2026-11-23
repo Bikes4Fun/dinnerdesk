@@ -9,7 +9,8 @@ from pathlib import Path
 STAPLES = {
     "salt", "table salt", "kosher salt", "sea salt", "fine sea salt",
     "black pepper", "ground black pepper", "freshly ground black pepper",
-    "red pepper flakes", "crushed red pepper", "crushed red pepper flakes",
+    "red pepper flakes", "red pepper flake", "crushed red pepper", "crushed red pepper flakes",
+    "crushed red pepper flake",
 }
 
 

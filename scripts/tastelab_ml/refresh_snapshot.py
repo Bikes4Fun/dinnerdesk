@@ -4,6 +4,8 @@ import argparse
 from collections import defaultdict
 from datetime import datetime, timezone
 import json
+import os
+import sys
 from pathlib import Path
 
 
@@ -12,6 +14,11 @@ def read_json(path):
 
 
 def build_snapshot(catalog):
+    from app.domain.grocery import split_ingredient_line
+    from app.domain.ingredients import apply_alias, load_catalog_aliases
+    from app.domain.pantry_catalog import canonical_pantry_name, item_key
+
+    aliases = load_catalog_aliases(catalog)
     proposals = defaultdict(list)
     for item in read_json(catalog / "recipe_tag_suggestions.json")["suggestions"]:
         if item.get("source") == "ai":
@@ -26,14 +33,19 @@ def build_snapshot(catalog):
         if not slug or recipe.get("retired") or recipe.get("provenance", {}).get("retired"):
             continue
         semantic_tags = proposals.get(slug, [])
+        ingredients = set()
+        for ingredient in recipe.get("ingredients", []):
+            raw_name = ingredient.get("name") if isinstance(ingredient, dict) else ingredient
+            _, name = split_ingredient_line(raw_name or "")
+            if name:
+                canonical = item_key(canonical_pantry_name(apply_alias(name, aliases)))
+                if canonical:
+                    ingredients.add(canonical)
         recipes.append({
             "id": recipe.get("id") or slug,
             "slug": slug,
             "name": recipe["name"],
-            "ingredients": sorted({
-                ingredient["name"] for ingredient in recipe.get("ingredients", [])
-                if ingredient.get("name")
-            }),
+            "ingredients": sorted(ingredients),
             "tags": sorted({item["tag"] for item in semantic_tags}),
             "semantic_tags": semantic_tags,
         })
@@ -45,6 +57,8 @@ def main():
     parser.add_argument("catalog", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
+    os.environ["DINNERDESK_CATALOG_DIR"] = str(args.catalog.resolve())
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     snapshot = build_snapshot(args.catalog)
     args.output.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     recipes = snapshot["recipes"]

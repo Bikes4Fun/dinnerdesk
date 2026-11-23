@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import json
 import re
 import unicodedata
+from pathlib import Path
 
 AISLES = ("produce", "dairy", "meat", "pantry", "deli", "frozen", "other")
 NEW_AISLES = {"deli": "Deli", "frozen": "Frozen"}
@@ -69,6 +71,14 @@ _PRODUCE = re.compile(
 
 def pantry_key(name: str) -> str:
     return " ".join(unicodedata.normalize("NFC", name or "").casefold().split())
+
+
+def load_catalog_aliases(catalog: Path) -> dict[str, str]:
+    path = catalog / "ingredients_review.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {pantry_key(k): pantry_key(v) for k, v in (data.get("aliases") or {}).items()}
 
 
 def apply_alias(name: str, aliases: dict[str, str]) -> str:

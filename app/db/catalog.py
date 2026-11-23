@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 
 from app.db.database import ROOT, connect, init_db, now
-from app.domain.ingredients import apply_alias, aisle_for, pantry_key, zone_for
+from app.domain.ingredients import apply_alias, aisle_for, load_catalog_aliases, pantry_key, zone_for
 from app.domain.coming_soon import ComingSoon
 from app.domain.offering import Offering
 from app.domain.pantry_catalog import ingredient_name
@@ -123,14 +123,6 @@ SKIP_TAGS = {
     "incomplete",
     "customizable_template",
 }
-
-
-def load_aliases() -> dict[str, str]:
-    path = catalog_dir() / "ingredients_review.json"
-    if not path.exists():
-        return {}
-    data = json.loads(path.read_text())
-    return {pantry_key(k): pantry_key(v) for k, v in (data.get("aliases") or {}).items()}
 
 
 def get_or_create_ingredient(conn, name: str, aliases: dict[str, str]) -> int:
@@ -502,7 +494,7 @@ def should_import_catalog() -> bool:
 def load_catalog(conn, report: dict | None = None) -> int:
     report = report if report is not None else {}
     seed_household(conn)
-    n = import_recipes(conn, load_aliases(), report)
+    n = import_recipes(conn, load_catalog_aliases(catalog_dir()), report)
     for row in remove_withheld(conn):
         report.setdefault("withheld_kept", []).append({"id": row["id"], "slug": row["slug"], "name": row["name"]})
         print(f"kept withheld recipe {row['id']} {row['slug']} ({row['name']}): still in use")
