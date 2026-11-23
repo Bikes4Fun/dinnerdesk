@@ -570,10 +570,22 @@ struct TasteLabView: View {
   @State private var editingFilters = false
   @Environment(\.dynamicTypeSize) private var textSize
   @Environment(\.dismiss) private var dismiss
+  @EnvironmentObject private var session: Session
+  /// The "what Taste Lab keeps" note, dismissed once per device.
+  @AppStorage("dinnerdesk.tasteLabPrivacyNote") private var privacyNoteDismissed = false
+  @State private var showPrivacy = false
 
   var body: some View {
     content
       .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .safeAreaInset(edge: .top) { if !privacyNoteDismissed { privacyNote } }
+      .sheet(isPresented: $showPrivacy) {
+        NavigationStack {
+          PrivacyView()
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { showPrivacy = false } } }
+        }
+        .environmentObject(session)
+      }
       .background(Theme.bg)
       .background(ContentPopBlocker())
       .navigationTitle(title)
@@ -597,6 +609,33 @@ struct TasteLabView: View {
       }
       .task { if case .loading = lab.screen { await lab.boot(swipe: swipe) } }
       .sheet(isPresented: swapShown) { SwapSheet(lab: lab) }
+  }
+
+  /// A reminder where the data is made: what Taste Lab keeps, with a link to Privacy.
+  private var privacyNote: some View {
+    HStack(alignment: .top, spacing: 8) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text(Copy.text("privacy.tastelab.note"))
+          .font(Theme.subtitle)
+          .foregroundStyle(Theme.ink)
+          .fixedSize(horizontal: false, vertical: true)
+        Button(Copy.text("privacy.tastelab.link")) { showPrivacy = true }
+          .font(Theme.chipLabel)
+          .foregroundStyle(Theme.accent)
+          .frame(minHeight: 44, alignment: .leading)
+      }
+      Spacer(minLength: 0)
+      Button { privacyNoteDismissed = true } label: {
+        Image(systemName: "xmark").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
+          .frame(width: 44, height: 44)
+      }
+      .accessibilityLabel("Dismiss note")
+    }
+    .padding(.leading, 14)
+    .padding(.top, 10)
+    .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 14))
+    .padding(.horizontal, 16)
+    .padding(.top, 8)
   }
 
   private var inLab: Bool {

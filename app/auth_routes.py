@@ -26,6 +26,7 @@ from app.auth import remove_member as do_remove_member
 from app.auth import signup as do_signup
 from app.deps import auth_required, guest_household, GUEST_COOKIE, DbDep, HhDep, UserDep
 from app.taste_lab import household_filters
+from app import privacy
 from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 
 log = logging.getLogger("dinnerdesk.auth")
@@ -60,6 +61,7 @@ ERROR_MESSAGES = {
     "verify_invalid": "This confirm link isn't valid or was already used. Send a new one from Settings.",
     "verify_expired": "This confirm link has expired. Send a new one from Settings.",
     "verify_limit": "Too many confirm emails this hour. Try again later.",
+    "privacy_not_agreed": "Tick the box to agree to the Privacy Policy before creating an account.",
 }
 
 
@@ -80,6 +82,9 @@ class SignupBody(BaseModel):
     email: str
     password: str
     household_name: str = "My household"
+    # The privacy checkbox. None means an older app that predates the checkbox: the account is
+    # made, and the agreement screen asks on the next open instead. False is refused.
+    agreed_privacy: bool | None = None
 
 
 class LoginBody(BaseModel):
@@ -119,6 +124,14 @@ class AcceptInviteBody(BaseModel):
     email: str
     password: str
     existing: bool = False
+    agreed_privacy: bool | None = None  # As in SignupBody; only asked when making a new account.
+
+
+def _record_signup_agreement(conn, token: str, agreed: bool | None) -> None:
+    if agreed:
+        user = session_info(conn, token)
+        privacy.record(conn, user["household_id"], user["user_id"])
+        conn.commit()
 
 
 def _set_session_cookie(response: Response, token: str, request: Request, conn) -> None:
@@ -147,6 +160,8 @@ def _auth_error(e: AuthError, status: int) -> HTTPException:
 
 @router.post("/auth/signup")
 def signup(body: SignupBody, request: Request, response: Response, conn=DbDep):
+    if body.agreed_privacy is False:
+        raise _auth_error(AuthError("privacy_not_agreed"), 400)
     try:
         guest_id = guest_household(conn, request.cookies.get(GUEST_COOKIE))
         token = do_signup(conn, body.email, body.password, body.household_name, guest_id)
@@ -161,6 +176,7 @@ def signup(body: SignupBody, request: Request, response: Response, conn=DbDep):
             response.delete_cookie(GUEST_COOKIE, path="/")
     except AuthError as e:
         raise _auth_error(e, 400)
+    _record_signup_agreement(conn, token, body.agreed_privacy)
     _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 
@@ -255,7 +271,23 @@ def status(request: Request, conn=DbDep, household_id: int = HhDep):
         "recovery_email": row["recovery_email"] if row else None,
         "email_verified": bool(row and row["email_verified_at"]),
         "admin": is_admin(row),
+        # The first-open privacy screen shows until this account (or guest kitchen) agrees to
+        # the current version (app/privacy.py).
+        "privacy_version": privacy.PRIVACY_VERSION,
+        "privacy_agreed": privacy.agreed(conn, household_id, row["user_id"] if row else None),
     }
+
+
+@router.post("/privacy/agree")
+def agree_to_privacy(request: Request, conn=DbDep, household_id: int = HhDep):
+    """The first-open screen's "I understand, continue": records the current version for this
+    account, or for this guest kitchen when nobody is signed in."""
+    row = session_info(conn, request.cookies.get(SESSION_COOKIE))
+    user_id = row["user_id"] if row else None
+    if not privacy.agreed(conn, household_id, user_id):
+        privacy.record(conn, household_id, user_id)
+        conn.commit()
+    return {"ok": True, "privacy_version": privacy.PRIVACY_VERSION}
 
 
 @router.get("/auth/me")
@@ -401,10 +433,14 @@ def preview_invite(token: str, conn=DbDep):
 
 @router.post("/household/accept-invite")
 def accept_invite(body: AcceptInviteBody, request: Request, response: Response, conn=DbDep):
+    if not body.existing and body.agreed_privacy is False:
+        raise _auth_error(AuthError("privacy_not_agreed"), 400)
     try:
         token = do_accept_invite(conn, body.token, body.email, body.password, body.existing)
     except AuthError as e:
         raise _auth_error(e, 400)
+    if not body.existing:
+        _record_signup_agreement(conn, token, body.agreed_privacy)
     _set_session_cookie(response, token, request, conn)
     return {"ok": True}
 

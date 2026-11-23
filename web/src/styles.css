@@ -2193,3 +2193,55 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .crash p { color: var(--muted); }
 .crash-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
 .crash-actions button { flex: 1 1 12rem; }
+
+/* Privacy summary (PrivacySummary.jsx): the short version above the full policy. */
+.privacy-summary { margin: 0.5rem 0 1.5rem; }
+.privacy-summary h2 {
+  margin: 1.4rem 0 0.4rem; font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.privacy-promise {
+  margin: 0; padding: 0.9rem 1rem; border-radius: 14px; background: var(--accent-dark);
+  color: var(--bg); font-weight: 600; line-height: 1.35;
+}
+.privacy-rows { list-style: none; margin: 0; padding: 0; }
+.privacy-rows li {
+  display: flex; flex-direction: column; gap: 0.15rem; padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.privacy-rows li:last-child { border-bottom: 0; }
+.privacy-rows strong { font-weight: 600; }
+.privacy-rows span { color: var(--muted); line-height: 1.35; }
+.privacy-never {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.privacy-never li {
+  padding: 0.65rem 0.75rem; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--line); font-weight: 600;
+}
+.privacy-note { margin: 0.75rem 0 0; padding: 0.75rem 0.9rem; border-radius: 12px; background: var(--soft); line-height: 1.4; }
+.privacy-summary.is-compact .privacy-rows li { padding: 0.5rem 0; }
+.privacy-details { border-top: 1px solid var(--line); padding-top: 1.25rem; }
+
+/* Signup: the privacy summary and the required checkbox (Auth.jsx). */
+.signup-privacy {
+  margin: 1.25rem 0 0.75rem; padding: 1rem; border: 1px solid var(--line);
+  border-radius: 16px; background: var(--surface);
+}
+.signup-privacy > h2 { margin: 0; font-size: 1.15rem; color: var(--accent-dark); }
+.signup-privacy .privacy-summary { margin: 0.5rem 0 0; }
+.agree-check { display: flex; gap: 0.75rem; align-items: flex-start; margin: 1rem 0 0.25rem; line-height: 1.45; cursor: pointer; }
+.agree-check input { flex: none; width: 1.4rem; height: 1.4rem; margin: 0.1rem 0 0; accent-color: var(--accent-dark); }
+
+/* First-open privacy agreement (PrivacyAgreement.jsx). */
+.privacy-agreement .text-link { display: block; margin: 0.5rem auto 0; }
+.privacy-fine { text-align: center; font-size: 0.85rem; margin: 0.6rem 0 0.25rem; }
+
+/* Taste Lab privacy reminder (pages/TasteLab.jsx). */
+.taste-privacy-note {
+  display: flex; align-items: flex-start; gap: 0.5rem; margin: 0.5rem 1rem;
+  padding: 0.6rem 0.4rem 0.6rem 0.9rem; border-radius: 14px; background: var(--soft);
+}
+.taste-privacy-note p { flex: 1; margin: 0; line-height: 1.4; }
+.taste-privacy-note .icon-btn { flex: none; min-width: 44px; min-height: 44px; }

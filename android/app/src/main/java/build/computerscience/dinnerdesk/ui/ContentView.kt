@@ -87,6 +87,7 @@ fun AuthGate(content: @Composable () -> Unit) {
                 }
             }
             session.needsSignIn -> AuthView()
+            session.needsPrivacyAgreement -> PrivacyAgreement()
             else -> {
                 Column(Modifier.fillMaxSize()) {
                     if (status.authenticated != true && !guestNoticeDismissed) {

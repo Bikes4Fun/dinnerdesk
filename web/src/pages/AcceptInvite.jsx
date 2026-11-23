@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
+import { Copy } from "../Copy.js";
+import { go } from "../nav.js";
 
 function friendlyError(e) {
   return (e && e.body && e.body.message) || (e && e.message) || "Something went wrong.";
@@ -14,6 +16,7 @@ export function AcceptInvite({ token, onAuthed }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [agreed, setAgreed] = useState(false);
 
   useEffect(() => {
     api.auth.status().then((s) => setSignedIn(s.authenticated)).catch(() => {});
@@ -29,7 +32,7 @@ export function AcceptInvite({ token, onAuthed }) {
         if (!confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) return;
         if (signedIn) await api.joinHousehold(token);
         else await api.acceptInvite({ token, email, password, existing: true });
-      } else await api.acceptInvite({ token, email, password });
+      } else await api.acceptInvite({ token, email, password, agreed_privacy: agreed });
       const me = await api.auth.me();
       onAuthed(me);
     } catch (e) {
@@ -87,7 +90,18 @@ export function AcceptInvite({ token, onAuthed }) {
                 />
                 <p className="help">At least 8 characters.</p>
                 </>}
-                <button type="submit" className="btn-primary block" disabled={busy}>
+                {!signedIn && !existing && (
+                  <>
+                    <label className="agree-check">
+                      <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+                      <span>{Copy.text("privacy.signup.checkbox")}</span>
+                    </label>
+                    <button type="button" className="text-link" onClick={() => go("/privacy")}>
+                      {Copy.text("privacy.agree.read")}
+                    </button>
+                  </>
+                )}
+                <button type="submit" className="btn-primary block" disabled={busy || (!signedIn && !existing && !agreed)}>
                   {busy ? "Joining…" : `Join ${preview.household_name}`}
                 </button>
               </form>

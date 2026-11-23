@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Copy } from "../Copy.js";
+import { PrivacySummary } from "../PrivacySummary.jsx";
 
 const CLEARABLE = [
   ["taste_lab", "Taste Lab history", "Your likes and passes in Taste Lab. Your filters stay in Settings."],
@@ -106,9 +108,21 @@ export function Privacy() {
         <h1>Privacy</h1>
       </header>
       <div className="scroll pad privacy">
-        <p>Dinnerdesk is a meal planner for a household. This is what we store, and what we do with it.</p>
+        <p>{Copy.text("privacy.intro")}</p>
+
+        <PrivacySummary />
 
         <YourData />
+
+        <h2 className="privacy-details">{Copy.text("privacy.details.title")}</h2>
+
+        <h2>Agreeing to this policy</h2>
+        <p>
+          The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue
+          by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you
+          agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy
+          changes in a way that matters, we show the summary again.
+        </p>
 
         <h2>Account</h2>
         <p>
@@ -142,7 +156,8 @@ export function Privacy() {
           can improve prep suggestions.
         </p>
         <p>
-          Someone you invite joins that same household and can see and change it. Invite links expire after 7
+          Someone you invite joins that same household and can see and change it, including its filters,
+          allergies, and meal likes and dislikes. Invite links expire after 7
           days. You can remove a member from Account &amp; security. Removing them ends their access.
         </p>
 
@@ -153,8 +168,10 @@ export function Privacy() {
 
         <h2>What we don’t collect</h2>
         <p>
-          We don’t sell your data. We don’t take payment, location, or health data. Nutrition-tracker sync is not
-          built. We don’t run ads or analytics.
+          We don’t sell or share your data. If that ever changes, we’ll tell you first. We don’t take payment or
+          location data, and we don’t look at your contacts or other apps. We don’t connect to health apps or
+          medical records; the only health-related information we keep is the allergies and diets you choose to
+          enter, used only to filter your meals. Nutrition-tracker sync is not built. We don’t run ads or analytics.
         </p>
         <p>
           Recipe photos in the app are ones we have marked as ours to use. We don’t collect photos, reviews, or comments

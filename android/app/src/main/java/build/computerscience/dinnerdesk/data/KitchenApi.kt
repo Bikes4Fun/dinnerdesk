@@ -10,9 +10,15 @@ object AuthApi {
         Api.send<Ok>("auth/login", "POST", mapOf("email" to email, "password" to password))
     }
 
-    suspend fun signup(email: String, password: String, householdName: String) {
-        Api.send<Ok>("auth/signup", "POST", mapOf("email" to email, "password" to password, "household_name" to householdName))
+    suspend fun signup(email: String, password: String, householdName: String, agreedPrivacy: Boolean) {
+        Api.send<Ok>(
+            "auth/signup", "POST",
+            mapOf("email" to email, "password" to password, "household_name" to householdName, "agreed_privacy" to agreedPrivacy),
+        )
     }
+
+    /** The first-open privacy screen's "I understand, continue" (this account, or this guest kitchen). */
+    suspend fun agreeToPrivacy() { Api.send<Ok>("privacy/agree", "POST") }
 
     /** Emails a reset link if the address has an account. Same answer either way. */
     suspend fun forgotPassword(email: String) {

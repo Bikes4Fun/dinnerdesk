@@ -32,6 +32,13 @@ class Session {
 
     val canContinueAsGuest = true
 
+    /**
+     * Show the first-open privacy screen: this account or guest kitchen hasn't agreed to the current
+     * privacy summary yet. An older server that doesn't say never blocks.
+     */
+    val needsPrivacyAgreement: Boolean
+        get() = !needsSignIn && status?.privacyAgreed == false
+
     /** Show the quick start tour. Set it from anywhere (More, Settings) to replay the tour. */
     var showTour by mutableStateOf(false)
     private var tourCheckedFor: String? = null
@@ -39,7 +46,7 @@ class Session {
     /** First run: the tour once if the household hasn't finished the current version, or this device is on a new build. */
     suspend fun checkTour() {
         val s = status ?: return
-        if (needsSignIn) return
+        if (needsSignIn || needsPrivacyAgreement) return
         val key = "${s.householdId ?: 0}"
         if (tourCheckedFor != key) {
             try {
