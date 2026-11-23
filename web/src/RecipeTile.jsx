@@ -224,10 +224,18 @@ export function RecipeTile({
   // Beside defaults to a swap-picker-sized thumb when photoSide is omitted.
   const side = photoSide ?? (metaPlacement === "beside" ? 70 : undefined);
 
-  function open() {
+  const href = canOpen && onOpen == null && recipeId != null ? `/recipes/${recipeId}` : null;
+
+  function open(e) {
     if (!canOpen) return;
-    if (onOpen) onOpen();
-    else if (recipeId != null) go(`/recipes/${recipeId}`);
+    if (onOpen) {
+      onOpen();
+      return;
+    }
+    if (recipeId != null) {
+      e?.preventDefault();
+      go(`/recipes/${recipeId}`);
+    }
   }
 
   function onContextMenu(e) {
@@ -306,7 +314,11 @@ export function RecipeTile({
   const photo = (
     <div className={`recipe-tile-photo${comingSoon ? " is-soon" : ""}`} style={photoStyle}>
       {canOpen ? (
-        <button type="button" className="recipe-tile-photo-hit" onClick={open} aria-label={name} />
+        href ? (
+          <a href={href} className="recipe-tile-photo-hit" onClick={open} aria-label={name} />
+        ) : (
+          <button type="button" className="recipe-tile-photo-hit" onClick={open} aria-label={name} />
+        )
       ) : null}
       <FoodPhoto path={photoPath} />
       {comingSoon && <RecipeTileComingSoonBadge />}
@@ -322,10 +334,17 @@ export function RecipeTile({
       {photo}
       <div className="recipe-tile-body">
         {canOpen ? (
-          <button type="button" className="recipe-tile-open" onClick={open}>
-            {nameEl}
-            {meta}
-          </button>
+          href ? (
+            <a href={href} className="recipe-tile-open" onClick={open}>
+              {nameEl}
+              {meta}
+            </a>
+          ) : (
+            <button type="button" className="recipe-tile-open" onClick={open}>
+              {nameEl}
+              {meta}
+            </button>
+          )
         ) : (
           <>
             {nameEl}
