@@ -1,18 +1,15 @@
 package build.computerscience.dinnerdesk.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,29 +17,18 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.material.icons.outlined.Bolt
-import androidx.compose.material.icons.outlined.Computer
-import androidx.compose.material.icons.outlined.Copyright
-import androidx.compose.material.icons.outlined.Gesture
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.RadioButtonUnchecked
-import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.outlined.Checklist
+import androidx.compose.material.icons.outlined.Eco
 import androidx.compose.material.icons.outlined.SwapHoriz
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,82 +40,82 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import build.computerscience.dinnerdesk.R
 import build.computerscience.dinnerdesk.data.Api
 import build.computerscience.dinnerdesk.data.Copy
 import build.computerscience.dinnerdesk.data.KitchenApi
+import build.computerscience.dinnerdesk.data.Plan
+import build.computerscience.dinnerdesk.data.PlanSlot
+import build.computerscience.dinnerdesk.data.SuggestionCapabilities
 import build.computerscience.dinnerdesk.data.Tour
+import build.computerscience.dinnerdesk.data.bool
+import build.computerscience.dinnerdesk.data.int
 import build.computerscience.dinnerdesk.data.obj
 import build.computerscience.dinnerdesk.data.string
 import build.computerscience.dinnerdesk.data.strings
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 
-private enum class TourStep { Welcome, Ai, Filters, How }
+private enum class TourStep { Welcome, Household, Avoid, Week, Ready }
 
-private class HowStep(val id: Int, val title: String, val icon: ImageVector, val text: String)
-
-// Text lives in copy.json (tour.how.N.title / tour.how.N), shared with the website and iOS tours.
-// Order chosen on #24: Suggestions, Review and approve, Grocery, Weekend prep, Recipes and tips, Taste Lab.
-private val howIcons = listOf(
-    Icons.Outlined.AutoAwesome, Icons.Outlined.SwapHoriz, Icons.Outlined.ShoppingCart,
-    Icons.AutoMirrored.Outlined.Assignment, Icons.AutoMirrored.Outlined.MenuBook, Icons.Outlined.Gesture,
-)
-private val aiIcons = listOf(Icons.Outlined.Image, Icons.Outlined.Copyright, Icons.Outlined.Computer, Icons.Outlined.PhotoCamera)
-
-private fun steps(prefix: String, icons: List<ImageVector>) = icons.mapIndexedNotNull { i, icon ->
-    val key = "$prefix.${i + 1}"
-    if (Copy.has(key) && Copy.has("$key.title")) HowStep(i, Copy.text("$key.title"), icon, Copy.text(key)) else null
-}
-
-/** Real screenshots for how-to cards, by card index. */
-private val shots = mapOf(0 to R.drawable.tour_suggestions, 2 to R.drawable.tour_stores)
-/** Drawn pictures (TourScreenPicture: 0 suggestions, 3 weekend prep). */
-private val drawings = mapOf(1 to 0, 3 to 3)
-/** The recipes and tips card shows a real tip instead of a picture. */
-private const val TIPS_CARD = 4
+/** Settings shows the first six "I avoid" foods as chips; the tour shows the same six. */
+private val commonAvoids = FilterOptions.avoids.take(6)
+private const val MAX_DINNERS = 7
+private val small = Theme.chipLabel.copy(fontWeight = FontWeight.Normal)
 
 /**
- * First-run tour (mirrors web/src/Tour.jsx and TourView.swift). Welcome → Quick start (how we use AI,
- * filters, then the how-to cards in the order chosen on #24) or Taste Lab, or Skip. Full screen over the app.
+ * Quick start (mirrors web/src/Tour.jsx and TourView.swift): five full screens, one job each, each
+ * fitting one phone screen without scrolling at default text size (down to 360×780).
+ * Welcome → Who's eating → Anything to avoid → Here's your week → Your week is ready.
+ * Replayed from Settings, it skips Welcome.
  */
 @Composable
 fun TourView() {
     val session = LocalSession.current
+    val store = LocalStore.current
     val scope = rememberCoroutineScope()
     val openUrl = rememberOpenUrl()
-    val how = remember { steps("tour.how", howIcons) }
-    val ai = remember { steps("tour.ai", aiIcons) }
-    var step by remember { mutableStateOf(TourStep.Welcome) }
-    var diets by remember { mutableStateOf(setOf("omnivore")) }
-    var avoids by remember { mutableStateOf(setOf<String>()) }
-    var time by remember { mutableStateOf("any") }
-    var showTasteLab by remember { mutableStateOf(false) }
-    var saving by remember { mutableStateOf(false) }
-    var isUpdate by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val pager = rememberPagerState { how.size }
-    val reduceMotion = isReduceMotion
-    // Reduce Motion: jump between tour pages instead of sliding.
-    suspend fun goToPage(page: Int) { if (reduceMotion) pager.scrollToPage(page) else pager.animateScrollToPage(page) }
     val o = FilterOptions
+    var step by remember { mutableStateOf(TourStep.Welcome) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isUpdate by remember { mutableStateOf(false) }
+    var showTasteLab by remember { mutableStateOf(false) }
+    // The household's saved filters, so saving keeps the ones the tour doesn't show.
+    var savedFilters by remember { mutableStateOf<Map<String, JsonElement>>(emptyMap()) }
+    var people by remember { mutableStateOf(2) }
+    var time by remember { mutableStateOf("any") }
+    var diets by remember { mutableStateOf(setOf("omnivore")) }
+    var allergens by remember { mutableStateOf(setOf<String>()) }
+    var avoids by remember { mutableStateOf(setOf<String>()) }
+    var dinners by remember { mutableStateOf(3) }
+    var proposal by remember { mutableStateOf<Plan?>(null) }
+    var plan by remember { mutableStateOf<Plan?>(null) }
+    var toBuy by remember { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(Unit) {
         try {
             val prefs = KitchenApi.prefs()
             val seen = Tour.seen(prefs)
             isUpdate = (seen > 0 && seen < Tour.VERSION) || Tour.isNewBuild
+            // Replayed from Settings: skip Welcome.
+            if (seen > 0 && !isUpdate) step = TourStep.Household
+            prefs.int("family_portions")?.takeIf { it >= 1 }?.let { people = minOf(12, it) }
             val saved = prefs.obj("filters") ?: return@LaunchedEffect
+            savedFilters = saved
             saved.strings("diets")?.takeIf { it.isNotEmpty() }?.let { diets = o.cleaned(it) }
+            saved.strings("allergens")?.let { allergens = it.toSet() }
             saved.strings("avoids")?.let { avoids = it.toSet() }
             saved.string("time")?.let { time = it }
         } catch (e: Throwable) {
@@ -137,292 +123,306 @@ fun TourView() {
         }
     }
 
-    suspend fun markDone(filters: Map<String, Any?>?): Boolean {
+    fun run(work: suspend () -> Unit) {
+        busy = true
+        error = null
+        scope.launch {
+            try { work() } catch (e: Throwable) { if (!Api.isCancellation(e)) error = Api.message(e) }
+            busy = false
+        }
+    }
+
+    suspend fun markDone() {
         Tour.noteBuild()
-        val patch = mutableMapOf<String, Any?>("tour_done" to true, "tour_version" to Tour.VERSION)
-        if (filters != null) patch["filters"] = filters
-        return try {
-            KitchenApi.savePrefs(patch)
-            error = null
-            true
-        } catch (e: Throwable) {
-            error = Api.message(e)
-            false
+        KitchenApi.savePrefs(mapOf("tour_done" to true, "tour_version" to Tour.VERSION))
+    }
+
+    /** Ends the tour. A suggested plan that wasn't approved stays on Plan for review. */
+    fun finish() = run {
+        markDone()
+        session.showTour = false
+        store.loadAll()
+    }
+
+    fun saveHousehold() = run {
+        val filters = savedFilters + mapOf("time" to Api.toJson(time))
+        KitchenApi.savePrefs(mapOf("family_portions" to people, "filters" to filters))
+        savedFilters = filters
+        step = TourStep.Avoid
+    }
+
+    // Saves the filters, then asks for a suggested plan that respects them.
+    fun saveFilters() = run {
+        val filters = savedFilters + mapOf(
+            "diets" to Api.toJson(o.diets.filter { it in diets }),
+            "allergens" to Api.toJson(allergens.toList()),
+            "avoids" to Api.toJson(avoids.toList()),
+            "time" to Api.toJson(time),
+        )
+        KitchenApi.savePrefs(mapOf("filters" to filters))
+        savedFilters = filters
+        val caps: SuggestionCapabilities = Api.get("suggestions/capabilities")
+        if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) {
+            throw IllegalStateException("Meal planning needs the updated server. Please try again after the server update.")
+        }
+        val created: Plan = Api.send("plans", "POST", mapOf("title" to "This week", "meal_count" to dinners, "keep_current" to false))
+        proposal = created
+        dinners = created.slots.size
+        step = TourStep.Week
+    }
+
+    fun resize(n: Int) {
+        val p = proposal ?: return
+        run { dinners = n; proposal = Api.send<Plan>("plans/${p.id}/resize", "POST", mapOf("meal_count" to n)) }
+    }
+
+    // Swap brings in the next-best match; the server records it as a pass for Taste Lab.
+    fun swap(slot: PlanSlot) {
+        val p = proposal ?: return
+        run { proposal = Api.send<Plan>("plans/${p.id}/swap/${slot.id}", "POST", emptyMap()) }
+    }
+
+    fun approve() {
+        val p = proposal ?: return
+        run {
+            val approved: Plan = if (p.status == "suggested") Api.send("plans/${p.id}/decision/approve", "POST", emptyMap()) else p
+            plan = approved
+            step = TourStep.Ready
+            toBuy = try {
+                val lines = Api.jsonObject("plans/${approved.id}/grocery")["lines"] as? kotlinx.serialization.json.JsonArray
+                lines?.count { (it as? JsonObject)?.let { l -> l.bool("checked") != true && l.bool("never_shop") != true } == true }
+            } catch (e: Throwable) { null }
         }
     }
 
-    fun finish() {
-        saving = true
-        scope.launch {
-            markDone(null)
-            saving = false
-            session.showTour = false
-        }
-    }
-
-    // Filters come before the how-to cards (#24), so they're saved on Next: skipping later keeps them.
-    // A failed save keeps the Filters step open so nothing is lost.
-    fun saveFilters() {
-        saving = true
-        scope.launch {
-            val body = mapOf(
-                "diets" to o.diets.filter { it in diets },
-                // Keep Other words saved in Settings or Taste Lab; allergies aren't sent, so the server keeps them.
-                "avoids" to o.avoids.filter { it in avoids } + avoids.filter { it !in o.avoids }.sorted(),
-                "time" to time,
-            )
-            val ok = try {
-                KitchenApi.savePrefs(mapOf("filters" to body))
-                error = null
-                true
-            } catch (e: Throwable) {
-                error = Api.message(e)
-                false
-            }
-            saving = false
-            if (ok) step = TourStep.How
-        }
-    }
-
-    fun goBack() {
-        when (step) {
-            TourStep.Welcome -> Unit
-            TourStep.Ai -> step = TourStep.Welcome
-            TourStep.Filters -> step = TourStep.Ai
-            TourStep.How -> if (pager.currentPage > 0) scope.launch { goToPage(pager.currentPage - 1) } else step = TourStep.Filters
-        }
-    }
-
+    val back = when (step) { TourStep.Avoid -> TourStep.Household; TourStep.Week -> TourStep.Avoid; else -> null }
     BackHandler {
-        if (showTasteLab) showTasteLab = false else goBack()
+        when {
+            showTasteLab -> showTasteLab = false
+            back != null && !busy -> { error = null; step = back }
+        }
     }
 
-    Box(Modifier.fillMaxSize().background(Theme.bg).navigationBarsPadding()) {
+    Box(Modifier.fillMaxSize().background(Theme.bg).statusBarsPadding().navigationBarsPadding()) {
         if (showTasteLab) {
             val tasteNav = remember { Nav(Route.TasteLab()) }
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth()) {
-                    LinkButton("Done", Modifier.align(Alignment.CenterEnd)) { session.showTour = false }
+                    LinkButton("Done", Modifier.align(Alignment.CenterEnd)) { session.showTour = false; scope.launch { store.loadAll() } }
                 }
                 NavStack(tasteNav, Modifier.weight(1f)) { RouteContent(it) }
             }
             return@Box
         }
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().padding(horizontal = 20.dp).padding(bottom = 12.dp)) {
             if (step != TourStep.Welcome) {
-                Box(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 6.dp)) {
-                    LinkButton("Back", Modifier.align(Alignment.CenterStart), style = Theme.body) { goBack() }
-                    LinkButton("Skip", Modifier.align(Alignment.CenterEnd), color = Theme.muted, style = Theme.body) { finish() }
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).then(if (back != null) Modifier.clickable(role = Role.Button) { error = null; step = back }.semantics { contentDescription = "Back" } else Modifier), contentAlignment = Alignment.Center) {
+                        if (back != null) Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, null, tint = Theme.ink)
+                    }
+                    Row(Modifier.weight(1f).semantics { contentDescription = "Step ${step.ordinal + 1} of ${TourStep.entries.size}" }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        for (s in TourStep.entries) Box(Modifier.weight(1f).height(4.dp).clip(CircleShape).background(if (s.ordinal <= step.ordinal) Theme.ink else Theme.line))
+                    }
+                    if (step != TourStep.Ready) LinkButton("Skip", enabled = !busy, style = Theme.chipLabel) { finish() } else Spacer(Modifier.size(44.dp))
                 }
             }
-            error?.let { Box(Modifier.padding(horizontal = 16.dp)) { ErrorBanner(it) } }
             when (step) {
-                TourStep.Welcome -> Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(if (isUpdate) Copy.text("tour.update.title") else "Welcome to ${Copy.appName}", style = Theme.bigTitle, color = Theme.ink)
-                        Text(if (isUpdate) Copy.text("tour.update") else Copy.text("app.tagline"), style = Theme.body, color = Theme.muted)
-                    }
-                    ChoiceCard("Quick start", "Tell us what you eat, then a 1-minute how-to.", Icons.Outlined.Bolt) { step = TourStep.Ai }
-                    ChoiceCard("Taste Lab", "Swipe through dishes so ${Copy.appName} learns what you like.", Icons.Outlined.Gesture) {
-                        scope.launch { markDone(null); showTasteLab = true }
-                    }
-                    LinkButton("Skip for now", Modifier.fillMaxWidth().padding(top = 8.dp), color = Theme.muted, style = Theme.body) { finish() }
-                }
-                TourStep.Filters -> TourPage({ AccentButton(if (saving) "Saving…" else "Next", enabled = !saving) { saveFilters() } }) {
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(Copy.text("tour.filters.title"), style = Theme.tourTitle, color = Theme.ink)
-                        Text(Copy.text("tour.filters"), style = Theme.subtitle, color = Theme.muted)
-                    }
-                    ChipGroup("Diet") {
-                        for (item in o.diets) FilterChip(item.replaceFirstChar { it.uppercase() }, item in diets) { diets = o.toggled(diets, item) }
-                    }
-                    ChipGroup("Avoid") {
-                        FilterChip("None", avoids.isEmpty()) { avoids = emptySet() }
-                        for (item in o.avoids) FilterChip(item.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }, item in avoids) {
-                            avoids = if (item in avoids) avoids - item else avoids + item
+                TourStep.Welcome -> {
+                    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text("Free. No ads, ever.", style = Theme.chipLabel, color = Theme.ink,
+                            modifier = Modifier.clip(CircleShape).background(Theme.aubergineTint).padding(horizontal = 14.dp, vertical = 6.dp))
+                        Spacer(Modifier.height(16.dp))
+                        Text("Custom meal plans in 5 minutes.", style = Theme.bigTitle, color = Theme.ink, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(28.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Benefit(Icons.Outlined.Checklist, "Grocery list built for you")
+                            Benefit(Icons.Outlined.Timer, "Prep-ahead steps for busy nights")
+                            Benefit(Icons.Outlined.Eco, "Less waste, using your pantry")
+                        }
+                        if (isUpdate) {
+                            Spacer(Modifier.height(20.dp))
+                            Text(Copy.text("tour.update"), style = Theme.subtitle, color = Theme.muted)
                         }
                     }
-                    ChipGroup("Cook time") {
-                        for ((id, label) in o.times) FilterChip(label, time == id) { time = id }
-                    }
+                    Primary("Get started", error, busy) { step = TourStep.Household }
+                    LinkButton("Skip, I’ll look around", Modifier.fillMaxWidth(), enabled = !busy, style = Theme.chipLabel) { finish() }
+                    LinkButton(Copy.text("tour.ai.more"), Modifier.fillMaxWidth(), style = Theme.chipLabel) { openUrl(Api.url("support") + "#ai") }
                 }
-                TourStep.Ai -> TourPage({ AccentButton("Next") { step = TourStep.Filters } }) {
-                    Text(Copy.text("tour.ai.title"), style = Theme.tourTitle, color = Theme.ink)
-                    for (item in ai) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                            Icon(item.icon, null, tint = Theme.accent, modifier = Modifier.width(28.dp).size(24.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(item.title, style = Theme.mealName, color = Theme.ink)
-                                Text(item.text, style = Theme.body, color = Theme.ink)
+                TourStep.Household -> {
+                    Page {
+                        Heading("Who’s eating dinner?", "We’ll size recipes and the grocery list to match.")
+                        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Theme.surface).border(1.dp, Theme.line, RoundedCornerShape(18.dp)).padding(vertical = 22.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Stepper(people, 1, 12, "people", big = true, busy = busy) { people = it }
+                            Text("people, most nights", style = Theme.body, color = Theme.ink)
+                        }
+                        Text("Weeknight cook time", style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.padding(top = 22.dp, bottom = 8.dp))
+                        Row(Modifier.fillMaxWidth().clip(CircleShape).background(Theme.surface).border(1.dp, Theme.line, CircleShape).padding(3.dp)) {
+                            for ((id, label) in o.times) {
+                                val on = time == id
+                                Box(Modifier.weight(1f).heightIn(min = 40.dp).clip(CircleShape).background(if (on) Theme.ink else Color.Transparent)
+                                    .clickable(role = Role.RadioButton) { time = id }.semantics { selected = on }, contentAlignment = Alignment.Center) {
+                                    Text(label.replace(" or less", "").replace("Any time", "Any"), style = small, color = if (on) Color.White else Theme.ink)
+                                }
+                            }
+                        }
+                        Text("Feeding a crowd one night? Change servings on any single meal later.", style = small, color = Theme.ink,
+                            modifier = Modifier.padding(top = 18.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Theme.aubergineTint).padding(14.dp))
+                    }
+                    Primary(if (busy) "Saving…" else "Next", error, busy) { saveHousehold() }
+                }
+                TourStep.Avoid -> {
+                    Page {
+                        Heading("Anything to avoid?", null)
+                        Group("Diet", "Only show recipes that fit.")
+                        Flow(6.dp) { for (d in o.diets) TourChip(o.dietLabels[d] ?: d, d in diets) { diets = o.toggled(diets, d) } }
+                        Group("Allergies", "Never shown. We check every ingredient.")
+                        Flow(6.dp) { for ((id, label) in o.allergens) TourChip(label, id in allergens) { allergens = if (id in allergens) allergens - id else allergens + id } }
+                        Group("I avoid", "Left out of picks. More in Settings → Filters.")
+                        Flow(6.dp) { for (id in commonAvoids) TourChip(id.replaceFirstChar { it.uppercase() }, id in avoids) { avoids = if (id in avoids) avoids - id else avoids + id } }
+                    }
+                    Primary(if (busy) "Planning your week…" else "Next", error, busy) { saveFilters() }
+                }
+                TourStep.Week -> {
+                    Page {
+                        Heading("Here’s your week", "Picked for you. Swap anything that doesn’t sound good.")
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Theme.surface).border(1.dp, Theme.line, RoundedCornerShape(18.dp)).padding(start = 16.dp, top = 6.dp, end = 6.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text("Dinners this week", style = Theme.action, color = Theme.ink, modifier = Modifier.weight(1f))
+                            Stepper(dinners, 1, MAX_DINNERS, "dinners", big = false, busy = busy) { resize(it) }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            for (slot in proposal?.slots.orEmpty()) {
+                                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Theme.surface).border(1.dp, Theme.line, RoundedCornerShape(16.dp)).padding(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    RecipePhoto(slot.photoPath)
+                                    Column(Modifier.weight(1f)) {
+                                        Text(slot.recipeName, style = Theme.chipLabel, color = Theme.ink, maxLines = 3)
+                                        slot.cookingMinutes?.let { Text("$it min", style = Theme.subtitle, color = Theme.muted) }
+                                    }
+                                    if (proposal?.suggestedRecipeIds?.contains(slot.recipeId) == true) {
+                                        Row(Modifier.heightIn(min = 44.dp).clip(CircleShape).background(Theme.bg).border(1.dp, Theme.line, CircleShape)
+                                            .clickable(enabled = !busy, role = Role.Button) { swap(slot) }.semantics { contentDescription = "Swap ${slot.recipeName}" }
+                                            .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Icon(Icons.Outlined.SwapHoriz, null, tint = Theme.accent, modifier = Modifier.size(16.dp))
+                                            Text("Swap", style = Theme.chipLabel, color = Theme.accent)
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                    // The full explanation lives on the website's Help & support page.
-                    Row(
-                        Modifier.heightIn(min = 44.dp).clickable { openUrl(Api.url("support") + "#ai") },
-                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Icon(Icons.AutoMirrored.Outlined.OpenInNew, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
-                        Text(Copy.text("tour.ai.more"), style = Theme.action, color = Theme.accent)
-                    }
+                    Primary("Looks good", error, busy || proposal?.slots.isNullOrEmpty()) { approve() }
                 }
-                TourStep.How -> Column(Modifier.fillMaxSize()) {
-                    HorizontalPager(pager, Modifier.weight(1f)) { page -> HowCard(how[page]) }
-                    Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-                        for (i in how.indices) {
-                            Box(Modifier.size(width = if (i == pager.currentPage) 18.dp else 6.dp, height = 6.dp).background(if (i == pager.currentPage) Theme.accent else Theme.line, CircleShape))
+                TourStep.Ready -> {
+                    val count = (plan ?: proposal)?.slots?.size ?: 0
+                    val sub = "$count dinner${if (count == 1) "" else "s"} for $people" + (toBuy?.let { " · $it thing${if (it == 1) "" else "s"} to buy" } ?: "")
+                    Page {
+                        Heading("Your week is ready", sub)
+                        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                            Tip(1, "Plan", "Give meals a day when you know it. No rush, they stay on your list.")
+                            Tip(2, "Grocery", "Your list builds itself. Check things off in the store.")
+                            Tip(3, "Prep ahead", "Got time on the weekend? See what you can chop and cook early.")
+                        }
+                        Column(Modifier.padding(top = 24.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Theme.aubergineTint).padding(horizontal = 14.dp, vertical = 4.dp)) {
+                            Text("Want better picks next week?", style = small, color = Theme.ink, modifier = Modifier.padding(top = 8.dp))
+                            LinkButton("Try Taste Lab (about 2 min)", enabled = !busy, style = Theme.chipLabel) {
+                                run { markDone(); showTasteLab = true }
+                            }
                         }
                     }
-                    Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        if (pager.currentPage < how.size - 1) AccentButton("Next") { scope.launch { goToPage(pager.currentPage + 1) } }
-                        else {
-                            // Last card (Taste Lab): start planning, or try Taste Lab now.
-                            AccentButton(if (saving) "Saving…" else "Start planning", enabled = !saving) { finish() }
-                            LinkButton("Try Taste Lab", Modifier.padding(top = 4.dp)) { scope.launch { markDone(null); showTasteLab = true } }
-                        }
-                    }
+                    Primary("Done", error, busy) { finish() }
                 }
             }
         }
     }
 }
 
+/** Fills the space above the button; scrolls only if large text needs the room. */
 @Composable
-private fun TourPage(button: @Composable () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxSize()) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp), content = content)
-        Box(Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) { button() }
+private fun ColumnScope.Page(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()), content = content)
+}
+
+@Composable
+private fun Heading(title: String, sub: String?) {
+    Column(Modifier.padding(top = 8.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title, style = Theme.tourTitle, color = Theme.ink)
+        sub?.let { Text(it, style = small, color = Theme.muted) }
     }
 }
 
 @Composable
-private fun ChipGroup(title: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        ThemeHeader(title)
-        Flow(8.dp) { content() }
+private fun Group(title: String, note: String) {
+    Column(Modifier.padding(top = 12.dp, bottom = 8.dp)) {
+        Text(title, style = Theme.chipLabel, color = Theme.ink)
+        Text(note, style = Theme.subtitle, color = Theme.muted)
     }
 }
 
+/** A filter chip short enough that the Quick start filters fit one screen. */
 @Composable
-private fun HowCard(item: HowStep) {
-    val large = isAccessibilitySize
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp)
-            .shadow(10.dp, RoundedCornerShape(18.dp), spotColor = Theme.ink.copy(alpha = 0.06f), ambientColor = Theme.ink.copy(alpha = 0.06f))
-            .background(Theme.surface, RoundedCornerShape(18.dp)).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+private fun TourChip(label: String, on: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.heightIn(min = 34.dp).clip(CircleShape).background(if (on) Theme.ink else Theme.surface)
+            .border(1.dp, if (on) Theme.ink else Theme.line, CircleShape)
+            .clickable(role = Role.Checkbox, onClick = onClick).semantics { selected = on }
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(item.icon, null, tint = Theme.accent, modifier = Modifier.size(26.dp))
-            Text(item.title, style = Theme.tourTitle, color = Theme.ink)
-        }
-        // Smaller than body text so the picture of the screen gets the room.
-        Text(item.text, style = Theme.body.copy(fontSize = 14.sp, lineHeight = 19.sp), color = Theme.ink)
-        if (!large) {
-            val shot = shots[item.id]
-            val drawing = drawings[item.id]
-            when {
-                shot != null -> {
-                    if (item.id == 0) NewPlanHint()
-                    Image(
-                        painterResource(shot), null, contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(14.dp)),
-                    )
-                }
-                drawing != null -> Box(Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 280.dp).padding(top = 4.dp)) { TourScreenPicture(drawing) }
-                item.id == TIPS_CARD -> StarTip("recipes.ai-photo", Modifier.padding(top = 4.dp))
-            }
-        }
-        Spacer(Modifier.weight(0.001f))
-    }
-}
-
-/** Where suggestions come from: Plan's New meal plan button, drawn like the real one and ringed. */
-@Composable
-private fun NewPlanHint() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("On Plan, tap", style = Theme.body.copy(fontSize = 14.sp), color = Theme.ink)
-        Box(Modifier.border(3.dp, Theme.accent.copy(alpha = 0.45f), CircleShape).padding(4.dp)) {
-            Row(
-                Modifier.heightIn(min = 34.dp).background(Theme.accent, CircleShape).padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Icon(Icons.Outlined.AutoAwesome, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text(CREATE_MEAL_PLAN, style = Theme.chipLabel, color = Color.White)
-            }
-        }
+        Text(label, style = small.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp), color = if (on) Color.White else Theme.ink)
     }
 }
 
 @Composable
-private fun ChoiceCard(title: String, detail: String, icon: ImageVector, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().shadow(10.dp, RoundedCornerShape(16.dp), spotColor = Theme.ink.copy(alpha = 0.06f), ambientColor = Theme.ink.copy(alpha = 0.06f))
-            .background(Theme.surface, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(18.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+private fun Stepper(value: Int, min: Int, max: Int, label: String, big: Boolean, busy: Boolean, onChange: (Int) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(if (big) 18.dp else 10.dp)) {
+        RoundButton("−", "Fewer $label", if (big) 48 else 44, !busy && value > min) { onChange(value - 1) }
+        Text("$value", style = Theme.action.copy(fontSize = if (big) 40.sp else 22.sp, fontWeight = FontWeight.Bold), color = Theme.ink,
+            textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = if (big) 36.dp else 26.dp))
+        RoundButton("+", "More $label", if (big) 48 else 44, !busy && value < max) { onChange(value + 1) }
+    }
+}
+
+@Composable
+private fun RoundButton(text: String, label: String, size: Int, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(size.dp).clip(CircleShape).background(Theme.bg).border(1.dp, Theme.line, CircleShape)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick).semantics { contentDescription = label },
+        contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, null, tint = Theme.accent, modifier = Modifier.width(28.dp).size(24.dp))
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, style = Theme.mealName, color = Theme.ink)
-            Text(detail, style = Theme.subtitle, color = Theme.muted)
-        }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Theme.muted, modifier = Modifier.align(Alignment.CenterVertically))
+        Text(text, style = Theme.action.copy(fontSize = 22.sp), color = if (enabled) Theme.ink else Theme.ink.copy(alpha = 0.4f))
     }
 }
 
-/**
- * A small drawn picture of the screen a quick-start card describes (#25). Drawn, not a screenshot,
- * so it never goes stale. Decorative. Mirrors TourScreenPicture.swift and web/src/TourPicture.jsx.
- */
 @Composable
-private fun TourScreenPicture(index: Int) {
-    val warm = Color(0xFFF3EBE8)
-    Column(
-        Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(Theme.bg).border(1.dp, Theme.line, RoundedCornerShape(14.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp),
-    ) {
-        when (index) {
-            2 -> {
-                PicLabel("PRODUCE")
-                PicCheckRow(false, 0.5f, Theme.accent); PicCheckRow(false, 0.35f, Theme.accent); PicCheckRow(true, 0.45f, Theme.accent)
-                PicLabel("PANTRY")
-                PicCheckRow(true, 0.4f, Theme.accent)
-            }
-            3 -> {
-                PicLabel("CHOP & SLICE")
-                PicCheckRow(true, 0.4f, Theme.coral, pill = false); PicCheckRow(false, 0.55f, Theme.coral, pill = false); PicCheckRow(false, 0.35f, Theme.coral, pill = false)
-                PicLabel("SAUCES")
-                PicCheckRow(false, 0.6f, Theme.coral, pill = false)
-            }
-            else -> {
-                PicLabel("THIS WEEK")
-                for ((tint, w) in listOf(Theme.coralTint to 0.75f, Theme.aubergineTint to 0.55f, warm to 0.65f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(40.dp).background(tint, RoundedCornerShape(7.dp)))
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) { PicLine(w, Theme.ink.copy(alpha = 0.35f)); PicLine(0.3f) }
-                    }
-                }
-            }
+private fun Benefit(icon: ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(Modifier.size(40.dp).clip(CircleShape).background(Theme.aubergineTint), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Theme.ink, modifier = Modifier.size(20.dp))
+        }
+        Text(text, style = Theme.body, color = Theme.ink)
+    }
+}
+
+@Composable
+private fun Tip(n: Int, title: String, text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(26.dp).clip(CircleShape).background(Theme.coral), contentAlignment = Alignment.Center) {
+            Text("$n", style = Theme.subtitle.copy(fontWeight = FontWeight.Bold), color = Theme.ink)
+        }
+        Column {
+            Text(title, style = Theme.chipLabel, color = Theme.ink)
+            Text(text, style = small, color = Theme.ink)
         }
     }
 }
 
 @Composable
-private fun PicLabel(text: String) = Text(text, style = Theme.count.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.6.sp), color = Theme.muted)
-
-@Composable
-private fun PicLine(fraction: Float, color: Color = Theme.line) {
-    BoxWithConstraints(Modifier.fillMaxWidth().height(7.dp)) {
-        Box(Modifier.width(maxWidth * fraction).fillMaxHeight().background(color, CircleShape))
+private fun Primary(text: String, error: String?, disabled: Boolean, onClick: () -> Unit) {
+    Column(Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        error?.let { Text(it, style = Theme.subtitle, color = Theme.errorText) }
+        AccentButton(text, Modifier.fillMaxWidth(), enabled = !disabled, onClick = onClick)
     }
 }
-
-@Composable
-private fun PicCheckRow(checked: Boolean, fraction: Float, color: Color, pill: Boolean = true) {
-    Row(Modifier.fillMaxWidth().alpha(if (checked) 0.6f else 1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Icon(if (checked) Icons.Filled.CheckCircle else Icons.Outlined.RadioButtonUnchecked, null, tint = if (checked) color else Theme.muted, modifier = Modifier.size(16.dp))
-        Box(Modifier.weight(1f)) { PicLine(fraction, if (checked) Theme.line else Theme.ink.copy(alpha = 0.35f)) }
-        if (pill) Box(Modifier.size(width = 26.dp, height = 7.dp).background(Theme.line, CircleShape))
-    }
-}
-
