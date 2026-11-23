@@ -323,9 +323,9 @@ step, and that step's amounts. Kitchen-owned recipes save to their own row.
 ### 6. Grocery list
 
 Built from this plan's meals: one line per item, amounts combined, checked off in the store.
-Chips under the title filter by store (All, then each household store). Sections follow the
-aisle. Each line names the meals that use it. Share is in the header; **+** adds a custom
-line. The Grocery tab badge counts items still to buy.
+Chips under the title filter by store (All, No assigned store, then each household store).
+Sections follow the aisle. Each line names the meals that use it. Share is in the header; **+**
+adds a custom line. The Grocery tab badge counts items still to buy.
 
 ![Grocery list filtered to one store](images/grocery.png)
 
