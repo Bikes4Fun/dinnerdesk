@@ -114,7 +114,7 @@ fun SettingsView() {
         ThemeList {
             LargeTitle("Settings")
             ListRow({ openUrl(Api.url("support")) }, chevron = false) { ThemeIconRow("Help & support", Icons.AutoMirrored.Outlined.HelpOutline) }
-            ListRow({ session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
+            ListRow({ session.tourReplay = true; session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
             ListRow({ openUrl("https://dinnerdesk.computerscience.build") }, chevron = false) { ThemeIconRow("${Copy.appName} on the web", Icons.Outlined.Explore) }
             ListRow({ openUrl("https://x.com/DinnerDesk") }, chevron = false) { ThemeIconRow("Twitter", Icons.Outlined.Forum, "@DinnerDesk") }
             ListHeader("About recipes & photos")
@@ -257,10 +257,20 @@ fun FiltersView() {
                         save()
                     }
                 }
-                ChipSection("I avoid") {
+            }
+            // Shows fewer
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Theme.surface).border(1.dp, Theme.line, RoundedCornerShape(20.dp)).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(22.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Shows fewer", style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.background(Theme.aubergineTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
+                    Text("Suggested less often. You can still add them yourself.", style = Theme.subtitle, color = Theme.muted)
+                }
+                ChipSection("Dislikes") {
                     for (name in avoids.sorted() + otherAvoids) ChoiceChip("$name ✕", true) { avoids = avoids - name; otherAvoids = otherAvoids - name; save() }
                 }
-                OtherField("Foods to avoid", "Add an ingredient…", dashed = true, presets = o.avoids, taken = avoids, selected = otherAvoids, onSelected = { otherAvoids = it }) {
+                OtherField("Other dislikes", "Add an ingredient…", dashed = true, presets = o.avoids, taken = avoids, selected = otherAvoids, onSelected = { otherAvoids = it }) {
                     avoids = avoids + otherAvoids.filter { it in o.avoids }
                     otherAvoids = otherAvoids.filter { it !in o.avoids }
                     save()
