@@ -15,6 +15,8 @@ or API method existing does not prove that all of its controls work or have matc
 | Plan, groceries, recipes, prep, ranking | `app/routes.py`, `app/domain/`, `app/db/` | Web `api.js`/`week.jsx`; iOS `Store.swift`; Android `data/Store.kt` |
 | Filter choices and diet-specific protein choices | `shared/filter-options.json` | Generated native filter models and web definitions |
 | User-facing shared wording | `ios/dinnerdesk/copy.json` | Native Copy adapters and web `Copy` class; tour descriptions read the same keys |
+| Privacy policy (full text) | `ios/dinnerdesk/copy.json` (`privacy.policy.*`) | All three Privacy screens read it; `docs/PRIVACY.md` is written from it by `scripts/write_privacy_md.py`; `tests/test_privacy_policy.py` checks |
+| Brand name and colors | `shared/brand.json` | Each app keeps its own copy (CSS, Swift, Kotlin); `tests/test_brand_consistency.py` fails on drift |
 | HTTP errors, session state, cache | API contract; semantics must agree | Each platform's API/cache/session services |
 | Photos, thumbs, ingredient quantities, step formatting | Recipe API and domain rules | Reusable photo, thumbs, quantity and step components per platform |
 | Administration | Server admin authorization | Web admin pages only |
