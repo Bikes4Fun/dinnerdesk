@@ -37,20 +37,23 @@ def _food_roots() -> list[Path]:
 
 
 def _food_file(name: str) -> Path | None:
-    if not name or name.startswith("."):
+    """Resolve a food photo under the gallery roots. Basename only; no path traversal."""
+    if not name or name.startswith(".") or "/" in name or "\\" in name:
         return None
-    name = name.split("/")[-1].split("\\")[-1]
-    if not name or name.startswith("."):
+    # Path.name strips any accidental directory pieces; require an exact basename match.
+    name = Path(name).name
+    if not name or name.startswith(".") or not photo_allowed(name):
         return None
     for root in _food_roots():
         if not root.is_dir():
             continue
+        root = root.resolve()
         candidate = (root / name).resolve()
         try:
-            candidate.relative_to(root.resolve())
+            candidate.relative_to(root)
         except ValueError:
             continue
-        if not candidate.is_file() or not photo_allowed(name):
+        if not candidate.is_file():
             continue
         head = candidate.read_bytes()[:24]
         if head.startswith(b"version https://git-lfs"):
