@@ -20,7 +20,7 @@ def record(conn: Any, household_id: int, user_id: Optional[int]) -> None:
     """Note that this account (or, with no user, this guest kitchen) agreed to the current version."""
     conn.execute(
         "INSERT INTO privacy_agreements (household_id, user_id, kind, policy_version, agreed_at) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING",  # a second tap is a no-op
         (household_id, user_id, "account" if user_id is not None else "guest", PRIVACY_VERSION, now()),
     )
 

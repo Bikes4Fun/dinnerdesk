@@ -21,6 +21,7 @@ export function PrivacyAgreement({ signedIn, onAgreed }) {
       onAgreed();
     } catch (e) {
       setErr((e.body && e.body.message) || e.message || "Something went wrong.");
+    } finally {
       setBusy(false);
     }
   }

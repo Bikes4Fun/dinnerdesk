@@ -46,8 +46,8 @@ export function PrivacySummary({ compact = false }) {
 
       <h2>{Copy.text("privacy.keep.title")}</h2>
       <ul className="privacy-rows">
-        {keep.map((row) => (
-          <li key={row.title}>
+        {keep.map((row, i) => (
+          <li key={`keep-${i}`}>
             <strong>{row.title}</strong>
             <span>{row.body}</span>
           </li>
@@ -63,8 +63,8 @@ export function PrivacySummary({ compact = false }) {
 
       <h2>{Copy.text("privacy.shared.title")}</h2>
       <ul className="privacy-rows">
-        {shared.map((row) => (
-          <li key={row.title}>
+        {shared.map((row, i) => (
+          <li key={`shared-${i}`}>
             <strong>{row.title}</strong>
             <span>{row.body}</span>
           </li>
