@@ -89,10 +89,17 @@ fun GroceryView() {
     LaunchedEffect(Unit) { store.loadGrocery(onlyIfStale = true) }
 
     val allComplete = store.grocery.isNotEmpty() && store.grocery.all { it.checked || it.neverShop }
-    val storeLines = if (storeFilter.isEmpty()) store.grocery else store.grocery.filter { it.store == storeFilter }
+    val storeLines = when {
+        storeFilter.isEmpty() -> store.grocery
+        storeFilter == "none" -> store.grocery.filter { it.store.isEmpty() }
+        else -> store.grocery.filter { it.store == storeFilter }
+    }
     val visible = storeLines.filter { !(store.hideChecked && (it.checked || it.neverShop)) }
     val completedCount = storeLines.count { it.checked || it.neverShop }
-    val filterName = store.stores.firstOrNull { it.id == storeFilter }?.name
+    val filterName = when {
+        storeFilter == "none" -> "No assigned store"
+        else -> store.stores.firstOrNull { it.id == storeFilter }?.name
+    }
 
     // Sections follow the household's walk-the-store order.
     val blocks = buildList {
@@ -129,6 +136,9 @@ fun GroceryView() {
                     if (store.stores.isNotEmpty()) item {
                         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Chip("All", storeFilter.isEmpty()) { storeFilter = "" }
+                            Chip("No assigned store", storeFilter == "none") {
+                                storeFilter = if (storeFilter == "none") "" else "none"
+                            }
                             for (shop in store.stores) Chip(shop.name, storeFilter == shop.id) { storeFilter = if (storeFilter == shop.id) "" else shop.id }
                         }
                     }
@@ -198,7 +208,9 @@ fun GroceryView() {
             MenuItem("Edit stores & aisles", Icons.Outlined.Storefront) { nav.push(Route.GroceryStores) },
         ))
     }
-    if (adding) Sheet(onDismiss = { adding = false }) { AddGrocerySheet(storeFilter.ifEmpty { null }) }
+    if (adding) Sheet(onDismiss = { adding = false }) {
+        AddGrocerySheet(if (storeFilter.isEmpty() || storeFilter == "none") null else storeFilter)
+    }
 }
 
 @Composable
