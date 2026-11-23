@@ -1820,7 +1820,7 @@ struct PrivacyView: View {
           """
           Plans, grocery lists, pantry, recipe edits, favorites, hides, to-try marks, filters, and store or aisle choices are stored for your household. Taste Lab stores the meals you like or pass, plus diet, allergy, and dislike choices. When you are signed in, those answers are tied to your account and used to suggest meals. Thumbs up or down on a planned meal, and on a prep step, are stored for your household and used to choose future meal suggestions. Prep step votes are kept so we can improve prep suggestions.
 
-          Someone you invite joins that same household and can see and change it, including its filters, allergies, and meal likes and dislikes. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
+          Someone you invite joins that same household and can see and change it, including its filters and allergies, and can see everyone's meal likes and dislikes and Taste Lab history. Invite links expire after 7 days. You can remove a member from Account & security. Removing them ends their access.
           """)
         section(
           "Without an account",

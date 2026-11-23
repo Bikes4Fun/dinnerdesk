@@ -13,7 +13,7 @@ from typing import Any, Optional
 from app.db.database import now
 
 # The date the privacy summary last changed in a way that needs agreeing to again.
-PRIVACY_VERSION = "2026-11-21"
+PRIVACY_VERSION = "2026-11-23"  # Added: your household sees your allergies, likes and Taste Lab history.
 
 
 def record(conn: Any, household_id: int, user_id: Optional[int]) -> None:
