@@ -148,8 +148,13 @@ def grocery_item_name(raw: str, aliases: dict[str, str], overrides: dict[str, st
     return ingredient_name(apply_alias(key, aliases))
 
 
+def _collapse_ws(text: str) -> str:
+    """Join on whitespace without a regex, so long runs of spaces can't backtrack."""
+    return " ".join((text or "").split())
+
+
 def _norm_unit(unit: str) -> str:
-    u = re.sub(r"\s+", " ", (unit or "").strip().lower().rstrip("."))
+    u = _collapse_ws(unit).lower().rstrip(".")
     return _UNIT_ALIASES.get(u, u)
 
 
@@ -157,21 +162,30 @@ def normalize_vulgar(text: str) -> str:
     s = text or ""
     for glyph, frac in _VULGAR.items():
         s = s.replace(glyph, f" {frac} ")
-    return re.sub(r"\s+", " ", s).strip()
+    return _collapse_ws(s)
 
 
+# Amounts are digits/fractions only (no whitespace class inside the quantifier), so a long
+# run of tabs can't make the engine backtrack across overlapping \s classes (#CodeQL ReDoS).
 _PACK_UNIT_RE = re.compile(
-    r"^\(\s*[\d\s./]+\s*(?:fl\s*oz|ounces?|oz|pounds?|lbs?|grams?|g|ml)\s*\)\s*"
+    r"^\(\s*"
+    r"[\d./]+(?:\s+[\d./]+)*\s*"
+    r"(?:fl\s*oz|ounces?|oz|pounds?|lbs?|grams?|g|ml)\s*\)\s*"
     r"(?:packages?|pkgs?|pkg|cans?|jars?|bags?|boxes?)?$",
     re.I,
 )
 
 
 def _clean_unit(unit: str) -> str | None:
-    u = re.sub(r"\s+", " ", (unit or "").strip())
-    u = re.sub(r"\s+of\s+.*$", "", u, flags=re.I).strip()
+    u = _collapse_ws(unit)
+    # Drop a trailing "of …" without a regex on the whole string.
+    of_at = re.search(r"\sof\s", u, flags=re.I)
+    if of_at:
+        u = u[: of_at.start()].rstrip()
     if not u:
         return ""
+    if len(u) > 64:
+        return None
     if re.search(r"\d", u):
         if not _PACK_UNIT_RE.match(u):
             return None
