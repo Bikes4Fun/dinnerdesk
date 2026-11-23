@@ -359,6 +359,14 @@ CREATE TABLE IF NOT EXISTS client_errors (
   planned_issue TEXT NOT NULL DEFAULT ''
 );
 
+-- When each kind of crash (screen + message) was last emailed, and how many came after
+-- (app/crash_alerts.py): at most one email an hour per kind.
+CREATE TABLE IF NOT EXISTS crash_alerts (
+  key TEXT PRIMARY KEY,
+  last_sent_at TEXT NOT NULL,
+  pending INTEGER NOT NULL DEFAULT 0
+);
+
 -- One-time "forgot password" links. Only a hash of the token is stored.
 CREATE TABLE IF NOT EXISTS password_resets (
   token_hash TEXT PRIMARY KEY,
