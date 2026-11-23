@@ -35,7 +35,8 @@ struct PrivacySummaryView: View {
     Text(Copy.text(id))
       .font(Theme.action)
       .foregroundStyle(Theme.bg)
-      .padding(14)
+      .padding(.horizontal, 14)
+      .padding(.vertical, compact ? 12 : 14)
       .frame(maxWidth: .infinity, alignment: .leading)
       .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
   }
