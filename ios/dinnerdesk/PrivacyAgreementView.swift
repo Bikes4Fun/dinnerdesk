@@ -14,7 +14,7 @@ struct PrivacyAgreementView: View {
 
   var body: some View {
     ScrollView {
-      VStack(alignment: .leading, spacing: 16) {
+      VStack(alignment: .leading, spacing: 10) {
         Text(Copy.appName)
           .font(Theme.action)
           .foregroundStyle(Theme.accent)
@@ -30,10 +30,7 @@ struct PrivacyAgreementView: View {
         if !signedIn {
           Text(Copy.text("privacy.agree.device"))
             .font(Theme.subtitle)
-            .foregroundStyle(Theme.accent)
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 12))
+            .foregroundStyle(Theme.muted)
         }
 
         if let error { ErrorBanner(message: error) }
@@ -50,7 +47,9 @@ struct PrivacyAgreementView: View {
           .foregroundStyle(Theme.bg)
           .background(Theme.ink, in: Capsule())
         }
+        .buttonStyle(.plain)  // No system glass/bordered halo behind our capsule.
         .disabled(busy)
+        .padding(.top, 4)
 
         Text(Copy.text("privacy.agree.fine"))
           .font(Theme.subtitle)
@@ -58,19 +57,21 @@ struct PrivacyAgreementView: View {
           .multilineTextAlignment(.center)
           .frame(maxWidth: .infinity)
 
-        VStack(spacing: 4) {
-          Button(Copy.text("privacy.agree.read")) { showPrivacy = true }
+        HStack(spacing: 20) {
+          Button(Copy.text("privacy.link")) { showPrivacy = true }
             .frame(minHeight: 44)
           if !signedIn {
-            Button("Create an account instead") { showSignIn = true }
+            Button(Copy.text("privacy.agree.account")) { showSignIn = true }
               .frame(minHeight: 44)
           }
         }
+        .buttonStyle(.plain)
         .font(Theme.action)
         .foregroundStyle(Theme.accent)
         .frame(maxWidth: .infinity)
       }
-      .padding(20)
+      .padding(.horizontal, 20)
+      .padding(.vertical, 8)
     }
     .background(Theme.bg)
     .sheet(isPresented: $showPrivacy) {

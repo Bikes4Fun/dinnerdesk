@@ -116,15 +116,16 @@ fun AuthView(isSheet: Boolean = false) {
             }
             if (mode == AuthMode.SignUp) {
                 Column(
-                    Modifier.padding(horizontal = 16.dp, vertical = 8.dp).fillMaxWidth()
-                        .background(Theme.surface, RoundedCornerShape(16.dp)).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    Text("Your privacy, in short", style = Theme.title, color = Theme.ink)
-                    PrivacySummary(compact = true)
+                    Text(
+                        Copy.text("privacy.signup.note"), style = Theme.subtitle, color = Theme.ink,
+                        modifier = Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
+                    )
                     AgreeCheckbox(agreedPrivacy, { agreedPrivacy = it }, Copy.text("privacy.signup.checkbox"))
                     Text(
-                        Copy.text("privacy.agree.read"), style = Theme.action, color = Theme.accent,
+                        Copy.text("privacy.link"), style = Theme.action, color = Theme.accent,
                         modifier = Modifier.heightIn(min = 44.dp).clickable { showPrivacy = true }.padding(vertical = 10.dp),
                     )
                     if (!agreedPrivacy) Text(Copy.text("privacy.signup.needed"), style = Theme.subtitle, color = Theme.muted)
@@ -151,7 +152,7 @@ fun AuthView(isSheet: Boolean = false) {
                         contentAlignment = Alignment.Center,
                     ) { Text("Continue as guest", style = Theme.action, color = Theme.accent) }
                     Text(
-                        "All features work as a guest. Create an account in Settings to protect your data; reinstalling the app or clearing its data can lose access.",
+                        "Everything works as a guest. Guest data can be lost if you reinstall.",
                         style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                     )
                 }

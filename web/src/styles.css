@@ -534,7 +534,7 @@ img { display: block; max-width: 100%; }
   background: none;
   border: 0;
 }
-.card-open { display: block; width: 100%; padding: 0; text-align: left; }
+.card-open { display: block; width: 100%; padding: 0; text-align: left; color: inherit; text-decoration: none; background: none; border: 0; cursor: pointer; }
 .card-img {
   position: relative;
   width: 100%;
@@ -809,7 +809,7 @@ img { display: block; max-width: 100%; }
   padding: 0;
 }
 .thumb-wrap { position: relative; width: 88px; height: 88px; overflow: hidden; border-radius: 12px; }
-.recipe-open-photo { display: block; width: 88px; height: 88px; padding: 0; }
+.recipe-open-photo { display: block; width: 88px; height: 88px; padding: 0; color: inherit; text-decoration: none; background: none; border: 0; cursor: pointer; }
 .recipe-row .thumb-sq {
   width: 88px;
   height: 88px;
@@ -2067,7 +2067,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 .card-admin-actions { position: absolute; z-index: 3; bottom: 4px; left: 4px; right: 4px; display: flex; gap: 4px; }
 .card-admin-actions.is-inline { position: static; flex-wrap: wrap; margin-top: 4px; }
 .card-review { min-width: 0; min-height: 44px; padding: 4px 6px; border-radius: 8px; background: var(--surface); color: var(--ink); font-size: 0.7rem; font-weight: 700; border: 1px solid var(--line); }
-.recipe-open-copy { display: block; width: 100%; text-align: left; }
+.recipe-open-copy { display: block; width: 100%; text-align: left; color: inherit; text-decoration: none; background: none; border: 0; cursor: pointer; }
 .recipe-edit-fields { min-width: 0; padding: 0; border: 0; }
 .recipe-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .step-remove { min-height: 44px; padding: 0 8px; color: var(--heart); }
@@ -2129,7 +2129,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 }
 .recipe-tile-photo-hit {
   position: absolute; inset: 0; z-index: 1; padding: 0; border: 0;
-  background: transparent; cursor: pointer;
+  background: transparent; cursor: pointer; color: inherit; text-decoration: none;
 }
 .recipe-tile-photo .recipe-tile-overlay { z-index: 2; }
 .recipe-tile-photo.is-soon { filter: grayscale(0.6); }
@@ -2140,7 +2140,7 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 }
 .recipe-tile-open {
   display: block; width: 100%; padding: 0; text-align: left;
-  background: none; border: 0; color: inherit; cursor: pointer;
+  background: none; border: 0; color: inherit; cursor: pointer; text-decoration: none;
 }
 .recipe-tile-menu {
   position: fixed; z-index: 40; min-width: 180px; padding: 6px 0;
@@ -2245,3 +2245,60 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 }
 .taste-privacy-note p { flex: 1; margin: 0; line-height: 1.4; }
 .taste-privacy-note .icon-btn { flex: none; min-width: 44px; min-height: 44px; }
+
+/* One-screen privacy summary (PrivacySummary compact). */
+.privacy-bullets { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.2rem; line-height: 1.45; }
+.privacy-bullets .muted { color: var(--muted); }
+.privacy-never-line { margin: 0; line-height: 1.45; }
+.privacy-summary.is-compact h2 { margin-top: 1rem; }
+.privacy-summary.is-compact .privacy-note { margin-top: 0.6rem; }
+.privacy-device-note { margin: 0.75rem 0; color: var(--muted); }
+
+/* One-screen fit (measured down to 360x780): tighter first open, links on one row, plain signup box. */
+.privacy-agreement .privacy-links { display: flex; justify-content: center; gap: 1.25rem; }
+.privacy-agreement .privacy-links .text-link { margin: 0; min-height: 44px; }
+.privacy-agreement .auth-title { margin-bottom: 0.25rem; }
+.privacy-agreement .privacy-promise { padding: 0.75rem 0.9rem; }
+.signup-privacy { padding: 0; border: 0; background: none; margin: 0.75rem 0 0.5rem; }
+.signup-privacy .agree-check { margin-top: 0.75rem; }
+
+/* Wide screens: the first-open screen is a real page, not a 380px phone column (PrivacyAgreement.jsx).
+   Summary on the left, the button and links on the right, a proper title. */
+@media (min-width: 880px) {
+  .auth-pad.privacy-agreement { max-width: 940px; padding: 4rem 2.5rem 3rem; }
+  .privacy-agreement .auth-brand { text-align: left; padding: 0; }
+  .privacy-agreement .auth-title {
+    text-align: left; font-family: var(--display); font-size: 2.6rem; font-weight: 700;
+    color: var(--brand); margin: 0.5rem 0 0.25rem;
+  }
+  .privacy-agreement-intro { font-size: 1.15rem; margin: 0 0 1.75rem; }
+  .privacy-agreement-body {
+    display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr); gap: 3rem; align-items: start;
+  }
+  .privacy-agreement-body .privacy-summary { margin: 0; }
+  .privacy-agreement-actions {
+    position: sticky; top: 2rem; padding: 1.5rem; border: 1px solid var(--line);
+    border-radius: 18px; background: var(--surface);
+  }
+  .privacy-agreement-actions .privacy-device-note { margin-top: 0; }
+  .privacy-agreement-actions .btn-primary { margin-top: 0; }
+}
+
+/* Privacy page on wide screens: use the width instead of one long phone-width list. */
+@media (min-width: 880px) {
+  .privacy { max-width: 920px; }
+  .privacy-summary:not(.is-compact) .privacy-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 2rem; }
+  .privacy-summary:not(.is-compact) .privacy-rows li:nth-last-child(2):nth-child(odd) { border-bottom: 0; }
+  .privacy-summary:not(.is-compact) .privacy-never { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* Phones: the first-open screen fits one browser screen (measured at 360-414px wide). */
+@media (max-width: 879px) {
+  .auth-pad.privacy-agreement { padding-top: 1rem; padding-bottom: 1rem; }
+  .privacy-agreement .auth-brand { padding: 0; }
+  .privacy-agreement .auth-title { margin: 0.25rem 0 0.5rem; }
+  .privacy-agreement-intro { margin: 0 0 0.75rem; }
+  .privacy-agreement .privacy-summary { margin: 0 0 0.5rem; }
+  .privacy-agreement .privacy-summary.is-compact h2 { margin: 0.75rem 0 0.3rem; }
+  .privacy-agreement .privacy-fine { margin: 0.4rem 0 0; }
+}
