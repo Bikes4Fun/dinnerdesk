@@ -114,7 +114,7 @@ fun SettingsView() {
         ThemeList {
             LargeTitle("Settings")
             ListRow({ openUrl(Api.url("support")) }, chevron = false) { ThemeIconRow("Help & support", Icons.AutoMirrored.Outlined.HelpOutline) }
-            ListRow({ session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
+            ListRow({ session.tourReplay = true; session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
             ListRow({ openUrl("https://dinnerdesk.computerscience.build") }, chevron = false) { ThemeIconRow("${Copy.appName} on the web", Icons.Outlined.Explore) }
             ListRow({ openUrl("https://x.com/DinnerDesk") }, chevron = false) { ThemeIconRow("Twitter", Icons.Outlined.Forum, "@DinnerDesk") }
             ListHeader("About recipes & photos")

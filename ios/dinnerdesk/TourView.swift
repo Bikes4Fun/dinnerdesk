@@ -271,7 +271,7 @@ struct TourView: View {
         group("Allergies", "Never shown. We check every ingredient.")
         chips(FilterOptions.allergens, selected: allergens) { allergens.formSymmetricDifference([$0]) }
         group("I avoid", "Left out of picks. More in Settings → Filters.")
-        chips(Self.commonAvoids.map { ($0, $0.prefix(1).uppercased() + $0.dropFirst()) }, selected: avoids) { avoids.formSymmetricDifference([$0]) }
+        chips(Self.commonAvoids.map { ($0, $0.capitalized) }, selected: avoids) { avoids.formSymmetricDifference([$0]) }
       }
       primary(busy ? "Planning your week…" : "Next") { Task { await saveFilters() } }
     }

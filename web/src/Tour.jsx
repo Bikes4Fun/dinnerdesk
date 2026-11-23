@@ -69,8 +69,9 @@ const STEPS = ["welcome", "household", "avoid", "week", "ready"];
 const COMMON_AVOIDS = AVOIDS.slice(0, 6);
 const MAX_DINNERS = 7;
 
-function cap(s) {
-  return s ? s[0].toUpperCase() + s.slice(1) : s;
+// Same as avoidLabel in Settings: every word capitalized ("Bell Peppers").
+function avoidLabel(id) {
+  return id.replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function Chip({ on, children, onClick }) {
@@ -157,6 +158,8 @@ export function Tour() {
     localStorage.setItem("wp_tour_done", "1");
     setBusy(false);
     setOpen(false);
+    // Plan may already be on screen (same route), so tell it to load the new plan and filters.
+    window.dispatchEvent(new Event("dinnerdesk-plan-changed"));
     if (to) go(to);
   }
 
@@ -288,7 +291,7 @@ export function Tour() {
               <h2 className="qs-label">I avoid</h2>
               <p className="qs-note">Left out of picks. More in Settings → Filters.</p>
               <div className="qs-chips">
-                {COMMON_AVOIDS.map((id) => <Chip key={id} on={avoids.includes(id)} onClick={() => setAvoids(toggleAvoid(avoids, id))}>{cap(id)}</Chip>)}
+                {COMMON_AVOIDS.map((id) => <Chip key={id} on={avoids.includes(id)} onClick={() => setAvoids(toggleAvoid(avoids, id))}>{avoidLabel(id)}</Chip>)}
               </div>
             </div>
             {err && <p className="qs-err" role="alert">{err}</p>}

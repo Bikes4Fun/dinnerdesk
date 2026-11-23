@@ -109,8 +109,8 @@ fun TourView() {
             val prefs = KitchenApi.prefs()
             val seen = Tour.seen(prefs)
             isUpdate = (seen > 0 && seen < Tour.VERSION) || Tour.isNewBuild
-            // Replayed from Settings: skip Welcome.
-            if (seen > 0 && !isUpdate) step = TourStep.Household
+            // Replayed from Settings: skip Welcome, even right after an app update.
+            if (session.tourReplay) step = TourStep.Household
             prefs.int("family_portions")?.takeIf { it >= 1 }?.let { people = minOf(12, it) }
             val saved = prefs.obj("filters") ?: return@LaunchedEffect
             savedFilters = saved
@@ -140,6 +140,7 @@ fun TourView() {
     /** Ends the tour. A suggested plan that wasn't approved stays on Plan for review. */
     fun finish() = run {
         markDone()
+        session.tourReplay = false
         session.showTour = false
         store.loadAll()
     }
@@ -208,7 +209,7 @@ fun TourView() {
             val tasteNav = remember { Nav(Route.TasteLab()) }
             Column(Modifier.fillMaxSize()) {
                 Box(Modifier.fillMaxWidth()) {
-                    LinkButton("Done", Modifier.align(Alignment.CenterEnd)) { session.showTour = false; scope.launch { store.loadAll() } }
+                    LinkButton("Done", Modifier.align(Alignment.CenterEnd)) { session.tourReplay = false; session.showTour = false; scope.launch { store.loadAll() } }
                 }
                 NavStack(tasteNav, Modifier.weight(1f)) { RouteContent(it) }
             }
@@ -279,7 +280,7 @@ fun TourView() {
                         Group("Allergies", "Never shown. We check every ingredient.")
                         Flow(6.dp) { for ((id, label) in o.allergens) TourChip(label, id in allergens) { allergens = if (id in allergens) allergens - id else allergens + id } }
                         Group("I avoid", "Left out of picks. More in Settings → Filters.")
-                        Flow(6.dp) { for (id in commonAvoids) TourChip(id.replaceFirstChar { it.uppercase() }, id in avoids) { avoids = if (id in avoids) avoids - id else avoids + id } }
+                        Flow(6.dp) { for (id in commonAvoids) TourChip(id.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }, id in avoids) { avoids = if (id in avoids) avoids - id else avoids + id } }
                     }
                     Primary(if (busy) "Planning your week…" else "Next", error, busy) { saveFilters() }
                 }
