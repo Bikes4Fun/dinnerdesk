@@ -383,7 +383,7 @@ struct AuthView: View {
               .frame(maxWidth: .infinity)
               .foregroundStyle(Theme.accent)
           } footer: {
-            Text("All features work as a guest. Create an account in Settings to protect your data; reinstalling the app or clearing its data can lose access.")
+            Text("Everything works as a guest. Guest data can be lost if you reinstall.")
           }
         }
       }
