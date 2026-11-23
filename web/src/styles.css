@@ -2245,3 +2245,11 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 }
 .taste-privacy-note p { flex: 1; margin: 0; line-height: 1.4; }
 .taste-privacy-note .icon-btn { flex: none; min-width: 44px; min-height: 44px; }
+
+/* One-screen privacy summary (PrivacySummary compact). */
+.privacy-bullets { margin: 0; padding-left: 1.25rem; display: flex; flex-direction: column; gap: 0.2rem; line-height: 1.45; }
+.privacy-bullets .muted { color: var(--muted); }
+.privacy-never-line { margin: 0; line-height: 1.45; }
+.privacy-summary.is-compact h2 { margin-top: 1rem; }
+.privacy-summary.is-compact .privacy-note { margin-top: 0.6rem; }
+.privacy-device-note { margin: 0.75rem 0; color: var(--muted); }

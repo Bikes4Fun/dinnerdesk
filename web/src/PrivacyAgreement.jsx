@@ -35,7 +35,7 @@ export function PrivacyAgreement({ signedIn, onAgreed }) {
 
           <PrivacySummary compact />
 
-          {!signedIn && <p className="banner warn">{Copy.text("privacy.agree.device")}</p>}
+          {!signedIn && <p className="privacy-device-note">{Copy.text("privacy.agree.device")}</p>}
           {err && <p className="banner err" role="alert">{err}</p>}
 
           <button type="button" className="btn-primary block" disabled={busy} onClick={agree}>
