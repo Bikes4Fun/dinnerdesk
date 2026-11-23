@@ -23,7 +23,7 @@ struct TourView: View {
   /// Only households that have never completed or skipped the tour need onboarding.
   static func isDue(_ prefs: [String: Any]) -> Bool { seen(prefs) == 0 }
 
-  /// Settings shows the first six "I avoid" foods as chips; the tour shows the same six.
+  /// Settings shows the first six Dislikes as chips; the tour shows the same six.
   private static let commonAvoids = Array(FilterOptions.avoids.prefix(6))
   private static let maxDinners = 7
   private static let small = Font.custom("DMSans-Regular", size: 15, relativeTo: .subheadline)
@@ -270,7 +270,7 @@ struct TourView: View {
         chips(FilterOptions.diets.map { ($0, FilterOptions.dietLabels[$0] ?? $0) }, selected: diets) { toggleDiet($0) }
         group("Allergies", "Never shown. We check every ingredient.")
         chips(FilterOptions.allergens, selected: allergens) { allergens.formSymmetricDifference([$0]) }
-        group("I avoid", "Left out of picks. More in Settings → Filters.")
+        group("Dislikes", "Suggested less often. You can still add them yourself.")
         chips(Self.commonAvoids.map { ($0, $0.capitalized) }, selected: avoids) { avoids.formSymmetricDifference([$0]) }
       }
       primary(busy ? "Planning your week…" : "Next") { Task { await saveFilters() } }

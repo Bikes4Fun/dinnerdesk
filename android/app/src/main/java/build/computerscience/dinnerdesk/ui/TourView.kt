@@ -69,7 +69,7 @@ import kotlinx.serialization.json.JsonObject
 
 private enum class TourStep { Welcome, Household, Avoid, Week, Ready }
 
-/** Settings shows the first six "I avoid" foods as chips; the tour shows the same six. */
+/** Settings shows the first six Dislikes as chips; the tour shows the same six. */
 private val commonAvoids = FilterOptions.avoids.take(6)
 private const val MAX_DINNERS = 7
 private val small = Theme.chipLabel.copy(fontWeight = FontWeight.Normal)
@@ -279,7 +279,7 @@ fun TourView() {
                         Flow(6.dp) { for (d in o.diets) TourChip(o.dietLabels[d] ?: d, d in diets) { diets = o.toggled(diets, d) } }
                         Group("Allergies", "Never shown. We check every ingredient.")
                         Flow(6.dp) { for ((id, label) in o.allergens) TourChip(label, id in allergens) { allergens = if (id in allergens) allergens - id else allergens + id } }
-                        Group("I avoid", "Left out of picks. More in Settings → Filters.")
+                        Group("Dislikes", "Suggested less often. You can still add them yourself.")
                         Flow(6.dp) { for (id in commonAvoids) TourChip(id.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }, id in avoids) { avoids = if (id in avoids) avoids - id else avoids + id } }
                     }
                     Primary(if (busy) "Planning your week…" else "Next", error, busy) { saveFilters() }

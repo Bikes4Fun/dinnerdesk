@@ -65,7 +65,7 @@ export function WhatsNew() {
 // Quick start: five full screens, one job each, each fitting one phone screen (down to 360×780)
 // without scrolling. Same steps and words as TourView.swift and TourView.kt.
 const STEPS = ["welcome", "household", "avoid", "week", "ready"];
-// Settings shows the first six "I avoid" foods as chips; the tour shows the same six.
+// Settings shows the first six Dislikes as chips; the tour shows the same six.
 const COMMON_AVOIDS = AVOIDS.slice(0, 6);
 const MAX_DINNERS = 7;
 
@@ -288,8 +288,8 @@ export function Tour() {
               <div className="qs-chips">
                 {ALLERGENS.map(([id, text]) => <Chip key={id} on={allergens.includes(id)} onClick={() => setAllergens(toggleAvoid(allergens, id))}>{text}</Chip>)}
               </div>
-              <h2 className="qs-label">I avoid</h2>
-              <p className="qs-note">Left out of picks. More in Settings → Filters.</p>
+              <h2 className="qs-label">Dislikes</h2>
+              <p className="qs-note">Suggested less often. You can still add them yourself.</p>
               <div className="qs-chips">
                 {COMMON_AVOIDS.map((id) => <Chip key={id} on={avoids.includes(id)} onClick={() => setAvoids(toggleAvoid(avoids, id))}>{avoidLabel(id)}</Chip>)}
               </div>

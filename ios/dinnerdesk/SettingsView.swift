@@ -113,8 +113,8 @@ struct FiltersView: View {
               allergyChips
             }
           }
-          tierCard("Shows fewer", note: "Still allowed, just ranked lower") {
-            foldSection("avoid", "Not a fan of", summary: Self.list(avoidLabels, empty: "Nothing yet"), isSet: !avoidLabels.isEmpty) {
+          tierCard("Shows fewer", note: "Suggested less often. You can still add them yourself.") {
+            foldSection("avoid", "Dislikes", summary: Self.list(avoidLabels, empty: "Nothing yet"), isSet: !avoidLabels.isEmpty) {
               avoidChips
             }
           }
@@ -268,7 +268,7 @@ struct FiltersView: View {
         choiceChip("Other", on: otherAvoidOpen) { otherAvoidOpen.toggle() }
       }
       if otherAvoidOpen {
-        ItemSearchField(label: "Foods to avoid", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+        ItemSearchField(label: "Other dislikes", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
           avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
           otherAvoids.removeAll { Self.avoids.contains($0) }
           save()
