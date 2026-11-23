@@ -1,14 +1,15 @@
 import { useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Copy } from "../Copy.js";
 
 // Ids match app/models.py FEEDBACK_KINDS.
 const KINDS = [
-  ["bug", "Report a bug", "Something broke or didn't work the way it should."],
-  ["feature", "Suggest a feature", "Something you wish Dinner Desk did."],
+  ["bug", Copy.text("ui.report.a.bug"), Copy.text("ui.something.broke.or.didnt.work")],
+  ["feature", Copy.text("ui.suggest.a.feature"), "Something you wish Dinner Desk did."],
 ];
 const PLACEHOLDER = {
-  bug: "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh.",
+  bug: Copy.text("ui.what.happened.and.what.did"),
   feature: "e.g. Let me plan lunches too, not just dinners.",
 };
 
@@ -87,7 +88,7 @@ export function Feedback() {
         {sent ? (
           <>
             <p className="banner ok" role="status">
-              {sent === "bug" ? "Thanks. We'll look into it." : "Thanks for the idea. We read every one."}
+              {sent === "bug" ? Copy.text("ui.thanks.well.look.into.it") : Copy.text("ui.thanks.for.the.idea.we")}
             </p>
             <button type="button" className="btn-secondary block" onClick={() => setSent("")}>
               Send another
@@ -96,7 +97,7 @@ export function Feedback() {
         ) : (
           <form className="feedback-form" onSubmit={send}>
             <fieldset>
-              <legend className="block-label">What's this about?</legend>
+              <legend className="block-label">{Copy.text("ui.whats.this.about")}</legend>
               {KINDS.map(([key, label, help]) => (
                 <label key={key} className="feedback-kind">
                   <input type="radio" name="feedback-kind" value={key} checked={kind === key} onChange={() => setKind(key)} />
@@ -108,7 +109,7 @@ export function Feedback() {
               ))}
             </fieldset>
             <label className="block-label" htmlFor="feedback-note">
-              {kind === "bug" ? "What went wrong?" : "What would you like?"}
+              {kind === "bug" ? Copy.text("ui.what.went.wrong") : Copy.text("ui.what.would.you.like")}
             </label>
             <textarea id="feedback-note" className="field" rows={5} maxLength={2000} value={note}
               placeholder={PLACEHOLDER[kind]} onChange={(e) => setNote(e.target.value)} />
@@ -122,7 +123,7 @@ export function Feedback() {
               ))}
               {shots.length < MAX_SHOTS && (
                 <label className="btn-secondary feedback-add-shot">
-                  {shots.length ? "Add another screenshot" : "Add a screenshot (optional)"}
+                  {shots.length ? Copy.text("ui.add.another.screenshot") : Copy.text("ui.add.a.screenshot.optional")}
                   <input type="file" accept="image/*" multiple className="accessible-file" onChange={addShots} />
                 </label>
               )}

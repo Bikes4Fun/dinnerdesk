@@ -47,7 +47,7 @@ fun scaleAmount(text: String, base: Int?, servings: Int): String {
             val pieces = part.split("/")
             if (pieces.size == 2) {
                 val denominator = pieces[1].toDouble()
-                require(denominator != 0.0) { "Invalid zero-denominator ingredient quantity" }
+                require(denominator != 0.0) { Copy.text("ui.invalid.zerodenominator.ingredient.quantity") }
                 pieces[0].toDouble() / denominator
             } else part.toDouble()
         } * servings / base

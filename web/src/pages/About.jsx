@@ -1,3 +1,4 @@
+import { Copy } from "../Copy.js";
 export function About() {
   return (
     <section className="screen">
@@ -22,7 +23,7 @@ export function About() {
           Recipes are always one tap away. Browse, search, favorite, mark To try, or hide a recipe you do not want suggested. Diet, allergy, and avoid filters apply in Recipes and in suggestions. Open a recipe for the ingredient list or Cook mode, with numbered steps and the amounts for each step. Edits stay with your kitchen; the shared catalog is unchanged, and you can restore the original.
         </p>
 
-        <h2>Taste Lab</h2>
+        <h2>{Copy.text("tour.how.6.title")}</h2>
         <p>
           Taste Lab learns what this household will cook. Swipe meals you would make or pass on, or review suggested plans. A pass is not suggested again. Swipe history can change a like to a pass, or the other way. Filters here are the same filters as Settings.
         </p>

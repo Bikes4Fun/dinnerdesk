@@ -4,7 +4,7 @@ import { api } from "../api.js";
 import { go } from "../nav.js";
 
 function friendlyError(e) {
-  return (e && e.body && e.body.message) || (e && e.message) || "Something went wrong.";
+  return (e && e.body && e.body.message) || (e && e.message) || Copy.text("ui.something.went.wrong");
 }
 
 /** Opened from the emailed link: /reset/<token>. */
@@ -77,7 +77,7 @@ export function ResetPassword({ token, onAuthed }) {
                 onChange={(e) => setAgain(e.target.value)}
                 autoComplete="new-password"
               />
-              <p className="help">At least 8 characters.</p>
+              <p className="help">{Copy.text("ui.at.least.8.characters")}</p>
               <button type="submit" className="btn-primary block" disabled={busy}>
                 {busy ? "Saving…" : "Save new password"}
               </button>

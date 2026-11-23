@@ -21,7 +21,7 @@ struct GroceryView: View {
       VStack(spacing: 0) {
         TabHeader("Grocery") {
           HeaderIconButton("Share grocery list", systemImage: "square.and.arrow.up") { sharing = true }
-          HeaderIconButton("Grocery List Settings", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton(Copy.text("ui.grocery.list.settings"), systemImage: "ellipsis") { menu = true }
         }
 
         List {
@@ -33,7 +33,7 @@ struct GroceryView: View {
               ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                   chip("All", on: storeFilter.isEmpty) { storeFilter = "" }
-                  chip("No assigned store", on: storeFilter == "none") {
+                  chip(Copy.text("ui.no.assigned.store"), on: storeFilter == "none") {
                     storeFilter = storeFilter == "none" ? "" : "none"
                   }
                   ForEach(store.stores) { shop in
@@ -50,8 +50,8 @@ struct GroceryView: View {
           }
           if store.grocery.isEmpty {
             EmptyState(
-              title: "List is empty",
-              message: "Choose meals to build your grocery list.",
+              title: Copy.text("ui.list.is.empty"),
+              message: Copy.text("ui.choose.meals.to.build.your"),
               systemImage: "cart"
             )
             .listRowInsets(EdgeInsets())
@@ -89,7 +89,7 @@ struct GroceryView: View {
                 Task { await store.persistGroceryPrefs() }
               } label: {
                 Label(
-                  store.hideChecked ? "Show \(completedCount) completed" : "Hide completed",
+                  store.hideChecked ? "Show \(completedCount) completed" : Copy.text("ui.hide.completed"),
                   systemImage: store.hideChecked ? "eye" : "eye.slash"
                 )
                 .font(Theme.action)
@@ -133,19 +133,19 @@ struct GroceryView: View {
           }
           .padding(.trailing, 20)
           .padding(.bottom, 16)
-          .accessibilityLabel("Add item")
+          .accessibilityLabel(Copy.text("ui.add.item"))
         }
         .menuSheet(isPresented: $menu) {
           [
             MenuSheetItem(
-              title: "Show completed items",
+              title: Copy.text("ui.show.completed.items"),
               systemImage: "eye", dismissOnSelection: false, isOn: !store.hideChecked
             ) {
               store.hideChecked.toggle()
               Task { await store.persistGroceryPrefs() }
             },
             MenuSheetItem(
-              title: allGroceryComplete ? "Uncheck all" : "Complete all",
+              title: allGroceryComplete ? Copy.text("ui.uncheck.all") : Copy.text("ui.complete.all"),
               systemImage: allGroceryComplete ? "arrow.uturn.backward.circle" : "checkmark.circle",
               dismissOnSelection: false, status: menuStatus
             ) {
@@ -157,14 +157,14 @@ struct GroceryView: View {
               }
             },
             MenuSheetItem(
-              title: "Show meals under each item",
+              title: Copy.text("ui.show.meals.under.each.item"),
               systemImage: "fork.knife", dismissOnSelection: false, isOn: store.showMeals
             ) {
               store.showMeals.toggle()
               Task { await store.persistGroceryPrefs() }
             },
             MenuSheetItem(
-              title: "Show aisle numbers",
+              title: Copy.text("ui.show.aisle.numbers"),
               systemImage: "number", dismissOnSelection: false, isOn: store.showAisleNums
             ) {
               store.showAisleNums.toggle()
@@ -173,7 +173,7 @@ struct GroceryView: View {
             // MenuSheetItem(title: "Share list", systemImage: "square.and.arrow.up") {
             //   sharing = true
             // },
-            MenuSheetItem(title: "Edit stores & aisles", systemImage: "storefront") {
+            MenuSheetItem(title: Copy.text("ui.edit.stores.aisles"), systemImage: "storefront") {
               editingStores = true
             },
           ]
@@ -215,9 +215,9 @@ struct GroceryView: View {
   private var shareText: String {
     let left = storeLines.filter { !$0.checked && !$0.neverShop }
     let storeName = storeFilter == "none"
-      ? "No assigned store"
+      ? Copy.text("ui.no.assigned.store")
       : store.stores.first { $0.id == storeFilter }?.name
-    let title = storeName.map { "Grocery list — \($0)" } ?? "Grocery list"
+    let title = storeName.map { "Grocery list — \($0)" } ?? Copy.text("ui.grocery.list")
     guard !left.isEmpty else { return "\(title)\n\nNothing left to buy." }
     var blocks = store.aisles.map { aisle in (aisle.name, left.filter { $0.aisle == aisle.id }) }
     blocks.append(("Other", left.filter { line in !store.aisles.contains { $0.id == line.aisle } }))
@@ -236,12 +236,12 @@ struct GroceryView: View {
 
   private var allDoneMessage: String {
     let name = storeFilter == "none"
-      ? "No assigned store"
+      ? Copy.text("ui.no.assigned.store")
       : store.stores.first { $0.id == storeFilter }?.name
     if storeLines.isEmpty {
-      return name.map { "Nothing on the list for \($0)." } ?? "Nothing on the list."
+      return name.map { "Nothing on the list for \($0)." } ?? Copy.text("ui.nothing.on.the.list")
     }
-    return name.map { "Everything for \($0) is checked off." } ?? "Everything is checked off."
+    return name.map { "Everything for \($0) is checked off." } ?? Copy.text("ui.everything.is.checked.off")
   }
 
   /// Sections follow the household's walk-the-store order (My kitchen › Aisle order).
@@ -378,7 +378,7 @@ struct GroceryItemView: View {
   }
 
   private var substituteField: some View {
-    TextField("Try another item", text: $subName)
+    TextField(Copy.text("ui.try.another.item"), text: $subName)
       .textFieldStyle(.roundedBorder)
       .frame(minWidth: 140)
       .onChange(of: subName) { _, q in
@@ -429,7 +429,7 @@ struct GroceryItemView: View {
                 }
               }
               if !subName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                Button("Save substitution") {
+                Button(Copy.text("ui.save.substitution")) {
                   let target = subName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                   let current = line.id
                   Task {
@@ -447,7 +447,7 @@ struct GroceryItemView: View {
                 .foregroundStyle(Theme.accent)
               }
 
-              Text("You'll use this in…")
+              Text(Copy.text("ui.youll.use.this.in"))
                 .font(Theme.subtitle)
                 .foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
@@ -470,7 +470,7 @@ struct GroceryItemView: View {
                   Text(name).foregroundStyle(Theme.ink)
                 }
               } else {
-                Text("Added by you").foregroundStyle(Theme.muted)
+                Text(Copy.text("ui.added.by.you")).foregroundStyle(Theme.muted)
               }
 
               VStack(spacing: 0) {
@@ -492,13 +492,13 @@ struct GroceryItemView: View {
 
                 hairline
                 Toggle(isOn: pantryBinding(line)) {
-                  Text("In my pantry").font(Theme.rowTitle).foregroundStyle(Theme.ink)
+                  Text(Copy.text("ui.in.my.pantry")).font(Theme.rowTitle).foregroundStyle(Theme.ink)
                 }
                 .tint(Theme.accent)
                 .frame(minHeight: 44)
                 hairline
                 Toggle(isOn: neverBinding(line)) {
-                  Text("Always check off").font(Theme.rowTitle).foregroundStyle(Theme.ink)
+                  Text(Copy.text("ui.always.check.off")).font(Theme.rowTitle).foregroundStyle(Theme.ink)
                 }
                 .tint(Theme.accent)
                 .frame(minHeight: 44)
@@ -521,7 +521,7 @@ struct GroceryItemView: View {
         }
         .sheet(isPresented: $reporting) { reportSheet(line) }
       } else {
-        ContentUnavailableView("Item gone", systemImage: "cart")
+        ContentUnavailableView(Copy.text("ui.item.gone"), systemImage: "cart")
       }
     }
   }
@@ -543,7 +543,7 @@ struct GroceryItemView: View {
         reportError = nil
         reporting = true
       } label: {
-        Label("Report a problem with this item", systemImage: "flag")
+        Label(Copy.text("ui.report.a.problem.with.this"), systemImage: "flag")
           .font(Theme.rowTitle).foregroundStyle(Theme.ink)
           .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
           .contentShape(Rectangle())
@@ -572,7 +572,7 @@ struct GroceryItemView: View {
             .buttonStyle(.plain)
             .accessibilityAddTraits(reportReason == reason ? .isSelected : [])
           }
-          Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
+          Text(Copy.text("ui.anything.to.add.optional")).font(Theme.action).foregroundStyle(Theme.ink)
           TextField("e.g. Feta should be in Dairy, not Deli", text: $reportNote, axis: .vertical)
             .font(Theme.subtitle)
             .lineLimit(3...8)
@@ -603,7 +603,7 @@ struct GroceryItemView: View {
               reportSending = false
             }
           } label: {
-            Text(reportSending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+            Text(reportSending ? "Sending…" : Copy.text("ui.send.report")).font(Theme.action).foregroundStyle(Theme.bg)
               .frame(maxWidth: .infinity, minHeight: 50)
               .background(reportReason == nil ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
           }
@@ -613,7 +613,7 @@ struct GroceryItemView: View {
         .padding()
       }
       .background(Theme.bg)
-      .navigationTitle("Report a problem").navigationBarTitleDisplayMode(.inline)
+      .navigationTitle(Copy.text("ui.report.a.problem")).navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { reporting = false } } }
       // A stray swipe shouldn't throw away a half-written report.
       .interactiveDismissDisabled(reportReason != nil || !reportNote.isEmpty)
@@ -702,12 +702,12 @@ private struct EditGrocerySheet: View {
       Form {
         Group {
           TextField("Amount", text: $qty)
-          TextField("Item name", text: $itemName)
+          TextField(Copy.text("ui.item.name"), text: $itemName)
         }
         .listRowBackground(Theme.surface)
       }
       .themeForm()
-      .navigationTitle("Edit item")
+      .navigationTitle(Copy.text("ui.edit.item"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
@@ -779,13 +779,13 @@ private struct AddGrocerySheet: View {
             .accessibilityLabel("Use suggestion: \(suggestion)")
           }
           TextField("Quantity (optional)", text: $newQty)
-          Button("Add to list") { add() }
+          Button(Copy.text("ui.add.to.list")) { add() }
             .disabled(!canAdd)
         }
         .listRowBackground(Theme.surface)
       }
       .themeForm()
-      .navigationTitle("Add item")
+      .navigationTitle(Copy.text("ui.add.item"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {

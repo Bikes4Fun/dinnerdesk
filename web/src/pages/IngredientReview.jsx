@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Tip } from "../Tip.jsx";
+import { Copy } from "../Copy.js";
 
 const TABS = [
   ["easy", "Easy matches"],
@@ -317,7 +318,7 @@ export function IngredientReview() {
               <div className={`review-audit review-audit-${group.audit.verdict}`}>
                 <strong>
                   {group.audit.verdict === "looks_good"
-                    ? "Looks good"
+                    ? Copy.text("ui.looks.good")
                     : group.audit.verdict === "suggested_change"
                       ? "Suggested correction"
                       : "Question"}

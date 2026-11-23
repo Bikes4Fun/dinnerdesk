@@ -23,6 +23,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.RecipeDetail
+import build.computerscience.dinnerdesk.data.Copy
 
 @Composable
 fun RecipeGallery(recipe: RecipeDetail) {
@@ -37,25 +38,25 @@ fun RecipeGallery(recipe: RecipeDetail) {
             if (photo != null) TextButton(onClick = { creditOpen = true },
                 modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp).size(44.dp)
                     .background(Color.White.copy(alpha = 0.9f), CircleShape)
-                    .semantics { contentDescription = "Photo source" }) { Text("i", color = Theme.ink) }
+                    .semantics { contentDescription = Copy.text("ui.photo.source") }) { Text("i", color = Theme.ink) }
         }
         if (photos.size > 1) Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { active-- }, enabled = active > 0,
-                modifier = Modifier.semantics { contentDescription = "Previous photo" }) { Text("←") }
+                modifier = Modifier.semantics { contentDescription = Copy.text("ui.previous.photo") }) { Text("←") }
             Text("${active + 1} / ${photos.size}", style = Theme.subtitle)
             TextButton(onClick = { active++ }, enabled = active < photos.lastIndex,
-                modifier = Modifier.semantics { contentDescription = "Next photo" }) { Text("→") }
+                modifier = Modifier.semantics { contentDescription = Copy.text("ui.next.photo") }) { Text("→") }
         }
         if (photo?.ai == true) StarTip("recipes.ai-photo")
         else if (photo?.shared == true) StarTip("recipes.shared-photo")
     }
     if (creditOpen && photo != null) AlertDialog(
         onDismissRequest = { creditOpen = false },
-        title = { Text("Photo source") },
+        title = { Text(Copy.text("ui.photo.source")) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(photo.credit?.takeIf { it.isNotBlank() } ?: "Photo source not recorded")
-                photo.sourceLink?.let { link -> TextButton(onClick = { openUrl(link) }) { Text("View source") } }
+                Text(photo.credit?.takeIf { it.isNotBlank() } ?: Copy.text("ui.photo.source.not.recorded"))
+                photo.sourceLink?.let { link -> TextButton(onClick = { openUrl(link) }) { Text(Copy.text("ui.view.source")) } }
             }
         },
         confirmButton = { TextButton(onClick = { creditOpen = false }) { Text("Done") } },

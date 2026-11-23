@@ -4,7 +4,7 @@ import { Copy } from "../Copy.js";
 import { go } from "../nav.js";
 
 function friendlyError(e) {
-  return (e && e.body && e.body.message) || (e && e.message) || "Something went wrong.";
+  return (e && e.body && e.body.message) || (e && e.message) || Copy.text("ui.something.went.wrong");
 }
 
 export function AcceptInvite({ token, onAuthed }) {
@@ -74,7 +74,7 @@ export function AcceptInvite({ token, onAuthed }) {
                   autoComplete="username"
                 />
                 {email.trim() && !email.includes("@") && (
-                  <p className="banner warn">No email means no password reset. If you forget your password, this account can't be recovered.</p>
+                  <p className="banner warn">{Copy.text("ui.no.email.means.no.password")}</p>
                 )}
                 <label className="block-label" htmlFor="password">
                   {existing ? "Password" : "Choose a password"}
@@ -89,7 +89,7 @@ export function AcceptInvite({ token, onAuthed }) {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete={existing ? "current-password" : "new-password"}
                 />
-                <p className="help">At least 8 characters.</p>
+                <p className="help">{Copy.text("ui.at.least.8.characters")}</p>
                 </>}
                 {!signedIn && !existing && (
                   <>

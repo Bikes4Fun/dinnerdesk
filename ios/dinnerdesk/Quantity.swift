@@ -27,7 +27,7 @@ func scaleAmount(_ text: String, from base: Int?, to servings: Int) -> String {
         let fraction = part.split(separator: "/")
         if fraction.count == 2 {
           let denominator = Double(fraction[1])!
-          precondition(denominator != 0, "Invalid zero-denominator ingredient quantity")
+          precondition(denominator != 0, Copy.text("ui.invalid.zerodenominator.ingredient.quantity"))
           return sum + Double(fraction[0])! / denominator
         }
         return sum + Double(part)!

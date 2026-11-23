@@ -156,7 +156,7 @@ struct AuthGate<Content: View>: View {
             Text(err)
               .multilineTextAlignment(.center)
               .foregroundStyle(Theme.muted)
-            Button("Try again") { Task { await session.refresh() } }
+            Button(Copy.text("ui.try.again")) { Task { await session.refresh() } }
               .buttonStyle(.borderedProminent)
               .tint(Theme.accent)
           } else {
@@ -175,10 +175,10 @@ struct AuthGate<Content: View>: View {
           .safeAreaInset(edge: .top) {
             if session.status?.authenticated != true && !guestNoticeDismissed {
               VStack(alignment: .leading, spacing: 6) {
-                Text("Guest data can be lost if you reinstall the app. Create an account to protect it.")
+                Text(Copy.text("ui.guest.data.can.be.lost"))
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
                 HStack {
-                  Button("Sign in or create account") { showSignIn = true }
+                  Button(Copy.text("ui.sign.in.or.create.account")) { showSignIn = true }
                   Spacer()
                   Button("Dismiss") { guestNoticeDismissed = true }
                 }.font(Theme.subtitle)
@@ -306,7 +306,7 @@ struct AuthView: View {
         }
 
         Section {
-          TextField("Email or username", text: $email)
+          TextField(Copy.text("ui.email.or.username"), text: $email)
             .textContentType(.username)
             .keyboardType(.emailAddress)
             .textInputAutocapitalization(.never)
@@ -315,19 +315,19 @@ struct AuthView: View {
             .textContentType(
               mode == .signUp ? UITextContentType.newPassword : UITextContentType.password)
           if mode == .signUp {
-            TextField("Household name (optional)", text: $householdName)
+            TextField(Copy.text("ui.household.name.optional"), text: $householdName)
           }
         } footer: {
           if mode == .signUp {
             VStack(alignment: .leading, spacing: 6) {
-              Text("At least 8 characters.")
+              Text(Copy.text("ui.at.least.8.characters"))
               if usernameOnly {
-                Text("No email means no password reset. If you forget your password, this account can't be recovered.")
+                Text(Copy.text("ui.no.email.means.no.password"))
                   .foregroundStyle(Theme.accent)
               }
             }
           } else {
-            Button("Forgot password?") { forgot = true }
+            Button(Copy.text("ui.forgot.password")) { forgot = true }
               .font(Theme.action)
               .foregroundStyle(Theme.accent)
               .padding(.top, 4)
@@ -378,12 +378,12 @@ struct AuthView: View {
 
         if session.canContinueAsGuest && !isSheet {
           Section {
-            Button("Continue as guest") { session.continueAsGuest() }
+            Button(Copy.text("ui.continue.as.guest")) { session.continueAsGuest() }
               .font(Theme.action)
               .frame(maxWidth: .infinity)
               .foregroundStyle(Theme.accent)
           } footer: {
-            Text("Everything works as a guest. Guest data can be lost if you reinstall.")
+            Text(Copy.text("ui.everything.works.as.a.guest"))
           }
         }
       }
@@ -422,7 +422,7 @@ struct AuthView: View {
         try await AuthAPI.signup(
           email: cleanEmail,
           password: password,
-          householdName: name.isEmpty ? "My household" : name,
+          householdName: name.isEmpty ? Copy.text("ui.my.household") : name,
           agreedPrivacy: agreedPrivacy
         )
         session.accountCreated()
@@ -454,7 +454,7 @@ struct ForgotPasswordView: View {
         if sent {
           Section {
             VStack(alignment: .leading, spacing: 8) {
-              Label("Check your email", systemImage: "envelope")
+              Label(Copy.text("ui.check.your.email"), systemImage: "envelope")
                 .font(Theme.mealName)
                 .foregroundStyle(Theme.ink)
               Text(
@@ -472,7 +472,7 @@ struct ForgotPasswordView: View {
               .textInputAutocapitalization(.never)
               .autocorrectionDisabled()
           } footer: {
-            Text("We'll email you a link to set a new password.")
+            Text(Copy.text("ui.well.email.you.a.link"))
           }
           if let error {
             Section {
@@ -487,7 +487,7 @@ struct ForgotPasswordView: View {
             } label: {
               HStack {
                 Spacer()
-                if busy { ProgressView() } else { Text("Send reset link").bold() }
+                if busy { ProgressView() } else { Text(Copy.text("ui.send.reset.link")).bold() }
                 Spacer()
               }
             }
@@ -499,7 +499,7 @@ struct ForgotPasswordView: View {
       }
       .scrollContentBackground(.hidden)
       .background(Theme.bg)
-      .navigationTitle("Reset password")
+      .navigationTitle(Copy.text("ui.reset.password"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {

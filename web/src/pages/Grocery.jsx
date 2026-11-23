@@ -9,8 +9,8 @@ import { Icon } from "../icons.jsx";
 const DEFAULT_STORES = [
   { id: "costco", name: "Costco" },
   { id: "walmart", name: "Walmart" },
-  { id: "local", name: "Local grocer" },
-  { id: "farmers", name: "Farmers market" },
+  { id: "local", name: Copy.text("ui.local.grocer") },
+  { id: "farmers", name: Copy.text("ui.farmers.market") },
 ];
 const DEFAULT_AISLES = [
   { id: "produce", name: "Produce", number: "" },
@@ -190,7 +190,7 @@ export function Grocery() {
     const store = stores.find((s) => s.id === storeFilter);
     const title = storeFilter === "none"
       ? "Grocery list — No assigned store"
-      : store ? `Grocery list — ${store.name}` : "Grocery list";
+      : store ? `Grocery list — ${store.name}` : Copy.text("ui.grocery.list");
     if (!left.length) return `${title}\n\nNothing left to buy.`;
     const known = new Set(aisles.map((a) => a.id));
     const blocks = [...aisles.map((a) => [a.name, left.filter((l) => l.aisle === a.id)]),
@@ -204,7 +204,7 @@ export function Grocery() {
     const text = shareText();
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Grocery list", text });
+        await navigator.share({ title: Copy.text("ui.grocery.list"), text });
         setSheet(false);
         return;
       }
@@ -216,7 +216,7 @@ export function Grocery() {
   }
 
   function emailList() {
-    window.location.href = `mailto:?subject=${encodeURIComponent("Grocery list")}&body=${encodeURIComponent(shareText())}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(Copy.text("ui.grocery.list"))}&body=${encodeURIComponent(shareText())}`;
     setSheet(false);
   }
 
@@ -365,7 +365,7 @@ export function Grocery() {
             <span className="sr-only">Store</span>
             <select aria-label="Filter by store" value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)}>
               <option value="all">All stores</option>
-              <option value="none">No assigned store</option>
+              <option value="none">{Copy.text("ui.no.assigned.store")}</option>
               {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
             <Icon name="chevron-down" size={14} />
@@ -426,7 +426,7 @@ export function Grocery() {
       <button
         type="button"
         className="fab"
-        aria-label="Add item"
+        aria-label={Copy.text("ui.add.item")}
         onClick={() => {
           setAdding((v) => !v);
           setSheet(false);
@@ -437,16 +437,16 @@ export function Grocery() {
 
       {sheet && (
         <div className="action-sheet grocery-options">
-          <label>Show completed items <input type="checkbox" checked={!hideChecked} onChange={(e) => { const value = !e.target.checked; setHideChecked(value); persist({ hideChecked: value }); }} /></label>
+          <label>{Copy.text("ui.show.completed.items")} <input type="checkbox" checked={!hideChecked} onChange={(e) => { const value = !e.target.checked; setHideChecked(value); persist({ hideChecked: value }); }} /></label>
           <label>Show store groups <input type="checkbox" checked={groupByStore} onChange={(e) => { const value = e.target.checked; setGroupByStore(value); if (!value) setStoreFilter("all"); persist({ groupByStore: value }); }} /></label>
-          <label>Show aisle numbers <input type="checkbox" checked={showAisleNums} onChange={(e) => { const value = e.target.checked; setShowAisleNums(value); persist({ showAisleNums: value }); }} /></label>
-          <label>Show meals under each item <input type="checkbox" checked={showMeals} onChange={(e) => { const value = e.target.checked; setShowMeals(value); persist({ showMeals: value }); }} /></label>
+          <label>{Copy.text("ui.show.aisle.numbers")} <input type="checkbox" checked={showAisleNums} onChange={(e) => { const value = e.target.checked; setShowAisleNums(value); persist({ showAisleNums: value }); }} /></label>
+          <label>{Copy.text("ui.show.meals.under.each.item")} <input type="checkbox" checked={showMeals} onChange={(e) => { const value = e.target.checked; setShowMeals(value); persist({ showMeals: value }); }} /></label>
           <label>Show emoji <input type="checkbox" checked={showEmoji} onChange={(e) => { const value = e.target.checked; setShowEmoji(value); persist({ showEmoji: value }); }} /></label>
-          <button type="button" onClick={lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? uncheckAll : markAllComplete}>{lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? "Uncheck all" : "Complete all"}</button>
+          <button type="button" onClick={lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? uncheckAll : markAllComplete}>{lines.length > 0 && lines.every((line) => line.checked || line.never_shop) ? Copy.text("ui.uncheck.all") : Copy.text("ui.complete.all")}</button>
           {menuStatus && <p className="grocery-action-status" role="status">{menuStatus}</p>}
           <button type="button" onClick={() => { setSheet(false); setView("stores"); }}>Edit stores</button>
           <button type="button" onClick={() => { setSheet(false); setView("aisles"); }}>Edit aisles</button>
-          <button type="button" onClick={shareList}>Share list</button>
+          <button type="button" onClick={shareList}>{Copy.text("ui.share.list")}</button>
           <button type="button" onClick={emailList}>Email list</button>
           <button type="button" onClick={() => { setSheet(false); window.print(); }}>Print</button>
           <button type="button" onClick={() => setSheet(false)}>Done</button>
@@ -461,7 +461,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
   if (showMeals && line.used_by?.length) {
     note.push(line.used_by.map(shortMealName).filter(Boolean).join(" · "));
   }
-  if (line.never_shop) note.push("Always checked off");
+  if (line.never_shop) note.push(Copy.text("ui.always.checked.off"));
 
   return (
     <div
@@ -486,6 +486,7 @@ function GroceryRow({ line, showMeals, showEmoji, onCheck, onOpen }) {
 }
 
 import { INGREDIENT_REPORT_REASONS } from "../reportOptions.js";
+import { Copy } from "../Copy.js";
 
 /** "Report a problem with this item": a reason and a note, saved with the line as they saw it. */
 function ItemReport({ item }) {
@@ -497,7 +498,7 @@ function ItemReport({ item }) {
 
   if (sentId === item.id) return <p className="muted recipe-report-done" role="status">Reported. Thanks, we'll take a look.</p>;
   if (report === null) {
-    return <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>Report a problem with this item</button>;
+    return <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>{Copy.text("ui.report.a.problem.with.this")}</button>;
   }
   return (
     <form className="recipe-report-form" onSubmit={(e) => {
@@ -521,7 +522,7 @@ function ItemReport({ item }) {
           </label>
         ))}
       </fieldset>
-      <label htmlFor="item-report-note">Anything to add? (optional)</label>
+      <label htmlFor="item-report-note">{Copy.text("ui.anything.to.add.optional")}</label>
       <textarea id="item-report-note" className="field" rows={3} maxLength={1000} value={report.note}
         placeholder="e.g. Feta should be in Dairy, not Deli"
         onChange={(e) => setReport({ ...report, note: e.target.value })} />
@@ -560,7 +561,7 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
         <label className="grocery-substitute-row">Substitute
           <input className="field" aria-label="Replacement item" placeholder="Try another item" value={substitute} onChange={(e) => setSubstitute(e.target.value)} />
         </label>
-        {substitute.trim() && <button className="text-link" onClick={() => onSubstitute(substitute.trim())}>Save substitution</button>}
+        {substitute.trim() && <button className="text-link" onClick={() => onSubstitute(substitute.trim())}>{Copy.text("ui.save.substitution")}</button>}
         <h3 className="block-label">You'll use this in</h3>
         {item.used_in?.length ? (
           <>
@@ -586,13 +587,13 @@ function ItemView({ item, stores, aisles, err, onBack, onPatch, onFlags, onSubst
             ))}
           </ul>
         ) : (
-          <p className="muted">Added by you</p>
+          <p className="muted">{Copy.text("ui.added.by.you")}</p>
         )}
         <div className="grocery-item-settings">
-        <label className="toggle-row">Store <select className="field" value={item.store || ""} onChange={(e) => onPatch({ store: e.target.value })}><option value="">Not set</option>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+        <label className="toggle-row">Store <select className="field" value={item.store || ""} onChange={(e) => onPatch({ store: e.target.value })}><option value="">{Copy.text("ui.not.set")}</option>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
         <label className="toggle-row">Aisle <select className="field" value={item.aisle} onChange={(e) => onPatch({ aisle: e.target.value })}>{aisles.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
-        <label className="toggle-row">In my pantry <input type="checkbox" checked={item.from_pantry} onChange={(e) => onFlags({ have: e.target.checked })} /></label>
-        <label className="toggle-row">Always check off <input type="checkbox" checked={item.never_shop} onChange={(e) => onFlags({ never_shop: e.target.checked })} /></label>
+        <label className="toggle-row">{Copy.text("ui.in.my.pantry")} <input type="checkbox" checked={item.from_pantry} onChange={(e) => onFlags({ have: e.target.checked })} /></label>
+        <label className="toggle-row">{Copy.text("ui.always.check.off")} <input type="checkbox" checked={item.never_shop} onChange={(e) => onFlags({ never_shop: e.target.checked })} /></label>
         <ItemReport item={item} />
         </div>
       </div>
@@ -615,7 +616,7 @@ function StoresView({ stores, lines, newStore, setNewStore, err, onBack, onAssig
         <button type="button" className="list-link" onClick={onAisles}>
           Aisles
         </button>
-        <h3 className="block-label">Your stores</h3>
+        <h3 className="block-label">{Copy.text("ui.your.stores")}</h3>
         {stores.map((s) => (
           <div key={s.id} className="store-edit">
             <strong>{s.name}</strong>

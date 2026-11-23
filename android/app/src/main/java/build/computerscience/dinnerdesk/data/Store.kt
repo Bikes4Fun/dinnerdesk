@@ -279,7 +279,7 @@ class Store(private val scope: CoroutineScope, private val context: Context) {
         // the change didn't take: the error banner covers that.
         if (onWeek(recipe.id) == wasOn) return
         planToast = PlanToast(
-            text = if (wasOn) "Removed from this week" else "Added to this week",
+            text = if (wasOn) Copy.text("ui.removed.from.this.week") else Copy.text("ui.added.to.this.week"),
             recipeId = recipe.id, undoAdds = wasOn,
         )
     }

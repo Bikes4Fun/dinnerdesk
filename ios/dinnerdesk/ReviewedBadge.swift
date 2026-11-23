@@ -30,7 +30,7 @@ struct ReviewedBadge: View {
                 .font(Theme.body)
                 .multilineTextAlignment(.center)
               Button { showing = false } label: {
-                Text("Got it")
+                Text(Copy.text("ui.got.it"))
                   .font(Theme.action)
                   .foregroundStyle(Theme.surface)
                   .frame(maxWidth: .infinity, minHeight: 48)

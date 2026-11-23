@@ -4,7 +4,7 @@ import { go } from "../nav.js";
 import { Copy } from "../Copy.js";
 
 function friendlyError(e) {
-  return (e && e.body && e.body.message) || (e && e.message) || "Something went wrong.";
+  return (e && e.body && e.body.message) || (e && e.message) || Copy.text("ui.something.went.wrong");
 }
 
 export function Auth({ onAuthed }) {
@@ -31,7 +31,7 @@ export function Auth({ onAuthed }) {
         await api.auth.signup({
           email,
           password,
-          household_name: householdName || "My household",
+          household_name: householdName || Copy.text("ui.my.household"),
           agreed_privacy: agreed,
         });
       } else {
@@ -78,7 +78,7 @@ export function Auth({ onAuthed }) {
                     autoComplete="email"
                   />
                   <button type="submit" className="btn-primary block" disabled={busy}>
-                    {busy ? "Sending…" : "Send reset link"}
+                    {busy ? "Sending…" : Copy.text("ui.send.reset.link")}
                   </button>
                 </form>
               )}
@@ -150,7 +150,7 @@ export function Auth({ onAuthed }) {
               autoComplete="username"
             />
             {mode === "signup" && email.trim() && !email.includes("@") && (
-              <p className="banner warn">No email means no password reset. If you forget your password, this account can't be recovered.</p>
+              <p className="banner warn">{Copy.text("ui.no.email.means.no.password")}</p>
             )}
 
             <label className="block-label" htmlFor="password">
@@ -166,7 +166,7 @@ export function Auth({ onAuthed }) {
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
             />
-            {mode === "signup" && <p className="help">At least 8 characters.</p>}
+            {mode === "signup" && <p className="help">{Copy.text("ui.at.least.8.characters")}</p>}
             {mode === "login" && (
               <button
                 type="button"
@@ -194,7 +194,7 @@ export function Auth({ onAuthed }) {
             )}
 
             <button type="submit" className="btn-primary block" disabled={busy || (mode === "signup" && !agreed)}>
-              {busy ? "Please wait…" : mode === "signup" ? "Create household" : "Sign in"}
+              {busy ? "Please wait…" : mode === "signup" ? "Create household" : Copy.text("ui.sign.in")}
             </button>
             {mode === "signup" && !agreed && <p className="help">{Copy.text("privacy.signup.needed")}</p>}
             <button type="button" className="text-link" disabled={busy} onClick={() => go("/")}>

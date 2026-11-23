@@ -41,21 +41,21 @@ struct RecipeTileMenuItem: Identifiable {
   }
   static func plan(on: Bool, action: @escaping () -> Void) -> RecipeTileMenuItem {
     RecipeTileMenuItem(
-      id: "plan", title: on ? "Remove from plan" : "Add to plan", action: action)
+      id: "plan", title: on ? Copy.text("ui.remove.from.plan") : Copy.text("ui.add.to.plan"), action: action)
   }
   static func toTry(on: Bool, action: @escaping () -> Void) -> RecipeTileMenuItem {
     // Copy: "To try" (not "To Try"), matching current UI.
     RecipeTileMenuItem(
-      id: "toTry", title: on ? "Remove from To try" : "To try", action: action)
+      id: "toTry", title: on ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.to.try.2"), action: action)
   }
   static func hide(on: Bool, action: @escaping () -> Void) -> RecipeTileMenuItem {
     RecipeTileMenuItem(
-      id: "hide", title: on ? "Unhide recipe" : "Hide recipe",
+      id: "hide", title: on ? Copy.text("ui.unhide.recipe") : Copy.text("ui.hide.recipe"),
       role: on ? nil : .destructive, action: action)
   }
   static func cooked(on: Bool, action: @escaping () -> Void) -> RecipeTileMenuItem {
     RecipeTileMenuItem(
-      id: "cooked", title: on ? "Mark as not cooked" : "Mark as cooked", action: action)
+      id: "cooked", title: on ? Copy.text("ui.mark.as.not.cooked") : Copy.text("ui.mark.as.cooked"), action: action)
   }
   /// Page-specific action not in the standard set.
   static func extra(id: String, title: String, role: ButtonRole? = nil, action: @escaping () -> Void)
@@ -153,7 +153,7 @@ struct RecipeTileAddButton: View {
     RecipeTileOverlaySlot(corner: corner) {
       RecipeTilePhotoOverlay(
         corner: corner, mode: .interactive,
-        accessibilityLabel: onPlan ? "Remove from this plan" : "Add to this plan",
+        accessibilityLabel: onPlan ? Copy.text("ui.remove.from.this.plan") : Copy.text("ui.add.to.this.plan"),
         action: action
       ) {
         // Glyph inside * circle chrome (not circle.fill — that would double the ring).
@@ -174,7 +174,7 @@ struct RecipeTileHeartButton: View {
     RecipeTileOverlaySlot(corner: corner) {
       RecipeTilePhotoOverlay(
         corner: corner, mode: .interactive,
-        accessibilityLabel: on ? "Remove from your favorites" : "Save to your favorites",
+        accessibilityLabel: on ? Copy.text("ui.remove.from.your.favorites") : Copy.text("ui.save.to.your.favorites"),
         action: action
       ) {
         Image(systemName: on ? "heart.fill" : "heart")
@@ -194,7 +194,7 @@ struct RecipeTileSwapButton: View {
     RecipeTileOverlaySlot(corner: corner) {
       RecipeTilePhotoOverlay(
         corner: corner, mode: .interactive,
-        accessibilityLabel: "Swap meal",
+        accessibilityLabel: Copy.text("ui.swap.meal"),
         action: disabled ? nil : action
       ) {
         Image(systemName: "arrow.triangle.2.circlepath")
@@ -217,7 +217,7 @@ struct RecipeTileSaveForLaterButton: View {
     RecipeTileOverlaySlot(corner: corner) {
       RecipeTilePhotoOverlay(
         corner: corner, mode: .interactive,
-        accessibilityLabel: on ? "Remove from To try" : "Save to To try",
+        accessibilityLabel: on ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.save.to.to.try"),
         action: action
       ) {
         Image(systemName: on ? "bookmark.fill" : "bookmark")
@@ -237,7 +237,7 @@ struct RecipeTileCookedButton: View {
     RecipeTileOverlaySlot(corner: corner) {
       RecipeTilePhotoOverlay(
         corner: corner, mode: .interactive,
-        accessibilityLabel: on ? "Mark as not cooked" : "Mark as cooked",
+        accessibilityLabel: on ? Copy.text("ui.mark.as.not.cooked") : Copy.text("ui.mark.as.cooked"),
         action: action
       ) {
         Image(systemName: on ? "checkmark.circle.fill" : "circle")
@@ -256,7 +256,7 @@ struct RecipeTileFlagButton: View {
     RecipeTileOverlaySlot(corner: corner) {
       RecipeTilePhotoOverlay(
         corner: corner, mode: .interactive,
-        accessibilityLabel: "Report photo",
+        accessibilityLabel: Copy.text("ui.report.photo"),
         action: action
       ) {
         Image(systemName: "flag")
@@ -286,7 +286,7 @@ struct RecipeTileKitchenTestedBadge: View {
 
 struct RecipeTileComingSoonBadge: View {
   var body: some View {
-    Text("Coming soon")
+    Text(Copy.text("ui.coming.soon"))
       .font(.footnote.weight(.bold))
       .foregroundStyle(.white)
       .shadow(color: .black.opacity(0.6), radius: 3)
@@ -342,7 +342,7 @@ struct RecipeTileMetaBlock: View {
         .frame(minHeight: 16, alignment: .leading)
       }
       if meta.showYourSelection {
-        Text("Your selection")
+        Text(Copy.text("ui.your.selection"))
           .font(Theme.subtitle)
           .foregroundStyle(Theme.muted)
           .opacity(meta.yourSelection ? 1 : 0)

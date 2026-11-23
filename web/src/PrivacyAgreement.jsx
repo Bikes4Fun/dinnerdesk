@@ -20,7 +20,7 @@ export function PrivacyAgreement({ signedIn, onAgreed }) {
       await api.agreeToPrivacy();
       onAgreed();
     } catch (e) {
-      setErr((e.body && e.body.message) || e.message || "Something went wrong.");
+      setErr((e.body && e.body.message) || e.message || Copy.text("ui.something.went.wrong"));
     } finally {
       setBusy(false);
     }

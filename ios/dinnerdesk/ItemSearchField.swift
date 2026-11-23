@@ -5,7 +5,7 @@ import SwiftUI
 /// Return adds the first match and keeps the field open for the next one.
 struct ItemSearchField: View {
   let label: String
-  var placeholder = "Search foods, e.g. bell peppers or ground"
+  var placeholder = Copy.text("ui.search.foods.eg.bell.peppers")
   var dashed = false
   var autofocus = false
   var presets: [String] = []
@@ -71,7 +71,7 @@ struct ItemSearchField: View {
         }
       }
       if !loading && error == nil && !query.isEmpty && matches.isEmpty && presetHits.isEmpty {
-        Text("No matching foods. Try another name.").font(Theme.subtitle)
+        Text(Copy.text("ui.no.matching.foods.try.another")).font(Theme.subtitle)
       }
     }
     .onAppear { if autofocus { focused = true } }
@@ -89,7 +89,7 @@ struct ItemSearchField: View {
         loading = false
       } catch {
         if !API.isCancellation(error) {
-          self.error = "Couldn't search foods. Please try again."
+          self.error = Copy.text("ui.couldnt.search.foods.please.try")
           loading = false
         }
       }

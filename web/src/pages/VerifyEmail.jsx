@@ -11,7 +11,7 @@ export function VerifyEmail({ token, onDone }) {
     api.auth
       .confirmEmail({ token })
       .then((r) => setEmail(r.email))
-      .catch((e) => setErr((e && e.body && e.body.message) || (e && e.message) || "Something went wrong."));
+      .catch((e) => setErr((e && e.body && e.body.message) || (e && e.message) || Copy.text("ui.something.went.wrong")));
   }, [token]);
 
   return (

@@ -17,6 +17,7 @@ or API method existing does not prove that all of its controls work or have matc
 | User-facing shared wording | `ios/dinnerdesk/copy.json` | Native Copy adapters and web `Copy` class; tour descriptions read the same keys |
 | Privacy policy (full text) | `ios/dinnerdesk/copy.json` (`privacy.policy.*`) | All three Privacy screens read it; `docs/PRIVACY.md` is written from it by `scripts/write_privacy_md.py`; `tests/test_privacy_policy.py` checks |
 | Brand name and colors | `shared/brand.json` | Each app keeps its own copy (CSS, Swift, Kotlin); `tests/test_brand_consistency.py` fails on drift |
+| Any phrase shown in two or more apps | `ios/dinnerdesk/copy.json` via `Copy.text(...)` | `tests/test_shared_phrases.py` fails when a new phrase is typed in two apps; deliberate exceptions in `tests/shared_phrases_allowed.txt` |
 | HTTP errors, session state, cache | API contract; semantics must agree | Each platform's API/cache/session services |
 | Photos, thumbs, ingredient quantities, step formatting | Recipe API and domain rules | Reusable photo, thumbs, quantity and step components per platform |
 | Administration | Server admin authorization | Web admin pages only |

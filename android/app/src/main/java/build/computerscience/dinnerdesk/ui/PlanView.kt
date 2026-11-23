@@ -98,6 +98,7 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import build.computerscience.dinnerdesk.data.Copy
 
 @Composable
 fun PlanView() {
@@ -139,16 +140,16 @@ fun PlanView() {
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(store.plan?.title ?: "This week", style = Theme.bigTitle, color = Theme.ink, modifier = Modifier.weight(1f))
+                Text(store.plan?.title ?: Copy.text("ui.this.week"), style = Theme.bigTitle, color = Theme.ink, modifier = Modifier.weight(1f))
                 // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
                 if (editing) LinkButton("Done") { setEditing(false) }
-                IconAction(Icons.Filled.MoreHoriz, "Plan menu") { menu = true }
+                IconAction(Icons.Filled.MoreHoriz, Copy.text("ui.plan.menu")) { menu = true }
             }
             store.error?.let { error ->
                 ErrorBanner(error)
                 if (error.contains("filter", ignoreCase = true)) {
-                    LinkButton("Adjust filters") { nav.push(Route.Filters) }
-                    LinkButton("Choose meals") { store.error = null; selectTab(AppTab.Recipes) }
+                    LinkButton(Copy.text("ui.adjust.filters")) { nav.push(Route.Filters) }
+                    LinkButton(Copy.text("ui.choose.meals")) { store.error = null; selectTab(AppTab.Recipes) }
                 }
             }
             val plan = store.plan
@@ -159,12 +160,12 @@ fun PlanView() {
                 if (plan.status == "suggested" && !note.isNullOrEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(note, style = Theme.subtitle, color = Theme.muted)
-                        Text("Improve your results", style = Theme.subtitle, color = Theme.accent, modifier = Modifier.clickable { nav.push(Route.TasteLab(swipe = true)) })
+                        Text(Copy.text("ui.improve.your.results"), style = Theme.subtitle, color = Theme.accent, modifier = Modifier.clickable { nav.push(Route.TasteLab(swipe = true)) })
                     }
                 }
                 if (plan.slots.isEmpty()) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                        EmptyState("Nothing on this plan", "Get suggestions for your next meals.", Icons.Outlined.CalendarToday)
+                        EmptyState(Copy.text("ui.nothing.on.this.plan"), Copy.text("ui.get.suggestions.for.your.next"), Icons.Outlined.CalendarToday)
                         CreateMealPlanButton { store.launch { openSuggestions() } }
                         AddMealsButton { selectTab(AppTab.Recipes) }
                     }
@@ -173,7 +174,7 @@ fun PlanView() {
                     val all = selected.size == plan.slots.size
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            if (all) "Deselect all" else "Select all", style = Theme.body, color = Theme.ink,
+                            if (all) Copy.text("ui.deselect.all") else Copy.text("ui.select.all"), style = Theme.body, color = Theme.ink,
                             modifier = Modifier.clickable { selected = if (all) emptySet() else plan.slots.map { it.id }.toSet() },
                         )
                         Spacer(Modifier.weight(1f))
@@ -184,7 +185,7 @@ fun PlanView() {
                     val picked = plan.slots.filter { it.id in selected }
                     val allCooked = picked.isNotEmpty() && picked.all { it.cooked }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        LinkButton(if (allCooked) "Mark uncooked" else "Mark cooked", enabled = selected.isNotEmpty(), style = Theme.body) {
+                        LinkButton(if (allCooked) Copy.text("ui.mark.uncooked") else Copy.text("ui.mark.cooked"), enabled = selected.isNotEmpty(), style = Theme.body) {
                             val ids = selected
                             store.launch { markCooked(ids, cooked = !allCooked) }
                         }
@@ -239,15 +240,15 @@ fun PlanView() {
 
     if (menu) {
         MenuSheet(onDismiss = { menu = false }, items = listOf(
-            MenuItem("Fill in this plan", Icons.Outlined.AddCircleOutline) { store.launch { openSuggestions(keepCurrent = true) } },
-            MenuItem(if (editing) "Finish editing" else "Edit plan", if (editing) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Edit) { setEditing(!editing) },
+            MenuItem(Copy.text("ui.fill.in.this.plan"), Icons.Outlined.AddCircleOutline) { store.launch { openSuggestions(keepCurrent = true) } },
+            MenuItem(if (editing) Copy.text("ui.finish.editing") else Copy.text("ui.edit.plan"), if (editing) Icons.Outlined.CheckCircleOutline else Icons.Outlined.Edit) { setEditing(!editing) },
             MenuItem(if (grid) "List View" else "Grid View", Icons.Outlined.GridView) { grid = !grid },
-            MenuItem("Save as draft", Icons.Outlined.SaveAlt) { draftTitle = store.plan?.title ?: "Saved plan"; savingDraft = true },
-            MenuItem("Saved plans & history", Icons.Outlined.Inbox) { drafts = true },
+            MenuItem(Copy.text("ui.save.as.draft"), Icons.Outlined.SaveAlt) { draftTitle = store.plan?.title ?: Copy.text("ui.saved.plan"); savingDraft = true },
+            MenuItem(Copy.text("ui.saved.plans.history"), Icons.Outlined.Inbox) { drafts = true },
         ))
     }
     if (savingDraft) {
-        TextFieldAlert("Save as draft", draftTitle, { draftTitle = it }, "Plan name", "Save",
+        TextFieldAlert(Copy.text("ui.save.as.draft"), draftTitle, { draftTitle = it }, Copy.text("ui.plan.name"), "Save",
             onConfirm = { val t = draftTitle; store.launch { saveDraft(t) } }, onDismiss = { savingDraft = false })
     }
     if (removing) {
@@ -255,7 +256,7 @@ fun PlanView() {
         RemovalConfirmation(
             title = "Remove $count ${if (count == 1) "meal" else "meals"}?",
             message = "Selected meals will be removed from your plan.",
-            actionTitle = if (count == 1) "Remove meal" else "Remove meals",
+            actionTitle = if (count == 1) "Remove meal" else Copy.text("ui.remove.meals"),
             onDismiss = { removing = false },
         ) {
             store.removeSlots(selected)
@@ -282,7 +283,7 @@ private fun PlanActions(
 ) {
     val pills: @Composable () -> Unit = {
         PlanActionPill(CREATE_MEAL_PLAN, Icons.Outlined.AutoAwesome, filled = true, active, onNewPlan)
-        PlanActionPill("Add meals", Icons.Filled.Add, filled = false, active, onAddMeals)
+        PlanActionPill(Copy.text("ui.add.meals"), Icons.Filled.Add, filled = false, active, onAddMeals)
     }
     if (large) {
         Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -323,7 +324,7 @@ private fun AddMealsButton(onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
-        Text("Add meals", style = Theme.action, color = Theme.accent)
+        Text(Copy.text("ui.add.meals"), style = Theme.action, color = Theme.accent)
     }
 }
 
@@ -337,7 +338,7 @@ private fun AddMealsPill(modifier: Modifier = Modifier, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(18.dp))
-        Text("Add meals", style = Theme.body, color = Theme.accent, textAlign = TextAlign.Center)
+        Text(Copy.text("ui.add.meals"), style = Theme.body, color = Theme.accent, textAlign = TextAlign.Center)
     }
 }
 
@@ -454,7 +455,7 @@ private fun EditControls(slot: PlanSlot, onSchedule: () -> Unit, plan: Plan? = n
             ThumbsControl(slot.rating ?: 0, slot.recipeName) { next -> store.launch { rateMeal(slot, next) } }
         }
         ServingsControl(slot)
-        if ((slot.rating ?: 0) > 0) Text("We'll suggest more like this", style = Theme.subtitle, color = Theme.muted)
+        if ((slot.rating ?: 0) > 0) Text(Copy.text("ui.well.suggest.more.like.this"), style = Theme.subtitle, color = Theme.muted)
         if ((slot.rating ?: 0) < 0) StarTip("plan.disliked")
     }
 }
@@ -514,7 +515,7 @@ private fun ScheduleMealSheet(slot: PlanSlot) {
         if (store.schedule(slot, date)) dismiss()
     }
     Column(Modifier.fillMaxWidth().background(Theme.bg)) {
-        SheetBar("Schedule meal")
+        SheetBar(Copy.text("ui.schedule.meal"))
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Text(slot.recipeName, style = Theme.mealName, color = Theme.ink)
             DatePicker(
@@ -551,13 +552,13 @@ fun SavedPlansView() {
     val history = plans.filter { it.status == "history" || (it.status == "active" && it.decision == "approve") }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar("Saved plans", cancel = "Close", onCancel = dismiss)
+        SheetBar(Copy.text("ui.saved.plans"), cancel = "Close", onCancel = dismiss)
         ThemeList {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
             if (loading) Spinner()
             ListHeader("Drafts")
             if (!loading && drafts.isEmpty()) {
-                ListRow { Muted("No drafts yet. Use ⋯ → Save as draft to keep a plan for later.", style = Theme.body) }
+                ListRow { Muted(Copy.text("ui.no.drafts.yet.use.save"), style = Theme.body) }
             }
             for (plan in drafts) {
                 ListRow(chevron = false) {
@@ -565,9 +566,9 @@ fun SavedPlansView() {
                     DeletePlanButton(plan) { deleting = plan }
                 }
             }
-            ListHeader("Plan history")
+            ListHeader(Copy.text("ui.plan.history"))
             if (!loading && history.isEmpty()) {
-                ListRow { Muted("No past plans yet. Plans you approve or finish show up here.", style = Theme.body) }
+                ListRow { Muted(Copy.text("ui.no.past.plans.yet.plans"), style = Theme.body) }
             }
             for (plan in history) {
                 ListRow(chevron = false) {
@@ -578,7 +579,7 @@ fun SavedPlansView() {
         }
     }
     deleting?.let { plan ->
-        RemovalConfirmation("Delete this plan?", heading(plan), "Delete plan", onDismiss = { deleting = null }) {
+        RemovalConfirmation(Copy.text("ui.delete.this.plan"), heading(plan), Copy.text("ui.delete.plan"), onDismiss = { deleting = null }) {
             try {
                 Api.send<Ok>("plans/${plan.id}", "DELETE")
                 plans = plans.filter { it.id != plan.id }
@@ -600,7 +601,7 @@ fun PlanHistoryView(plan: SavedPlan, title: String) {
                 ListRow(onClick = { nav.push(Route.Recipe(slot.recipeId)) }) {
                     Column {
                         RecipeCardName(slot.recipeName)
-                        Text("${slot.servings} servings · ${if (slot.cooked) "Cooked" else "Not cooked"}", style = Theme.subtitle, color = Theme.ink)
+                        Text("${slot.servings} servings · ${if (slot.cooked) "Cooked" else Copy.text("ui.not.cooked")}", style = Theme.subtitle, color = Theme.ink)
                     }
                 }
             }
@@ -626,7 +627,7 @@ private fun DeletePlanButton(plan: SavedPlan, onClick: () -> Unit) {
 
 private fun heading(plan: SavedPlan): String {
     val title = plan.title.trim()
-    if (title.isNotEmpty() && title != "This week") return title
+    if (title.isNotEmpty() && title != Copy.text("ui.this.week")) return title
     val start = planDate(plan.startDate) ?: return "Plan"
     return "Week of ${shortDate(start)}"
 }
@@ -686,12 +687,12 @@ fun SuggestedPlanReview() {
     val proposal = store.proposal
     val disabled = busy || store.generatingProposal
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar("Review your suggestions", cancel = "Close", onCancel = { store.proposalError = null; dismiss() })
+        SheetBar(Copy.text("ui.review.your.suggestions"), cancel = "Close", onCancel = { store.proposalError = null; dismiss() })
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (store.generatingProposal) {
                 Column(Modifier.fillMaxWidth().heightIn(min = 80.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     CircularProgressIndicator(color = Theme.muted, strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
-                    Text("Finding meals…", style = Theme.body, color = Theme.muted)
+                    Text(Copy.text("ui.finding.meals"), style = Theme.body, color = Theme.muted)
                 }
             }
             val count = proposal?.slots?.size ?: 4
@@ -702,7 +703,7 @@ fun SuggestedPlanReview() {
             }
             store.proposalError?.let {
                 ErrorBanner(it)
-                LinkButton("Dismiss error") { store.proposalError = null }
+                LinkButton(Copy.text("ui.dismiss.error")) { store.proposalError = null }
             }
             val slots = proposal?.slots ?: emptyList()
             for (row in slots.chunked(if (large) 1 else 2)) {
@@ -727,7 +728,7 @@ fun SuggestedPlanReview() {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             RecipeCardName(slot.recipeName)
                             slot.cookingMinutes?.let { Text("$it min", style = Theme.subtitle, color = Theme.muted) }
-                            if (!suggested) Text("Your selection", style = Theme.subtitle, color = Theme.muted)
+                            if (!suggested) Text(Copy.text("ui.your.selection"), style = Theme.subtitle, color = Theme.muted)
                         }
                     }
                     if (row.size == 1 && !large) Spacer(Modifier.weight(1f))
@@ -735,10 +736,10 @@ fun SuggestedPlanReview() {
             }
             val actions: @Composable (Modifier) -> Unit = { m ->
                 if (proposal?.status == "suggested") {
-                    FilledButton("Approve plan", m, enabled = !disabled) { run { store.reviewProposal("approve") } }
-                    OutlinedButton("Suggest another", m, enabled = !disabled) { run { store.reviewProposal("decline") } }
+                    FilledButton(Copy.text("ui.approve.plan"), m, enabled = !disabled) { run { store.reviewProposal("approve") } }
+                    OutlinedButton(Copy.text("ui.suggest.another"), m, enabled = !disabled) { run { store.reviewProposal("decline") } }
                 } else {
-                    OutlinedButton("Try another suggestion", m, enabled = !disabled) { run { store.newPlan(meals = 4) } }
+                    OutlinedButton(Copy.text("ui.try.another.suggestion"), m, enabled = !disabled) { run { store.newPlan(meals = 4) } }
                 }
             }
             if (large) Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { actions(Modifier) }
@@ -748,17 +749,17 @@ fun SuggestedPlanReview() {
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Outlined.Gesture, null, tint = Theme.accent)
-                Text("Improve suggestions", style = Theme.action, color = Theme.accent)
+                Text(Copy.text("ui.improve.suggestions"), style = Theme.action, color = Theme.accent)
             }
             if (proposal != null && reportedId == proposal.id) {
-                Text("Thanks. We'll look at why these were suggested.", style = Theme.subtitle, color = Theme.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                Text(Copy.text("ui.thanks.well.look.at.why"), style = Theme.subtitle, color = Theme.muted, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             } else if (proposal != null) {
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { reportNote = ""; reporting = true },
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Outlined.Flag, null, tint = Theme.muted)
-                    Text("Report this suggestion", style = Theme.action, color = Theme.muted)
+                    Text(Copy.text("ui.report.this.suggestion"), style = Theme.action, color = Theme.muted)
                 }
             }
         }
@@ -768,11 +769,11 @@ fun SuggestedPlanReview() {
     if (reporting) {
         Sheet(onDismiss = { reporting = false }) {
             Column(Modifier.fillMaxSize().background(Theme.bg)) {
-                SheetBar("Report this suggestion", onCancel = { reporting = false })
+                SheetBar(Copy.text("ui.report.this.suggestion"), onCancel = { reporting = false })
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("What's wrong with this plan?", style = Theme.action, color = Theme.ink)
+                    Text(Copy.text("ui.whats.wrong.with.this.plan"), style = Theme.action, color = Theme.ink)
                     TextBox(reportNote, { reportNote = it }, "e.g. Three chicken dinners in a row, and none of us eat olives", style = Theme.subtitle, minLines = 3)
-                    FilledButton(if (busy) "Sending…" else "Send report", enabled = !busy) {
+                    FilledButton(if (busy) "Sending…" else Copy.text("ui.send.report"), enabled = !busy) {
                         val id = store.proposal?.id
                         run { if (store.reportProposal(reportNote.trim())) { reportedId = id; reporting = false } }
                     }
@@ -840,15 +841,15 @@ private fun ProposalSwapPicker(slot: PlanSlot) {
     NavStack(sheetNav) { route ->
         if (route != Route.PlanHome) { RouteContent(route); return@NavStack }
         Column(Modifier.fillMaxSize().background(Theme.bg)) {
-            SheetBar("Choose a replacement")
+            SheetBar(Copy.text("ui.choose.a.replacement"))
             Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text("Replace ${slot.recipeName}", style = Theme.subtitle, color = Theme.muted)
-                TextBox(query, { query = it }, "Search meals or ingredients", contentDescription = "Search replacement meals")
+                TextBox(query, { query = it }, Copy.text("ui.search.meals.or.ingredients"), contentDescription = Copy.text("ui.search.replacement.meals"))
                 error?.let { ErrorBanner(it) }
                 if (loading) Spinner()
                 if (!loading && options.isEmpty() && error == null) {
-                    Text("No matching meals. Try another search or adjust your filters.", style = Theme.body, color = Theme.ink)
-                    LinkButton("Adjust filters") { sheetNav.push(Route.Filters) }
+                    Text(Copy.text("ui.no.matching.meals.try.another"), style = Theme.body, color = Theme.ink)
+                    LinkButton(Copy.text("ui.adjust.filters")) { sheetNav.push(Route.Filters) }
                 }
                 for (option in options) {
                     Row(

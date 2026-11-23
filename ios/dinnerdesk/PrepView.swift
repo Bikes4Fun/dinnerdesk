@@ -31,7 +31,7 @@ struct PrepView: View {
     ("protein", "Protein", "Protein"),
     ("cheese", "Cheese & dairy", "Cheese"),
     ("sauce", "Sauces & dressings", "Sauce"),
-    ("other", "More prep", "More"),
+    ("other", Copy.text("ui.more.prep"), "More"),
   ]
   private static let coral = Color(hex: 0xFA7E5A)
   private static let coralTint = Color(hex: 0xFDE6DD)
@@ -72,14 +72,14 @@ struct PrepView: View {
           if let err = store.error { ErrorBanner(message: err) }
           if tasks.isEmpty {
             EmptyState(
-              title: "No prep yet",
-              message: "Add meals on Plan. Make-ahead steps like chopping, grating and sauces show up here.",
+              title: Copy.text("ui.no.prep.yet"),
+              message: Copy.text("ui.add.meals.on.plan.makeahead"),
               systemImage: "list.clipboard")
             if store.plan?.slots.isEmpty != false {
               CreateMealPlanButton { Task { await store.openSuggestions() } }
                 .frame(maxWidth: .infinity)
             } else {
-              Button("Back to plan") {
+              Button(Copy.text("ui.back.to.plan")) {
                 selectTab(.plan)
                 dismiss()
               }
@@ -113,7 +113,7 @@ struct PrepView: View {
       do { try await Task.sleep(for: .seconds(4)) } catch { return }
       if toast == id { toast = nil }
     }
-    .safeAreaInset(edge: .top, spacing: 0) { TabHeader("Weekend prep") }
+    .safeAreaInset(edge: .top, spacing: 0) { TabHeader(Copy.text("tour.how.4.title")) }
     .sheet(isPresented: $missingOpen) { MissingPrepSheet() }
     .refreshable { await store.loadPrep() }
     .task { await store.loadPrep(onlyIfStale: true) }
@@ -181,8 +181,8 @@ struct PrepView: View {
       HStack(spacing: 12) {
         Image(systemName: "plus.circle").scaledIcon(size: 22).accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
-          Text("Missing a prep step?").font(Theme.action)
-          Text("Pick a step from this week’s recipes.").font(Theme.subtitle).foregroundStyle(Theme.muted)
+          Text(Copy.text("ui.missing.a.prep.step")).font(Theme.action)
+          Text(Copy.text("ui.pick.a.step.from.this")).font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
         Spacer(minLength: 0)
       }
@@ -203,7 +203,7 @@ struct PrepView: View {
   /// By meal / By task switch (mirrors .pz-view on web): compact, sized to its labels.
   private var viewSwitch: some View {
     HStack(spacing: 2) {
-      ForEach([("meal", "By meal"), ("task", "By task")], id: \.0) { key, label in
+      ForEach([("meal", Copy.text("ui.by.meal")), ("task", Copy.text("ui.by.task"))], id: \.0) { key, label in
         let on = prepView == key
         Button { withMotion { prepView = key } } label: {
           Text(label).font(Theme.count.weight(.semibold)).lineLimit(1)
@@ -222,12 +222,12 @@ struct PrepView: View {
     .background(Theme.aubergineTint, in: Capsule().inset(by: 4))
     .fixedSize()
     .accessibilityElement(children: .contain)
-    .accessibilityLabel("Show prep")
+    .accessibilityLabel(Copy.text("ui.show.prep"))
   }
 
   @ViewBuilder private var completedToggle: some View {
     if doneCount > 0 {
-      Button(showDone ? "Hide completed" : "Show completed (\(doneCount))") { showDone.toggle() }
+      Button(showDone ? Copy.text("ui.hide.completed") : "Show completed (\(doneCount))") { showDone.toggle() }
         .buttonStyle(.plain)
         .font(Theme.count.weight(.semibold)).foregroundStyle(Theme.accent)
         .lineLimit(1)
@@ -243,7 +243,7 @@ struct PrepView: View {
       NavigationLink { RecipeDetailView(id: g.id) } label: {
         VStack(alignment: .leading, spacing: 2) {
           Text(g.name).font(Theme.action).foregroundStyle(Theme.ink).multilineTextAlignment(.leading)
-          Text([g.day, left > 0 ? "\(left) to prep" : "All prepped"].compactMap { $0 }.joined(separator: " · "))
+          Text([g.day, left > 0 ? "\(left) to prep" : Copy.text("ui.all.prepped")].compactMap { $0 }.joined(separator: " · "))
             .font(Theme.subtitle).foregroundStyle(Theme.muted)
         }
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -294,7 +294,7 @@ struct PrepView: View {
           .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(t.done ? "Mark not done" : "Mark done"): \(t.title) for \(g.name)")
+        .accessibilityLabel("\(t.done ? "Mark not done" : Copy.text("ui.mark.done")): \(t.title) for \(g.name)")
         Button {
           withMotion { openMealTask = open ? nil : key }
         } label: {
@@ -344,7 +344,7 @@ struct PrepView: View {
                 .buttonStyle(.plain)
                 .padding(.vertical, -11)
                 .padding(.horizontal, -11)
-                .accessibilityLabel("\(step.done ? "Mark not done" : "Mark done"): \(step.text)")
+                .accessibilityLabel("\(step.done ? "Mark not done" : Copy.text("ui.mark.done")): \(step.text)")
               } else {
                 Circle().strokeBorder(Self.dash, style: StrokeStyle(lineWidth: 1.5, dash: [3]))
                   .frame(width: 22, height: 22)
@@ -359,7 +359,7 @@ struct PrepView: View {
                   Text(step.quantities.joined(separator: " · ")).font(Theme.subtitle).foregroundStyle(Theme.muted)
                 }
                 if step.added {
-                  Text("Added by you").font(Theme.subtitle).foregroundStyle(Theme.muted)
+                  Text(Copy.text("ui.added.by.you")).font(Theme.subtitle).foregroundStyle(Theme.muted)
                 }
               }
               .padding(.top, 1)
@@ -406,7 +406,7 @@ struct PrepView: View {
 
       if open {
         if g.shown.isEmpty {
-          Text("All prepped here.").font(Theme.subtitle).foregroundStyle(Theme.muted)
+          Text(Copy.text("ui.all.prepped.here")).font(Theme.subtitle).foregroundStyle(Theme.muted)
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(Theme.line, style: StrokeStyle(lineWidth: 1, dash: [4])))
@@ -486,7 +486,7 @@ struct PrepView: View {
       Group {
         if whyOpen == task.id {
           VStack(alignment: .leading, spacing: 8) {
-            Text("Why not?").font(Theme.action).foregroundStyle(Theme.ink)
+            Text(Copy.text("ui.why.not")).font(Theme.action).foregroundStyle(Theme.ink)
             KitchenFlow(spacing: 6) {
               ForEach(PrepReason.allCases) { reason in
                 chip(reason.label, on: task.reason == reason.rawValue) {
@@ -495,14 +495,14 @@ struct PrepView: View {
               }
             }
             // Same as "Missing a prep step?": the user's own words go with the 👎.
-            Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
-            TextField("What would you do instead?", text: $whyNote, axis: .vertical)
+            Text(Copy.text("ui.anything.to.add.optional")).font(Theme.action).foregroundStyle(Theme.ink)
+            TextField(Copy.text("ui.what.would.you.do.instead"), text: $whyNote, axis: .vertical)
               .font(Theme.subtitle)
               .lineLimit(2...5)
               .padding(12)
               .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
               .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
-              .accessibilityLabel("Anything to add? Optional")
+              .accessibilityLabel(Copy.text("ui.anything.to.add.optional.2"))
             chip("Done", on: false) {
               let words = whyNote.trimmingCharacters(in: .whitespacesAndNewlines)
               whyOpen = nil
@@ -541,7 +541,7 @@ struct PrepView: View {
                       .fixedSize(horizontal: false, vertical: true)
                   }
                   if group.added {
-                    Text("Added by you").font(Theme.count).foregroundStyle(Theme.muted)
+                    Text(Copy.text("ui.added.by.you")).font(Theme.count).foregroundStyle(Theme.muted)
                   }
                   ForEach(group.meals) { meal in
                     NavigationLink { RecipeDetailView(id: meal.id) } label: {
@@ -654,14 +654,14 @@ struct MissingPrepSheet: View {
     NavigationStack {
       ScrollView {
         VStack(alignment: .leading, spacing: 18) {
-          Text("Tell us a step that would have saved time if you did it ahead. We’ll add it to your prep and use it to make prep better.")
+          Text(Copy.text("ui.tell.us.a.step.that"))
             .font(Theme.subtitle).foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
           if let added {
             confirmation(added)
           } else if let meals {
             if meals.isEmpty {
-              Text("Every step of this week’s recipes is already in prep.")
+              Text(Copy.text("ui.every.step.of.this.weeks"))
                 .font(Theme.subtitle).foregroundStyle(Theme.muted)
             } else {
               mealPicker(meals)
@@ -670,8 +670,8 @@ struct MissingPrepSheet: View {
             }
           } else if failed {
             VStack(spacing: 12) {
-              Text("Couldn’t load the recipes.").font(Theme.subtitle).foregroundStyle(Theme.muted)
-              Button("Try again") { Task { await load() } }.font(Theme.action).frame(minHeight: 44)
+              Text(Copy.text("ui.couldnt.load.the.recipes")).font(Theme.subtitle).foregroundStyle(Theme.muted)
+              Button(Copy.text("ui.try.again")) { Task { await load() } }.font(Theme.action).frame(minHeight: 44)
             }
             .frame(maxWidth: .infinity)
           } else {
@@ -682,7 +682,7 @@ struct MissingPrepSheet: View {
         .padding(.bottom, 28)
       }
       .background(Theme.bg)
-      .navigationTitle("Missing a prep step?")
+      .navigationTitle(Copy.text("ui.missing.a.prep.step"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
@@ -777,7 +777,7 @@ struct MissingPrepSheet: View {
               Text("Step \(s.step) · in your prep").font(Theme.subtitle).foregroundStyle(Theme.muted)
               Text(s.text).font(PrepView.stepFont).foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-              Button("Remove from prep") { Task { await save(meal, s, adding: false) } }
+              Button(Copy.text("ui.remove.from.prep")) { Task { await save(meal, s, adding: false) } }
                 .font(Theme.count.weight(.semibold)).foregroundStyle(Theme.accent)
                 .frame(minHeight: 44)
                 .disabled(saving)
@@ -825,9 +825,9 @@ struct MissingPrepSheet: View {
         .padding(12)
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
-        .accessibilityLabel("Why do it ahead? Optional")
+        .accessibilityLabel(Copy.text("ui.why.do.it.ahead.optional"))
       Button { Task { await save(meal, step, adding: true) } } label: {
-        Text(saving ? "Adding…" : "Add to prep").font(Theme.action).foregroundStyle(Theme.surface)
+        Text(saving ? "Adding…" : Copy.text("ui.add.to.prep")).font(Theme.action).foregroundStyle(Theme.surface)
           .frame(maxWidth: .infinity, minHeight: 50)
           .background(Theme.ink, in: Capsule())
       }
@@ -842,7 +842,7 @@ struct MissingPrepSheet: View {
         .scaledIcon(size: 22, weight: .bold, width: 48, height: 48).foregroundStyle(Theme.ink)
         .background(Color(hex: 0xFA7E5A), in: Circle())
         .accessibilityHidden(true)
-      Text("Added to your prep").font(Theme.tourTitle).foregroundStyle(Theme.ink)
+      Text(Copy.text("ui.added.to.your.prep")).font(Theme.tourTitle).foregroundStyle(Theme.ink)
       Text(done.text).font(Theme.subtitle).foregroundStyle(Theme.ink).multilineTextAlignment(.center)
       Text("\(done.meal) · marked “Added by you”").font(Theme.subtitle).foregroundStyle(Theme.muted)
         .multilineTextAlignment(.center)
@@ -853,7 +853,7 @@ struct MissingPrepSheet: View {
           stepKey = nil
           note = ""
         } label: {
-          Text("Add another").font(Theme.action).foregroundStyle(Theme.ink)
+          Text(Copy.text("ui.add.another")).font(Theme.action).foregroundStyle(Theme.ink)
             .frame(maxWidth: .infinity, minHeight: 44)
             .overlay(Capsule().stroke(Theme.line))
         }

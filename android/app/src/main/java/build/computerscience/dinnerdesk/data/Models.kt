@@ -362,8 +362,8 @@ data class ShopStore(val id: String, val name: String) {
         val defaults = listOf(
             ShopStore("costco", "Costco"),
             ShopStore("walmart", "Walmart"),
-            ShopStore("local", "Local grocer"),
-            ShopStore("farmers", "Farmers market"),
+            ShopStore("local", Copy.text("ui.local.grocer")),
+            ShopStore("farmers", Copy.text("ui.farmers.market")),
         )
     }
 }

@@ -1,0 +1,35 @@
+# Phrases that stay typed in more than one app on purpose: constants, case labels, files the
+# Apple Watch also compiles (it has no copy.json), and generated option files. Don't add new
+# phrases here; put them in ios/dinnerdesk/copy.json and use Copy.text(...) instead.
+Amount or unit is wrong
+Any time
+Better done day-of
+Couldn't find another plan. Try again or adjust Settings → Filters.
+Current plan
+Didn't keep well
+Didn't turn out well
+Duplicate of another recipe
+In the wrong aisle
+Ingredients are wrong or missing
+Latin American
+Listed twice / should be combined
+Meal planning is being updated. Please try again after the server update.
+Meal suggestions need the updated server. You can still use your current plan and choose meals yourself.
+Middle Eastern
+New meal plan
+Not a prep step
+Not set
+Photo doesn't match
+Prep it differently
+Saved plan
+Shows up despite my diet or allergies
+Something else
+Steps are wrong or confusing
+The server returned an incompatible plan. Please update the server before requesting suggestions.
+This week
+Too small to bother
+Tree nuts
+Waiting for review
+White fish
+Wrong name or spelling
+Your account has no email, so a forgotten password can't be reset.

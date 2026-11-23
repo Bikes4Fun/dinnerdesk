@@ -4,6 +4,7 @@ import { onListKeys } from "../listKeys.js";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Tip } from "../Tip.jsx";
+import { Copy } from "../Copy.js";
 
 function Back({ to = "/kitchen" }) {
   return (
@@ -114,18 +115,18 @@ function KitchenHub() {
         <button type="button" className="list-link" onClick={() => go("/kitchen/overrides")}>
           Substitutions {overrideN != null ? <em>{overrideN}</em> : null}
         </button>
-        <label className="block-label">Coming soon</label>
+        <label className="block-label">{Copy.text("ui.coming.soon")}</label>
         <button type="button" className="list-link" onClick={() => go("/kitchen/templates")}>
           Recipe templates
-          <em>Coming soon</em>
+          <em>{Copy.text("ui.coming.soon")}</em>
         </button>
         <button type="button" className="list-link" disabled>
           New to cooking
-          <em>Coming soon</em>
+          <em>{Copy.text("ui.coming.soon")}</em>
         </button>
         <button type="button" className="list-link" onClick={() => setSyncSoon((on) => !on)}>
           Sync nutrition data
-          <em>Coming soon</em>
+          <em>{Copy.text("ui.coming.soon")}</em>
         </button>
         {syncSoon ? (
           <p className="help">
@@ -227,11 +228,11 @@ function PantryHave() {
       <div className="scroll pad">
         {err && <p className="banner err">{err}</p>}
         <Tip id="kitchen.pantry">What you already have.</Tip>
-        <label className="toggle-row">Always check off pantry items <input type="checkbox" checked={autoCheck} onChange={(e) => saveAutoCheck(e.target.checked)} /></label>
+        <label className="toggle-row">{Copy.text("ui.always.check.off.pantry.items")} <input type="checkbox" checked={autoCheck} onChange={(e) => saveAutoCheck(e.target.checked)} /></label>
         {picking && items.length > 0 && (
           <div className="plan-bulk">
             <button type="button" onClick={() => setPicked(allPicked ? new Set() : new Set(items.map((i) => i.id)))}>
-              {allPicked ? "Deselect all" : "Select all"}
+              {allPicked ? Copy.text("ui.deselect.all") : Copy.text("ui.select.all")}
             </button>
             <span>{picked.size} selected</span>
           </div>
@@ -271,7 +272,7 @@ function PantryHave() {
             disabled={busy || picked.size === 0}
             onClick={() => applyToPicked({ never_shop: !allNeverShop })}
           >
-            {allNeverShop ? "Stop always checking off" : "Always check off"}
+            {allNeverShop ? "Stop always checking off" : Copy.text("ui.always.check.off")}
           </button>
           <button
             type="button"
@@ -397,7 +398,7 @@ function PantryAdd() {
         <input
           className="field-input"
           placeholder="Search items…"
-          aria-label="Search items"
+          aria-label={Copy.text("ui.search.items")}
           autoComplete="off"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -466,7 +467,7 @@ function AlwaysChecked() {
     <section className="screen">
       <header className="top sub">
         <Back />
-        <h1>Always checked off</h1>
+        <h1>{Copy.text("ui.always.checked.off")}</h1>
         <span />
       </header>
       <div className="scroll pad">
@@ -476,7 +477,7 @@ function AlwaysChecked() {
           but already checked off, so you can skip them unless you run low.
         </Tip>
         {items.length === 0 && <div className="pantry-examples" aria-label="Examples only">
-          <p>Examples — add what you always keep on hand</p><p>Salt</p><p>Olive oil</p><p>Black pepper</p>
+          <p>Examples — add what you always keep on hand</p><p>Salt</p><p>{Copy.text("ui.olive.oil")}</p><p>{Copy.text("ui.black.pepper")}</p>
         </div>}
         {items.map((item) => (
           <div key={item.id} className="have-row">
@@ -641,7 +642,7 @@ function Stores() {
         <button type="button" className="list-link" onClick={() => go("/kitchen/aisles")}>
           Aisles
         </button>
-        <h3 className="block-label">Your stores</h3>
+        <h3 className="block-label">{Copy.text("ui.your.stores")}</h3>
         {stores.map((s) => {
           const used = lines.filter((l) => l.store === s.id).length;
           if (renaming === s.id) {
@@ -682,7 +683,7 @@ function Stores() {
               <strong>Remove {doomed.name}?</strong>{" "}
               {(() => {
                 const n = lines.filter((l) => l.store === doomed.id).length;
-                if (!n) return "No items are assigned to it. You can add it back anytime.";
+                if (!n) return Copy.text("ui.no.items.are.assigned.to");
                 return `${n === 1 ? "1 item moves" : `${n} items move`} to Any store. You can add it back anytime.`;
               })()}
             </p>
@@ -892,14 +893,14 @@ function PantryItem({ item, onBack }) {
   return <section className="screen">
     <header className="top sub"><button className="icon-btn" onClick={onBack}>←</button><h1>{item.name}</h1></header>
     <div className="scroll pad">
-      <label className="toggle-row">Have this item <input type="checkbox" checked={have} onChange={async (e) => { const value = e.target.checked; await api.patchPantry(item.id, { have: value }); setHave(value); }} /></label>
-      <label className="toggle-row">Always check off <input type="checkbox" checked={neverShop} onChange={async (e) => { const value = e.target.checked; await api.patchPantry(item.id, { never_shop: value }); setNeverShop(value); }} /></label>
+      <label className="toggle-row">{Copy.text("ui.have.this.item")} <input type="checkbox" checked={have} onChange={async (e) => { const value = e.target.checked; await api.patchPantry(item.id, { have: value }); setHave(value); }} /></label>
+      <label className="toggle-row">{Copy.text("ui.always.check.off")} <input type="checkbox" checked={neverShop} onChange={async (e) => { const value = e.target.checked; await api.patchPantry(item.id, { never_shop: value }); setNeverShop(value); }} /></label>
       <label className="block-label" htmlFor="pantry-amount">Amount</label><input id="pantry-amount" className="field" value={amount} onChange={(e) => setAmount(e.target.value)} onBlur={() => api.patchPantry(item.id, { quantity: amount })} />
       {place && <>
-        <label className="block-label" htmlFor="pantry-store">Store</label><select id="pantry-store" className="field" value={place.store} onChange={(e) => placement({ store: e.target.value })}><option value="">Not set</option>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+        <label className="block-label" htmlFor="pantry-store">Store</label><select id="pantry-store" className="field" value={place.store} onChange={(e) => placement({ store: e.target.value })}><option value="">{Copy.text("ui.not.set")}</option>{stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         <label className="block-label" htmlFor="pantry-aisle">Aisle</label><select id="pantry-aisle" className="field" value={place.aisle} onChange={(e) => placement({ aisle: e.target.value })}>{aisles.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
       </>}
-      <button className="text-link danger" onClick={async () => { await api.deletePantry(item.id); onBack(); }}>Delete item</button>
+      <button className="text-link danger" onClick={async () => { await api.deletePantry(item.id); onBack(); }}>{Copy.text("ui.delete.item")}</button>
     </div>
   </section>;
 }

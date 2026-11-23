@@ -84,13 +84,13 @@ data class RecipeTileMenuItem(
         fun favorite(on: Boolean, action: () -> Unit) =
             RecipeTileMenuItem("favorite", if (on) "Unfavorite" else "Favorite", action = action)
         fun plan(on: Boolean, action: () -> Unit) =
-            RecipeTileMenuItem("plan", if (on) "Remove from plan" else "Add to plan", action = action)
+            RecipeTileMenuItem("plan", if (on) Copy.text("ui.remove.from.plan") else Copy.text("ui.add.to.plan"), action = action)
         fun toTry(on: Boolean, action: () -> Unit) =
-            RecipeTileMenuItem("toTry", if (on) "Remove from To try" else "To try", action = action)
+            RecipeTileMenuItem("toTry", if (on) Copy.text("ui.remove.from.to.try") else Copy.text("ui.to.try.2"), action = action)
         fun hide(on: Boolean, action: () -> Unit) =
-            RecipeTileMenuItem("hide", if (on) "Unhide recipe" else "Hide recipe", destructive = !on, action = action)
+            RecipeTileMenuItem("hide", if (on) Copy.text("ui.unhide.recipe") else Copy.text("ui.hide.recipe"), destructive = !on, action = action)
         fun cooked(on: Boolean, action: () -> Unit) =
-            RecipeTileMenuItem("cooked", if (on) "Mark as not cooked" else "Mark as cooked", action = action)
+            RecipeTileMenuItem("cooked", if (on) Copy.text("ui.mark.as.not.cooked") else Copy.text("ui.mark.as.cooked"), action = action)
         fun extra(id: String, title: String, destructive: Boolean = false, action: () -> Unit) =
             RecipeTileMenuItem(id, title, destructive, action)
     }
@@ -152,7 +152,7 @@ fun RecipeTilePhotoOverlay(
 fun RecipeTileAddButton(onPlan: Boolean, onClick: () -> Unit, corner: RecipeTileCorner = RecipeTileCorner.TopTrailing) {
     RecipeTilePhotoOverlay(
         corner = corner, mode = RecipeTileOverlayMode.Interactive,
-        label = if (onPlan) "Remove from this plan" else "Add to this plan",
+        label = if (onPlan) Copy.text("ui.remove.from.this.plan") else Copy.text("ui.add.to.this.plan"),
         onClick = onClick, on = onPlan,
     ) {
         Icon(
@@ -166,7 +166,7 @@ fun RecipeTileAddButton(onPlan: Boolean, onClick: () -> Unit, corner: RecipeTile
 fun RecipeTileHeartButton(on: Boolean, onClick: () -> Unit, corner: RecipeTileCorner = RecipeTileCorner.TopLeading) {
     RecipeTilePhotoOverlay(
         corner = corner, mode = RecipeTileOverlayMode.Interactive,
-        label = if (on) "Remove from your favorites" else "Save to your favorites",
+        label = if (on) Copy.text("ui.remove.from.your.favorites") else Copy.text("ui.save.to.your.favorites"),
         onClick = onClick,
     ) {
         Icon(
@@ -181,7 +181,7 @@ fun RecipeTileSwapButton(onClick: () -> Unit, enabled: Boolean = true, corner: R
     Box(Modifier.alpha(if (enabled) 1f else 0.4f)) {
         RecipeTilePhotoOverlay(
             corner = corner, mode = RecipeTileOverlayMode.Interactive,
-            label = "Swap meal", onClick = if (enabled) onClick else null,
+            label = Copy.text("ui.swap.meal"), onClick = if (enabled) onClick else null,
         ) {
             Icon(Icons.Outlined.Refresh, null, tint = Theme.accent, modifier = Modifier.size(16.dp))
         }
@@ -192,7 +192,7 @@ fun RecipeTileSwapButton(onClick: () -> Unit, enabled: Boolean = true, corner: R
 fun RecipeTileSaveForLaterButton(on: Boolean, onClick: () -> Unit, corner: RecipeTileCorner = RecipeTileCorner.TopLeading) {
     RecipeTilePhotoOverlay(
         corner = corner, mode = RecipeTileOverlayMode.Interactive,
-        label = if (on) "Remove from To try" else "Save to To try",
+        label = if (on) Copy.text("ui.remove.from.to.try") else Copy.text("ui.save.to.to.try"),
         onClick = onClick,
     ) {
         Icon(
@@ -206,7 +206,7 @@ fun RecipeTileSaveForLaterButton(on: Boolean, onClick: () -> Unit, corner: Recip
 fun RecipeTileCookedButton(on: Boolean, onClick: () -> Unit, corner: RecipeTileCorner = RecipeTileCorner.TopTrailing) {
     RecipeTilePhotoOverlay(
         corner = corner, mode = RecipeTileOverlayMode.Interactive,
-        label = if (on) "Mark as not cooked" else "Mark as cooked",
+        label = if (on) Copy.text("ui.mark.as.not.cooked") else Copy.text("ui.mark.as.cooked"),
         onClick = onClick, on = on,
     ) {
         Icon(Icons.Filled.Check, null, tint = if (on) Theme.surface else Theme.muted, modifier = Modifier.size(16.dp))
@@ -217,7 +217,7 @@ fun RecipeTileCookedButton(on: Boolean, onClick: () -> Unit, corner: RecipeTileC
 fun RecipeTileFlagButton(onClick: () -> Unit, corner: RecipeTileCorner = RecipeTileCorner.TopTrailing) {
     RecipeTilePhotoOverlay(
         corner = corner, mode = RecipeTileOverlayMode.Interactive,
-        label = "Report photo", onClick = onClick,
+        label = Copy.text("ui.report.photo"), onClick = onClick,
     ) {
         Icon(Icons.Outlined.Flag, null, tint = Theme.muted, modifier = Modifier.size(16.dp))
     }
@@ -235,7 +235,7 @@ fun RecipeTileKitchenTestedBadge(corner: RecipeTileCorner = RecipeTileCorner.Top
 
 @Composable
 fun RecipeTileComingSoonBadge() {
-    Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
+    Text(Copy.text("ui.coming.soon"), style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
 }
 
 @Composable
@@ -266,7 +266,7 @@ private fun RecipeTileMetaBlock(minutes: Int?, reviewed: Boolean, meta: RecipeTi
         }
         if (meta.showYourSelection) {
             Box(Modifier.heightIn(min = 16.dp).alpha(if (meta.yourSelection) 1f else 0f)) {
-                Text("Your selection", style = Theme.subtitle, color = Theme.muted)
+                Text(Copy.text("ui.your.selection"), style = Theme.subtitle, color = Theme.muted)
             }
         }
         if (meta.showSchedule) {

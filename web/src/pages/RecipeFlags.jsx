@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Copy } from "../Copy.js";
 
 const QUEUES = [
   ["to_edit", "To edit", "Remove To edit tag"],
@@ -61,7 +62,7 @@ export function RecipeFlags() {
                         ? <button type="button" className="text-link" onClick={() => go(`/recipes/${recipe.recipe_id}`)}>{recipe.name}</button>
                         : <strong>{recipe.name}</strong>}
                       <small>{recipe.source} · {recipe.ingredient_name} · “{recipe.raw}”</small>
-                      {recipe.source_url && <a href={recipe.source_url} target="_blank" rel="noreferrer">View source</a>}
+                      {recipe.source_url && <a href={recipe.source_url} target="_blank" rel="noreferrer">{Copy.text("ui.view.source")}</a>}
                     </div>
                   ))}
                 </div>

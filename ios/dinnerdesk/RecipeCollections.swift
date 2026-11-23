@@ -9,13 +9,13 @@ nonisolated enum RecipeSearchFilter: String, CaseIterable, Identifiable, Sendabl
 
   var label: String {
     switch self {
-    case .fav: "Your favorites"
-    case .tryLater: "To try"
+    case .fav: Copy.text("ui.your.favorites.2")
+    case .tryLater: Copy.text("ui.to.try.2")
     case .popular: "Popular"
     case .quick: "Quick"
-    case .pantry: "Uses pantry"
+    case .pantry: Copy.text("ui.uses.pantry")
     case .hidden: "Hidden"
-    case .comingSoon: "Coming soon"
+    case .comingSoon: Copy.text("ui.coming.soon")
     case .reviewed: "Kitchen-tested"
     }
   }

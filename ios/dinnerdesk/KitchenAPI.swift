@@ -49,7 +49,7 @@ enum KitchenAPI {
   static func prefs() async throws -> [String: Any] {
     let household = try await json("household")
     guard let prefs = household["prefs"] as? [String: Any] else {
-      throw APIError.http(200, "Missing or invalid household preferences")
+      throw APIError.http(200, Copy.text("ui.missing.or.invalid.household.preferences"))
     }
     return prefs
   }
@@ -291,8 +291,8 @@ enum KitchenDefaults {
   static let stores: [KitchenStore] = [
     KitchenStore(id: "costco", name: "Costco"),
     KitchenStore(id: "walmart", name: "Walmart"),
-    KitchenStore(id: "local", name: "Local grocer"),
-    KitchenStore(id: "farmers", name: "Farmers market"),
+    KitchenStore(id: "local", name: Copy.text("ui.local.grocer")),
+    KitchenStore(id: "farmers", name: Copy.text("ui.farmers.market")),
   ]
 
   static let aisles: [KitchenAisle] = [
@@ -349,7 +349,7 @@ enum KitchenDefaults {
       }
     }
     while out.hasSuffix("-") { out.removeLast() }
-    guard !out.isEmpty else { throw APIError.http(400, "A name must contain a letter or number") }
+    guard !out.isEmpty else { throw APIError.http(400, Copy.text("ui.a.name.must.contain.a")) }
     return out
   }
 }

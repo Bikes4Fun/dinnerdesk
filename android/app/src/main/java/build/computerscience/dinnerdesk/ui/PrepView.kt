@@ -92,7 +92,7 @@ private val prepSections = listOf(
     PrepSection("protein", "Protein", "Protein"),
     PrepSection("cheese", "Cheese & dairy", "Cheese"),
     PrepSection("sauce", "Sauces & dressings", "Sauce"),
-    PrepSection("other", "More prep", "More"),
+    PrepSection("other", Copy.text("ui.more.prep"), "More"),
 )
 
 private class PrepGroup(val section: PrepSection, val all: List<PrepTask>, val shown: List<PrepTask>) {
@@ -156,14 +156,14 @@ fun PrepView() {
             if (nav.canPop) NavBar()
             RefreshBox({ store.loadPrep() }) {
                 Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp).padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Weekend prep", style = Theme.bigTitle, color = Theme.ink, modifier = Modifier.semantics { heading() })
+                    Text(Copy.text("tour.how.4.title"), style = Theme.bigTitle, color = Theme.ink, modifier = Modifier.semantics { heading() })
                     store.error?.let { ErrorBanner(it) }
                     if (tasks.isEmpty()) {
-                        EmptyState("No prep yet", "Add meals on Plan. Make-ahead steps like chopping, grating and sauces show up here.", Icons.AutoMirrored.Outlined.Assignment)
+                        EmptyState(Copy.text("ui.no.prep.yet"), Copy.text("ui.add.meals.on.plan.makeahead"), Icons.AutoMirrored.Outlined.Assignment)
                         if (store.plan?.slots?.isEmpty() != false) {
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CreateMealPlanButton { store.launch { openSuggestions() } } }
                         } else {
-                            LinkButton("Back to plan", Modifier.fillMaxWidth()) { selectTab(AppTab.Plan); dismiss() }
+                            LinkButton(Copy.text("ui.back.to.plan"), Modifier.fillMaxWidth()) { selectTab(AppTab.Plan); dismiss() }
                         }
                     } else {
                         PrepHeader(tasks.size, doneCount, groups, showDone, onToggleDone = {
@@ -303,7 +303,7 @@ private fun MealCard(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             Text(g.name, style = Theme.action, color = Theme.ink)
-            Text(listOfNotNull(g.day, if (left > 0) "$left to prep" else "All prepped").joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
+            Text(listOfNotNull(g.day, if (left > 0) "$left to prep" else Copy.text("ui.all.prepped")).joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
         }
         for (t in shown) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(Theme.line))
@@ -326,7 +326,7 @@ private fun MealTaskRow(
         Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(44.dp).clip(CircleShape).clickable { onCheck(t, t.steps.map { it.key }, !t.done) }
-                    .semantics { contentDescription = "${if (t.done) "Mark not done" else "Mark done"}: ${t.title} for ${g.name}" },
+                    .semantics { contentDescription = "${if (t.done) "Mark not done" else Copy.text("ui.mark.done")}: ${t.title} for ${g.name}" },
                 contentAlignment = Alignment.Center,
             ) {
                 Canvas(Modifier.size(24.dp)) {
@@ -365,7 +365,7 @@ private fun MealTaskRow(
                         Box(
                             Modifier.size(36.dp).clip(CircleShape)
                                 .then(if (key != null) Modifier.clickable { onCheck(t, listOf(key), !step.done) } else Modifier)
-                                .semantics { contentDescription = "${if (step.done) "Mark not done" else "Mark done"}: ${step.text}" },
+                                .semantics { contentDescription = "${if (step.done) "Mark not done" else Copy.text("ui.mark.done")}: ${step.text}" },
                             contentAlignment = Alignment.Center,
                         ) {
                             Box(
@@ -381,7 +381,7 @@ private fun MealTaskRow(
                                 textDecoration = if (step.done) TextDecoration.LineThrough else null,
                             )
                             if (step.quantities.isNotEmpty()) Text(step.quantities.joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
-                            if (step.added) Text("Added by you", style = Theme.subtitle, color = Theme.muted)
+                            if (step.added) Text(Copy.text("ui.added.by.you"), style = Theme.subtitle, color = Theme.muted)
                         }
                     }
                 }
@@ -430,7 +430,7 @@ private fun PrepHeader(
         val toggle: @Composable () -> Unit = {
             if (doneCount > 0) Box(Modifier.heightIn(min = 44.dp).clickable(onClick = onToggleDone).padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
                 Text(
-                    if (showDone) "Hide completed" else "Show completed ($doneCount)",
+                    if (showDone) Copy.text("ui.hide.completed") else "Show completed ($doneCount)",
                     style = Theme.count.copy(fontWeight = FontWeight.SemiBold), color = Theme.accent, maxLines = 1,
                 )
             }
@@ -460,7 +460,7 @@ private fun SectionBlock(g: PrepGroup, open: Boolean, onToggle: () -> Unit, row:
         if (open) {
             if (g.shown.isEmpty()) {
                 Text(
-                    "All prepped here.", style = Theme.subtitle, color = Theme.muted,
+                    Copy.text("ui.all.prepped.here"), style = Theme.subtitle, color = Theme.muted,
                     modifier = Modifier.fillMaxWidth().dashedBorder(Theme.line, 16.dp, dash = 4f, gap = 4f).padding(14.dp),
                 )
             } else {
@@ -509,11 +509,11 @@ private fun PrepRow(
         Column(Modifier.padding(end = 14.dp, bottom = if (whyOpen || open || disliked) 14.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (whyOpen) {
                 Column(Modifier.padding(start = 54.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Why not?", style = Theme.action, color = Theme.ink)
+                    Text(Copy.text("ui.why.not"), style = Theme.action, color = Theme.ink)
                     Flow(6.dp) { for (reason in PrepReason.entries) ReasonChip(reason.label, task.reason == reason.id) { onReason(reason.id) } }
                     // Same as "Missing a prep step?": the user's own words go with the 👎.
-                    Text("Anything to add? (optional)", style = Theme.action, color = Theme.ink)
-                    TextBox(whyNote, onWhyNote, "What would you do instead?", style = Theme.subtitle, minLines = 2, maxLines = 5, contentDescription = "Anything to add? Optional")
+                    Text(Copy.text("ui.anything.to.add.optional"), style = Theme.action, color = Theme.ink)
+                    TextBox(whyNote, onWhyNote, Copy.text("ui.what.would.you.do.instead"), style = Theme.subtitle, minLines = 2, maxLines = 5, contentDescription = Copy.text("ui.anything.to.add.optional.2"))
                     ReasonChip("Done", false, onWhyDone)
                 }
             } else if (disliked && (!task.reason.isNullOrEmpty() || !task.reasonNote.isNullOrEmpty())) {
@@ -542,7 +542,7 @@ private fun PrepRow(
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Text(text, style = Theme.stepText, color = Theme.bodyInk)
                                 if (group.quantities.isNotEmpty()) Text(group.quantities.joinToString(" · "), style = Theme.subtitle, color = Theme.muted)
-                                if (group.added) Text("Added by you", style = Theme.count, color = Theme.muted)
+                                if (group.added) Text(Copy.text("ui.added.by.you"), style = Theme.count, color = Theme.muted)
                                 for (meal in meals) {
                                     Row(
                                         Modifier.heightIn(min = 32.dp).clip(CircleShape).background(Theme.pill).clickable { openRecipe(meal.id) }
@@ -584,8 +584,8 @@ private fun MissingButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Outlined.AddCircleOutline, null, tint = Theme.accent, modifier = Modifier.size(24.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Missing a prep step?", style = Theme.action, color = Theme.accent)
-            Text("Pick a step from this week’s recipes.", style = Theme.subtitle, color = Theme.muted)
+            Text(Copy.text("ui.missing.a.prep.step"), style = Theme.action, color = Theme.accent)
+            Text(Copy.text("ui.pick.a.step.from.this"), style = Theme.subtitle, color = Theme.muted)
         }
     }
 }
@@ -636,11 +636,11 @@ private fun MissingPrepSheet() {
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         Box(Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
             IconAction(Icons.Filled.Close, "Close", tint = Theme.accent) { dismiss() }
-            Text("Missing a prep step?", style = Theme.navTitle, color = Theme.ink, modifier = Modifier.align(Alignment.Center))
+            Text(Copy.text("ui.missing.a.prep.step"), style = Theme.navTitle, color = Theme.ink, modifier = Modifier.align(Alignment.Center))
         }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
             Text(
-                "Tell us a step that would have saved time if you did it ahead. We’ll add it to your prep and use it to make prep better.",
+                Copy.text("ui.tell.us.a.step.that"),
                 style = Theme.subtitle, color = Theme.muted,
             )
             val done = added
@@ -651,7 +651,7 @@ private fun MissingPrepSheet() {
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     Box(Modifier.size(48.dp).background(Theme.coral, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Check, null, tint = Theme.ink) }
-                    Text("Added to your prep", style = Theme.tourTitle, color = Theme.ink, textAlign = TextAlign.Center)
+                    Text(Copy.text("ui.added.to.your.prep"), style = Theme.tourTitle, color = Theme.ink, textAlign = TextAlign.Center)
                     Text(done.second, style = Theme.subtitle, color = Theme.ink, textAlign = TextAlign.Center)
                     Text("${done.first} · marked “Added by you”", style = Theme.subtitle, color = Theme.muted, textAlign = TextAlign.Center)
                     Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -659,12 +659,12 @@ private fun MissingPrepSheet() {
                             Modifier.weight(1f).heightIn(min = 44.dp).border(1.dp, Theme.line, CircleShape).clip(CircleShape)
                                 .clickable { added = null; mealId = null; stepKey = null; note = "" },
                             contentAlignment = Alignment.Center,
-                        ) { Text("Add another", style = Theme.action, color = Theme.ink) }
+                        ) { Text(Copy.text("ui.add.another"), style = Theme.action, color = Theme.ink) }
                         FilledButton("Done", Modifier.weight(1f), color = Theme.ink, textColor = Theme.surface, shape = CircleShape, minHeight = 44.dp) { dismiss() }
                     }
                 }
                 list != null -> if (list.isEmpty()) {
-                    Text("Every step of this week’s recipes is already in prep.", style = Theme.subtitle, color = Theme.muted)
+                    Text(Copy.text("ui.every.step.of.this.weeks"), style = Theme.subtitle, color = Theme.muted)
                 } else {
                     // 1 · Meal: the full list until one is picked, then just that meal with Change.
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -711,7 +711,7 @@ private fun MissingPrepSheet() {
                                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                                             Text("Step ${s.step} · in your prep", style = Theme.subtitle, color = Theme.muted)
                                             Text(s.text, style = Theme.stepText, color = Theme.ink)
-                                            LinkButton("Remove from prep", enabled = !saving, style = Theme.count.copy(fontWeight = FontWeight.SemiBold)) { save(meal, s, adding = false) }
+                                            LinkButton(Copy.text("ui.remove.from.prep"), enabled = !saving, style = Theme.count.copy(fontWeight = FontWeight.SemiBold)) { save(meal, s, adding = false) }
                                         }
                                     }
                                 } else {
@@ -735,14 +735,14 @@ private fun MissingPrepSheet() {
                     if (meal != null && step != null) {
                         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             label("3 · Why do it ahead? (optional)")
-                            TextBox(note, { note = it }, "e.g. Tofu needs 15 min to press — no time on a weeknight", style = Theme.subtitle, minLines = 2, maxLines = 5, contentDescription = "Why do it ahead? Optional")
-                            FilledButton(if (saving) "Adding…" else "Add to prep", enabled = !saving, color = Theme.ink, textColor = Theme.surface, shape = CircleShape) { save(meal, step, adding = true) }
+                            TextBox(note, { note = it }, "e.g. Tofu needs 15 min to press — no time on a weeknight", style = Theme.subtitle, minLines = 2, maxLines = 5, contentDescription = Copy.text("ui.why.do.it.ahead.optional"))
+                            FilledButton(if (saving) "Adding…" else Copy.text("ui.add.to.prep"), enabled = !saving, color = Theme.ink, textColor = Theme.surface, shape = CircleShape) { save(meal, step, adding = true) }
                         }
                     }
                 }
                 failed -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Couldn’t load the recipes.", style = Theme.subtitle, color = Theme.muted)
-                    LinkButton("Try again") { scope.launch { load() } }
+                    Text(Copy.text("ui.couldnt.load.the.recipes"), style = Theme.subtitle, color = Theme.muted)
+                    LinkButton(Copy.text("ui.try.again")) { scope.launch { load() } }
                 }
                 else -> Spinner(Modifier.heightIn(min = 120.dp))
             }

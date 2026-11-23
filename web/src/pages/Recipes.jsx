@@ -6,6 +6,7 @@ import { Icon } from "../icons.jsx";
 import { go } from "../nav.js";
 import { PlanStrip } from "../PlanStrip.jsx";
 import { RecipeCollections, isBudget } from "../recipeCollections.js";
+import { Copy } from "../Copy.js";
 
 const FILTERS = RecipeCollections.FILTERS;
 const SORTS = [
@@ -15,18 +16,18 @@ const SORTS = [
 
 const LIST_TITLES = {
   suggestions: "Suggestions",
-  fav: "Your Favorites",
-  try: "To try",
-  popular: "Most Popular",
-  mine: "Your Recipes",
-  simple: "Super simple",
-  budget: "Budget friendly",
-  pantry: "Uses pantry",
+  fav: Copy.text("ui.your.favorites"),
+  try: Copy.text("ui.to.try.2"),
+  popular: Copy.text("ui.most.popular"),
+  mine: Copy.text("ui.your.recipes"),
+  simple: Copy.text("ui.super.simple"),
+  budget: Copy.text("ui.budget.friendly"),
+  pantry: Copy.text("ui.uses.pantry"),
   sauces: "Sauces & dressings",
   hidden: "Hidden",
-  soon: "Coming soon",
+  soon: Copy.text("ui.coming.soon"),
   templates: "Templates",
-  all: "All recipes",
+  all: Copy.text("ui.all.recipes"),
 };
 
 function prettyFamily(id) {
@@ -172,7 +173,7 @@ export function TemplateCard({ family }) {
     <div className="card is-coming-soon" aria-disabled="true">
       <div className="card-img coming-soon">
         <FoodPhoto path={family.photo_path} />
-        <span className="coming-soon-tag">Coming soon</span>
+        <span className="coming-soon-tag">{Copy.text("ui.coming.soon")}</span>
       </div>
       <p className="card-name">{prettyFamily(family.name || family.id)}</p>
       <p className="card-meta">Template · Coming soon</p>
@@ -408,7 +409,7 @@ export function Recipes({ admin = false }) {
               type="button"
               className="icon-btn is-add"
               onClick={() => setShowAdd((v) => !v)}
-              aria-label="Add recipe"
+              aria-label={Copy.text("ui.add.recipe")}
               aria-expanded={showAdd}
               aria-haspopup="menu"
             >
@@ -458,7 +459,7 @@ export function Recipes({ admin = false }) {
           <input
             ref={searchRef}
             className="field-input tight"
-            placeholder={recipeTotal ? `Search ${recipeTotal} recipes or ingredients` : "Search recipes or ingredients"}
+            placeholder={recipeTotal ? `Search ${recipeTotal} recipes or ingredients` : Copy.text("ui.search.recipes.or.ingredients")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -498,10 +499,10 @@ export function Recipes({ admin = false }) {
             {!!suggestedIds.length && <Row title="Suggestions" onSeeAll={() => setList("suggestions")}>
               {suggestedIds.map((id) => recipes.find((r) => r.id === id)).filter(Boolean).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />)}
             </Row>}
-            <Row title="Your Favorites" onSeeAll={() => setList("fav")} empty="Heart a recipe to keep it here.">
+            <Row title={Copy.text("ui.your.favorites")} onSeeAll={() => setList("fav")} empty={Copy.text("ui.heart.a.recipe.to.keep")}>
               {yours.length ? browseOrder(yours).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="To try" onSeeAll={() => setList("try")}>
+            <Row title={Copy.text("ui.to.try.2")} onSeeAll={() => setList("try")}>
               {toTry.length ? browseOrder(toTry).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Create from a template · Coming soon" empty="Coming soon.">
@@ -511,29 +512,29 @@ export function Recipes({ admin = false }) {
                     .map((f) => <TemplateCard key={f.id} family={f} />)
                 : null}
             </Row>
-            <Row title="Most Popular" onSeeAll={() => setList("popular")}>
+            <Row title={Copy.text("ui.most.popular")} onSeeAll={() => setList("popular")}>
               {popular.length ? browseOrder(popular).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="Your Recipes" onSeeAll={() => setList("mine")}>
+            <Row title={Copy.text("ui.your.recipes")} onSeeAll={() => setList("mine")}>
               {mine.length ? browseOrder(mine).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="Super simple" onSeeAll={() => setList("simple")}>
+            <Row title={Copy.text("ui.super.simple")} onSeeAll={() => setList("simple")}>
               {simple.length ? browseOrder(simple).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="Budget friendly" onSeeAll={() => setList("budget")}>
+            <Row title={Copy.text("ui.budget.friendly")} onSeeAll={() => setList("budget")}>
               {budget.length ? browseOrder(budget).slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            <Row title="Uses pantry" onSeeAll={() => setList("pantry")}>
+            <Row title={Copy.text("ui.uses.pantry")} onSeeAll={() => setList("pantry")}>
               {pantryRow.length ? browseOrder(pantryRow).slice(0, 12).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
             <Row title="Sauces & dressings" onSeeAll={() => setList("sauces")}>
               {sauces.length ? browseOrder(sauces).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />) : null}
             </Row>
-            {comingSoon.length > 0 && <Row title="Coming soon" onSeeAll={() => setList("soon")}>
+            {comingSoon.length > 0 && <Row title={Copy.text("ui.coming.soon")} onSeeAll={() => setList("soon")}>
               {comingSoon.slice(0, 16).map((r) => <RecipeCard key={r.id} recipe={r} onChange={patchRecipe} admin={admin} />)}
             </Row>}
             <div className="section-head flush">
-              <h2>All recipes</h2>
+              <h2>{Copy.text("ui.all.recipes")}</h2>
             </div>
             <div className="recipe-list">
               {collections.all

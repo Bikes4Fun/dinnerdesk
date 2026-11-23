@@ -82,8 +82,8 @@ import java.net.URI
 import java.time.LocalDate
 
 private enum class RecipeListKind(val title: String) {
-    Suggestions("Suggestions"), Fav("Your Favorites"), TryLater("To try"), Popular("Most Popular"), Mine("Your Recipes"),
-    Simple("Super simple"), Budget("Budget friendly"), Pantry("Uses pantry"), Sauces("Sauces & dressings"), ComingSoon("Coming soon"), Hidden("Hidden"), All("All recipes"),
+    Suggestions("Suggestions"), Fav(Copy.text("ui.your.favorites")), TryLater(Copy.text("ui.to.try.2")), Popular(Copy.text("ui.most.popular")), Mine(Copy.text("ui.your.recipes")),
+    Simple(Copy.text("ui.super.simple")), Budget(Copy.text("ui.budget.friendly")), Pantry(Copy.text("ui.uses.pantry")), Sauces("Sauces & dressings"), ComingSoon(Copy.text("ui.coming.soon")), Hidden("Hidden"), All(Copy.text("ui.all.recipes")),
 }
 
 @Composable
@@ -158,7 +158,7 @@ fun RecipesView() {
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Recipes", style = Theme.bigTitle, color = Theme.ink, modifier = Modifier.weight(1f))
-            IconAction(Icons.Filled.Search, "Search Recipes") {
+            IconAction(Icons.Filled.Search, Copy.text("ui.search.recipes")) {
                 searchOpen = !searchOpen
                 if (!searchOpen) {
                     query = ""
@@ -170,7 +170,7 @@ fun RecipesView() {
         if (searchOpen) {
             TextBox(
                 query, ::onQuery,
-                store.recipeTotal?.let { "Search $it recipes or ingredients" } ?: "Search recipes or ingredients",
+                store.recipeTotal?.let { "Search $it recipes or ingredients" } ?: Copy.text("ui.search.recipes.or.ingredients"),
                 modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp), corner = 10.dp,
             )
         }
@@ -194,23 +194,23 @@ fun RecipesView() {
                     }
                 }
                 if (searching) {
-                    Box(Modifier.padding(horizontal = 16.dp)) { RecipeGrid(searchRows, if (query.isEmpty()) "No recipes" else "No matches") }
+                    Box(Modifier.padding(horizontal = 16.dp)) { RecipeGrid(searchRows, if (query.isEmpty()) Copy.text("ui.no.recipes") else Copy.text("ui.no.matches")) }
                 } else {
                     fun open(kind: RecipeListKind) = nav.push(Route.RecipeGrid(kind.title, rows(kind)))
                     if (suggestedIds.isNotEmpty()) BrowseSection("Suggestions", rows(RecipeListKind.Suggestions)) { open(RecipeListKind.Suggestions) }
-                    BrowseSection("Your favorites", favorites, empty = "Heart a recipe to keep it here.") { open(RecipeListKind.Fav) }
-                    if (toTry.isNotEmpty()) BrowseSection("To try", toTry) { open(RecipeListKind.TryLater) }
+                    BrowseSection(Copy.text("ui.your.favorites.2"), favorites, empty = Copy.text("ui.heart.a.recipe.to.keep")) { open(RecipeListKind.Fav) }
+                    if (toTry.isNotEmpty()) BrowseSection(Copy.text("ui.to.try.2"), toTry) { open(RecipeListKind.TryLater) }
                     Column(Modifier.alpha(0.65f)) {
-                        BrowseSection("Create from a template", emptyList(), empty = "Coming soon") {}
+                        BrowseSection(Copy.text("ui.create.from.a.template"), emptyList(), empty = Copy.text("ui.coming.soon")) {}
                     }
-                    if (popular.isNotEmpty()) BrowseSection("Most popular", popular) { open(RecipeListKind.Popular) }
-                    if (mine.isNotEmpty()) BrowseSection("Your recipes", mine) { open(RecipeListKind.Mine) }
-                    if (simple.isNotEmpty()) BrowseSection("Super simple", simple) { open(RecipeListKind.Simple) }
-                    if (collections.budget.isNotEmpty()) BrowseSection("Budget friendly", collections.budget) { open(RecipeListKind.Budget) }
-                    if (collections.pantry.isNotEmpty()) BrowseSection("Uses pantry", collections.pantry) { open(RecipeListKind.Pantry) }
+                    if (popular.isNotEmpty()) BrowseSection(Copy.text("ui.most.popular.2"), popular) { open(RecipeListKind.Popular) }
+                    if (mine.isNotEmpty()) BrowseSection(Copy.text("ui.your.recipes.2"), mine) { open(RecipeListKind.Mine) }
+                    if (simple.isNotEmpty()) BrowseSection(Copy.text("ui.super.simple"), simple) { open(RecipeListKind.Simple) }
+                    if (collections.budget.isNotEmpty()) BrowseSection(Copy.text("ui.budget.friendly"), collections.budget) { open(RecipeListKind.Budget) }
+                    if (collections.pantry.isNotEmpty()) BrowseSection(Copy.text("ui.uses.pantry"), collections.pantry) { open(RecipeListKind.Pantry) }
                     if (sauces.isNotEmpty()) BrowseSection("Sauces & dressings", sauces) { open(RecipeListKind.Sauces) }
-                    if (comingSoon.isNotEmpty()) BrowseSection("Coming soon", comingSoon) { open(RecipeListKind.ComingSoon) }
-                    BrowseSection("All recipes", rows(RecipeListKind.All), empty = "No recipes") { open(RecipeListKind.All) }
+                    if (comingSoon.isNotEmpty()) BrowseSection(Copy.text("ui.coming.soon"), comingSoon) { open(RecipeListKind.ComingSoon) }
+                    BrowseSection(Copy.text("ui.all.recipes"), rows(RecipeListKind.All), empty = Copy.text("ui.no.recipes")) { open(RecipeListKind.All) }
                 }
             }
         }
@@ -238,12 +238,12 @@ private fun BrowseSection(title: String, rows: List<RecipeSummary>, empty: Strin
             } else if (large) {
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(title, style = Theme.title, color = Theme.ink, modifier = Modifier.semantics { heading() })
-                    LinkButton("See all", Modifier.semantics { contentDescription = "See all $title" }, onClick = seeAll)
+                    LinkButton(Copy.text("ui.see.all"), Modifier.semantics { contentDescription = "See all $title" }, onClick = seeAll)
                 }
             } else {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(title, style = Theme.title, color = Theme.ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).semantics { heading() })
-                    LinkButton("See all", Modifier.semantics { contentDescription = "See all $title" }, onClick = seeAll)
+                    LinkButton(Copy.text("ui.see.all"), Modifier.semantics { contentDescription = "See all $title" }, onClick = seeAll)
                 }
             }
         }
@@ -284,7 +284,7 @@ fun RecipeGridPage(title: String, recipes: List<RecipeSummary>) {
         NavBar()
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             LargeTitle(title)
-            Box(Modifier.padding(16.dp)) { RecipeGrid(recipes, "No recipes") }
+            Box(Modifier.padding(16.dp)) { RecipeGrid(recipes, Copy.text("ui.no.recipes")) }
         }
     }
 }
@@ -296,13 +296,13 @@ fun BrowseRecipeTile(recipe: RecipeSummary) {
     if (recipe.comingSoon) {
         // Our photo is in but the steps aren't written yet: dimmed, labelled, not clickable.
         Column(Modifier.fillMaxWidth().semantics {
-            contentDescription = listOfNotNull(recipe.name, "Coming soon",
+            contentDescription = listOfNotNull(recipe.name, Copy.text("ui.coming.soon"),
                 if (recipe.reviewed) Copy.text("recipe.reviewed.description") else null).joinToString(", ")
         },
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
                 Box(Modifier.fillMaxSize().alpha(0.55f)) { RecipePhoto(recipe.photoPath, fill = true, corner = 12.dp) }
-                Text("Coming soon", style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
+                Text(Copy.text("ui.coming.soon"), style = Theme.body, color = Color.White, fontWeight = FontWeight.Bold)
             }
             RecipeCardName(recipe.name, lineLimit = 3, reservesSpace = true)
             RecipeStatusLine(recipe.cookingMinutes, recipe.reviewed)
@@ -324,7 +324,7 @@ fun BrowseRecipeTile(recipe: RecipeSummary) {
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(4.dp).size(44.dp).clip(CircleShape)
                         .clickable { store.launch { toggleWeek(recipe) } }
-                        .semantics { contentDescription = if (onWeek) "Remove from this plan" else "Add to this plan" },
+                        .semantics { contentDescription = if (onWeek) Copy.text("ui.remove.from.this.plan") else Copy.text("ui.add.to.this.plan") },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(Modifier.size(26.dp).background(Color.White, CircleShape))
@@ -339,10 +339,10 @@ fun BrowseRecipeTile(recipe: RecipeSummary) {
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }, containerColor = Theme.surface) {
             DropdownMenuItem({ Text(if (recipe.favorited) "Unfavorite" else "Favorite", style = Theme.body) }, { menu = false; store.launch { toggleFavorite(recipe) } })
-            DropdownMenuItem({ Text(if (onWeek) "Remove from plan" else "Add to plan", style = Theme.body) }, { menu = false; store.launch { toggleWeek(recipe) } })
-            DropdownMenuItem({ Text(if (recipe.toTry) "Remove from To try" else "To try", style = Theme.body) }, { menu = false; store.launch { toggleTryLater(recipe) } })
+            DropdownMenuItem({ Text(if (onWeek) Copy.text("ui.remove.from.plan") else Copy.text("ui.add.to.plan"), style = Theme.body) }, { menu = false; store.launch { toggleWeek(recipe) } })
+            DropdownMenuItem({ Text(if (recipe.toTry) Copy.text("ui.remove.from.to.try") else Copy.text("ui.to.try.2"), style = Theme.body) }, { menu = false; store.launch { toggleTryLater(recipe) } })
             DropdownMenuItem(
-                { Text(if (recipe.hidden) "Unhide recipe" else "Hide recipe", style = Theme.body, color = if (recipe.hidden) Theme.ink else Theme.destructive) },
+                { Text(if (recipe.hidden) Copy.text("ui.unhide.recipe") else Copy.text("ui.hide.recipe"), style = Theme.body, color = if (recipe.hidden) Theme.ink else Theme.destructive) },
                 { menu = false; store.launch { setHidden(recipe.id, !recipe.hidden) } },
             )
         }
@@ -401,7 +401,7 @@ fun RecipeDetailView(id: Int) {
         adding = true
         scope.launch {
             if (removing) store.removeFromWeek(id) else store.addToWeek(id, draftServings)
-            if (store.onWeek(id) != removing) planNotice = if (removing) "Removed from this plan" else "Added to this plan"
+            if (store.onWeek(id) != removing) planNotice = if (removing) Copy.text("ui.removed.from.this.plan") else Copy.text("ui.added.to.this.plan")
             else error = store.error
             adding = false
         }
@@ -419,11 +419,11 @@ fun RecipeDetailView(id: Int) {
             NavBar(actions = {
                 val r = recipe
                 if (r != null) {
-                    IconAction(if (added) Icons.Filled.RemoveCircle else Icons.Filled.AddCircle, if (added) "Remove from this plan" else "Add to this plan", enabled = !adding) { addToWeek() }
+                    IconAction(if (added) Icons.Filled.RemoveCircle else Icons.Filled.AddCircle, if (added) Copy.text("ui.remove.from.this.plan") else Copy.text("ui.add.to.this.plan"), enabled = !adding) { addToWeek() }
                     IconAction(if (r.favorited) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder, if (r.favorited) "Unfavorite" else "Favorite", tint = if (r.favorited) Theme.accent else Theme.muted) {
                         scope.launch { store.setFavorite(r.id, !r.favorited)?.let { recipe = it } }
                     }
-                    IconAction(Icons.Outlined.MoreHoriz, "Recipe options") { showingMenu = true }
+                    IconAction(Icons.Outlined.MoreHoriz, Copy.text("ui.recipe.options")) { showingMenu = true }
                 }
             })
             val r = recipe
@@ -453,18 +453,18 @@ fun RecipeDetailView(id: Int) {
                         }
                     } else {
                         Text("Steps", style = Theme.title, color = Theme.ink)
-                        if (r.instructionsCustomized) Text("Instructions customized by Dinner Desk", style = Theme.subtitle, color = Theme.muted)
+                        if (r.instructionsCustomized) Text(Copy.text("ui.instructions.customized.by.dinner.desk"), style = Theme.subtitle, color = Theme.muted)
                         r.sourceLink?.let { link ->
                             val host = try { URI(link).host?.removePrefix("www.") ?: "" } catch (_: Exception) { "" }
                             Text(
-                                "${if (r.instructionsSource == "import") "Steps from" else "Source:"} $host", style = Theme.subtitle, color = Theme.accent,
+                                "${if (r.instructionsSource == "import") Copy.text("ui.steps.from") else "Source:"} $host", style = Theme.subtitle, color = Theme.accent,
                                 modifier = Modifier.clickable { openUrl(link) },
                             )
                         }
                         r.instructions.forEachIndexed { i, step -> CookStepRow(i, step) }
                     }
                     FilledButton(
-                        if (added) "Remove from this plan" else "Add to this plan", color = Theme.accent, textColor = Color.White,
+                        if (added) Copy.text("ui.remove.from.this.plan") else Copy.text("ui.add.to.this.plan"), color = Theme.accent, textColor = Color.White,
                         enabled = !adding, minHeight = 44.dp, shape = RoundedCornerShape(10.dp),
                     ) { addToWeek() }
                 }
@@ -478,21 +478,21 @@ fun RecipeDetailView(id: Int) {
     val r = recipe
     if (showingMenu && r != null) {
         MenuSheet(onDismiss = { showingMenu = false }, items = buildList {
-            add(MenuItem(if (r.toTry) "Remove from To try" else "To try", Icons.Outlined.BookmarkBorder) {
+            add(MenuItem(if (r.toTry) Copy.text("ui.remove.from.to.try") else Copy.text("ui.to.try.2"), Icons.Outlined.BookmarkBorder) {
                 scope.launch { store.setTryLater(r.id, !r.toTry)?.let { recipe = it } }
             })
-            add(MenuItem(if (r.hidden) "Unhide recipe" else "Hide recipe", if (r.hidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff, destructive = !r.hidden) {
+            add(MenuItem(if (r.hidden) Copy.text("ui.unhide.recipe") else Copy.text("ui.hide.recipe"), if (r.hidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff, destructive = !r.hidden) {
                 val on = !r.hidden
                 scope.launch { store.setHidden(id, on)?.let { recipe = it; if (on) dismiss() } }
             })
-            if (r.catalog) add(MenuItem(if (reported) "Reported. Thanks" else "Report a problem", Icons.Outlined.Flag) {
+            if (r.catalog) add(MenuItem(if (reported) "Reported. Thanks" else Copy.text("ui.report.a.problem"), Icons.Outlined.Flag) {
                 if (!reported) reporting = true
             })
         })
     }
     if (reporting) {
         Sheet(onDismiss = { reporting = false }) {
-            ReportRecipeSheet(id) { reported = true; reporting = false; planNotice = "Thanks. We'll take a look." }
+            ReportRecipeSheet(id) { reported = true; reporting = false; planNotice = Copy.text("ui.thanks.well.take.a.look") }
         }
     }
 }
@@ -565,15 +565,15 @@ private fun ReportRecipeSheet(id: Int, onSent: () -> Unit) {
     var note by remember { mutableStateOf("") }
     var sending by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar("Report a problem")
+        SheetBar(Copy.text("ui.report.a.problem"))
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("What's wrong?", style = Theme.action, color = Theme.ink)
             for (option in RecipeReportReason.entries) {
                 RadioRow(reason == option, { reason = option }) { Text(option.label, style = Theme.body, color = Theme.ink) }
             }
-            Text("Anything to add? (optional)", style = Theme.action, color = Theme.ink)
+            Text(Copy.text("ui.anything.to.add.optional"), style = Theme.action, color = Theme.ink)
             TextBox(note, { note = it }, "e.g. Step 4 says to add the cream but it's not in the ingredients", style = Theme.subtitle, minLines = 3)
-            FilledButton(if (sending) "Sending…" else "Send report", enabled = reason != null && !sending) {
+            FilledButton(if (sending) "Sending…" else Copy.text("ui.send.report"), enabled = reason != null && !sending) {
                 val picked = reason ?: return@FilledButton
                 sending = true
                 scope.launch {

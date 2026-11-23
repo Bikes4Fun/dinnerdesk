@@ -114,7 +114,7 @@ fun SettingsView() {
         ThemeList {
             LargeTitle("Settings")
             ListRow({ openUrl(Api.url("support")) }, chevron = false) { ThemeIconRow("Help & support", Icons.AutoMirrored.Outlined.HelpOutline) }
-            ListRow({ session.tourReplay = true; session.showTour = true }, chevron = false) { ThemeIconRow("Quick start tour", Icons.Outlined.Replay) }
+            ListRow({ session.tourReplay = true; session.showTour = true }, chevron = false) { ThemeIconRow(Copy.text("ui.quick.start.tour"), Icons.Outlined.Replay) }
             ListRow({ openUrl("https://dinnerdesk.computerscience.build") }, chevron = false) { ThemeIconRow("${Copy.appName} on the web", Icons.Outlined.Explore) }
             ListRow({ openUrl("https://x.com/DinnerDesk") }, chevron = false) { ThemeIconRow("Twitter", Icons.Outlined.Forum, "@DinnerDesk") }
             ListHeader("About recipes & photos")
@@ -218,16 +218,16 @@ fun FiltersView() {
         // behind ⋯ and asks first.
         NavBar("Filters", actions = {
             Box {
-                IconAction(Icons.Filled.MoreHoriz, "More filter options") { resetMenu = true }
+                IconAction(Icons.Filled.MoreHoriz, Copy.text("ui.more.filter.options")) { resetMenu = true }
                 DropdownMenu(resetMenu, { resetMenu = false }, containerColor = Theme.surface) {
-                    DropdownMenuItem({ Text("Reset all filters", style = Theme.body, color = Theme.destructive) }, { resetMenu = false; confirmingReset = true })
+                    DropdownMenuItem({ Text(Copy.text("ui.reset.all.filters"), style = Theme.body, color = Theme.destructive) }, { resetMenu = false; confirmingReset = true })
                 }
             }
         })
         if (confirmingReset) {
             ConfirmDialog(
-                "Reset all filters?", "Reset all filters", onConfirm = { reset() }, onDismiss = { confirmingReset = false },
-                message = "Diet, allergies, and preferences go back to the defaults.",
+                Copy.text("ui.reset.all.filters.2"), Copy.text("ui.reset.all.filters"), onConfirm = { reset() }, onDismiss = { confirmingReset = false },
+                message = Copy.text("ui.diet.allergies.and.preferences.go"),
             )
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(28.dp)) {
@@ -238,8 +238,8 @@ fun FiltersView() {
                 verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Hides meals", style = Theme.chipLabel, color = Theme.coralInk, modifier = Modifier.background(Theme.coralTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
-                    Text("Strict — never shown", style = Theme.subtitle, color = Theme.muted)
+                    Text(Copy.text("ui.hides.meals"), style = Theme.chipLabel, color = Theme.coralInk, modifier = Modifier.background(Theme.coralTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
+                    Text(Copy.text("ui.strict.never.shown"), style = Theme.subtitle, color = Theme.muted)
                 }
                 ChipSection("Diet") {
                     for (item in o.diets) ChoiceChip(o.dietLabels[item] ?: item, item in diets) { diets = o.toggled(diets, item); save() }
@@ -250,7 +250,7 @@ fun FiltersView() {
                     ChoiceChip("Other", otherAllergenOpen) { otherAllergenOpen = !otherAllergenOpen }
                 }
                 if (otherAllergenOpen) {
-                    OtherField("Other allergies", selected = otherAllergens, onSelected = { otherAllergens = it }) {
+                    OtherField(Copy.text("ui.other.allergies"), selected = otherAllergens, onSelected = { otherAllergens = it }) {
                         val known = o.allergens.map { it.first }
                         allergens = allergens + otherAllergens.filter { it in known }
                         otherAllergens = otherAllergens.filter { it !in known }
@@ -264,13 +264,13 @@ fun FiltersView() {
                 verticalArrangement = Arrangement.spacedBy(22.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Shows fewer", style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.background(Theme.aubergineTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
-                    Text("Suggested less often. You can still add them yourself.", style = Theme.subtitle, color = Theme.muted)
+                    Text(Copy.text("ui.shows.fewer"), style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.background(Theme.aubergineTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
+                    Text(Copy.text("ui.suggested.less.often.you.can"), style = Theme.subtitle, color = Theme.muted)
                 }
                 ChipSection("Dislikes") {
                     for (name in avoids.sorted() + otherAvoids) ChoiceChip("$name ✕", true) { avoids = avoids - name; otherAvoids = otherAvoids - name; save() }
                 }
-                OtherField("Other dislikes", "Add an ingredient…", dashed = true, presets = o.avoids, taken = avoids, selected = otherAvoids, onSelected = { otherAvoids = it }) {
+                OtherField(Copy.text("ui.other.dislikes"), "Add an ingredient…", dashed = true, presets = o.avoids, taken = avoids, selected = otherAvoids, onSelected = { otherAvoids = it }) {
                     avoids = avoids + otherAvoids.filter { it in o.avoids }
                     otherAvoids = otherAvoids.filter { it !in o.avoids }
                     save()
@@ -279,10 +279,10 @@ fun FiltersView() {
             // Shapes suggestions
             Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Shapes suggestions", style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.background(Theme.aubergineTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
-                    Text("Show me more of these", style = Theme.subtitle, color = Theme.muted)
+                    Text(Copy.text("ui.shapes.suggestions"), style = Theme.chipLabel, color = Theme.ink, modifier = Modifier.background(Theme.aubergineTint, CircleShape).padding(horizontal = 10.dp, vertical = 3.dp))
+                    Text(Copy.text("ui.show.me.more.of.these"), style = Theme.subtitle, color = Theme.muted)
                 }
-                ChipSection("Who it's for") {
+                ChipSection(Copy.text("ui.who.its.for")) {
                     for ((id, label) in o.who) ChoiceChip(label, id in who) { who = if (id in who) who - id else who + id; save() }
                 }
                 if (o.proteinsFor(diets).isNotEmpty()) {
@@ -310,7 +310,7 @@ fun FiltersView() {
                     for ((id, label) in o.cuisines) ChoiceChip(label, id in cuisines) { cuisines = if (id in cuisines) cuisines - id else cuisines + id; save() }
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Cook time", style = Theme.body, color = Theme.ink)
+                    Text(Copy.text("ui.cook.time"), style = Theme.body, color = Theme.ink)
                     Row(Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(16.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         for ((id, _) in o.times) {
                             val on = time == id
@@ -328,7 +328,7 @@ fun FiltersView() {
         Column(Modifier.fillMaxWidth().background(Theme.surface)) {
             Hairline()
             Row(Modifier.padding(horizontal = 20.dp).padding(top = 14.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                LinkButton("Clear all") { reset() }
+                LinkButton(Copy.text("ui.clear.all")) { reset() }
                 Row(
                     Modifier.weight(1f).heightIn(min = 52.dp).clip(CircleShape).background(Theme.ink).clickable { selectTab(AppTab.Recipes) },
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically,
@@ -379,7 +379,7 @@ private fun ProteinTile(name: String, more: Boolean, less: Boolean, onClick: () 
 /** Words that aren't in the list: search foods, tap a match to add it. */
 @Composable
 private fun OtherField(
-    label: String, placeholder: String = "Search foods, e.g. bell peppers or ground", dashed: Boolean = false,
+    label: String, placeholder: String = Copy.text("ui.search.foods.eg.bell.peppers"), dashed: Boolean = false,
     presets: List<String> = emptyList(), taken: Set<String> = emptySet(), selected: List<String>, onSelected: (List<String>) -> Unit,
     onCommit: () -> Unit,
 ) {
@@ -398,7 +398,7 @@ private fun OtherField(
             matches = Api.get<KitchenItemSearch>("filter-items", mapOf("q" to query), reportErrors = false).items.map { it.name }
             loading = false
         } catch (e: Throwable) {
-            if (!Api.isCancellation(e)) { error = "Couldn't search foods. Please try again."; loading = false }
+            if (!Api.isCancellation(e)) { error = Copy.text("ui.couldnt.search.foods.please.try"); loading = false }
         }
     }
 
@@ -421,7 +421,7 @@ private fun OtherField(
             }
             for (name in matches.filter { it !in selected }) FilterChip("+ $name", false) { onSelected(selected + name); onCommit() }
         }
-        if (!loading && error == null && query.isNotEmpty() && matches.isEmpty()) Text("No matching foods. Try another name.", style = Theme.subtitle, color = Theme.ink)
+        if (!loading && error == null && query.isNotEmpty() && matches.isEmpty()) Text(Copy.text("ui.no.matching.foods.try.another"), style = Theme.subtitle, color = Theme.ink)
     }
 }
 
@@ -479,7 +479,7 @@ fun AccountView() {
         action {
             Api.jsonObject("household", "PUT", mapOf("name" to name))
             householdName = name
-            message = "Household name saved."
+            message = Copy.text("ui.household.name.saved")
             error = null
         }
     }
@@ -494,7 +494,7 @@ fun AccountView() {
         loadMembers()
         store.switchAccount()
         error = null
-        message = "Household updated."
+        message = Copy.text("ui.household.updated")
     }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
@@ -516,13 +516,13 @@ fun AccountView() {
                     ListRow(onClick = if (busy) null else ({
                         action {
                             AuthApi.forgotPassword(email ?: return@action)
-                            message = "Check your email for a password reset link."
+                            message = Copy.text("ui.check.your.email.for.a")
                             error = null
                         }
                     }), chevron = false) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Outlined.Key, null, tint = Theme.accent)
-                            Text("Reset password", style = Theme.body, color = Theme.accent)
+                            Text(Copy.text("ui.reset.password"), style = Theme.body, color = Theme.accent)
                         }
                     }
                     ListRow {
@@ -534,7 +534,7 @@ fun AccountView() {
                     }
                 } else if (hasAddress) {
                     ListRow {
-                        Text("Your email isn't verified yet, so a password reset can't be sent.", style = Theme.subtitle, color = Theme.muted)
+                        Text(Copy.text("ui.your.email.isnt.verified.yet"), style = Theme.subtitle, color = Theme.muted)
                     }
                 } else {
                     ListRow {
@@ -543,7 +543,7 @@ fun AccountView() {
                 }
                 ListHeader("Household")
                 ListRow {
-                    FormField(householdName, { householdName = it.take(80) }, "Household name",
+                    FormField(householdName, { householdName = it.take(80) }, Copy.text("ui.household.name"),
                         actions = KeyboardActions(onDone = { saveHouseholdName() }),
                         keyboard = KeyboardOptions(imeAction = ImeAction.Done))
                 }
@@ -553,7 +553,7 @@ fun AccountView() {
                     ListRow({ shareText(context, invite) }, chevron = false) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Icon(Icons.Outlined.IosShare, null, tint = Theme.accent)
-                            Text("Share invite link", style = Theme.body, color = Theme.accent)
+                            Text(Copy.text("ui.share.invite.link"), style = Theme.body, color = Theme.accent)
                         }
                     }
                     Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { StarTip("settings.invite-link") }
@@ -578,7 +578,7 @@ fun AccountView() {
                                     if (myRole == "owner") {
                                         Text("Transfer ownership", style = Theme.body, color = Theme.accent, modifier = Modifier.clickable { successor = member }.padding(vertical = 4.dp))
                                         Text(
-                                            if (member.householdRole == "admin") "Remove admin role" else "Make admin", style = Theme.body, color = Theme.accent,
+                                            if (member.householdRole == "admin") "Remove admin role" else Copy.text("ui.make.admin"), style = Theme.body, color = Theme.accent,
                                             modifier = Modifier.clickable {
                                                 householdAction { KitchenApi.setRole(member.id, if (member.householdRole == "admin") "member" else "admin") }
                                             }.padding(vertical = 4.dp),
@@ -590,32 +590,32 @@ fun AccountView() {
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                ActionRow("Sign out") { scope.launch { session.signOut() } }
-                ActionRow("Sign out everywhere", destructive = true) { confirmEverywhere = true }
+                ActionRow(Copy.text("ui.sign.out")) { scope.launch { session.signOut() } }
+                ActionRow(Copy.text("ui.sign.out.everywhere"), destructive = true) { confirmEverywhere = true }
                 Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { StarTip("settings.sign-out-everywhere") }
                 ListHeader("Household membership")
                 ListRow {
                     Text("Leaving creates an empty solo household. Your account stays active. Shared plans and kitchen data stay with the household.", style = Theme.subtitle, color = Theme.ink)
                 }
-                ActionRow("Leave household", enabled = !busy) { confirmLeave = true }
+                ActionRow(Copy.text("ui.leave.household"), enabled = !busy) { confirmLeave = true }
                 ListRow { FormField(joinToken, { joinToken = it }, "Invite link or token", KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false)) }
                 Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { Text(Copy.text("privacy.join.note"), style = Theme.subtitle, color = Theme.muted) }
-                ActionRow("Join household", enabled = !busy && joinToken.isNotBlank()) { confirmJoin = true }
+                ActionRow(Copy.text("ui.join.household"), enabled = !busy && joinToken.isNotBlank()) { confirmJoin = true }
                 if (canManage) {
-                    ActionRow("Delete household", destructive = true) { deletingHome = !deletingHome }
+                    ActionRow(Copy.text("ui.delete.household"), destructive = true) { deletingHome = !deletingHome }
                     if (deletingHome) {
                         ListRow {
-                            Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.", style = Theme.subtitle, color = Theme.ink)
+                            Text(Copy.text("ui.permanently.removes.this.kitchen.and"), style = Theme.subtitle, color = Theme.ink)
                         }
-                        ListRow { FormField(homePassword, { homePassword = it }, "Your password", password = true) }
-                        ActionRow("Confirm household deletion", destructive = true, enabled = !busy && homePassword.isNotEmpty()) {
+                        ListRow { FormField(homePassword, { homePassword = it }, Copy.text("ui.your.password"), password = true) }
+                        ActionRow(Copy.text("ui.confirm.household.deletion"), destructive = true, enabled = !busy && homePassword.isNotEmpty()) {
                             val password = homePassword
                             householdAction { KitchenApi.deleteHousehold(password) }
                         }
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-                ActionRow("Delete account", destructive = true) { deletingAccount = true }
+                ActionRow(Copy.text("ui.delete.account"), destructive = true) { deletingAccount = true }
                 Text(
                     if (otherMembers.isEmpty()) "Deletes your account and this household’s plans, pantry, grocery list and your own recipes. This can’t be undone."
                     else "Deletes your account. The household stays for the other members.",
@@ -627,22 +627,22 @@ fun AccountView() {
                     "You're using ${Copy.appName} as a guest. Create an account to keep your plan and share it with your household.",
                     style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                 )
-                ListRow({ signingIn = true }, chevron = false) { Text("Sign in or create account", style = Theme.mealName, color = Theme.accent) }
+                ListRow({ signingIn = true }, chevron = false) { Text(Copy.text("ui.sign.in.or.create.account"), style = Theme.mealName, color = Theme.accent) }
                 ListRow({ nav.push(Route.Privacy) }) { ThemeIconRow("Privacy", Icons.Outlined.PanTool) }
             }
         }
     }
 
     if (signingIn) Sheet(onDismiss = { signingIn = false; scope.launch { loadMembers() } }) { AuthView(isSheet = true) }
-    if (confirmLeave) ConfirmDialog("Leave this household and start an empty solo household?", "Leave household", onConfirm = {
+    if (confirmLeave) ConfirmDialog(Copy.text("ui.leave.this.household.and.start"), Copy.text("ui.leave.household"), onConfirm = {
         householdAction { KitchenApi.leaveHousehold() }
     }, onDismiss = { confirmLeave = false })
-    if (confirmJoin) ConfirmDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", "Join household", destructive = false, message = Copy.text("privacy.join.note"), onConfirm = {
+    if (confirmJoin) ConfirmDialog(Copy.text("ui.join.this.household.your.current"), Copy.text("ui.join.household"), destructive = false, message = Copy.text("privacy.join.note"), onConfirm = {
         val token = joinToken.trim().split("/").lastOrNull() ?: ""
         householdAction { KitchenApi.joinHousehold(token) }
     }, onDismiss = { confirmJoin = false })
     successor?.let { member ->
-        ConfirmDialog("Transfer household ownership?", "Transfer", message = "The selected member becomes the creator. You become an admin.", destructive = false, onConfirm = {
+        ConfirmDialog(Copy.text("ui.transfer.household.ownership"), "Transfer", message = Copy.text("ui.the.selected.member.becomes.the"), destructive = false, onConfirm = {
             householdAction { KitchenApi.setRole(member.id, "owner") }
         }, onDismiss = { successor = null })
     }
@@ -654,7 +654,7 @@ fun AccountView() {
             }
         }
     }
-    if (confirmEverywhere) ConfirmDialog("Sign out on every device?", "Sign out everywhere", onConfirm = {
+    if (confirmEverywhere) ConfirmDialog(Copy.text("ui.sign.out.on.every.device"), Copy.text("ui.sign.out.everywhere"), onConfirm = {
         scope.launch {
             try { AuthApi.logoutEverywhere() } catch (e: Throwable) { error = Api.message(e) }
             session.signOut()
@@ -684,20 +684,20 @@ private fun DeleteAccountSheet(alone: Boolean, onDeleted: () -> Unit) {
         }
     }
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar("Delete account")
+        SheetBar(Copy.text("ui.delete.account"))
         ThemeList {
             error?.let { Box(Modifier.padding(16.dp)) { ErrorBanner(it) } }
             ListRow {
                 Text(
-                    if (alone) "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
-                    else "This deletes your account and your sign-ins. The household and its plans stay for the other members.",
+                    if (alone) Copy.text("ui.this.deletes.your.account.and")
+                    else Copy.text("ui.this.deletes.your.account.and.2"),
                     style = Theme.body, color = Theme.ink,
                 )
             }
-            ListRow { Text("Anonymous meal votes are retained without account identifiers.", style = Theme.subtitle, color = Theme.ink) }
-            ListRow { FormField(password, { password = it }, "Your password", password = true, actions = KeyboardActions(onDone = { delete() })) }
+            ListRow { Text(Copy.text("ui.anonymous.meal.votes.are.retained"), style = Theme.subtitle, color = Theme.ink) }
+            ListRow { FormField(password, { password = it }, Copy.text("ui.your.password"), password = true, actions = KeyboardActions(onDone = { delete() })) }
             Spacer(Modifier.height(16.dp))
-            ActionRow("Delete account", destructive = true, enabled = !busy && password.isNotEmpty()) { delete() }
+            ActionRow(Copy.text("ui.delete.account"), destructive = true, enabled = !busy && password.isNotEmpty()) { delete() }
         }
     }
 }
@@ -725,7 +725,7 @@ private fun TasteLabPrivacyNote() {
             Modifier.size(44.dp).clickable {
                 ResponseCache.prefs.edit().putBoolean(TASTE_LAB_NOTE_KEY, true).apply()
                 dismissed = true
-            }.semantics { contentDescription = "Dismiss note" },
+            }.semantics { contentDescription = Copy.text("ui.dismiss.note") },
             contentAlignment = Alignment.Center,
         ) { Text("×", style = Theme.title, color = Theme.muted) }
     }
@@ -747,7 +747,7 @@ fun TasteLabView(swipe: Boolean = false) {
         }.build()
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        NavBar("Taste Lab")
+        NavBar(Copy.text("tour.how.6.title"))
         TasteLabPrivacyNote()
         Box(Modifier.weight(1f).fillMaxWidth()) {
             androidx.compose.runtime.key(attempt) {
@@ -788,9 +788,9 @@ fun TasteLabView(swipe: Boolean = false) {
             if (loading && failed == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Theme.muted, strokeWidth = 2.dp) }
             failed?.let { message ->
                 Column(Modifier.fillMaxSize().background(Theme.bg), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically)) {
-                    EmptyState("Taste Lab didn't load", message, Icons.Outlined.WifiOff)
+                    EmptyState(Copy.text("ui.taste.lab.didnt.load"), message, Icons.Outlined.WifiOff)
                     Text(
-                        "Try again", style = Theme.action, color = Theme.bg,
+                        Copy.text("ui.try.again"), style = Theme.action, color = Theme.bg,
                         modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Theme.ink).clickable { failed = null; loading = true; attempt++ }
                             .padding(horizontal = 22.dp, vertical = 12.dp),
                     )
@@ -802,12 +802,12 @@ fun TasteLabView(swipe: Boolean = false) {
 
 /** Bug reports and feature requests (#145). Ids match app/models.py FEEDBACK_KINDS. */
 private enum class FeedbackKind(val id: String, val label: String, val prompt: String) {
-    Bug("bug", "Report a bug", "What went wrong?"),
-    Feature("feature", "Suggest a feature", "What would you like?");
+    Bug("bug", Copy.text("ui.report.a.bug"), Copy.text("ui.what.went.wrong")),
+    Feature("feature", Copy.text("ui.suggest.a.feature"), Copy.text("ui.what.would.you.like"));
 
     val help: String get() = if (this == Bug) "Something broke or didn't work the way it should." else "Something you wish ${Copy.appName} did."
     val placeholder: String
-        get() = if (this == Bug) "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh."
+        get() = if (this == Bug) Copy.text("ui.what.happened.and.what.did")
         else "e.g. Let me plan lunches too, not just dinners."
 }
 
@@ -839,10 +839,10 @@ fun FeedbackView() {
             error?.let { ErrorBanner(it) }
             val done = sent
             if (done != null) {
-                Text(if (done == FeedbackKind.Bug) "Thanks. We'll look into it." else "Thanks for the idea. We read every one.", style = Theme.body, color = Theme.ink)
-                LinkButton("Send another") { sent = null }
+                Text(if (done == FeedbackKind.Bug) Copy.text("ui.thanks.well.look.into.it") else Copy.text("ui.thanks.for.the.idea.we"), style = Theme.body, color = Theme.ink)
+                LinkButton(Copy.text("ui.send.another")) { sent = null }
             } else {
-                Text("What's this about?", style = Theme.action, color = Theme.ink)
+                Text(Copy.text("ui.whats.this.about"), style = Theme.action, color = Theme.ink)
                 for (option in FeedbackKind.entries) {
                     RadioRow(kind == option, { kind = option }) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -882,7 +882,7 @@ fun FeedbackView() {
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Icon(Icons.Outlined.AddPhotoAlternate, null, tint = Theme.accent)
-                        Text(if (shots.isEmpty()) "Add a screenshot (optional)" else "Add another screenshot", style = Theme.action, color = Theme.accent)
+                        Text(if (shots.isEmpty()) Copy.text("ui.add.a.screenshot.optional") else Copy.text("ui.add.another.screenshot"), style = Theme.action, color = Theme.accent)
                     }
                 }
                 FilledButton(if (sending) "Sending…" else "Send", enabled = trimmed.isNotEmpty() && !sending) {
@@ -955,9 +955,9 @@ fun PrivacyView() {
             PrivacySummary()
             // "Download my data" (#64): everything stored for this household as one JSON file.
             Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Your data", style = Theme.title, color = Theme.ink)
+                Text(Copy.text("ui.your.data"), style = Theme.title, color = Theme.ink)
                 Text(
-                    "Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings, prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.",
+                    Copy.text("ui.get.a.copy.of.everything"),
                     style = Theme.body, color = Theme.muted,
                 )
                 if (exportData != null) {
@@ -978,9 +978,9 @@ fun PrivacyView() {
                                     exportData = Api.getData("household/export")
                                 } catch (e: Throwable) {
                                     exportError = when {
-                                        e is ApiError && e.code == 401 -> "Please sign in again to continue."
+                                        e is ApiError && e.code == 401 -> Copy.text("ui.please.sign.in.again.to")
                                         e is ApiError && e.code == 404 -> "Data export needs the updated Dinner Desk server. Please try again after the server update."
-                                        else -> "Couldn’t prepare your data. Please try again."
+                                        else -> Copy.text("ui.couldnt.prepare.your.data.please")
                                     }
                                 } finally {
                                     exporting = false
@@ -990,7 +990,7 @@ fun PrivacyView() {
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         if (exporting) CircularProgressIndicator(color = Theme.accent, strokeWidth = 2.dp, modifier = Modifier.size(16.dp))
-                        Text(if (exporting) "Preparing…" else "Download my data", style = Theme.action, color = Theme.accent)
+                        Text(if (exporting) "Preparing…" else Copy.text("ui.download.my.data"), style = Theme.action, color = Theme.accent)
                     }
                 }
                 exportError?.let { Text(it, style = Theme.subtitle, color = Theme.accent) }

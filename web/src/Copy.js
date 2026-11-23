@@ -1,4 +1,4 @@
-import table from "../../ios/dinnerdesk/copy.json";
+import table from "../../ios/dinnerdesk/copy.json" with { type: "json" };
 
 /** Shared wording, using the same key and placeholder contract as the native Copy adapters. */
 export class Copy {

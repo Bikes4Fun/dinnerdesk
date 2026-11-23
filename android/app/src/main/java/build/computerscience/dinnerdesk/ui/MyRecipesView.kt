@@ -59,6 +59,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import build.computerscience.dinnerdesk.data.Copy
 
 private enum class RecipeFormMode { Write, ImportUrl }
 
@@ -87,12 +88,12 @@ fun MyRecipesView() {
     LaunchedEffect(Unit) { load() }
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        NavBar("My recipes", actions = {
+        NavBar(Copy.text("ui.my.recipes"), actions = {
             Box {
-                IconAction(Icons.Filled.Add, "Add recipe") { addMenu = true }
+                IconAction(Icons.Filled.Add, Copy.text("ui.add.recipe")) { addMenu = true }
                 DropdownMenu(addMenu, { addMenu = false }, containerColor = Theme.surface) {
-                    DropdownMenuItem({ Text("Write your own", style = Theme.body) }, { addMenu = false; form = RecipeFormMode.Write }, leadingIcon = { Icon(Icons.Outlined.EditNote, null) })
-                    DropdownMenuItem({ Text("Import from a website", style = Theme.body) }, { addMenu = false; form = RecipeFormMode.ImportUrl }, leadingIcon = { Icon(Icons.Outlined.Link, null) })
+                    DropdownMenuItem({ Text(Copy.text("ui.write.your.own"), style = Theme.body) }, { addMenu = false; form = RecipeFormMode.Write }, leadingIcon = { Icon(Icons.Outlined.EditNote, null) })
+                    DropdownMenuItem({ Text(Copy.text("ui.import.from.a.website"), style = Theme.body) }, { addMenu = false; form = RecipeFormMode.ImportUrl }, leadingIcon = { Icon(Icons.Outlined.Link, null) })
                 }
             }
         })
@@ -163,7 +164,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val image = withContext(Dispatchers.IO) { loadBitmap(context, uri) }
-            if (image == null) error = "Couldn't read that photo." else { ownPhoto = image; error = null }
+            if (image == null) error = Copy.text("ui.couldnt.read.that.photo") else { ownPhoto = image; error = null }
         }
     }
 
@@ -225,29 +226,29 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
         SheetBar(
-            if (mode == RecipeFormMode.Write) "New recipe" else "Import a recipe",
+            if (mode == RecipeFormMode.Write) Copy.text("ui.new.recipe") else Copy.text("ui.import.a.recipe"),
             confirm = if (showBoxes) (if (saving) "Saving…" else "Save") else null, confirmEnabled = canSave, onConfirm = ::save,
         )
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             error?.let { FormSection { Text(it, style = Theme.body, color = Theme.accent, modifier = Modifier.padding(vertical = 12.dp)) } }
             if (mode == RecipeFormMode.ImportUrl) {
-                FormSection("Recipe page", footer = {
-                    if (imported) Text("Check it over before you save. The ingredients and steps came from that site.")
+                FormSection(Copy.text("ui.recipe.page"), footer = {
+                    if (imported) Text(Copy.text("ui.check.it.over.before.you"))
                     else if (!typing) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Paste a link to a recipe on a public website.")
-                        Text("Type it in instead", color = Theme.accent, modifier = Modifier.clickable { typing = true })
+                        Text(Copy.text("ui.paste.a.link.to.a"))
+                        Text(Copy.text("ui.type.it.in.instead"), color = Theme.accent, modifier = Modifier.clickable { typing = true })
                     }
                 }) {
                     FormField(
                         url, { url = it }, "https://",
                         KeyboardOptions(keyboardType = KeyboardType.Uri, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Go),
                         actions = KeyboardActions(onGo = { runImport() }),
-                        label = "Recipe page URL",
+                        label = Copy.text("ui.recipe.page.url"),
                     )
                     Hairline()
                     val enabled = !importing && url.isNotBlank()
                     Box(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(enabled = enabled) { runImport() }, contentAlignment = Alignment.CenterStart) {
-                        Text(if (importing) "Reading…" else if (imported) "Read again" else "Import", style = Theme.body, color = if (enabled) Theme.accent else Theme.muted.copy(alpha = 0.5f))
+                        Text(if (importing) "Reading…" else if (imported) Copy.text("ui.read.again") else "Import", style = Theme.body, color = if (enabled) Theme.accent else Theme.muted.copy(alpha = 0.5f))
                     }
                 }
             }
@@ -262,12 +263,12 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                     Hairline()
                     FormField(minutes, { minutes = it.filter(Char::isDigit) }, "Minutes (optional)", KeyboardOptions(keyboardType = KeyboardType.Number))
                 }
-                FormSection("Ingredients", footer = { Text("One per line, amount first.") }) {
-                    FormField(ingredients, { ingredients = it }, "1 onion\n2 cloves garlic", minLines = 5, label = "Ingredients, one per line")
+                FormSection("Ingredients", footer = { Text(Copy.text("ui.one.per.line.amount.first")) }) {
+                    FormField(ingredients, { ingredients = it }, "1 onion\n2 cloves garlic", minLines = 5, label = Copy.text("ui.ingredients.one.per.line"))
                 }
                 FormSection("Photo", footer = {
-                    if (ownPhoto == null && imported && siteImage.isNotEmpty()) Text("This is the photo from that page, saved for your kitchen only. Don't like it? Choose your own.")
-                    else if (ownPhoto == null) Text("Add a photo you took or one you're free to use.")
+                    if (ownPhoto == null && imported && siteImage.isNotEmpty()) Text(Copy.text("ui.this.is.the.photo.from"))
+                    else if (ownPhoto == null) Text(Copy.text("ui.add.a.photo.you.took"))
                 }) {
                     val own = ownPhoto
                     if (own != null) {
@@ -278,16 +279,16 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                     Box(
                         Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                         contentAlignment = Alignment.CenterStart,
-                    ) { Text(if (ownPhoto == null) "Choose your own photo" else "Choose a different photo", style = Theme.body, color = Theme.accent) }
+                    ) { Text(if (ownPhoto == null) Copy.text("ui.choose.your.own.photo") else Copy.text("ui.choose.a.different.photo"), style = Theme.body, color = Theme.accent) }
                     if (ownPhoto != null) {
                         Hairline()
                         Box(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable { ownPhoto = null }, contentAlignment = Alignment.CenterStart) {
-                            Text(if (imported && siteImage.isNotEmpty()) "Use the site's photo" else "Remove photo", style = Theme.body, color = Theme.destructive)
+                            Text(if (imported && siteImage.isNotEmpty()) Copy.text("ui.use.the.sites.photo") else Copy.text("ui.remove.photo"), style = Theme.body, color = Theme.destructive)
                         }
                     }
                 }
                 if (mode == RecipeFormMode.Write) {
-                    FormSection("Source (optional)", footer = { Text("Where this recipe came from.") }) {
+                    FormSection("Source (optional)", footer = { Text(Copy.text("ui.where.this.recipe.came.from")) }) {
                         FormField(source, { source = it }, "https://", KeyboardOptions(keyboardType = KeyboardType.Uri, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false), label = "Recipe source URL (optional)")
                     }
                 }
@@ -296,7 +297,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                         if (index > 0) Hairline()
                         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("${index + 1}.", style = Theme.count, color = Theme.muted, modifier = Modifier.padding(top = 14.dp))
-                            Box(Modifier.weight(1f)) { FormField(step.text, { step.text = it }, "What to do", minLines = 2, label = "Step ${index + 1} instructions") }
+                            Box(Modifier.weight(1f)) { FormField(step.text, { step.text = it }, Copy.text("ui.what.to.do"), minLines = 2, label = "Step ${index + 1} instructions") }
                             if (steps.size > 1) IconAction(Icons.Outlined.Delete, "Delete step ${index + 1}", tint = Theme.muted, size = 20.dp) { steps.removeAt(index) }
                         }
                     }
@@ -306,7 +307,7 @@ private fun RecipeFormView(mode: RecipeFormMode, onSaved: (Int) -> Unit) {
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Icon(Icons.Filled.Add, null, tint = Theme.accent, modifier = Modifier.size(20.dp))
-                        Text("Add step", style = Theme.body, color = Theme.accent)
+                        Text(Copy.text("ui.add.step"), style = Theme.body, color = Theme.accent)
                     }
                 }
             }

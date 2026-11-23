@@ -31,8 +31,8 @@ struct PlanView: View {
             if let error = store.error {
               ErrorBanner(message: error)
               if error.localizedCaseInsensitiveContains("filter") {
-                NavigationLink("Adjust filters") { FiltersView() }
-                Button("Choose meals") { store.error = nil; selectTab(.recipes) }
+                NavigationLink(Copy.text("ui.adjust.filters")) { FiltersView() }
+                Button(Copy.text("ui.choose.meals")) { store.error = nil; selectTab(.recipes) }
               }
             }
             if let plan = store.plan {
@@ -43,7 +43,7 @@ struct PlanView: View {
                   NavigationLink {
                     TasteLabView(swipe: true)
                   } label: {
-                    Text("Improve your results")
+                    Text(Copy.text("ui.improve.your.results"))
                       .font(Theme.subtitle)
                       .foregroundStyle(Theme.accent)
                       .multilineTextAlignment(.leading)
@@ -54,12 +54,12 @@ struct PlanView: View {
               if plan.slots.isEmpty {
                 VStack {
                   EmptyState(
-                    title: "Nothing on this plan",
-                    message: "Get suggestions for your next meals.",
+                    title: Copy.text("ui.nothing.on.this.plan"),
+                    message: Copy.text("ui.get.suggestions.for.your.next"),
                     systemImage: "calendar")
                   CreateMealPlanButton { Task { await store.openSuggestions() } }
                   Button { selectTab(.recipes) } label: {
-                    Label("Add meals", systemImage: "plus")
+                    Label(Copy.text("ui.add.meals"), systemImage: "plus")
                   }.font(Theme.action).frame(minHeight: 44)
                 }
                 .frame(maxWidth: .infinity)
@@ -150,7 +150,7 @@ struct PlanView: View {
       }
       .onPreferenceChange(PlanRowWidthKey.self) { totalRowWidth = $0 }
       .safeAreaInset(edge: .top, spacing: 0) {
-        TabHeader(store.plan?.title ?? "This week") {
+        TabHeader(store.plan?.title ?? Copy.text("ui.this.week")) {
           // While editing, a visible Done is the way out; the ⋯ menu alone was too hidden.
           if editing {
             Button("Done") { setEditing(false) }
@@ -159,12 +159,12 @@ struct PlanView: View {
               .contentShape(Rectangle())
               .accessibilityLabel("Done editing plan")
           } else {
-            HeaderIconButton("Edit plan", systemImage: "pencil") { setEditing(true) }
+            HeaderIconButton(Copy.text("ui.edit.plan"), systemImage: "pencil") { setEditing(true) }
             HeaderIconButton(grid ? "List view" : "Grid view", systemImage: grid ? "list.bullet" : "square.grid.2x2") {
               grid.toggle()
             }
           }
-          HeaderIconButton("Plan menu", systemImage: "ellipsis") { menu = true }
+          HeaderIconButton(Copy.text("ui.plan.menu"), systemImage: "ellipsis") { menu = true }
         }
       }
       .background(Theme.bg)
@@ -172,20 +172,20 @@ struct PlanView: View {
       .tint(Theme.accent)
       .menuSheet(isPresented: $menu) {
         [
-          MenuSheetItem(title: "Save as draft", systemImage: "square.and.arrow.down") {
-            draftTitle = store.plan?.title ?? "Saved plan"
+          MenuSheetItem(title: Copy.text("ui.save.as.draft"), systemImage: "square.and.arrow.down") {
+            draftTitle = store.plan?.title ?? Copy.text("ui.saved.plan")
             savingDraft = true
           },
-          MenuSheetItem(title: "Saved plans & history", systemImage: "tray") { drafts = true },
+          MenuSheetItem(title: Copy.text("ui.saved.plans.history"), systemImage: "tray") { drafts = true },
         ]
       }
-      .alert("Save as draft", isPresented: $savingDraft) {
-        TextField("Plan name", text: $draftTitle)
+      .alert(Copy.text("ui.save.as.draft"), isPresented: $savingDraft) {
+        TextField(Copy.text("ui.plan.name"), text: $draftTitle)
         Button("Save") { Task { await store.saveDraft(title: draftTitle) } }
         Button("Cancel", role: .cancel) {}
       }
       .sheet(isPresented: $removing) {
-        RemovalConfirmation(title: "Remove \(selected.count) \(selected.count == 1 ? "meal" : "meals")?", message: "Selected meals will be removed from your plan.", actionTitle: selected.count == 1 ? "Remove meal" : "Remove meals") {
+        RemovalConfirmation(title: "Remove \(selected.count) \(selected.count == 1 ? "meal" : "meals")?", message: "Selected meals will be removed from your plan.", actionTitle: selected.count == 1 ? "Remove meal" : Copy.text("ui.remove.meals")) {
           await store.removeSlots(ids: selected)
           selected = []
         }
@@ -208,10 +208,10 @@ struct PlanView: View {
 
   @ViewBuilder
   private var planButtons: some View {
-    planPill("New meal plan", icon: "sparkles", filled: true) {
+    planPill(Copy.text("ui.new.meal.plan"), icon: "sparkles", filled: true) {
       Task { await store.openSuggestions() }
     }
-    planPill("Add meals", icon: "plus", filled: false) {
+    planPill(Copy.text("ui.add.meals"), icon: "plus", filled: false) {
       selectTab(.recipes)
     }
   }
@@ -296,7 +296,7 @@ struct PlanView: View {
   }
 
   private func selectAllButton(_ plan: Plan) -> some View {
-    Button(selected.count == plan.slots.count ? "Deselect all" : "Select all") {
+    Button(selected.count == plan.slots.count ? Copy.text("ui.deselect.all") : Copy.text("ui.select.all")) {
       selected = selected.count == plan.slots.count ? [] : Set(plan.slots.map(\.id))
     }
     .buttonStyle(.plain)
@@ -316,7 +316,7 @@ struct PlanView: View {
   private func markCookedButton(_ plan: Plan) -> some View {
     let picked = plan.slots.filter { selected.contains($0.id) }
     let allCooked = !picked.isEmpty && picked.allSatisfy(\.cooked)
-    return Button(allCooked ? "Mark uncooked" : "Mark cooked") {
+    return Button(allCooked ? Copy.text("ui.mark.uncooked") : Copy.text("ui.mark.cooked")) {
       Task { await store.markCooked(ids: selected, cooked: !allCooked) }
     }
     .frame(minHeight: 44)
@@ -355,7 +355,7 @@ struct PlanView: View {
       }
       servingsControl(slot)
       if (slot.rating ?? 0) > 0 {
-        Text("We'll suggest more like this").font(Theme.subtitle).foregroundStyle(Theme.muted)
+        Text(Copy.text("ui.well.suggest.more.like.this")).font(Theme.subtitle).foregroundStyle(Theme.muted)
       }
       if (slot.rating ?? 0) < 0 { StarTip(id: "plan.disliked") }
     }
@@ -382,7 +382,7 @@ struct PlanView: View {
     }
     .buttonStyle(.plain)
     .accessibilityLabel("Schedule \(slot.recipeName)")
-    .accessibilityValue(slot.dayIndex == nil ? "Not scheduled" : scheduleLabel(slot, plan: plan))
+    .accessibilityValue(slot.dayIndex == nil ? Copy.text("ui.not.scheduled") : scheduleLabel(slot, plan: plan))
   }
 
   private func scheduleLabel(_ slot: PlanSlot, plan: Plan) -> String {
@@ -490,7 +490,7 @@ private struct ScheduleMealSheet: View {
       VStack(alignment: .leading, spacing: 16) {
         Text(slot.recipeName).font(Theme.mealName)
         
-        DatePicker("Schedule meal", selection: $date, in: earliest..., displayedComponents: .date)
+        DatePicker(Copy.text("ui.schedule.meal"), selection: $date, in: earliest..., displayedComponents: .date)
           .datePickerStyle(.graphical)
         if let error = store.error { ErrorBanner(message: error) }
         
@@ -511,7 +511,7 @@ private struct ScheduleMealSheet: View {
       }
         .padding()
         .background(Theme.bg)
-        .navigationTitle("Schedule meal")
+        .navigationTitle(Copy.text("ui.schedule.meal"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
           ToolbarItem(placement: .cancellationAction) {
@@ -560,7 +560,7 @@ struct SavedPlansView: View {
         if loading { ProgressView() }
         Section("Drafts") {
           if !loading && drafts.isEmpty {
-            Text("No drafts yet. Use ⋯ → Save as draft to keep a plan for later.")
+            Text(Copy.text("ui.no.drafts.yet.use.save"))
               .foregroundStyle(Theme.muted)
           }
           ForEach(drafts, id: \.id) { plan in
@@ -575,9 +575,9 @@ struct SavedPlansView: View {
             }
           }
         }
-        Section("Plan history") {
+        Section(Copy.text("ui.plan.history")) {
           if !loading && history.isEmpty {
-            Text("No past plans yet. Plans you approve or finish show up here.")
+            Text(Copy.text("ui.no.past.plans.yet.plans"))
               .foregroundStyle(Theme.muted)
           }
           ForEach(history, id: \.id) { plan in
@@ -589,7 +589,7 @@ struct SavedPlansView: View {
                   } label: {
                     VStack(alignment: .leading) {
                       RecipeCardName(name: slot.recipeName)
-                      Text("\(slot.servings) servings · \(slot.cooked ? "Cooked" : "Not cooked")")
+                      Text("\(slot.servings) servings · \(slot.cooked ? "Cooked" : Copy.text("ui.not.cooked"))")
                         .font(Theme.subtitle)
                     }
                   }
@@ -601,9 +601,9 @@ struct SavedPlansView: View {
             }
           }
         }
-      }.themeList().navigationTitle("Saved plans")
+      }.themeList().navigationTitle(Copy.text("ui.saved.plans"))
         .sheet(item: $deleting) { plan in
-          RemovalConfirmation(title: "Delete this plan?", message: heading(plan), actionTitle: "Delete plan") {
+          RemovalConfirmation(title: Copy.text("ui.delete.this.plan"), message: heading(plan), actionTitle: Copy.text("ui.delete.plan")) {
             do {
               let _: DeletePlanResult = try await API.send("plans/\(plan.id)", method: "DELETE")
               plans.removeAll { $0.id == plan.id }
@@ -665,7 +665,7 @@ struct SavedPlansView: View {
 
   private func heading(_ plan: SavedPlan) -> String {
     let title = plan.title.trimmingCharacters(in: .whitespaces)
-    if !title.isEmpty && title != "This week" { return title }
+    if !title.isEmpty && title != Copy.text("ui.this.week") { return title }
     guard let start = planDate(plan.startDate) else { return "Plan" }
     return "Week of \(start.formatted(.dateTime.month(.abbreviated).day()))"
   }
@@ -756,7 +756,7 @@ struct SuggestedMealTile<Photo: View>: View {
       VStack(alignment: .leading, spacing: 4) {
         RecipeCardName(name: name)
         if let minutes { Text("\(minutes) min").font(Theme.subtitle).foregroundStyle(Theme.muted) }
-        if selection { Text("Your selection").font(Theme.subtitle).foregroundStyle(Theme.muted) }
+        if selection { Text(Copy.text("ui.your.selection")).font(Theme.subtitle).foregroundStyle(Theme.muted) }
       }
     }
   }
@@ -778,13 +778,13 @@ struct SuggestedPlanReview: View {
         ScrollView {
           VStack(alignment: .leading, spacing: 12) {
             if store.generatingProposal {
-              ProgressView("Finding meals…").frame(maxWidth: .infinity, minHeight: 80)
+              ProgressView(Copy.text("ui.finding.meals")).frame(maxWidth: .infinity, minHeight: 80)
             }
             mealCountControl
               .disabled(store.proposal?.status != "suggested")
             if let error = store.proposalError {
               ErrorBanner(message: error)
-              Button("Dismiss error") { store.proposalError = nil }
+              Button(Copy.text("ui.dismiss.error")) { store.proposalError = nil }
             }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), alignment: .top), count: textSize.isAccessibilitySize ? 1 : 2), alignment: .leading, spacing: 12) {
               ForEach(store.proposal?.slots ?? []) { slot in
@@ -810,17 +810,17 @@ struct SuggestedPlanReview: View {
             }
             .padding(.top, 4)
             NavigationLink { TasteLabView(swipe: true) } label: {
-              Label("Improve suggestions", systemImage: "hand.draw")
+              Label(Copy.text("ui.improve.suggestions"), systemImage: "hand.draw")
                 .font(Theme.action).foregroundStyle(Theme.accent)
                 .frame(maxWidth: .infinity, minHeight: 44)
             }
             if let id = store.proposal?.id, reportedId == id {
-              Text("Thanks. We'll look at why these were suggested.")
+              Text(Copy.text("ui.thanks.well.look.at.why"))
                 .font(Theme.subtitle).foregroundStyle(Theme.muted)
                 .frame(maxWidth: .infinity)
             } else if store.proposal != nil {
               Button { reportNote = ""; reporting = true } label: {
-                Label("Report this suggestion", systemImage: "flag")
+                Label(Copy.text("ui.report.this.suggestion"), systemImage: "flag")
                   .font(Theme.action).foregroundStyle(Theme.muted)
                   .frame(maxWidth: .infinity, minHeight: 44)
               }
@@ -828,7 +828,7 @@ struct SuggestedPlanReview: View {
             }
           }.padding().disabled(busy || store.generatingProposal)
         }
-      }.background(Theme.bg).navigationTitle("Review your suggestions").navigationBarTitleDisplayMode(.inline)
+      }.background(Theme.bg).navigationTitle(Copy.text("ui.review.your.suggestions")).navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { store.proposalError = nil; dismiss() } } }
         .sheet(item: $swapping) { slot in ProposalSwapPicker(slot: slot) }
         .sheet(isPresented: $reporting) { reportSheet }
@@ -839,7 +839,7 @@ struct SuggestedPlanReview: View {
   private var reportSheet: some View {
     NavigationStack {
       VStack(alignment: .leading, spacing: 12) {
-        Text("What's wrong with this plan?").font(Theme.action).foregroundStyle(Theme.ink)
+        Text(Copy.text("ui.whats.wrong.with.this.plan")).font(Theme.action).foregroundStyle(Theme.ink)
         TextField("e.g. Three chicken dinners in a row, and none of us eat olives", text: $reportNote, axis: .vertical)
           .font(Theme.subtitle)
           .lineLimit(3...8)
@@ -855,7 +855,7 @@ struct SuggestedPlanReview: View {
             }
           }
         } label: {
-          Text(busy ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+          Text(busy ? "Sending…" : Copy.text("ui.send.report")).font(Theme.action).foregroundStyle(Theme.bg)
             .frame(maxWidth: .infinity, minHeight: 50)
             .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
         }
@@ -865,7 +865,7 @@ struct SuggestedPlanReview: View {
       }
       .padding()
       .background(Theme.bg)
-      .navigationTitle("Report this suggestion").navigationBarTitleDisplayMode(.inline)
+      .navigationTitle(Copy.text("ui.report.this.suggestion")).navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { reporting = false } } }
     }
     .presentationDetents([.medium, .large])
@@ -875,16 +875,16 @@ struct SuggestedPlanReview: View {
   @ViewBuilder private var reviewActions: some View {
     if store.proposal?.status == "suggested" {
       Button { run { await store.reviewProposal("approve") } } label: {
-        Text("Approve plan").font(Theme.action).foregroundStyle(Theme.bg)
+        Text(Copy.text("ui.approve.plan")).font(Theme.action).foregroundStyle(Theme.bg)
           .frame(maxWidth: .infinity, minHeight: 50)
           .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
       }
       .buttonStyle(.plain)
-      Button { run { await store.reviewProposal("decline") } } label: { secondaryLabel("Suggest another") }
+      Button { run { await store.reviewProposal("decline") } } label: { secondaryLabel(Copy.text("ui.suggest.another")) }
         .buttonStyle(.plain)
-        .accessibilityLabel("Decline and suggest another plan")
+        .accessibilityLabel(Copy.text("ui.decline.and.suggest.another.plan"))
     } else {
-      Button { run { await store.newPlan(meals: 4) } } label: { secondaryLabel("Try another suggestion") }
+      Button { run { await store.newPlan(meals: 4) } } label: { secondaryLabel(Copy.text("ui.try.another.suggestion")) }
         .buttonStyle(.plain)
     }
   }
@@ -971,16 +971,16 @@ private struct ProposalSwapPicker: View {
       ScrollView {
         VStack(alignment: .leading, spacing: 16) {
         Text("Replace \(slot.recipeName)").font(Theme.subtitle).foregroundStyle(Theme.muted)
-        TextField("Search meals or ingredients", text: $query)
+        TextField(Copy.text("ui.search.meals.or.ingredients"), text: $query)
           .font(Theme.body).padding(12).background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
           .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
-          .accessibilityLabel("Search replacement meals")
+          .accessibilityLabel(Copy.text("ui.search.replacement.meals"))
         if let error { ErrorBanner(message: error) }
         if loading { ProgressView() }
         if !loading && options.isEmpty && error == nil {
-          Text("No matching meals. Try another search or adjust your filters.").font(Theme.body)
+          Text(Copy.text("ui.no.matching.meals.try.another")).font(Theme.body)
           // add a button to report an error if the user believes there SHOULD have been results
-          NavigationLink("Adjust filters") { FiltersView() }
+          NavigationLink(Copy.text("ui.adjust.filters")) { FiltersView() }
         }
         ForEach(options) { option in
           Button {
@@ -1004,7 +1004,7 @@ private struct ProposalSwapPicker: View {
           Divider().overlay(Theme.line)
         }
         }.padding()
-      }.background(Theme.bg).navigationTitle("Choose a replacement").navigationBarTitleDisplayMode(.inline)
+      }.background(Theme.bg).navigationTitle(Copy.text("ui.choose.a.replacement")).navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
         .task(id: query) {
           loading = true

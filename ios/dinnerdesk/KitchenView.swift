@@ -22,7 +22,7 @@ struct KitchenView: View {
         NavigationLink {
           MyRecipesView()
         } label: {
-          ThemeIconRow(title: "My recipes", systemImage: "book.closed")
+          ThemeIconRow(title: Copy.text("ui.my.recipes"), systemImage: "book.closed")
         }
         
         NavigationLink {
@@ -43,7 +43,7 @@ struct KitchenView: View {
         NavigationLink {
           AlwaysCheckedView()
         } label: {
-          ThemeIconRow(title: "Always checked off", systemImage: "checkmark.circle")
+          ThemeIconRow(title: Copy.text("ui.always.checked.off"), systemImage: "checkmark.circle")
         }
       }
       .themeRows()
@@ -52,7 +52,7 @@ struct KitchenView: View {
         NavigationLink {
           HiddenRecipesView()
         } label: {
-          ThemeIconRow(title: "Hidden recipes", systemImage: "eye.slash")
+          ThemeIconRow(title: Copy.text("ui.hidden.recipes"), systemImage: "eye.slash")
         }
         NavigationLink {
           SubstitutionsView()
@@ -76,14 +76,14 @@ struct KitchenView: View {
       .themeRows()
 
       ThemeSection("Coming Soon"){
-          ThemeIconRow(title: "Recipe templates", systemImage: "list.bullet", value: "Coming soon")
-          ThemeIconRow(title: "New to Cooking", systemImage:"list.bullet",  value: "Coming soon")
-          ThemeIconRow(title: "Sync nutrition data", systemImage:"list.bullet", value: "Coming soon")
+          ThemeIconRow(title: Copy.text("ui.recipe.templates"), systemImage: "list.bullet", value: Copy.text("ui.coming.soon"))
+          ThemeIconRow(title: "New to Cooking", systemImage:"list.bullet",  value: Copy.text("ui.coming.soon"))
+          ThemeIconRow(title: "Sync nutrition data", systemImage:"list.bullet", value: Copy.text("ui.coming.soon"))
       }.themeRows()
 
     }
     .themeList()
-    .navigationTitle("My Kitchen")
+    .navigationTitle(Copy.text("ui.my.kitchen"))
     .largeNavigationTitle()
     .task { await load() }
     .refreshable { await load() }
@@ -94,7 +94,7 @@ struct KitchenView: View {
   }
 
   private var portionsStepper: some View {
-    Stepper("Family portions", value: $portions, in: 1...50)
+    Stepper(Copy.text("ui.family.portions"), value: $portions, in: 1...50)
       .labelsHidden()
       .fixedSize()
       .accessibilityValue("\(portions)")
@@ -143,9 +143,9 @@ struct SubstitutionsView: View {
       StarTip(id: "kitchen.substitutions")
         .themeBareRow()
 
-      ThemeSection("Your substitutions") {
+      ThemeSection(Copy.text("ui.your.substitutions")) {
         if items.isEmpty {
-          Text("None yet").foregroundStyle(Theme.muted)
+          Text(Copy.text("ui.none.yet")).foregroundStyle(Theme.muted)
         }
         ForEach(items) { item in
           ViewThatFits(in: .horizontal) {
@@ -174,10 +174,10 @@ struct SubstitutionsView: View {
       }
       .themeRows()
 
-      ThemeSection("Add one") {
-        TextField("Recipe says (e.g. vegetable oil)", text: $from)
+      ThemeSection(Copy.text("ui.add.one")) {
+        TextField(Copy.text("ui.recipe.says.eg.vegetable.oil"), text: $from)
           .textInputAutocapitalization(.never)
-        TextField("Buy instead (e.g. olive oil)", text: $to)
+        TextField(Copy.text("ui.buy.instead.eg.olive.oil"), text: $to)
           .textInputAutocapitalization(.never)
         ThemeAddRow(title: "Add substitution") { Task { await add() } }
           .disabled(!canAdd)
@@ -239,13 +239,13 @@ struct HiddenRecipesView: View {
   var body: some View {
     List {
       Text(
-        "Recipes you hid from Recipes. They stay out of browse and search until you unhide them."
+        Copy.text("ui.recipes.you.hid.from.recipes")
       )
       .font(Theme.subtitle)
       .foregroundStyle(Theme.muted)
       .themeBareRow()
       if loaded && recipes.isEmpty {
-        Text("Nothing hidden").foregroundStyle(Theme.muted).themeBareRow()
+        Text(Copy.text("ui.nothing.hidden")).foregroundStyle(Theme.muted).themeBareRow()
       }
       ForEach(recipes) { recipe in
         HStack(spacing: 12) {
@@ -276,7 +276,7 @@ struct HiddenRecipesView: View {
       }
     }
     .themeList()
-    .navigationTitle("Hidden recipes")
+    .navigationTitle(Copy.text("ui.hidden.recipes"))
     .navigationBarTitleDisplayMode(.inline)
     .task { await load() }
     .refreshable { await load() }

@@ -39,7 +39,7 @@ import build.computerscience.dinnerdesk.data.AuthApi
 import build.computerscience.dinnerdesk.data.Copy
 import kotlinx.coroutines.launch
 
-private enum class AuthMode(val title: String) { SignIn("Sign in"), SignUp("Create account") }
+private enum class AuthMode(val title: String) { SignIn(Copy.text("ui.sign.in")), SignUp(Copy.text("ui.create.account")) }
 
 /** Sign in or create an account. `isSheet` when shown from Settings (adds Cancel). */
 @Composable
@@ -71,7 +71,7 @@ fun AuthView(isSheet: Boolean = false) {
                     AuthApi.login(cleanEmail, password)
                 } else {
                     val name = householdName.trim()
-                    AuthApi.signup(cleanEmail, password, name.ifEmpty { "My household" }, agreedPrivacy)
+                    AuthApi.signup(cleanEmail, password, name.ifEmpty { Copy.text("ui.my.household") }, agreedPrivacy)
                 }
                 password = ""
                 session.refresh()
@@ -97,21 +97,21 @@ fun AuthView(isSheet: Boolean = false) {
             FormSection(footer = {
                 if (mode == AuthMode.SignUp) {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("At least 8 characters.", style = Theme.subtitle, color = Theme.muted)
+                        Text(Copy.text("ui.at.least.8.characters"), style = Theme.subtitle, color = Theme.muted)
                         if (usernameOnly) {
-                            Text("No email means no password reset. If you forget your password, this account can't be recovered.", style = Theme.subtitle, color = Theme.accent)
+                            Text(Copy.text("ui.no.email.means.no.password"), style = Theme.subtitle, color = Theme.accent)
                         }
                     }
                 } else {
-                    Text("Forgot password?", style = Theme.action, color = Theme.accent, modifier = Modifier.padding(top = 4.dp).clickable { forgot = true })
+                    Text(Copy.text("ui.forgot.password"), style = Theme.action, color = Theme.accent, modifier = Modifier.padding(top = 4.dp).clickable { forgot = true })
                 }
             }) {
-                FormField(email, { email = it }, "Email or username", KeyboardOptions(keyboardType = KeyboardType.Email, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
+                FormField(email, { email = it }, Copy.text("ui.email.or.username"), KeyboardOptions(keyboardType = KeyboardType.Email, capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false))
                 Hairline()
                 FormField(password, { password = it }, "Password", KeyboardOptions(keyboardType = KeyboardType.Password), password = true)
                 if (mode == AuthMode.SignUp) {
                     Hairline()
-                    FormField(householdName, { householdName = it }, "Household name (optional)")
+                    FormField(householdName, { householdName = it }, Copy.text("ui.household.name.optional"))
                 }
             }
             if (mode == AuthMode.SignUp) {
@@ -150,9 +150,9 @@ fun AuthView(isSheet: Boolean = false) {
                         Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).background(Theme.surface)
                             .clickable { session.continueAsGuest() },
                         contentAlignment = Alignment.Center,
-                    ) { Text("Continue as guest", style = Theme.action, color = Theme.accent) }
+                    ) { Text(Copy.text("ui.continue.as.guest"), style = Theme.action, color = Theme.accent) }
                     Text(
-                        "Everything works as a guest. Guest data can be lost if you reinstall.",
+                        Copy.text("ui.everything.works.as.a.guest"),
                         style = Theme.subtitle, color = Theme.muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                     )
                 }
@@ -173,14 +173,14 @@ fun ForgotPasswordView(initialEmail: String) {
     val canSend = !busy && email.contains("@")
 
     Column(Modifier.fillMaxSize().background(Theme.bg)) {
-        SheetBar(title = "Reset password", cancel = if (sent) "Done" else "Cancel")
+        SheetBar(title = Copy.text("ui.reset.password"), cancel = if (sent) "Done" else "Cancel")
         Column(Modifier.verticalScroll(rememberScrollState())) {
             if (sent) {
                 FormSection {
                     Column(Modifier.padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Outlined.Email, null, tint = Theme.accent)
-                            Text("Check your email", style = Theme.mealName, color = Theme.ink)
+                            Text(Copy.text("ui.check.your.email"), style = Theme.mealName, color = Theme.ink)
                         }
                         Text(
                             "If $email has an account with a verified email, a reset link is on its way. It works once, for 1 hour. After you set a new password, come back here and sign in.",
@@ -189,7 +189,7 @@ fun ForgotPasswordView(initialEmail: String) {
                     }
                 }
             } else {
-                FormSection(footer = { Text("We'll email you a link to set a new password.") }) {
+                FormSection(footer = { Text(Copy.text("ui.well.email.you.a.link")) }) {
                     FormField(email, { email = it }, "Email", KeyboardOptions(keyboardType = KeyboardType.Email, autoCorrectEnabled = false))
                 }
                 error?.let { Box(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) { ErrorBanner(it) } }
@@ -214,7 +214,7 @@ fun ForgotPasswordView(initialEmail: String) {
                         contentAlignment = Alignment.Center,
                     ) {
                         if (busy) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                        else Text("Send reset link", style = Theme.action, color = Color.White)
+                        else Text(Copy.text("ui.send.reset.link"), style = Theme.action, color = Color.White)
                     }
                 }
             }

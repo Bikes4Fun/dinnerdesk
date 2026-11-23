@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import FoodPhoto from "./FoodPhoto.jsx";
 import { api } from "./api.js";
 import { Tip } from "./Tip.jsx";
+import { Copy } from "./Copy.js";
 
 export function RecipeGallery({ recipe, canEdit, onChange }) {
   const photos = recipe.photos ?? (recipe.photo_path ? [{ path: recipe.photo_path, primary: true, ai: recipe.photo_ai, shared: recipe.photo_shared }] : []);
@@ -62,7 +63,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
     setError("");
     try {
       onChange(await api.setRecipePrimaryPhoto(recipe.id, photo.path));
-      setNotice("Primary photo saved.");
+      setNotice(Copy.text("ui.primary.photo.saved"));
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -77,7 +78,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
       onChange(await api.deleteRecipePhoto(recipe.id, photo.path));
       setActive(0);
       track.current?.scrollTo({ left: 0 });
-      setNotice("Photo deleted.");
+      setNotice(Copy.text("ui.photo.deleted"));
     } catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
@@ -95,17 +96,17 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
           </div>)}
         </div>
         <div className="recipe-gallery-controls">
-          {photos.length > 1 && <button type="button" disabled={active === 0} onClick={() => show(active - 1)} aria-label="Previous photo">←</button>}
+          {photos.length > 1 && <button type="button" disabled={active === 0} onClick={() => show(active - 1)} aria-label={Copy.text("ui.previous.photo")}>←</button>}
           <span aria-live="polite">{active + 1} / {photos.length}{photo?.primary ? " · Primary" : ""}</span>
-          {photos.length > 1 && <button type="button" disabled={active === photos.length - 1} onClick={() => show(active + 1)} aria-label="Next photo">→</button>}
-          {canEdit && photo && !photo.primary && <button type="button" className="text-link" disabled={busy} onClick={primary}>Make primary</button>}
-          {canEdit && photo && <button type="button" className="text-link" disabled={busy} onClick={remove}>Delete photo</button>}
+          {photos.length > 1 && <button type="button" disabled={active === photos.length - 1} onClick={() => show(active + 1)} aria-label={Copy.text("ui.next.photo")}>→</button>}
+          {canEdit && photo && !photo.primary && <button type="button" className="text-link" disabled={busy} onClick={primary}>{Copy.text("ui.make.primary")}</button>}
+          {canEdit && photo && <button type="button" className="text-link" disabled={busy} onClick={remove}>{Copy.text("ui.delete.photo")}</button>}
         </div>
         {photo?.ai && <Tip id="recipes.ai-photo" className="ai-photo-tip">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>}
         {!photo?.ai && photo?.shared && <Tip id="recipes.shared-photo" className="ai-photo-tip">This photo is from a similar recipe, so it may not match this one exactly.</Tip>}
       </>}
       {canEdit && <div>
-        <label className="text-link" htmlFor={`add-recipe-photos-${recipe.id}`}>Add photos</label>
+        <label className="text-link" htmlFor={`add-recipe-photos-${recipe.id}`}>{Copy.text("ui.add.photos")}</label>
         <input id={`add-recipe-photos-${recipe.id}`} type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={addPhotos} />
         <p className="help">Add your own photos, up to 5 MB each. The primary photo appears on recipe cards. Delete photo removes the one showing now.{recipe.catalog ? " Catalog photo changes, including deletes, are shared with everyone." : " Photos are saved with this recipe."}</p>
       </div>}
@@ -119,7 +120,7 @@ export function RecipeGallery({ recipe, canEdit, onChange }) {
 function PhotoCredit({ photo }) {
   const [open, setOpen] = useState(false);
   const id = `photo-credit-${photo.path.replace(/[^a-z0-9]/gi, "-")}`;
-  const label = photo.credit || "Photo source not recorded";
+  const label = photo.credit || Copy.text("ui.photo.source.not.recorded");
   return <span className="photo-credit" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
     onFocus={() => setOpen(true)} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}
     onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
