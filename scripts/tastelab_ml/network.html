@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+  body { margin: 24px; background: #f7f8f5; color: #183029; font: 16px system-ui; }
+  canvas { width: 100%; height: min(66vh, 620px); background: white; border: 1px solid #cbd5cf; display: block; margin-block: 16px; }
+  select { max-width: min(65vw, 320px); }
+  label { margin-right: 16px; }
+</style>
+<h1>__TITLE__</h1>
+<label>Focus <select id="focus"><option value="">Overview</option></select></label>
+<label id="staple-control" hidden><input id="staples" type="checkbox"> Show staples</label>
+<canvas id="graph" aria-label="Co-occurrence network. Use Focus to inspect a node and its connections."></canvas>
+<p id="summary" aria-live="polite"></p>
+<ul id="neighbors"></ul>
+<script id="data" type="application/json">__GRAPH__</script>
+<script>
+const data = JSON.parse(document.querySelector("#data").textContent);
+const canvas = document.querySelector("#graph");
+const ctx = canvas.getContext("2d");
+const focus = document.querySelector("#focus");
+const staples = document.querySelector("#staples");
+const summary = document.querySelector("#summary");
+const neighbors = document.querySelector("#neighbors");
+document.querySelector("#staple-control").hidden = "__FIELD__" !== "ingredients";
+let nodes, links, width, height, frame;
+
+function render() {
+  cancelAnimationFrame(frame);
+  const visible = data.nodes.filter(node => staples.checked || !node.staple);
+  const visibleNames = new Set(visible.map(node => node.name));
+  const selected = focus.value;
+  const visibleLinks = data.links.filter(link => visibleNames.has(link.left) && visibleNames.has(link.right));
+  const connected = visibleLinks.filter(link => link.left === selected || link.right === selected);
+  const nearby = new Set([selected, ...connected.flatMap(link => [link.left, link.right])]);
+  const linked = new Set(visibleLinks.flatMap(link => [link.left, link.right]));
+  const displayed = selected ? visible.filter(node => nearby.has(node.name))
+    : visible.filter(node => linked.has(node.name)).sort((a, b) => b.count - a.count).slice(0, 120);
+
+  width = canvas.clientWidth;
+  height = canvas.clientHeight;
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  ctx.scale(ratio, ratio);
+  nodes = displayed.map((node, i) => {
+    const angle = i * 2.39996;
+    const radius = Math.min(width, height) * 0.36 * Math.sqrt(i / Math.max(1, displayed.length));
+    return { ...node, x: width / 2 + radius * Math.cos(angle), y: height / 2 + radius * Math.sin(angle),
+      radius: Math.min(12, 4 + Math.log2(node.count)) };
+  });
+  const byName = new Map(nodes.map(node => [node.name, node]));
+  links = visibleLinks.filter(link => byName.has(link.left) && byName.has(link.right))
+    .map(link => ({ ...link, a: byName.get(link.left), b: byName.get(link.right) }));
+  neighbors.replaceChildren();
+  if (selected) {
+    const item = byName.get(selected);
+    summary.textContent = item ? selected + " · " + item.count + " recipes" : "";
+    for (const link of connected.sort((a, b) => b.lift - a.lift)) {
+      const row = document.createElement("li");
+      const name = link.left === selected ? link.right : link.left;
+      row.textContent = name + " · " + link.shared + " shared recipes · " + link.lift.toFixed(1) + "× lift";
+      neighbors.append(row);
+    }
+  } else {
+    summary.textContent = nodes.length + " linked items shown. Use Focus to inspect any available item.";
+  }
+  simulate(90);
+}
+
+function simulate(remaining) {
+  for (const [index, a] of nodes.entries()) {
+    for (let j = index + 1; j < nodes.length; j++) {
+      const b = nodes[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const repel = 22 / Math.max(20, dx * dx + dy * dy);
+      a.x -= dx * repel;
+      a.y -= dy * repel;
+      b.x += dx * repel;
+      b.y += dy * repel;
+    }
+  }
+  for (const { a, b, lift } of links) {
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const pull = 0.025 * (distance - (95 - Math.min(55, 12 * Math.log2(lift)))) / distance;
+    a.x += dx * pull;
+    a.y += dy * pull;
+    b.x -= dx * pull;
+    b.y -= dy * pull;
+  }
+  for (const node of nodes) {
+    node.x = Math.min(width - 16, Math.max(16, node.x + (width / 2 - node.x) * 0.003));
+    node.y = Math.min(height - 16, Math.max(16, node.y + (height / 2 - node.y) * 0.003));
+  }
+  ctx.clearRect(0, 0, width, height);
+  for (const { a, b, lift } of links) {
+    ctx.strokeStyle = "#81938c77";
+    ctx.lineWidth = Math.min(4, 0.7 + Math.log2(lift));
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.stroke();
+  }
+  for (const node of nodes) {
+    ctx.fillStyle = node.name === focus.value ? "#ba6631" : "#276b60";
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, node.radius, 0, 2 * Math.PI);
+    ctx.fill();
+    if (focus.value || nodes.length <= 24) {
+      ctx.fillStyle = "#183029";
+      ctx.font = "12px system-ui";
+      const labelWidth = ctx.measureText(node.name).width;
+      const x = Math.min(width - labelWidth - 4, node.x + node.radius + 4);
+      ctx.fillText(node.name, Math.max(3, x), node.y + 4);
+    }
+  }
+  if (remaining > 0) frame = requestAnimationFrame(() => simulate(remaining - 1));
+}
+
+function updateFocus() {
+  const selected = focus.value;
+  focus.replaceChildren(new Option("Overview", ""));
+  for (const node of data.nodes.filter(node => staples.checked || !node.staple)) {
+    focus.add(new Option(node.name, node.name));
+  }
+  focus.value = [...focus.options].some(option => option.value === selected) ? selected : "";
+  render();
+}
+
+function nodeAt(event) {
+  return nodes.find(node => Math.hypot(node.x - event.offsetX, node.y - event.offsetY) <= node.radius + 3);
+}
+
+canvas.addEventListener("click", event => {
+  const node = nodeAt(event);
+  if (node) {
+    focus.value = node.name;
+    render();
+  }
+});
+canvas.addEventListener("mousemove", event => {
+  const node = nodeAt(event);
+  canvas.title = node ? node.name + " · " + node.count + " recipes" : "";
+  canvas.style.cursor = node ? "pointer" : "default";
+});
+focus.addEventListener("change", render);
+staples.addEventListener("change", updateFocus);
+window.addEventListener("resize", render);
+updateFocus();
+</script>
