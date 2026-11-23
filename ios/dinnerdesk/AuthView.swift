@@ -336,17 +336,18 @@ struct AuthView: View {
 
         if mode == .signUp {
           Section {
-            PrivacySummaryView(compact: true)
-              .padding(.vertical, 6)
+            Text(Copy.text("privacy.signup.note"))
+              .font(Theme.subtitle)
+              .foregroundStyle(Theme.ink)
+              .fixedSize(horizontal: false, vertical: true)
+              .padding(.vertical, 4)
             Toggle(isOn: $agreedPrivacy) {
               Text(Copy.text("privacy.signup.checkbox")).font(Theme.subtitle).foregroundStyle(Theme.ink)
             }
             .toggleStyle(CheckboxToggleStyle())
-            Button(Copy.text("privacy.agree.read")) { showPrivacy = true }
+            Button(Copy.text("privacy.link")) { showPrivacy = true }
               .font(Theme.action)
               .foregroundStyle(Theme.accent)
-          } header: {
-            Text("Your privacy, in short")
           } footer: {
             if !agreedPrivacy { Text(Copy.text("privacy.signup.needed")) }
           }
@@ -382,7 +383,7 @@ struct AuthView: View {
               .frame(maxWidth: .infinity)
               .foregroundStyle(Theme.accent)
           } footer: {
-            Text("All features work as a guest. Create an account in Settings to protect your data; reinstalling the app or clearing its data can lose access.")
+            Text("Everything works as a guest. Guest data can be lost if you reinstall.")
           }
         }
       }

@@ -28,7 +28,12 @@ function PrivacyNote() {
     <aside className="taste-privacy-note">
       <p>
         {Copy.text("privacy.tastelab.note")}{" "}
-        <a className="text-link" href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>
+        <a className="text-link" href="/privacy" onClick={(e) => {
+            // Let cmd/ctrl/shift/middle-click open a new tab as usual.
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+            e.preventDefault();
+            go("/privacy");
+          }}>
           {Copy.text("privacy.tastelab.link")}
         </a>
       </p>

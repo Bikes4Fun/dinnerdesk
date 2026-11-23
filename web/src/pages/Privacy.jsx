@@ -118,7 +118,7 @@ export function Privacy() {
 
         <h2>Agreeing to this policy</h2>
         <p>
-          The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue
+          The first time you open Dinner Desk without an account, you see a short summary of this policy and continue
           by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you
           agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy
           changes in a way that matters, we show the summary again.
@@ -156,8 +156,8 @@ export function Privacy() {
           can improve prep suggestions.
         </p>
         <p>
-          Someone you invite joins that same household and can see and change it, including its filters,
-          allergies, and meal likes and dislikes. Invite links expire after 7
+          Someone you invite joins that same household and can see and change it, including its filters
+          and allergies, and can see everyone’s meal likes and dislikes and Taste Lab history. Invite links expire after 7
           days. You can remove a member from Account &amp; security. Removing them ends their access.
         </p>
 

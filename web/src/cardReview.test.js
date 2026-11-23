@@ -23,8 +23,8 @@ test("thumbnail admin controls and Coming soon previews expose the correct state
         assert.doesNotMatch(render(false), /Remove Kitchen-tested from Soup/);
         assert.match(render(true), /aria-pressed="true"[^>]*aria-label="Remove from To edit: Soup"/);
         assert.doesNotMatch(render(false), /Remove from To edit: Soup/);
-        assert.equal((render(false).match(/aria-label="Kitchen-tested by Dinnerdesk"/g) || []).length, 1);
-        assert.equal((render(true).match(/aria-label="Kitchen-tested by Dinnerdesk"/g) || []).length, 1);
+        assert.equal((render(false).match(/aria-label="Kitchen-tested by Dinner Desk"/g) || []).length, 1);
+        assert.equal((render(true).match(/aria-label="Kitchen-tested by Dinner Desk"/g) || []).length, 1);
         assert.doesNotMatch(render(false), /photo-reviewed-badge/);
         assert.match(render(false), /recipe-status-line/);
       }

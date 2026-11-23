@@ -453,7 +453,7 @@ fun RecipeDetailView(id: Int) {
                         }
                     } else {
                         Text("Steps", style = Theme.title, color = Theme.ink)
-                        if (r.instructionsCustomized) Text("Instructions customized by Dinnerdesk", style = Theme.subtitle, color = Theme.muted)
+                        if (r.instructionsCustomized) Text("Instructions customized by Dinner Desk", style = Theme.subtitle, color = Theme.muted)
                         r.sourceLink?.let { link ->
                             val host = try { URI(link).host?.removePrefix("www.") ?: "" } catch (_: Exception) { "" }
                             Text(

@@ -84,8 +84,8 @@ async function request(path, options = {}) {
     const messages = {
       401: "Please sign in again to continue.",
       403: "You don't have access to this action.",
-      404: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
-      405: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support.",
+      404: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support.",
+      405: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support.",
     };
     // A server error that explains itself (e.g. email is down) is shown as written.
     const explained = res.status >= 500 && data && typeof data.message === "string" ? data.message : "";
