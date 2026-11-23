@@ -1,3 +1,4 @@
+import { Copy } from "./Copy.js";
 // The recipe lists every Recipes screen shows, built one way. iOS (RecipeCollections in
 // Models.swift) and Android (RecipeCollections.kt) have the same class with the same members and
 // rules, so the three apps always group and filter recipes alike.
@@ -28,14 +29,14 @@ export class RecipeCollections {
   // Search filter chips, in order. Same keys and labels on iOS and Android.
   static FILTERS = [
     ["all", "All"],
-    ["pantry", "Uses pantry"],
-    ["fav", "Your favorites"],
-    ["try", "To try"],
+    ["pantry", Copy.text("ui.uses.pantry")],
+    ["fav", Copy.text("ui.your.favorites.2")],
+    ["try", Copy.text("ui.to.try.2")],
     ["popular", "Popular"],
     ["reviewed", "Kitchen-tested"],
     ["quick", "Quick"],
     ["hidden", "Hidden"],
-    ["soon", "Coming soon"],
+    ["soon", Copy.text("ui.coming.soon")],
   ];
 
   constructor(recipes) {

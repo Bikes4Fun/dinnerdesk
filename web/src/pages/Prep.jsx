@@ -6,12 +6,13 @@ import { PREP_REASONS } from "../reportOptions.js";
 export { PREP_REASONS } from "../reportOptions.js";
 import { PrepTaskPresentation, prepMealGroups } from "../PrepTaskPresentation.js";
 import "./prep.css";
+import { Copy } from "../Copy.js";
 
 /* Weekend prep, grouped by what the food is (#21): one row per item however many meals use it,
    one progress bar, and check-off that works like the grocery list (done items leave unless
-   "Show completed"). One item is open at a time (prep.html, #220): its steps, the meals it's for,
+   Copy.text("ui.show.completed")). One item is open at a time (prep.html, #220): its steps, the meals it's for,
    Done / Skip (both move on to the next item) and "Worth prepping ahead?".
-   "By meal" shows the same work under each meal: one row per task with a progress ring
+   Copy.text("ui.by.meal") shows the same work under each meal: one row per task with a progress ring
    (checks off that meal's steps only), a one-line summary, and the steps folded out. */
 
 const SECTIONS = [
@@ -20,7 +21,7 @@ const SECTIONS = [
   ["protein", "Protein"],
   ["cheese", "Cheese & dairy"],
   ["sauce", "Sauces & dressings"],
-  ["other", "More prep"],
+  ["other", Copy.text("ui.more.prep")],
 ];
 const store = {
   get(key, fallback) {
@@ -165,7 +166,7 @@ export function Prep() {
         <button type="button" className="icon-btn mob-back" onClick={() => go("/more")} aria-label="Back">
           ←
         </button>
-        <h1>Weekend prep</h1>
+        <h1>{Copy.text("tour.how.4.title")}</h1>
         {total > 0 && (
           <button type="button" className="more-btn" aria-label="More options" aria-expanded={menu} onClick={() => setMenu(!menu)}>
             <Icon name="dots" size={24} />
@@ -196,12 +197,12 @@ export function Prep() {
 
             <div className="pz-view-row">
               <div className="pz-view" role="group" aria-label="Show prep">
-                <button type="button" aria-pressed={view === "meal"} onClick={() => chooseView("meal")}>By meal</button>
-                <button type="button" aria-pressed={view === "task"} onClick={() => chooseView("task")}>By task</button>
+                <button type="button" aria-pressed={view === "meal"} onClick={() => chooseView("meal")}>{Copy.text("ui.by.meal")}</button>
+                <button type="button" aria-pressed={view === "task"} onClick={() => chooseView("task")}>{Copy.text("ui.by.task")}</button>
               </div>
               {doneCount > 0 && (
                 <button type="button" className="pz-done-toggle" onClick={toggleShowDone}>
-                  {showDone ? "Hide completed" : `Show completed (${doneCount})`}
+                  {showDone ? Copy.text("ui.hide.completed") : `Show completed (${doneCount})`}
                 </button>
               )}
             </div>
@@ -216,7 +217,7 @@ export function Prep() {
               <section key={s.key} id={`prep-${s.key}`} className="pz-section">
                 <h2 className="pz-group-label"><span>{s.title}</span><span>{s.done} of {s.all.length}</span></h2>
                 {s.shown.length === 0
-                  ? <p className="pz-empty">All prepped here.</p>
+                  ? <p className="pz-empty">{Copy.text("ui.all.prepped.here")}</p>
                   : s.shown.map((t) => (
                     <PrepRow key={t.id} task={t} open={openId === t.id} reporting={report === t.id}
                       onCheck={() => check(t)}
@@ -295,7 +296,7 @@ function MealTaskRow({ group, task: t, open, onOpen, onCheck }) {
     <div className={`pz-mtask${open ? " open" : ""}${t.done ? " done" : ""}`}>
       <div className="pz-mtask-head">
         <button type="button" className="pz-ring" onClick={() => onCheck(group, t, t.steps, !t.done)}
-          aria-label={`${t.done ? "Mark not done" : "Mark done"}: ${t.title} for ${group.name}`}>
+          aria-label={`${t.done ? "Mark not done" : Copy.text("ui.mark.done")}: ${t.title} for ${group.name}`}>
           <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
             <circle cx="14" cy="14" r="11" className="pz-ring-track" />
             {done > 0 && !t.done && <circle cx="14" cy="14" r="11" className="pz-ring-fill" strokeDasharray={`${(RING * done) / total} ${RING}`} transform="rotate(-90 14 14)" />}
@@ -320,7 +321,7 @@ function MealTaskRow({ group, task: t, open, onOpen, onCheck }) {
               ) : <span className="pz-check pz-check-off" aria-hidden="true" />}
               <p>{st.text}
                 {st.quantities.length > 0 && <span className="pz-amount">{st.quantities.join(" · ")}</span>}
-                {st.added && <span className="pz-added">Added by you</span>}</p>
+                {st.added && <span className="pz-added">{Copy.text("ui.added.by.you")}</span>}</p>
             </div>
           ))}
           {t.storage && <p className="pz-mtask-storage">{t.storage}</p>}
@@ -356,7 +357,7 @@ function PrepRow({ task: t, open, reporting, onCheck, onOpen, onDone, onSkip, on
           {how.map((h, i) => (
             <p key={i} className="pz-how">{t.meals.length > 1 && <strong>{h.meals.map((m) => m.name).join(", ")}: </strong>}{h.text}
               {h.quantities?.length > 0 && <span className="pz-amount">{h.quantities.join(" · ")}</span>}
-              {h.added && <span className="pz-added">Added by you</span>}</p>
+              {h.added && <span className="pz-added">{Copy.text("ui.added.by.you")}</span>}</p>
           ))}
           {t.storage && <p className="pz-how">{t.storage}</p>}
           {t.meals?.length > 0 && (
@@ -465,25 +466,25 @@ function MissingPrep({ onChange, onError }) {
       <button type="button" className="pz-missing-open" aria-expanded={open} onClick={openPanel}>
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="M12 8v8M8 12h8" /></svg>
         <span>
-          <span className="pz-missing-title">Missing a prep step?</span>
-          <span className="muted">Pick a step from this week’s recipes.</span>
+          <span className="pz-missing-title">{Copy.text("ui.missing.a.prep.step")}</span>
+          <span className="muted">{Copy.text("ui.pick.a.step.from.this")}</span>
         </span>
       </button>
       {open && (
         <div className="pz-missing-body">
-          <p className="help">Tell us a step that would have saved time if you did it ahead. We’ll add it to your prep and use it to make prep better.</p>
+          <p className="help">{Copy.text("ui.tell.us.a.step.that")}</p>
           {meals == null ? <p className="muted">Loading…</p> : added ? (
             <div className="pz-missing-done" role="status">
               <span className="pz-missing-tick" aria-hidden="true">✓</span>
-              <strong>Added to your prep</strong>
+              <strong>{Copy.text("ui.added.to.your.prep")}</strong>
               <span>{added.text}</span>
               <span className="muted">{added.meal} · marked “Added by you”</span>
               <div className="pz-missing-actions">
-                <button type="button" className="btn-secondary" onClick={() => { setAdded(null); pickMeal(null); }}>Add another</button>
+                <button type="button" className="btn-secondary" onClick={() => { setAdded(null); pickMeal(null); }}>{Copy.text("ui.add.another")}</button>
                 <button type="button" className="btn-primary" onClick={() => { setAdded(null); pickMeal(null); setOpen(false); }}>Done</button>
               </div>
             </div>
-          ) : meals.length === 0 ? <p className="muted">Every step of this week’s recipes is already in prep.</p> : (
+          ) : meals.length === 0 ? <p className="muted">{Copy.text("ui.every.step.of.this.weeks")}</p> : (
             <>
               <h3 className="pz-missing-label">1 · Meal</h3>
               {meal ? (
@@ -516,7 +517,7 @@ function MissingPrep({ onChange, onError }) {
                       <div key={st.key} className="pz-missing-step is-added">
                         <span className="muted">Step {st.step} · in your prep{st.note ? ` · ${st.note}` : ""}</span>
                         <span>{st.text}</span>
-                        <button type="button" className="text-link" disabled={saving} onClick={() => save(meal, st, false)}>Remove from prep</button>
+                        <button type="button" className="text-link" disabled={saving} onClick={() => save(meal, st, false)}>{Copy.text("ui.remove.from.prep")}</button>
                       </div>
                     ) : (
                       <button key={st.key} type="button" role="radio" aria-checked={st.key === stepKey}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
+import { Copy } from "../Copy.js";
 
 /* Public help page (no sign-in), used as the App Store support URL. The contact address comes
    from the server's SUPPORT_EMAIL setting so it can change without a release. */
@@ -32,7 +33,7 @@ export function Support() {
           lists make-ahead prep. Taste Lab, under More, learns which meals you like so later suggestions fit.
         </p>
 
-        <h2 id="ai">How we use AI</h2>
+        <h2 id="ai">{Copy.text("tour.ai.title")}</h2>
         <p>
           <strong>Are these recipes AI-generated? No.</strong> These are real recipes developed by people and
           shared publicly by reliable sources.

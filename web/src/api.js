@@ -1,4 +1,5 @@
 import { recordError, trail } from "./trail.js";
+import { Copy } from "./Copy.js";
 
 // Copies of recent answers, so screens still show something on a weak or no connection (like
 // the iPhone's ResponseCache). Only a fallback: the network is always tried first. Kept per
@@ -82,16 +83,16 @@ async function request(path, options = {}) {
     const detail = data && data.detail;
     const usable = typeof detail === "string" && !detail.trim().startsWith("<");
     const messages = {
-      401: "Please sign in again to continue.",
-      403: "You don't have access to this action.",
-      404: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support.",
-      405: "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support.",
+      401: Copy.text("ui.please.sign.in.again.to"),
+      403: Copy.text("ui.you.dont.have.access.to"),
+      404: Copy.text("ui.this.action.is.currently.unavailable"),
+      405: Copy.text("ui.this.action.is.currently.unavailable"),
     };
     // A server error that explains itself (e.g. email is down) is shown as written.
     const explained = res.status >= 500 && data && typeof data.message === "string" ? data.message : "";
     const message = explained || messages[res.status] || (res.status >= 500
-      ? "The server couldn't complete this action. Please try again shortly."
-      : usable ? detail : "Couldn't complete this action. Please try again.");
+      ? Copy.text("ui.the.server.couldnt.complete.this")
+      : usable ? detail : Copy.text("ui.couldnt.complete.this.action.please"));
     recordError(`${options.method || "GET"} ${path.split("?")[0]} ${res.status}: ${message}`);
     const err = new Error(message);
     err.status = res.status;

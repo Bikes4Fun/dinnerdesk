@@ -1,4 +1,5 @@
 import "./tour-picture.css";
+import { Copy } from "./Copy.js";
 
 /** A small drawn picture of the screen a quick-start card describes (#25). Drawn, not a
  *  screenshot, so it never goes stale. Decorative: the card's text says the same thing.
@@ -24,14 +25,14 @@ function Suggestions() {
     <div className="tp-grid">
       {tiles.map((t, i) => <div key={i} className="tp-tile"><span className={`tp-photo ${t}`} /><Bar w={names[i]} dark /></div>)}
     </div>
-    <div className="tp-pills"><span className="tp-pill">Swap</span><span className="tp-pill solid">Approve plan</span></div>
+    <div className="tp-pills"><span className="tp-pill">Swap</span><span className="tp-pill solid">{Copy.text("ui.approve.plan")}</span></div>
   </>;
 }
 
 function ThisPlan() {
   const rows = [["coral", 75, "Mon"], ["plum", 55, "Schedule"], ["warm", 65, "Schedule"]];
   return <>
-    <span className="tp-label">This week</span>
+    <span className="tp-label">{Copy.text("ui.this.week")}</span>
     {rows.map(([t, w, day], i) => <div key={i} className="tp-row">
       <span className={`tp-photo small ${t}`} />
       <span className="tp-lines"><Bar w={w} dark /><Bar w={30} /></span>

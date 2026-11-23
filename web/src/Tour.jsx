@@ -5,6 +5,7 @@ import { ALLERGENS, AVOIDS, DIETS, DIET_LABELS, TIMES, cleanDiets, toggleAvoid, 
 import { Notice } from "./Notice.jsx";
 import FoodPhoto from "./FoodPhoto.jsx";
 import "./quick-start.css";
+import { Copy } from "./Copy.js";
 
 // One line for the notice; Details shows the rest.
 const UPDATE_SHORT = "More varied meal plans, cuisine and protein filters, and 58 new recipes.";
@@ -175,7 +176,7 @@ export function Tour() {
     await api.putHousehold({ prefs: { filters } });
     setSaved(filters);
     const caps = await api.suggestionCapabilities();
-    if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update.");
+    if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error(Copy.text("ui.meal.planning.needs.the.updated"));
     const created = await api.createPlan({ meal_count: dinners, keep_current: false });
     setProposal(created);
     setDinners(created.slots?.length || dinners);
@@ -232,18 +233,18 @@ export function Tour() {
         {step === "welcome" && (
           <>
             <div className="qs-center">
-              <span className="qs-pill">Free. No ads, ever.</span>
-              <h1 id="qs-title" className="qs-hero">Custom meal plans in 5 minutes.</h1>
+              <span className="qs-pill">{Copy.text("ui.free.no.ads.ever")}</span>
+              <h1 id="qs-title" className="qs-hero">{Copy.text("ui.custom.meal.plans.in.5")}</h1>
               <ul className="qs-benefits">
-                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg></span>Grocery list built for you</li>
-                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M9 2h6" /></svg></span>Prep-ahead steps for busy nights</li>
-                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-8 6-14 15-14-1 9-6 15-14 15" /><path d="M5 19l7-7" /></svg></span>Less waste, using your pantry</li>
+                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg></span>{Copy.text("ui.grocery.list.built.for.you")}</li>
+                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M9 2h6" /></svg></span>{Copy.text("ui.prepahead.steps.for.busy.nights")}</li>
+                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-8 6-14 15-14-1 9-6 15-14 15" /><path d="M5 19l7-7" /></svg></span>{Copy.text("ui.less.waste.using.your.pantry")}</li>
               </ul>
             </div>
-            <button type="button" className="qs-primary" onClick={() => setStep("household")}>Get started</button>
+            <button type="button" className="qs-primary" onClick={() => setStep("household")}>{Copy.text("ui.get.started")}</button>
             <div className="qs-links">
-              <button type="button" className="text-link" disabled={busy} onClick={() => finish("/recipes")}>Skip, I’ll look around</button>
-              <a className="text-link" href="/support#ai" target="_blank" rel="noopener">How we use AI</a>
+              <button type="button" className="text-link" disabled={busy} onClick={() => finish("/recipes")}>{Copy.text("ui.skip.ill.look.around")}</button>
+              <a className="text-link" href="/support#ai" target="_blank" rel="noopener">{Copy.text("tour.ai.title")}</a>
             </div>
           </>
         )}
@@ -252,13 +253,13 @@ export function Tour() {
           <>
             <Top />
             <div className="qs-body">
-              <h1 id="qs-title">Who’s eating dinner?</h1>
-              <p className="qs-sub">We’ll size recipes and the grocery list to match.</p>
+              <h1 id="qs-title">{Copy.text("ui.whos.eating.dinner")}</h1>
+              <p className="qs-sub">{Copy.text("ui.well.size.recipes.and.the")}</p>
               <div className="qs-card qs-people">
                 <Stepper value={people} min={1} max={12} label="people" busy={busy} onChange={setPeople} />
                 <span>people, most nights</span>
               </div>
-              <h2 className="qs-label">Weeknight cook time</h2>
+              <h2 className="qs-label">{Copy.text("ui.weeknight.cook.time")}</h2>
               <div className="qs-segment" role="radiogroup" aria-label="Weeknight cook time">
                 {TIMES.map(([id, label]) => (
                   <button key={id} type="button" role="radio" aria-checked={time === id} className={time === id ? "is-on" : ""} onClick={() => setTime(id)}>
@@ -266,7 +267,7 @@ export function Tour() {
                   </button>
                 ))}
               </div>
-              <p className="qs-tip">Feeding a crowd one night? Change servings on any single meal later.</p>
+              <p className="qs-tip">{Copy.text("ui.feeding.a.crowd.one.night")}</p>
             </div>
             {err && <p className="qs-err" role="alert">{err}</p>}
             <button type="button" className="qs-primary" disabled={busy} onClick={saveHousehold}>{busy ? "Saving…" : "Next"}</button>
@@ -277,19 +278,19 @@ export function Tour() {
           <>
             <Top />
             <div className="qs-body">
-              <h1 id="qs-title">Anything to avoid?</h1>
+              <h1 id="qs-title">{Copy.text("ui.anything.to.avoid")}</h1>
               <h2 className="qs-label">Diet</h2>
-              <p className="qs-note">Only show recipes that fit.</p>
+              <p className="qs-note">{Copy.text("ui.only.show.recipes.that.fit")}</p>
               <div className="qs-chips">
                 {DIETS.map((d) => <Chip key={d} on={diets.includes(d)} onClick={() => setDiets(toggleDiet(diets, d))}>{DIET_LABELS[d] || d}</Chip>)}
               </div>
               <h2 className="qs-label">Allergies</h2>
-              <p className="qs-note">Never shown. We check every ingredient.</p>
+              <p className="qs-note">{Copy.text("ui.never.shown.we.check.every")}</p>
               <div className="qs-chips">
                 {ALLERGENS.map(([id, text]) => <Chip key={id} on={allergens.includes(id)} onClick={() => setAllergens(toggleAvoid(allergens, id))}>{text}</Chip>)}
               </div>
               <h2 className="qs-label">Dislikes</h2>
-              <p className="qs-note">Suggested less often. You can still add them yourself.</p>
+              <p className="qs-note">{Copy.text("ui.suggested.less.often.you.can")}</p>
               <div className="qs-chips">
                 {COMMON_AVOIDS.map((id) => <Chip key={id} on={avoids.includes(id)} onClick={() => setAvoids(toggleAvoid(avoids, id))}>{avoidLabel(id)}</Chip>)}
               </div>
@@ -303,10 +304,10 @@ export function Tour() {
           <>
             <Top />
             <div className="qs-body">
-              <h1 id="qs-title">Here’s your week</h1>
-              <p className="qs-sub">Picked for you. Swap anything that doesn’t sound good.</p>
+              <h1 id="qs-title">{Copy.text("ui.heres.your.week")}</h1>
+              <p className="qs-sub">{Copy.text("ui.picked.for.you.swap.anything")}</p>
               <div className="qs-card qs-count">
-                <span>Dinners this week</span>
+                <span>{Copy.text("ui.dinners.this.week")}</span>
                 <Stepper value={dinners} min={1} max={MAX_DINNERS} label="dinners" busy={busy} onChange={resize} />
               </div>
               <ul className="qs-meals">
@@ -327,7 +328,7 @@ export function Tour() {
               </ul>
             </div>
             {err && <p className="qs-err" role="alert">{err}</p>}
-            <button type="button" className="qs-primary" disabled={busy || !slots.length} onClick={approve}>Looks good</button>
+            <button type="button" className="qs-primary" disabled={busy || !slots.length} onClick={approve}>{Copy.text("ui.looks.good")}</button>
           </>
         )}
 
@@ -335,15 +336,15 @@ export function Tour() {
           <>
             <Top />
             <div className="qs-body">
-              <h1 id="qs-title">Your week is ready</h1>
+              <h1 id="qs-title">{Copy.text("ui.your.week.is.ready")}</h1>
               <p className="qs-sub">
                 {mealCount} dinner{mealCount === 1 ? "" : "s"} for {people}
                 {toBuy != null ? ` · ${toBuy} thing${toBuy === 1 ? "" : "s"} to buy` : ""}
               </p>
               <ol className="qs-tips">
-                <li><span>1</span><p><strong>Plan</strong> Give meals a day when you know it. No rush, they stay on your list.</p></li>
-                <li><span>2</span><p><strong>Grocery</strong> Your list builds itself. Check things off in the store.</p></li>
-                <li><span>3</span><p><strong>Prep ahead</strong> Got time on the weekend? See what you can chop and cook early.</p></li>
+                <li><span>1</span><p><strong>Plan</strong> {Copy.text("ui.give.meals.a.day.when")}</p></li>
+                <li><span>2</span><p><strong>Grocery</strong> {Copy.text("ui.your.list.builds.itself.check")}</p></li>
+                <li><span>3</span><p><strong>{Copy.text("ui.prep.ahead")}</strong> {Copy.text("ui.got.time.on.the.weekend")}</p></li>
               </ol>
               <p className="qs-lab">
                 Want better picks next week?{" "}

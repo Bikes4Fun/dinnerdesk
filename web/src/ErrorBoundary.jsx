@@ -1,6 +1,7 @@
 import { Component } from "react";
 import { api } from "./api.js";
 import { recordError } from "./trail.js";
+import { Copy } from "./Copy.js";
 
 /**
  * Catches a crash in the screens below it so the person gets an apology and a way out, and
@@ -44,7 +45,7 @@ export function CrashNotice({ onRetry }) {
       </p>
       <div className="crash-actions">
         {onRetry && (
-          <button type="button" className="btn-primary" onClick={onRetry}>Try again</button>
+          <button type="button" className="btn-primary" onClick={onRetry}>{Copy.text("ui.try.again")}</button>
         )}
         <button type="button" className="btn-secondary" onClick={() => window.location.assign("/")}>
           Go to this week

@@ -1,3 +1,4 @@
+import { Copy } from "./Copy.js";
 /** Shared prep presentation adapter; the server owns grouping for all clients. */
 export class PrepTaskPresentation {
   constructor(task) {

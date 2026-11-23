@@ -26,7 +26,7 @@ function Link({ href, children, extra, onClick }) {
 export function emailNudge(status) {
   if (!status || !status.authenticated || status.email_verified) return "";
   return status.has_email || status.recovery_email
-    ? "Your email isn't verified yet, so a password reset can't be sent."
+    ? Copy.text("ui.your.email.isnt.verified.yet")
     : "Your account has no email, so a forgotten password can't be reset.";
 }
 
@@ -120,7 +120,7 @@ function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, sk
     if (!q.trim()) return;
     const timer = setTimeout(() => api.filterItems(q)
       .then((box) => { if (active) setMatches(box.items.map((item) => item.name)); })
-      .catch(() => { if (active) setError("Couldn't search foods. Please try again."); })
+      .catch(() => { if (active) setError(Copy.text("ui.couldnt.search.foods.please.try")); })
       .finally(() => { if (active) setLoading(false); }), 250);
     return () => { active = false; clearTimeout(timer); };
   }, [q]);
@@ -134,7 +134,7 @@ function FoodFilterPicker({ label, selected, onAdd, onRemove, query, onQuery, sk
     {presetHits.length > 0 && <div className="chip-row wrap filter-chips">{presetHits.map((name) => <button type="button" className="filter-choice" key={name} onClick={() => { onAdd(name); setQ(""); }}>+ {name}</button>)}</div>}
     {/* Matches as chips (#85): tap one to add it. */}
     <div className="chip-row wrap filter-food-results">{matches.filter((name) => !selected.includes(name) && !skip.includes(name.toLowerCase())).map((name) => <button type="button" className="chip" key={name} aria-label={`Add ${name}`} onClick={() => { onAdd(name); setQ(""); }}>+ {name}</button>)}</div>
-    {!quietEmpty && !loading && !error && q.trim() && !matches.length && <p role="status">No matching foods. Try another name.</p>}
+    {!quietEmpty && !loading && !error && q.trim() && !matches.length && <p role="status">{Copy.text("ui.no.matching.foods.try.another")}</p>}
   </div>;
 }
 
@@ -225,15 +225,15 @@ function MissingFilter() {
 
   return (
     <section className="missing-filter" aria-labelledby="missing-filter-title">
-      <h2 id="missing-filter-title">Missing a filter?</h2>
-      <p className="help">Tell us what you’d like to filter by, and we’ll look into adding it.</p>
-      <textarea aria-label="Filter suggestion" rows={2} maxLength={1000} value={note}
+      <h2 id="missing-filter-title">{Copy.text("ui.missing.a.filter")}</h2>
+      <p className="help">{Copy.text("ui.tell.us.what.youd.like")}</p>
+      <textarea aria-label={Copy.text("ui.filter.suggestion")} rows={2} maxLength={1000} value={note}
         placeholder="e.g. low sodium, no pork, more one-pan meals"
         onChange={(e) => { setNote(e.target.value); setSent(false); }} />
       {err && <p role="alert" className="banner err">{err}</p>}
       {sent && <p role="status" className="muted">✓ Thanks! We got it.</p>}
       <button type="button" className="pill pill-primary" disabled={!note.trim() || sending} onClick={send}>
-        {sending ? "Sending…" : "Send suggestion"}
+        {sending ? "Sending…" : Copy.text("ui.send.suggestion")}
       </button>
     </section>
   );
@@ -327,8 +327,8 @@ export function Filters() {
         {err && <p className="banner err">{err}</p>}
         <div className="filters-card">
           <div className="filters-kicker">
-            <span className="filters-badge hide">Hides meals</span>
-            <span>Strict — never shown</span>
+            <span className="filters-badge hide">{Copy.text("ui.hides.meals")}</span>
+            <span>{Copy.text("ui.strict.never.shown")}</span>
           </div>
           <h2>Diet</h2>
           <div className="chip-row wrap filter-chips">
@@ -340,12 +340,12 @@ export function Filters() {
             {allergens.filter((id) => !ALLERGENS.some(([key]) => key === id)).map((id) => choice(`${id} ×`, true, () => setFilter({ allergens: allergens.filter((a) => a !== id) })))}
             {choice("Other", open === "allergies", () => setOpen(open === "allergies" ? "" : "allergies"))}
           </div>
-          {open === "allergies" && <FoodFilterPicker label="Other allergies" selected={allergens.filter((id) => !ALLERGENS.some(([key]) => key === id))} onAdd={(name) => setFilter({ allergens: [...new Set([...allergens, name])] })} onRemove={(name) => setFilter({ allergens: allergens.filter((a) => a !== name) })} />}
+          {open === "allergies" && <FoodFilterPicker label={Copy.text("ui.other.allergies")} selected={allergens.filter((id) => !ALLERGENS.some(([key]) => key === id))} onAdd={(name) => setFilter({ allergens: [...new Set([...allergens, name])] })} onRemove={(name) => setFilter({ allergens: allergens.filter((a) => a !== name) })} />}
         </div>
         <div className="filters-card">
           <div className="filters-kicker">
-            <span className="filters-badge">Shows fewer</span>
-            <span>Suggested less often. You can still add them yourself.</span>
+            <span className="filters-badge">{Copy.text("ui.shows.fewer")}</span>
+            <span>{Copy.text("ui.suggested.less.often.you.can")}</span>
           </div>
           <h2>Dislikes</h2>
           <div className="chip-row wrap filter-chips">
@@ -353,14 +353,14 @@ export function Filters() {
             {avoids.filter((id) => !commonAvoids.includes(id)).map((id) => choice(`${avoidLabel(id)} ×`, true, () => setFilter({ avoids: avoids.filter((a) => a !== id) })))}
             {choice("Other", open === "avoids", () => setOpen(open === "avoids" ? "" : "avoids"))}
           </div>
-          {open === "avoids" && <FoodFilterPicker label="Other dislikes" selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6).filter((id) => !avoids.includes(id))} skip={[...commonAvoids, ...avoids]} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
+          {open === "avoids" && <FoodFilterPicker label={Copy.text("ui.other.dislikes")} selected={avoids.filter((id) => !AVOIDS.includes(id))} presets={AVOIDS.slice(6).filter((id) => !avoids.includes(id))} skip={[...commonAvoids, ...avoids]} onAdd={(name) => setFilter({ avoids: [...new Set([...avoids, name])] })} onRemove={(name) => setFilter({ avoids: avoids.filter((a) => a !== name) })} />}
         </div>
         <div className="filters-soft">
           <div className="filters-kicker">
-            <span className="filters-badge">Shapes suggestions</span>
-            <span>Show me more of these</span>
+            <span className="filters-badge">{Copy.text("ui.shapes.suggestions")}</span>
+            <span>{Copy.text("ui.show.me.more.of.these")}</span>
           </div>
-          <h2>Who it's for</h2>
+          <h2>{Copy.text("ui.who.its.for")}</h2>
           <div className="chip-row wrap filter-chips">
             {WHO.map(([id, text]) => choice(text, who.includes(id), () => setFilter({ who: who.includes(id) ? who.filter((w) => w !== id) : [...who, id] })))}
           </div>
@@ -384,7 +384,7 @@ export function Filters() {
           <div className="chip-row wrap filter-chips">
             {CUISINES.map(([id, text]) => choice(text, cuisines.includes(id), () => setFilter({ cuisines: cuisines.includes(id) ? cuisines.filter((c) => c !== id) : [...cuisines, id] })))}
           </div>
-          <h2>Cook time</h2>
+          <h2>{Copy.text("ui.cook.time")}</h2>
           <div className="filter-time" role="radiogroup" aria-label="Cook time">
             {[["any", "Any"], ["20", "20 min"], ["30", "30 min"], ["45", "45 min"]].map(([k, label]) => (
               <button key={k} type="button" role="radio" aria-checked={time === k} className={time === k ? "is-on" : ""} onClick={() => setFilter({ time: k })}>{label}</button>
@@ -394,7 +394,7 @@ export function Filters() {
         </div>
       </div>
       <footer className="filters-footer">
-        <button type="button" className="text-link" disabled={!filterCount} onClick={reset}>Clear all</button>
+        <button type="button" className="text-link" disabled={!filterCount} onClick={reset}>{Copy.text("ui.clear.all")}</button>
         <button type="button" className="filters-show" onClick={() => go("/recipes")}>
           Show meals
           <span>{filterCount === 0 ? "All" : filterCount === 1 ? "1 filter" : `${filterCount} filters`}</span>
@@ -559,7 +559,7 @@ export function AccountSecurity() {
       const household = await api.putHousehold({ name: householdName.trim() });
       setHouseholdName(household.name);
       setSavedName(household.name);
-      setToast("Household name saved.");
+      setToast(Copy.text("ui.household.name.saved"));
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
@@ -603,7 +603,7 @@ export function AccountSecurity() {
       await api.auth.useUsername({ username: name, password: loginPassword });
       setStatus(await api.auth.status());
       closeEmailPane();
-      setToast("You now sign in with your username.");
+      setToast(Copy.text("ui.you.now.sign.in.with"));
     } catch (e) {
       setErr((e.body && e.body.message) || e.message);
     } finally {
@@ -613,14 +613,14 @@ export function AccountSecurity() {
 
   async function removeRecoveryEmail() {
     if (!loginPassword) return setErr("Enter your password to remove the recovery email.");
-    if (!confirm("Remove your recovery email? Without it, a forgotten password can't be reset.")) return;
+    if (!confirm(Copy.text("ui.remove.your.recovery.email.without"))) return;
     setErr("");
     setBusy(true);
     try {
       await api.auth.removeRecoveryEmail({ password: loginPassword });
       setStatus(await api.auth.status());
       closeEmailPane();
-      setToast("Recovery email removed.");
+      setToast(Copy.text("ui.recovery.email.removed"));
     } catch (e) {
       setErr((e.body && e.body.message) || e.message);
     } finally {
@@ -750,14 +750,14 @@ export function AccountSecurity() {
                 {emailNudge(status) && (
                   <div className="acct-pane">
                     <p className="banner warn">
-                      {emailNudge(status)} {resetTo ? "Send a confirm link, or change it below if it has a typo." : "Add a recovery email below."}
+                      {emailNudge(status)} {resetTo ? Copy.text("ui.send.a.confirm.link.or") : Copy.text("ui.add.a.recovery.email.below")}
                     </p>
                   </div>
                 )}
                 {resetTo && !status.email_verified && (
                   <button type="button" className="acct-row has-sub" disabled={busy} onClick={() => sendConfirmLink()}>
                     <span className="acct-row-text">
-                      <span className="acct-row-title">Send confirm link</span>
+                      <span className="acct-row-title">{Copy.text("ui.send.confirm.link")}</span>
                       <span className="acct-sub">To {resetTo}</span>
                     </span>
                     <Chevron />
@@ -766,10 +766,10 @@ export function AccountSecurity() {
                 <button type="button" className="acct-row has-sub" aria-expanded={editingEmail} onClick={() => (editingEmail ? closeEmailPane() : setEditingEmail(true))}>
                   <span className="acct-row-text">
                     <span className="acct-row-title">
-                      {status.has_email ? "Change or remove email" : status.recovery_email ? "Change or remove recovery email" : "Add a recovery email"}
+                      {status.has_email ? Copy.text("ui.change.or.remove.email") : status.recovery_email ? Copy.text("ui.change.or.remove.recovery.email") : Copy.text("ui.add.a.recovery.email")}
                     </span>
                     <span className="acct-sub">
-                      {status.has_email ? "Fix a typo, or sign in with a username instead" : "Reset your password and sign in with it"}
+                      {status.has_email ? Copy.text("ui.fix.a.typo.or.sign") : Copy.text("ui.reset.your.password.and.sign")}
                     </span>
                   </span>
                   <Chevron open={editingEmail} />
@@ -777,16 +777,16 @@ export function AccountSecurity() {
                 {editingEmail && (
                   <form className="acct-pane" onSubmit={changeLogin}>
                     <label className="block-label" htmlFor="new-login">
-                      {status.has_email ? "New email, or a username to remove your email" : "Recovery email"}
+                      {status.has_email ? Copy.text("ui.new.email.or.a.username") : Copy.text("ui.recovery.email")}
                     </label>
                     <input className="field" id="new-login" type={status.has_email ? "text" : "email"} autoComplete="email" autoCapitalize="none" required
                       value={newLogin} onChange={(e) => setNewLogin(e.target.value)} />
-                    <p className="help">We'll email a confirm link. Nothing changes until you open it, so a typo can't lock you out.</p>
-                    <label className="block-label" htmlFor="login-password">Your password</label>
+                    <p className="help">{Copy.text("ui.well.email.a.confirm.link")}</p>
+                    <label className="block-label" htmlFor="login-password">{Copy.text("ui.your.password")}</label>
                     <input className="field" id="login-password" type="password" autoComplete="current-password" required
                       value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} />
                     <button type="submit" className="btn-secondary block" disabled={busy || !newLogin.trim() || !loginPassword}>
-                      {!status.has_email || newLogin.includes("@") || !newLogin.trim() ? "Send confirm link" : "Use username"}
+                      {!status.has_email || newLogin.includes("@") || !newLogin.trim() ? "Send confirm link" : Copy.text("ui.use.username")}
                     </button>
                     {status.recovery_email && (
                       <button type="button" className="btn-secondary block danger" disabled={busy} onClick={removeRecoveryEmail}>
@@ -798,14 +798,14 @@ export function AccountSecurity() {
                 {resetTo && status.email_verified && (
                   <button type="button" className="acct-row has-sub" disabled={busy} onClick={emailResetLink}>
                     <span className="acct-row-text">
-                      <span className="acct-row-title">Reset password</span>
-                      <span className="acct-sub">We'll email you a reset link</span>
+                      <span className="acct-row-title">{Copy.text("ui.reset.password")}</span>
+                      <span className="acct-sub">{Copy.text("ui.well.email.you.a.reset")}</span>
                     </span>
                     <Chevron />
                   </button>
                 )}
                 <button type="button" className="acct-row" onClick={signOut}>
-                  <span className="acct-row-title">Sign out</span>
+                  <span className="acct-row-title">{Copy.text("ui.sign.out")}</span>
                 </button>
                 <button type="button" className="acct-row has-sub" onClick={signOutEverywhere}>
                   <span className="acct-row-text">
@@ -824,7 +824,7 @@ export function AccountSecurity() {
               <h2>Household</h2>
               <div className="acct-card">
                 <form className="acct-name" onSubmit={saveHouseholdName}>
-                  <label htmlFor="household-name">Household name</label>
+                  <label htmlFor="household-name">{Copy.text("ui.household.name")}</label>
                   <div>
                     <input className="acct-input" id="household-name" value={householdName} maxLength={80} onChange={(e) => setHouseholdName(e.target.value)} required />
                     {householdName.trim() && householdName.trim() !== savedName && (
@@ -861,7 +861,7 @@ export function AccountSecurity() {
                         <div className="acct-chips">
                           {canRole && <>
                             <button type="button" className="acct-chip" disabled={busy} onClick={() => householdAction(() => api.householdRole(m.id, m.household_role === "admin" ? "member" : "admin"))}>{m.household_role === "admin" ? "Remove admin" : "Make admin"}</button>
-                            <button type="button" className="acct-chip" disabled={busy} onClick={() => { if (confirm("Make this member the household creator? You become an admin.")) householdAction(() => api.householdRole(m.id, "owner")); }}>Make owner…</button>
+                            <button type="button" className="acct-chip" disabled={busy} onClick={() => { if (confirm("Make this member the household creator? You become an admin.")) householdAction(() => api.householdRole(m.id, "owner")); }}>{Copy.text("ui.make.owner")}</button>
                           </>}
                           {canRemove && <button type="button" className="acct-chip is-danger" onClick={() => removeMember(m.id)}>Remove…</button>}
                         </div>
@@ -873,7 +873,7 @@ export function AccountSecurity() {
                   <span className="acct-invite-plus" aria-hidden="true">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.6" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
                   </span>
-                  <span className="acct-invite-label">Invite someone</span>
+                  <span className="acct-invite-label">{Copy.text("ui.invite.someone")}</span>
                 </button>
                 {inviteLink && (
                   <div className="acct-pane">
@@ -891,7 +891,7 @@ export function AccountSecurity() {
 
               <button type="button" className="acct-row has-sub is-alone" aria-expanded={joining} onClick={() => setJoining(!joining)}>
                 <span className="acct-row-text">
-                  <span className="acct-row-title">Join a different household</span>
+                  <span className="acct-row-title">{Copy.text("ui.join.a.different.household")}</span>
                   <span className="acct-sub">Already have an account? Paste the invite link.</span>
                 </span>
                 <Chevron open={joining} />
@@ -901,8 +901,8 @@ export function AccountSecurity() {
                   <div className="acct-pane">
                     <label className="block-label" htmlFor="join-household">Invite link</label>
                     <input id="join-household" className="field" placeholder="Paste the whole link" value={joinToken} onChange={(e) => setJoinToken(e.target.value)} />
-                    <p className="help">The whole link works. The code at the end works too.</p>
-                    <button className="btn-secondary block" disabled={busy || !joinToken.trim()} onClick={() => { if (confirm(`Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.\n\n${Copy.text("privacy.join.note")}`)) householdAction(() => api.joinHousehold(joinToken.trim().split("/").pop())); }}>Join household</button>
+                    <p className="help">{Copy.text("ui.the.whole.link.works.the")}</p>
+                    <button className="btn-secondary block" disabled={busy || !joinToken.trim()} onClick={() => { if (confirm(`Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.\n\n${Copy.text("privacy.join.note")}`)) householdAction(() => api.joinHousehold(joinToken.trim().split("/").pop())); }}>{Copy.text("ui.join.household")}</button>
                   </div>
                 </div>
               )}
@@ -922,12 +922,12 @@ export function AccountSecurity() {
               <h2>Leave or delete</h2>
               <div className="acct-card">
                 <button type="button" className="acct-row is-danger" disabled={busy} onClick={() => { if (confirm("Leave this household and start an empty solo household?")) householdAction(() => api.leaveHousehold()); }}>
-                  <span className="acct-row-title">Leave household</span>
+                  <span className="acct-row-title">{Copy.text("ui.leave.household")}</span>
                   <span className="acct-sub">You'll start fresh in your own household. Shared plans stay here.</span>
                 </button>
                 {canManage && (
                   <button type="button" className="acct-row is-danger" aria-expanded={deletingHome} onClick={() => setDeletingHome(!deletingHome)}>
-                    <span className="acct-row-title">Delete household</span>
+                    <span className="acct-row-title">{Copy.text("ui.delete.household")}</span>
                     <span className="acct-sub">Removes plans and kitchen data for every member.</span>
                   </button>
                 )}
@@ -935,22 +935,22 @@ export function AccountSecurity() {
                   <div className="acct-pane">
                     <p className="help">Permanently removes this shared kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.</p>
                     <input className="field" type="password" autoComplete="current-password" aria-label="Password to delete household" value={homePassword} onChange={(e) => setHomePassword(e.target.value)} />
-                    <button className="btn-secondary block danger" disabled={busy || !homePassword} onClick={() => householdAction(() => api.deleteHousehold(homePassword))}>Confirm household deletion</button>
+                    <button className="btn-secondary block danger" disabled={busy || !homePassword} onClick={() => householdAction(() => api.deleteHousehold(homePassword))}>{Copy.text("ui.confirm.household.deletion")}</button>
                   </div>
                 )}
                 <button type="button" className="acct-row is-danger" aria-expanded={deleting} onClick={() => setDeleting(!deleting)}>
-                  <span className="acct-row-title">Delete account</span>
+                  <span className="acct-row-title">{Copy.text("ui.delete.account")}</span>
                   <span className="acct-sub">{alone ? "Deletes this household too." : "The household stays for its other members."}</span>
                 </button>
                 {deleting && (
                   <form className="acct-pane" onSubmit={deleteAccount}>
-                    <p className="help">Anonymous meal votes are retained without account identifiers.</p>
+                    <p className="help">{Copy.text("ui.anonymous.meal.votes.are.retained")}</p>
                     <p className="help">
                       {alone
-                        ? "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
-                        : "This deletes your account and your sign-ins. The household and its plans stay for the other members."}
+                        ? Copy.text("ui.this.deletes.your.account.and")
+                        : Copy.text("ui.this.deletes.your.account.and.2")}
                     </p>
-                    <label className="block-label" htmlFor="delete-password">Your password</label>
+                    <label className="block-label" htmlFor="delete-password">{Copy.text("ui.your.password")}</label>
                     <input className="field" id="delete-password" type="password" autoComplete="current-password"
                       value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} required />
                     <button type="submit" className="btn-secondary block danger" disabled={busy || !deletePassword}>

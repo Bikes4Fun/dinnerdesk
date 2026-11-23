@@ -4,6 +4,7 @@ import { RecipeThumbnailActions } from "./RecipeThumbnailActions.jsx";
 import { api } from "./api.js";
 import { go } from "./nav.js";
 import { useWeek } from "./week.jsx";
+import { Copy } from "./Copy.js";
 
 export function hasTag(r, tag) {
   return (r.tags || []).includes(tag);
@@ -14,7 +15,7 @@ function ComingSoonPhoto({ path, className }) {
   return (
     <div className="coming-soon" aria-label="Coming soon">
       <FoodPhoto className={className} path={path} />
-      <span className="coming-soon-tag">Coming soon</span>
+      <span className="coming-soon-tag">{Copy.text("ui.coming.soon")}</span>
     </div>
   );
 }
@@ -55,7 +56,7 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
         <button
           type="button"
           className={`card-heart${recipe.favorited ? " is-on" : ""}`}
-          aria-label={recipe.favorited ? "Remove from your favorites" : "Save to your favorites"}
+          aria-label={recipe.favorited ? Copy.text("ui.remove.from.your.favorites") : Copy.text("ui.save.to.your.favorites")}
           onClick={heart}
         >
           {recipe.favorited ? "♥" : "♡"}
@@ -63,7 +64,7 @@ function ReadyRecipeCard({ recipe, onChange, admin }) {
         <button
           type="button"
           className={`card-add${on ? " is-on" : ""}`}
-          aria-label={on ? "Already on plan" : "Add to plan"}
+          aria-label={on ? "Already on plan" : Copy.text("ui.add.to.plan")}
           onClick={() => { if (!on) toggleRecipe(recipe); }}
         >
           {on ? "✓" : "+"}
@@ -115,7 +116,7 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
         <button
           type="button"
           className={on ? "check-circle" : "add-circle"}
-          aria-label={on ? "Already on plan" : "Add to plan"}
+          aria-label={on ? "Already on plan" : Copy.text("ui.add.to.plan")}
           onClick={() => { if (!on) toggleRecipe(recipe); }}
         >
           {on ? "✓" : "+"}
@@ -131,7 +132,7 @@ function ReadyRecipeRow({ recipe, onChange, admin }) {
       <button
         type="button"
         className={`row-heart${recipe.favorited ? " is-on" : ""}`}
-        aria-label={recipe.favorited ? "Remove from your favorites" : "Save to your favorites"}
+        aria-label={recipe.favorited ? Copy.text("ui.remove.from.your.favorites") : Copy.text("ui.save.to.your.favorites")}
         onClick={heart}
       >
         {recipe.favorited ? "♥" : "♡"}

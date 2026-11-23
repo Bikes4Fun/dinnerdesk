@@ -68,7 +68,7 @@ export function RecipeTileAddButton({ onPlan, onClick, corner = RecipeTileCorner
     <RecipeTilePhotoOverlay
       corner={corner}
       mode="interactive"
-      label={onPlan ? "Remove from this plan" : "Add to this plan"}
+      label={onPlan ? Copy.text("ui.remove.from.this.plan") : Copy.text("ui.add.to.this.plan")}
       onClick={onClick}
       className={onPlan ? "is-on" : ""}
     >
@@ -82,7 +82,7 @@ export function RecipeTileHeartButton({ on, onClick, corner = RecipeTileCorner.t
     <RecipeTilePhotoOverlay
       corner={corner}
       mode="interactive"
-      label={on ? "Remove from your favorites" : "Save to your favorites"}
+      label={on ? Copy.text("ui.remove.from.your.favorites") : Copy.text("ui.save.to.your.favorites")}
       onClick={onClick}
       className={on ? "is-on is-heart" : "is-heart"}
     >
@@ -96,7 +96,7 @@ export function RecipeTileSwapButton({ onClick, disabled, corner = RecipeTileCor
     <RecipeTilePhotoOverlay
       corner={corner}
       mode="interactive"
-      label="Swap meal"
+      label={Copy.text("ui.swap.meal")}
       onClick={disabled ? undefined : onClick}
       className={disabled ? "is-disabled" : ""}
     >
@@ -110,7 +110,7 @@ export function RecipeTileSaveForLaterButton({ on, onClick, corner = RecipeTileC
     <RecipeTilePhotoOverlay
       corner={corner}
       mode="interactive"
-      label={on ? "Remove from To try" : "Save to To try"}
+      label={on ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.save.to.to.try")}
       onClick={onClick}
       className={on ? "is-on" : ""}
     >
@@ -124,7 +124,7 @@ export function RecipeTileCookedButton({ on, onClick, corner = RecipeTileCorner.
     <RecipeTilePhotoOverlay
       corner={corner}
       mode="interactive"
-      label={on ? "Mark as not cooked" : "Mark as cooked"}
+      label={on ? Copy.text("ui.mark.as.not.cooked") : Copy.text("ui.mark.as.cooked")}
       onClick={onClick}
       className={on ? "is-on" : ""}
     >
@@ -135,7 +135,7 @@ export function RecipeTileCookedButton({ on, onClick, corner = RecipeTileCorner.
 
 export function RecipeTileFlagButton({ onClick, corner = RecipeTileCorner.topTrailing }) {
   return (
-    <RecipeTilePhotoOverlay corner={corner} mode="interactive" label="Report photo" onClick={onClick}>
+    <RecipeTilePhotoOverlay corner={corner} mode="interactive" label={Copy.text("ui.report.photo")} onClick={onClick}>
       ⚑
     </RecipeTilePhotoOverlay>
   );
@@ -150,7 +150,7 @@ export function RecipeTileKitchenTestedBadge({ corner = RecipeTileCorner.topLead
 }
 
 export function RecipeTileComingSoonBadge() {
-  return <span className="recipe-tile-coming-soon">Coming soon</span>;
+  return <span className="recipe-tile-coming-soon">{Copy.text("ui.coming.soon")}</span>;
 }
 
 /** Future tag e.g. "Low carb" — static; same overlay chrome. */
@@ -168,17 +168,17 @@ export function RecipeTileTagBadge({ label, corner = RecipeTileCorner.bottomLead
  */
 export const RecipeTileMenuItem = {
   favorite: (on, action) => ({ id: "favorite", title: on ? "Unfavorite" : "Favorite", action }),
-  plan: (on, action) => ({ id: "plan", title: on ? "Remove from plan" : "Add to plan", action }),
-  toTry: (on, action) => ({ id: "toTry", title: on ? "Remove from To try" : "To try", action }),
+  plan: (on, action) => ({ id: "plan", title: on ? Copy.text("ui.remove.from.plan") : Copy.text("ui.add.to.plan"), action }),
+  toTry: (on, action) => ({ id: "toTry", title: on ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.to.try.2"), action }),
   hide: (on, action) => ({
     id: "hide",
-    title: on ? "Unhide recipe" : "Hide recipe",
+    title: on ? Copy.text("ui.unhide.recipe") : Copy.text("ui.hide.recipe"),
     destructive: !on,
     action,
   }),
   cooked: (on, action) => ({
     id: "cooked",
-    title: on ? "Mark as not cooked" : "Mark as cooked",
+    title: on ? Copy.text("ui.mark.as.not.cooked") : Copy.text("ui.mark.as.cooked"),
     action,
   }),
   extra: (id, title, action, opts = {}) => ({ id, title, action, ...opts }),

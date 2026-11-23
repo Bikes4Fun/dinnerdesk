@@ -27,6 +27,7 @@ import { StepText, amountLines } from "../stepText.jsx";
 // import { StepTimers } from "../StepTimers.jsx";
 import { Tip } from "../Tip.jsx";
 import { REPORT_REASONS } from "../reportOptions.js";
+import { Copy } from "../Copy.js";
 
 function ingLines(recipe) {
   return (recipe.ingredients || [])
@@ -336,7 +337,7 @@ export function Recipe({ id }) {
       ];
       await api.putSlots(plan.id, slots);
       await week?.load?.();
-      week?.toast?.(removing ? "Removed from this plan" : "Added to this plan");
+      week?.toast?.(removing ? Copy.text("ui.removed.from.this.plan") : Copy.text("ui.added.to.this.plan"));
     } catch (e) {
       setErr(e.message);
     } finally {
@@ -375,7 +376,7 @@ export function Recipe({ id }) {
             type="button"
             className="meal-servings-btn"
             disabled={mealServings <= 1}
-            aria-label="Fewer servings"
+            aria-label={Copy.text("ui.fewer.servings")}
             onClick={() => bumpServings(-1)}
           >
             −
@@ -385,7 +386,7 @@ export function Recipe({ id }) {
             type="button"
             className="meal-servings-btn"
             disabled={mealServings >= 50}
-            aria-label="More servings"
+            aria-label={Copy.text("ui.more.servings")}
             onClick={() => bumpServings(1)}
           >
             +
@@ -402,10 +403,10 @@ export function Recipe({ id }) {
     return (
       <>
         {headed ? <h3>Cook</h3> : null}
-        {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">Instructions customized by Dinner Desk</p>}
+        {recipe.instructions_source === "dinnerdesk" && recipe.instructions_copied_from_third_party === false && <p className="muted">{Copy.text("ui.instructions.customized.by.dinner.desk")}</p>}
         {sourceHost(recipe.source_url) && !recipe.catalog && (
           <p className="muted">
-            {recipe.instructions_source === "import" ? "Steps from " : "Original recipe: "}
+            {recipe.instructions_source === "import" ? Copy.text("ui.steps.from") : "Original recipe: "}
             <a href={recipe.source_url} target="_blank" rel="noopener noreferrer">{sourceHost(recipe.source_url)}</a>
           </p>
         )}
@@ -451,7 +452,7 @@ export function Recipe({ id }) {
             <button
               type="button"
               className={`heart-btn${recipe.favorited ? " is-on" : ""}`}
-              aria-label={recipe.favorited ? "Remove from your favorites" : "Save to your favorites"}
+              aria-label={recipe.favorited ? Copy.text("ui.remove.from.your.favorites") : Copy.text("ui.save.to.your.favorites")}
               onClick={() => {
                 api.favorite(recipe.id, !recipe.favorited).then(setRecipe).catch((e) => setErr(e.message));
               }}
@@ -482,7 +483,7 @@ export function Recipe({ id }) {
                         .catch((e) => setErr(e.message));
                     }}
                   >
-                    {recipe.to_try ? "Remove from To try" : "To try"}
+                    {recipe.to_try ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.to.try.2")}
                   </button>
                   <button
                     type="button"
@@ -495,7 +496,7 @@ export function Recipe({ id }) {
                         .catch((e) => setErr(e.message));
                     }}
                   >
-                    {recipe.hidden ? "Unhide recipe" : "Hide Recipe"}
+                    {recipe.hidden ? Copy.text("ui.unhide.recipe") : "Hide Recipe"}
                   </button>
                   {!admin && !recipe.catalog ? (
                     <button type="button" role="menuitem" onClick={deleteOwn} disabled={busy}>
@@ -694,7 +695,7 @@ export function Recipe({ id }) {
           {recipe.catalog && !editing && (reportedId === recipe.id
             ? <p className="muted recipe-report-done" role="status">Thanks. We'll take a look at this recipe.</p>
             : report === null
-              ? <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>Report a problem with this recipe</button>
+              ? <button type="button" className="text-link recipe-report" onClick={() => setReport({ reason: "", note: "" })}>{Copy.text("ui.report.a.problem.with.this.2")}</button>
               : <form className="recipe-report-form" onSubmit={(e) => {
                   e.preventDefault();
                   if (!report.reason) return;
@@ -714,12 +715,12 @@ export function Recipe({ id }) {
                       </label>
                     ))}
                   </fieldset>
-                  <label htmlFor="recipe-report-note">Anything to add? (optional)</label>
+                  <label htmlFor="recipe-report-note">{Copy.text("ui.anything.to.add.optional")}</label>
                   <textarea id="recipe-report-note" className="field" rows={3} maxLength={1000} value={report.note}
                     placeholder="e.g. Step 4 says to add the cream but it's not in the ingredients"
                     onChange={(e) => setReport({ ...report, note: e.target.value })} />
                   <div className="recipe-report-actions">
-                    <button type="submit" className="btn-primary" disabled={busy || !report.reason}>Send report</button>
+                    <button type="submit" className="btn-primary" disabled={busy || !report.reason}>{Copy.text("ui.send.report")}</button>
                     <button type="button" className="btn-secondary" disabled={busy} onClick={() => setReport(null)}>Cancel</button>
                   </div>
                 </form>)}
@@ -739,7 +740,7 @@ export function Recipe({ id }) {
           </>
         ) : (
           <button type="button" className="btn-primary block" disabled={busy || photoLoading} onClick={addToWeek}>
-            {busy ? "Updating…" : added ? "Remove from this plan" : "Add to this plan"}
+            {busy ? "Updating…" : added ? Copy.text("ui.remove.from.this.plan") : Copy.text("ui.add.to.this.plan")}
           </button>
         )}
       </footer>

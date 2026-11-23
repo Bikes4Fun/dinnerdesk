@@ -5,9 +5,9 @@ import { Copy } from "../Copy.js";
 import { PrivacySummary } from "../PrivacySummary.jsx";
 
 const CLEARABLE = [
-  ["taste_lab", "Taste Lab history", "Your likes and passes in Taste Lab. Your filters stay in Settings."],
-  ["meal_ratings", "Meal ratings", "Thumbs up or down on planned meals, for the whole household."],
-  ["prep_votes", "Prep votes", "Thumbs up or down on prep steps, and steps you added, for the whole household."],
+  ["taste_lab", Copy.text("ui.taste.lab.history"), Copy.text("ui.your.likes.and.passes.in")],
+  ["meal_ratings", Copy.text("privacy.short.keep.4"), Copy.text("ui.thumbs.up.or.down.on")],
+  ["prep_votes", Copy.text("ui.prep.votes"), Copy.text("ui.thumbs.up.or.down.on.2")],
 ];
 
 /** "Download my data", plus clearing parts of it (#101). */
@@ -55,7 +55,7 @@ function YourData() {
   };
 
   const deleteKitchen = () => {
-    if (!window.confirm("Delete this kitchen from our server? Plans, pantry, grocery lists, ratings and Taste Lab answers are removed. It can’t be undone.")) return;
+    if (!window.confirm(Copy.text("ui.delete.this.kitchen.from.our"))) return;
     run(async () => {
       await api.deleteGuestKitchen();
       window.location.assign("/");
@@ -64,21 +64,21 @@ function YourData() {
 
   return (
     <>
-      <h2>Your data</h2>
+      <h2>{Copy.text("ui.your.data")}</h2>
       <p>
         Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings,
         prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.
       </p>
-      <p><button type="button" className="btn-secondary" disabled={busy} onClick={download}>Download my data</button></p>
+      <p><button type="button" className="btn-secondary" disabled={busy} onClick={download}>{Copy.text("ui.download.my.data")}</button></p>
       {partial && (
         <p className="banner err" role="alert">
           Taste Lab was unavailable, so this file is missing your Taste Lab answers.{" "}
-          <button type="button" className="text-link" disabled={busy} onClick={download}>Try again</button>
+          <button type="button" className="text-link" disabled={busy} onClick={download}>{Copy.text("ui.try.again")}</button>
         </p>
       )}
 
-      <h2>Clear part of your data</h2>
-      <p>Clear one kind of data and keep the rest of your kitchen and your account. Only the household creator or an admin can clear the household’s ratings and prep votes.</p>
+      <h2>{Copy.text("ui.clear.part.of.your.data")}</h2>
+      <p>{Copy.text("ui.clear.one.kind.of.data")}</p>
       {CLEARABLE.map(([kind, label, about]) => (
         <p key={kind}>
           <button type="button" className="btn-secondary danger" disabled={busy} onClick={() => clear(kind, label)}>Clear {label.toLowerCase()}</button>
@@ -87,7 +87,7 @@ function YourData() {
       ))}
       {signedIn === false && (
         <p>
-          <button type="button" className="btn-secondary danger" disabled={busy} onClick={deleteKitchen}>Delete this kitchen</button>
+          <button type="button" className="btn-secondary danger" disabled={busy} onClick={deleteKitchen}>{Copy.text("ui.delete.this.kitchen")}</button>
           <br /><span className="help">Removes this guest kitchen from our server, not just from this browser.</span>
         </p>
       )}

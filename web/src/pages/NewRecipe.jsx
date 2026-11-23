@@ -3,6 +3,7 @@ import { api, photoSrc } from "../api.js";
 import { go } from "../nav.js";
 import { parseIngLine } from "../parseIngredient.js";
 import { RecipeEditorFields, emptyStep, serializeSteps, stepsFromRecipe } from "../RecipeEditor.jsx";
+import { Copy } from "../Copy.js";
 
 function fromUrlMode() {
   return new URLSearchParams(window.location.search).get("from") === "url";
@@ -110,13 +111,13 @@ export function NewRecipe() {
         <button type="button" className="icon-btn" onClick={() => go("/recipes")} aria-label="Back">
           ←
         </button>
-        <h1>{byUrl ? "Import a recipe" : "New recipe"}</h1>
+        <h1>{byUrl ? Copy.text("ui.import.a.recipe") : Copy.text("ui.new.recipe")}</h1>
       </header>
       <form className="scroll pad" onSubmit={onSubmit}>
         {err && <p className="banner err" role="alert">{err}</p>}
         {byUrl && (
           <>
-            <label className="block-label" htmlFor="recipe-url">Recipe page</label>
+            <label className="block-label" htmlFor="recipe-url">{Copy.text("ui.recipe.page")}</label>
             <input
               id="recipe-url"
               className="field"
@@ -127,10 +128,10 @@ export function NewRecipe() {
               onChange={(e) => setSourceUrl(e.target.value)}
             />
             <button type="button" className="btn-secondary" disabled={importing || !sourceUrl.trim()} onClick={onImport}>
-              {importing ? "Reading…" : imported ? "Read again" : "Import"}
+              {importing ? "Reading…" : imported ? Copy.text("ui.read.again") : "Import"}
             </button>
             {imported ? (
-              <p className="help">Check it over before you save. The ingredients and steps came from that site.</p>
+              <p className="help">{Copy.text("ui.check.it.over.before.you")}</p>
             ) : !showForm ? (
               <p className="help">
                 Paste a link to a recipe on a public website.{" "}
@@ -180,8 +181,8 @@ export function NewRecipe() {
               {ownPhoto
                 ? "Your photo will be used."
                 : imported && siteImage
-                  ? "This is the photo from that page, saved for your kitchen only. Don't like it? Choose your own."
-                  : "Add a photo you took or one you're free to use."}
+                  ? Copy.text("ui.this.is.the.photo.from")
+                  : Copy.text("ui.add.a.photo.you.took")}
             </p>
             <button type="submit" className="btn-primary block" disabled={busy || importing}>
               {busy ? "Saving…" : "Save recipe"}

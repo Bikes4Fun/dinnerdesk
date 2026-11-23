@@ -6,6 +6,7 @@ import { Thumbs } from "../Thumbs.jsx";
 import { Sparkle, Tip } from "../Tip.jsx";
 import { go } from "../nav.js";
 import { useWeek } from "../week.jsx";
+import { Copy } from "../Copy.js";
 
 const shortDay = (d) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
@@ -16,14 +17,14 @@ const inHistory = (p) => p.status === "history" || (p.status === "active" && p.d
 /** The plan's own name, or the week it starts when it's still called "This week". */
 function planHeading(p) {
   const title = (p.title || "").trim();
-  if (title && title !== "This week") return title;
+  if (title && title !== Copy.text("ui.this.week")) return title;
   return `Week of ${shortDay(new Date(`${p.start_date}T12:00:00`))}`;
 }
 
 function planStatus(p) {
   if (p.decision === "approve") return "Approved";
   if (p.decision === "decline") return "Declined";
-  return { draft: null, active: "Current plan", suggested: "Waiting for review" }[p.status] ?? (p.status ? p.status[0].toUpperCase() + p.status.slice(1) : null);
+  return { draft: null, active: Copy.text("ui.current.plan"), suggested: Copy.text("ui.waiting.for.review") }[p.status] ?? (p.status ? p.status[0].toUpperCase() + p.status.slice(1) : null);
 }
 
 /** One saved plan: name, dates, meal count and status, the first meals, and when it was saved. */
@@ -137,7 +138,7 @@ export function Plan() {
   async function newPlan(source, mealCount, keepCurrent = false) {
     const body = {};
     if (source != null) body.source_plan_id = source;
-    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update."); body.meal_count = mealCount; body.keep_current = keepCurrent; }
+    if (mealCount) { const caps = await api.suggestionCapabilities(); if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error(Copy.text("ui.meal.planning.needs.the.updated")); body.meal_count = mealCount; body.keep_current = keepCurrent; }
     const created = await api.createPlan(body);
     if (created.status === "suggested") { setProposal(created); setReviewing(true); }
     else setPlan(created);
@@ -161,8 +162,8 @@ export function Plan() {
 
   function planActions() {
     return <>
-      <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> New meal plan</button>
-      <button type="button" className="pill plan-add-meals" onClick={() => go("/recipes")}><Icon name="plus" size={18} /> Add meals</button>
+      <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(() => newPlan(undefined, 4))}><Sparkle /> {Copy.text("ui.new.meal.plan")}</button>
+      <button type="button" className="pill plan-add-meals" onClick={() => go("/recipes")}><Icon name="plus" size={18} /> {Copy.text("ui.add.meals")}</button>
     </>;
   }
 
@@ -180,14 +181,14 @@ export function Plan() {
       <div className="top-actions">
         {editing && <button type="button" className="text-link" onClick={() => { setEditing(false); setSelected(new Set()); }}>Done</button>}
         <details className="plan-menu">
-          <summary aria-label="Plan menu"><Icon name="dots" size={24} /></summary>
+          <summary aria-label={Copy.text("ui.plan.menu")}><Icon name="dots" size={24} /></summary>
           <div>
-            <button type="button" onClick={() => { setEditing(!editing); setSelected(new Set()); }}> {editing ? "Finish editing" : "Edit this plan"}</button>
+            <button type="button" onClick={() => { setEditing(!editing); setSelected(new Set()); }}> {editing ? Copy.text("ui.finish.editing") : "Edit this plan"}</button>
             <button type="button" onClick={() => setGrid(!grid)}>{grid ? "List" : "Grid"} View</button>
             <button type="button" disabled={busy} onClick={() => {
-              const title = window.prompt("Plan name", plan.title);
+              const title = window.prompt(Copy.text("ui.plan.name"), plan.title);
               if (title?.trim()) act(async () => { await api.createPlan({ title: title.trim(), draft: true, source_plan_id: plan.id }); setMessage("Plan saved as draft."); });
-            }}>Save as draft</button>
+            }}>{Copy.text("ui.save.as.draft")}</button>
             <button type="button" disabled={busy} onClick={() => act(async () => setSaved((await api.plans()).plans))}>View drafts</button>
           </div>
         </details>
@@ -200,19 +201,19 @@ export function Plan() {
         <p><strong>New plan suggested.</strong> <span className="muted">Your current plan stays until you approve.</span> <button type="button" className="text-link" onClick={() => setReviewing(true)}>See meals</button></p>
         <div className="suggest-bar-actions">
           {proposal.status === "suggested" && <button type="button" className="pill pill-secondary" disabled={busy} onClick={() => act(async () => { await api.decideSuggestion(proposal.id, "decline"); setProposal(null); setReviewing(false); })}>Discard</button>}
-          {proposal.status === "suggested" && <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); setReviewing(false); await week.load(); })}>Approve plan</button>}
+          {proposal.status === "suggested" && <button type="button" className="pill pill-primary" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); setReviewing(false); await week.load(); })}>{Copy.text("ui.approve.plan")}</button>}
         </div>
       </div>}
-      {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>Improve your results</button></p>}
+      {suggested && <p><button type="button" className="text-link" onClick={() => go("/settings/tastelab?swipe=1")}>{Copy.text("ui.improve.your.results")}</button></p>}
       {saved && <section className="saved-plans">
         <h2>Drafts</h2>
-        {!saved.some((p) => p.status === "draft") && <p className="muted">No drafts yet. Use ⋯ → Save as draft to keep a plan for later.</p>}
+        {!saved.some((p) => p.status === "draft") && <p className="muted">{Copy.text("ui.no.drafts.yet.use.save")}</p>}
         {saved.filter((p) => p.status === "draft").map((p) => <div key={p.id} className="saved-row">
           <button type="button" className="saved-row-main" disabled={busy} onClick={() => act(() => newPlan(p.id))}><SavedPlanSummary plan={p} /></button>
           <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>
         </div>)}
-        <h2>Plan history</h2>
-        {!saved.some(inHistory) && <p className="muted">No past plans yet. Plans you approve or finish show up here.</p>}
+        <h2>{Copy.text("ui.plan.history")}</h2>
+        {!saved.some(inHistory) && <p className="muted">{Copy.text("ui.no.past.plans.yet.plans")}</p>}
         {saved.filter(inHistory).map((p) => <div key={p.id} className="saved-row">
           <details className="saved-row-main"><summary><SavedPlanSummary plan={p} /></summary><ul>{p.slots.map((s) => <li key={s.id}><button className="text-link" onClick={() => go(`/recipes/${s.recipe_id}`)}>{s.recipe_name}</button> · {s.servings} servings · {s.cooked ? "Cooked" : "Not cooked"}</li>)}</ul></details>
           {p.status !== "active" && <button type="button" className="saved-row-delete" disabled={busy} aria-label={`Delete ${planHeading(p)}`} onClick={() => deleteSaved(p)}><Icon name="trash" size={18} /></button>}
@@ -220,13 +221,13 @@ export function Plan() {
         <button type="button" className="text-link" onClick={() => setSaved(null)}>Close saved plans</button>
       </section>}
       {editing && plan.slots.length > 0 && <div className="plan-bulk">
-        <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? "Deselect all" : "Select all"}</button>
+        <button type="button" onClick={() => setSelected(selected.size === plan.slots.length ? new Set() : new Set(plan.slots.map((s) => s.id)))}>{selected.size === plan.slots.length ? Copy.text("ui.deselect.all") : Copy.text("ui.select.all")}</button>
         <span>{selected.size} selected</span>
         {(() => {
           // "Mark uncooked" when every selected meal is already cooked, so the same button undoes it.
           const picked = plan.slots.filter((s) => selected.has(s.id));
           const allCooked = picked.length > 0 && picked.every((s) => s.cooked);
-          return <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected, !allCooked))}>{allCooked ? "Mark uncooked" : "Mark cooked"}</button>;
+          return <button type="button" disabled={busy || !selected.size} onClick={() => act(() => markCooked(selected, !allCooked))}>{allCooked ? Copy.text("ui.mark.uncooked") : Copy.text("ui.mark.cooked")}</button>;
         })()}
         <button type="button" disabled={busy || !selected.size} onClick={() => { if (window.confirm(`Remove ${selected.size} ${selected.size === 1 ? "meal" : "meals"}?`)) act(removeSelected); }}>Remove</button>
       </div>}
@@ -265,7 +266,7 @@ export function Plan() {
                 </div>
                 <div className="meal-thumbs">
                   <Thumbs rating={slot.rating || 0} subject={slot.recipe_name} onRate={(r) => rate(slot, r)} />
-                  {slot.rating > 0 && <span className="muted">We’ll suggest more like this</span>}
+                  {slot.rating > 0 && <span className="muted">{Copy.text("ui.well.suggest.more.like.this")}</span>}
                 </div>
                 {slot.rating < 0 && <Tip id="plan.disliked">Won’t be suggested again.</Tip>}
               </>}
@@ -277,12 +278,12 @@ export function Plan() {
         {!editing && <div className={`plan-actions${floatActions ? " plan-actions-offscreen" : ""}`}>
           {planActions()}
         </div>}
-        {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>Fill in this plan</button>}
+        {plan.slots.length > 0 && <button type="button" className="text-link" disabled={busy} onClick={() => act(() => newPlan(null, Math.max(1, 4 - plan.slots.length), true))}>{Copy.text("ui.fill.in.this.plan")}</button>}
       </div>
     </div>
     {floatActions && <div className="fab-pill-wrap plan-actions">{planActions()}</div>}
       {proposal && reviewing && <div className="sheet-backdrop"><section className="suggested-plan schedule-sheet review-sheet" role="dialog" aria-modal="true" aria-labelledby="suggested-title">
-        <h2 id="suggested-title">Review your suggestions</h2>
+        <h2 id="suggested-title">{Copy.text("ui.review.your.suggestions")}</h2>
         <label>Meals <select value={proposal.slots.length} disabled={busy || proposal.status !== "suggested"} onChange={(e) => act(async () => setProposal(await api.resizeSuggestion(proposal.id, Number(e.target.value))))}>
           {Array.from({ length: 14 }, (_, i) => i + 1).filter((n) => n >= proposal.slots.length - proposal.suggested_recipe_ids.length).map((n) => <option key={n} value={n}>{n}</option>)}
         </select></label>
@@ -301,35 +302,35 @@ export function Plan() {
             </div>
             <strong>{s.recipe_name}</strong>
             {s.cooking_minutes ? <span className="muted">{s.cooking_minutes} min</span> : null}
-            {!swappable && <span className="muted">Your selection</span>}
+            {!swappable && <span className="muted">{Copy.text("ui.your.selection")}</span>}
           </div>;
         })}
         </div>
         <div className="proposal-actions">
-        {proposal.status === "suggested" && <button type="button" className="sp-approve" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); setReviewing(false); await week.load(); })}>Approve plan</button>}
+        {proposal.status === "suggested" && <button type="button" className="sp-approve" disabled={busy} onClick={() => act(async () => { setPlan(await api.decideSuggestion(proposal.id, "approve")); setProposal(null); setReviewing(false); await week.load(); })}>{Copy.text("ui.approve.plan")}</button>}
         <button type="button" className="sp-another" disabled={busy} onClick={() => act(async () => { if (proposal.status === "suggested") setProposal(await api.decideSuggestion(proposal.id, "decline")); await newPlan(null, Math.max(1, proposal.suggested_recipe_ids?.length || proposal.slots.length), proposal.slots.some((slot) => !proposal.suggested_recipe_ids?.includes(slot.recipe_id))); })} aria-label={proposal.status === "suggested" ? "Decline and suggest another plan" : "Try another suggestion"}>{proposal.status === "suggested" ? "Suggest another" : "Try another suggestion"}</button>
         </div>
-        <button type="button" className="text-link sp-improve" onClick={() => go("/settings/tastelab?swipe=1")}>Improve suggestions</button>
+        <button type="button" className="text-link sp-improve" onClick={() => go("/settings/tastelab?swipe=1")}>{Copy.text("ui.improve.suggestions")}</button>
         {reportedId === proposal.id
-          ? <p className="muted sp-report-done" role="status">Thanks. We'll look at why these were suggested.</p>
+          ? <p className="muted sp-report-done" role="status">{Copy.text("ui.thanks.well.look.at.why")}</p>
           : reportNote === null
-            ? <button type="button" className="text-link sp-report" onClick={() => setReportNote("")}>Report this suggestion</button>
+            ? <button type="button" className="text-link sp-report" onClick={() => setReportNote("")}>{Copy.text("ui.report.this.suggestion")}</button>
             : <form className="sp-report-form" onSubmit={(e) => { e.preventDefault(); act(async () => { await api.reportPlan(proposal.id, reportNote.trim()); setReportedId(proposal.id); setReportNote(null); }); }}>
-                <label htmlFor="sp-report-note">What's wrong with this plan?</label>
+                <label htmlFor="sp-report-note">{Copy.text("ui.whats.wrong.with.this.plan")}</label>
                 <textarea id="sp-report-note" rows={3} maxLength={1000} value={reportNote} autoFocus
                   placeholder="e.g. Three chicken dinners in a row, and none of us eat olives"
                   onChange={(e) => setReportNote(e.target.value)} />
                 <div className="sp-report-actions">
-                  <button type="submit" className="sp-approve" disabled={busy}>Send report</button>
+                  <button type="submit" className="sp-approve" disabled={busy}>{Copy.text("ui.send.report")}</button>
                   <button type="button" className="sp-another" disabled={busy} onClick={() => setReportNote(null)}>Cancel</button>
                 </div>
               </form>}
         <button type="button" className="sp-close" onClick={() => setReviewing(false)}>Close</button>
       </section></div>}
     {swapping && <div className="sheet-backdrop"><section className="schedule-sheet" style={{maxHeight: "calc(100dvh - 32px)", overflowY: "auto"}} role="dialog" aria-modal="true" aria-labelledby="swap-title">
-      <h2 id="swap-title">Choose a replacement</h2>
+      <h2 id="swap-title">{Copy.text("ui.choose.a.replacement")}</h2>
       <p>Replace {swapping.recipe_name}</p>
-      <input style={{width: "100%", boxSizing: "border-box"}} aria-label="Search replacement meals" placeholder="Search meals or ingredients" value={swapQuery} onChange={(e) => setSwapQuery(e.target.value)} />
+      <input style={{width: "100%", boxSizing: "border-box"}} aria-label={Copy.text("ui.search.replacement.meals")} placeholder={Copy.text("ui.search.meals.or.ingredients")} value={swapQuery} onChange={(e) => setSwapQuery(e.target.value)} />
       {swapError && <p role="alert">{swapError}</p>}
       {swapLoading ? <p>Loading…</p> : swapOptions.length === 0 ? <p>No matching meals. Try another search or loosen Settings → Filters.</p> : swapOptions.map((option) => <button key={option.id} className="list-link" disabled={busy} onClick={() => act(async () => { setProposal(await api.swapSuggestion(proposal.id, swapping.id, option.id)); setSwapping(null); })}>{option.name}{option.cooking_minutes ? ` · ${option.cooking_minutes} min` : ""}</button>)}
       <button onClick={() => setSwapping(null)}>Cancel</button>
@@ -337,7 +338,7 @@ export function Plan() {
     {placing && <div className="sheet-backdrop" role="presentation"><section className="schedule-sheet" role="dialog" aria-modal="true" aria-labelledby="schedule-title">
       <h2 id="schedule-title">Schedule {placing.recipe_name}</h2>
       <label>Meal date <input type="date" value={date} min={earliest} onChange={(e) => setDate(e.target.value)} /></label>
-      <button type="button" className="btn-primary block" disabled={busy || !date || date < earliest} onClick={() => act(async () => { await patch(placing, { scheduled_date: date }); setPlacing(null); })}>Save date</button>
+      <button type="button" className="btn-primary block" disabled={busy || !date || date < earliest} onClick={() => act(async () => { await patch(placing, { scheduled_date: date }); setPlacing(null); })}>{Copy.text("ui.save.date")}</button>
       <button type="button" disabled={busy} onClick={() => act(async () => { await patch(placing, { unschedule: true }); setPlacing(null); })}>Unschedule</button>
       <button type="button" onClick={() => setPlacing(null)}>Cancel</button>
     </section></div>}

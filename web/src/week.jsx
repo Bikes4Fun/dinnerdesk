@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { api } from "./api.js";
+import { Copy } from "./Copy.js";
 
 export function asSlotIn(s) {
   return {
@@ -58,7 +59,7 @@ export function WeekProvider({ children }) {
     const on = current.slots.some((s) => s.recipe_id === recipe.id);
     const next = await setOnPlan(recipe, !on, current);
     // The card's + and check carry no label (#35), so say what happened and offer one undo.
-    toastMsg(on ? "Removed from this week" : "Added to this week", () => setOnPlan(recipe, on, next));
+    toastMsg(on ? Copy.text("ui.removed.from.this.week") : Copy.text("ui.added.to.this.week"), () => setOnPlan(recipe, on, next));
     return next;
   }
 

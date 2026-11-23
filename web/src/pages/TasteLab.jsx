@@ -62,7 +62,7 @@ export function TasteLab() {
         >
           ←
         </button>
-        <h1>Taste Lab</h1>
+        <h1>{Copy.text("tour.how.6.title")}</h1>
         <span />
       </header>
       <PrivacyNote />

@@ -1,4 +1,5 @@
 import { go } from "../nav.js";
+import { Copy } from "../Copy.js";
 
 function Link({ href, children, extra, onClick, className }) {
   return (
@@ -23,10 +24,10 @@ export function More() {
       <div className="scroll pad">
         <Link href="/kitchen">My kitchen</Link>
         {/* Shown only when the Prep tab is hidden (narrow screens). */}
-        <Link href="/prep" className="more-prep-when-no-tab">Weekend prep</Link>
-        <Link href="/settings/tastelab">Taste Lab</Link>
+        <Link href="/prep" className="more-prep-when-no-tab">{Copy.text("tour.how.4.title")}</Link>
+        <Link href="/settings/tastelab">{Copy.text("tour.how.6.title")}</Link>
         <Link href="/settings/account">Account &amp; security</Link>
-        <Link href="/settings/feedback">Report a bug or suggest a feature</Link>
+        <Link href="/settings/feedback">{Copy.text("ui.report.a.bug.or.suggest")}</Link>
         <Link href="/settings">Settings</Link>
       </div>
     </section>
