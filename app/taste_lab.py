@@ -17,11 +17,11 @@ from app.db.catalog import public_recipe_sql
 from app.db.database import ROOT
 from app.deps import GUEST_COOKIE, AdminDep, DbDep, HhDep, guest_household
 from app.domain.diet_filter import clean_filters, fold_profiles
+from app.domain.recipe_identity import archive_id
 from app.domain.recipe_photos import usable_photo
 
 TASTE_SERVER = ROOT / "tastelab" / "server.py"
 SKIP = {"incomplete", "side", "sauce", "dressing", "meal_component"}
-ARCHIVE_ID = re.compile(r"/(\d+)/?$")
 # The random id a guest's browser keeps for Taste Lab (crypto.randomUUID or similar).
 ANON_ID = re.compile(r"[A-Za-z0-9-]{8,64}")
 # Shared stand-in photos. usable_photo can still return one; don't put it on the wrong dish.
@@ -51,17 +51,6 @@ def taste():
         mod.init_db()
         _mod = mod
     return _mod
-
-
-def archive_id(row) -> str:
-    url = (row["source_url"] or "").split("?")[0].rstrip("/")
-    m = ARCHIVE_ID.search(url)
-    if m:
-        return m.group(1)
-    slug = str(row["slug"] or "")
-    if slug.isdigit():
-        return slug
-    return str(row["id"])
 
 
 def catalog_from_db(db: PgConnection) -> list[dict]:

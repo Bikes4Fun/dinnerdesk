@@ -13,6 +13,8 @@ def read_json(path):
 
 
 def build_snapshot(db, catalog):
+    from app.domain.recipe_identity import archive_id
+
     proposals = defaultdict(list)
     for item in read_json(catalog / "recipe_tag_suggestions.json")["suggestions"]:
         if item.get("source") == "ai":
@@ -22,7 +24,7 @@ def build_snapshot(db, catalog):
 
     recipes = {}
     for row in db.execute(
-        """SELECT r.id, r.slug, r.name, r.provenance_json, i.canonical_name
+        """SELECT r.id, r.slug, r.name, r.source_url, r.provenance_json, i.canonical_name
            FROM recipes r
            LEFT JOIN recipe_ingredients ri ON ri.recipe_id = r.id
            LEFT JOIN ingredients i ON i.id = ri.ingredient_id
@@ -36,7 +38,7 @@ def build_snapshot(db, catalog):
             slug = row["slug"]
             semantic_tags = proposals.get(slug, [])
             recipes[rid] = {
-                "id": rid,
+                "id": archive_id(row),
                 "slug": slug,
                 "name": row["name"],
                 "ingredients": [],

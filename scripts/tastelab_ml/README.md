@@ -39,7 +39,9 @@ python3 scripts/tastelab_ml/charts.py /tmp/tastelab-catalog.json /tmp/tastelab-c
 ```
 
 The refresh reads shared, non-retired recipes and stored ingredient names
-from PostgreSQL in a read-only transaction. It joins AI tag proposals from
+from PostgreSQL in a read-only transaction. Recipe IDs match Taste Lab swipes.
+Recipes without an archive ID use the database ID fallback and must be joined
+to swipes from the same database. The export joins AI tag proposals from
 the supplied catalog by slug and records the export time. The JSON contains
 no household recipes or swipe history. Refresh again after a catalog import
 or edit to pick up the new stored values.
