@@ -156,8 +156,8 @@ export function Privacy() {
           can improve prep suggestions.
         </p>
         <p>
-          Someone you invite joins that same household and can see and change it, including its filters,
-          allergies, and meal likes and dislikes. Invite links expire after 7
+          Someone you invite joins that same household and can see and change it, including its filters
+          and allergies, and can see everyone’s meal likes and dislikes and Taste Lab history. Invite links expire after 7
           days. You can remove a member from Account &amp; security. Removing them ends their access.
         </p>
 

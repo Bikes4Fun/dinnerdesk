@@ -23,17 +23,22 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import build.computerscience.dinnerdesk.data.Copy
 
 /**
  * The short version of the privacy policy: what we keep, what we never collect, who else can see it.
- * Shown at the top of Privacy, on sign up, and on the first-open agreement screen. Words: privacy.*
- * in copy.json, shared with web (PrivacySummary.jsx) and iOS (PrivacySummaryView).
- * [compact] leaves out "Who else can see it" where space is tight.
+ * Words: privacy.* in copy.json, shared with web (PrivacySummary.jsx) and iOS (PrivacySummaryView).
+ * Full at the top of Privacy; [compact] is the one-screen version for first open: the don't-sell line,
+ * four "We keep" bullets, the household sharing note, and one "We never collect" sentence.
  */
 @Composable
 fun PrivacySummary(compact: Boolean = false) {
+    if (compact) { ShortPrivacySummary(); return }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             Copy.text("privacy.sell"), style = Theme.action, color = Theme.bg,
@@ -63,10 +68,54 @@ fun PrivacySummary(compact: Boolean = false) {
             modifier = Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
         )
 
-        if (!compact) {
-            PrivacyHeader("privacy.shared.title")
-            PrivacyRows("privacy.shared", 3, compact)
+        PrivacyHeader("privacy.shared.title")
+        PrivacyRows("privacy.shared", 3, compact)
+    }
+}
+
+/** "Your household can see all of it, including your allergies, likes, dislikes and Taste Lab history." */
+@Composable
+fun HouseholdSharingNote() {
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(Copy.text("privacy.household.lead")) }
+            append(" ")
+            append(Copy.text("privacy.household"))
+        },
+        style = Theme.subtitle, color = Theme.ink,
+        modifier = Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
+    )
+}
+
+/** The one-screen version for first open and sign up: privacy.short.* in copy.json. */
+@Composable
+private fun ShortPrivacySummary() {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            Copy.text("privacy.short.sell"), style = Theme.action, color = Theme.bg,
+            modifier = Modifier.fillMaxWidth().background(Theme.ink, RoundedCornerShape(14.dp)).padding(14.dp),
+        )
+        PrivacyHeader("privacy.short.keep.title")
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            for (i in 1..4) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("•", style = Theme.body, color = Theme.muted)
+                    Text(
+                        buildAnnotatedString {
+                            append(Copy.text("privacy.short.keep.$i"))
+                            if (i == 3) {
+                                append(" ")
+                                withStyle(SpanStyle(color = Theme.muted)) { append(Copy.text("privacy.short.keep.3.note")) }
+                            }
+                        },
+                        style = Theme.body, color = Theme.ink,
+                    )
+                }
+            }
         }
+        HouseholdSharingNote()
+        PrivacyHeader("privacy.short.never.title")
+        Text(Copy.text("privacy.short.never"), style = Theme.body, color = Theme.ink)
     }
 }
 

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
 import { Copy } from "../Copy.js";
-import { PrivacySummary } from "../PrivacySummary.jsx";
 
 function friendlyError(e) {
   return (e && e.body && e.body.message) || (e && e.message) || "Something went wrong.";
@@ -183,14 +182,13 @@ export function Auth({ onAuthed }) {
 
             {mode === "signup" && (
               <div className="signup-privacy">
-                <h2>Your privacy, in short</h2>
-                <PrivacySummary compact />
+                <p className="privacy-note">{Copy.text("privacy.signup.note")}</p>
                 <label className="agree-check">
                   <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
                   <span>{Copy.text("privacy.signup.checkbox")}</span>
                 </label>
                 <button type="button" className="text-link" onClick={() => go("/privacy")}>
-                  {Copy.text("privacy.agree.read")}
+                  {Copy.text("privacy.link")}
                 </button>
               </div>
             )}
