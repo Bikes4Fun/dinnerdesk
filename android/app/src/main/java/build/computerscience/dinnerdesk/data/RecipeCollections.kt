@@ -2,8 +2,8 @@ package build.computerscience.dinnerdesk.data
 
 /** Search filter chips on the Recipes screen. Same keys and labels as web and iOS. */
 enum class RecipeSearchFilter(val label: String) {
-    Fav("Your favorites"), TryLater("To try"), Popular("Popular"), Quick("Quick"), Pantry("Uses pantry"),
-    Hidden("Hidden"), ComingSoon("Coming soon"), Reviewed("Kitchen-tested"),
+    Fav("Your favorites"), TryLater("To try"), Popular("Popular"), Reviewed("Kitchen-tested"), Quick("Quick"),
+    Pantry("Uses pantry"), Hidden("Hidden"), ComingSoon("Coming soon"),
 }
 
 /**
