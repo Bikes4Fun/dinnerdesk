@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
+import { Copy } from "../Copy.js";
 import { ADMIN_PAGES, go, inboxCount } from "../nav.js";
 import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, TIMES, DIET_LABELS, FilterOptions, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
