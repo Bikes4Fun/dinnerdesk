@@ -877,6 +877,8 @@ struct AccountView: View {
     }
     .confirmationDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", isPresented: $confirmJoin, titleVisibility: .visible) {
       Button("Join household") { Task { await householdAction { try await KitchenAPI.joinHousehold(joinToken.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/").last.map(String.init) ?? "") } } }
+    } message: {
+      Text(Copy.text("privacy.join.note"))
     }
     .alert("Transfer household ownership?", isPresented: Binding(get: { successor != nil }, set: { if !$0 { successor = nil } })) {
       Button("Transfer") { if let member = successor { Task { await householdAction { try await KitchenAPI.setRole(member.id, role: "owner") } } }; successor = nil }
@@ -1076,6 +1078,13 @@ struct AccountView: View {
           if let inviteURL {
             VStack(alignment: .leading, spacing: 8) {
               StarTip(id: "settings.invite-link")
+              Text(Copy.text("privacy.invite.note"))
+                .font(AccountFont.sub)
+                .foregroundStyle(Theme.ink)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 12))
               ShareLink(item: inviteURL) {
                 Label("Share invite link", systemImage: "square.and.arrow.up").font(AccountFont.strong)
               }
@@ -1097,6 +1106,9 @@ struct AccountView: View {
                 .accountField()
               Text("The whole link works. The code at the end works too.")
                 .font(AccountFont.sub).foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+              Text(Copy.text("privacy.join.note"))
+                .font(AccountFont.sub).foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
               Button("Join household") { confirmJoin = true }
                 .font(AccountFont.strong)

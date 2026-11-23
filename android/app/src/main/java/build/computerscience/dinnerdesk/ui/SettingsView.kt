@@ -547,6 +547,11 @@ fun AccountView() {
                         }
                     }
                     Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { StarTip("settings.invite-link") }
+                    Text(
+                        Copy.text("privacy.invite.note"), style = Theme.subtitle, color = Theme.ink,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth()
+                            .background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
+                    )
                 } else {
                     ActionRow("Invite someone to this household", enabled = !busy) { action { inviteUrl = KitchenApi.createInvite(); error = null } }
                 }
@@ -584,6 +589,7 @@ fun AccountView() {
                 }
                 ActionRow("Leave household", enabled = !busy) { confirmLeave = true }
                 ListRow { FormField(joinToken, { joinToken = it }, "Invite link or token", KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false)) }
+                Box(Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) { Text(Copy.text("privacy.join.note"), style = Theme.subtitle, color = Theme.muted) }
                 ActionRow("Join household", enabled = !busy && joinToken.isNotBlank()) { confirmJoin = true }
                 if (canManage) {
                     ActionRow("Delete household", destructive = true) { deletingHome = !deletingHome }
@@ -621,7 +627,7 @@ fun AccountView() {
     if (confirmLeave) ConfirmDialog("Leave this household and start an empty solo household?", "Leave household", onConfirm = {
         householdAction { KitchenApi.leaveHousehold() }
     }, onDismiss = { confirmLeave = false })
-    if (confirmJoin) ConfirmDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", "Join household", destructive = false, onConfirm = {
+    if (confirmJoin) ConfirmDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", "Join household", destructive = false, message = Copy.text("privacy.join.note"), onConfirm = {
         val token = joinToken.trim().split("/").lastOrNull() ?: ""
         householdAction { KitchenApi.joinHousehold(token) }
     }, onDismiss = { confirmJoin = false })
