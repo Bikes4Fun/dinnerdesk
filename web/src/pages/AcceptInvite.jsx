@@ -46,7 +46,7 @@ export function AcceptInvite({ token, onAuthed }) {
     <div className="app is-auth">
       <section className="screen auth-screen">
         <div className="scroll pad auth-pad">
-          <div className="brand auth-brand">Dinnerdesk</div>
+          <div className="brand auth-brand">{Copy.text("app.name")}</div>
 
           {previewErr ? (
             <p className="banner err">{previewErr}</p>
@@ -108,7 +108,7 @@ export function AcceptInvite({ token, onAuthed }) {
               </form>
               {!signedIn && (
                 <button type="button" className="text-link" onClick={() => { setExisting(!existing); setErr(""); }}>
-                  {existing ? "New to Dinnerdesk? Create an account" : "Already have an account? Sign in to join"}
+                  {existing ? "New to Dinner Desk? Create an account" : "Already have an account? Sign in to join"}
                 </button>
               )}
             </>

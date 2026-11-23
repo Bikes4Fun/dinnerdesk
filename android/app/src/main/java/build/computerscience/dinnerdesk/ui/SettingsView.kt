@@ -969,7 +969,7 @@ fun PrivacyView() {
                                 } catch (e: Throwable) {
                                     exportError = when {
                                         e is ApiError && e.code == 401 -> "Please sign in again to continue."
-                                        e is ApiError && e.code == 404 -> "Data export needs the updated Dinnerdesk server. Please try again after the server update."
+                                        e is ApiError && e.code == 404 -> "Data export needs the updated Dinner Desk server. Please try again after the server update."
                                         else -> "Couldn’t prepare your data. Please try again."
                                     }
                                 } finally {
@@ -999,7 +999,7 @@ fun PrivacyView() {
 
 internal val privacySections = listOf(
     "Agreeing to this policy" to """
-        The first time you open Dinnerdesk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
+        The first time you open Dinner Desk without an account, you see a short summary of this policy and continue by agreeing to it. Creating an account asks you to tick a box agreeing to it. We store which version you agreed to and when, tied to your account or to your guest kitchen (not your IP address). If this policy changes in a way that matters, we show the summary again.
     """.trimIndent(),
     "Account" to """
         If you create an account we store your email (or the username you chose instead), a hash of your password (not the password), and your household name. A sign-in session lasts 30 days. You can sign out of this device, or every device, from Account & security.

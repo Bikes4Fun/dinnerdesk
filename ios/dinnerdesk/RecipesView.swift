@@ -505,7 +505,7 @@ struct BrowseRecipeTile: View {
       RecipeStatusLine(minutes: recipe.cookingMinutes, reviewed: recipe.reviewed)
     }
     .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", Kitchen-tested by Dinnerdesk" : "")")
+    .accessibilityLabel("\(recipe.name), coming soon\(recipe.reviewed ? ", \(Copy.text("recipe.reviewed.description"))" : "")")
   }
 
   private var readyTile: some View {
@@ -654,7 +654,7 @@ struct RecipeDetailView: View {
               .padding(.horizontal)
             } else {
               if recipe.instructionsCustomized {
-                Text("Instructions customized by Dinnerdesk")
+                Text("Instructions customized by Dinner Desk")
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
                   .padding(.horizontal)
               }

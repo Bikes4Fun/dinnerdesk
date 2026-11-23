@@ -641,7 +641,7 @@ export function AccountSecurity() {
   async function shareInvite() {
     try {
       if (navigator.share) {
-        await navigator.share({ title: "Join my Dinnerdesk household", url: inviteLink });
+        await navigator.share({ title: "Join my Dinner Desk household", url: inviteLink });
       } else { await copyInvite(); }
     } catch (e) { if (e.name !== "AbortError") setErr(e.message); }
   }
