@@ -1,0 +1,173 @@
+/* Quick start: full-screen steps. Each fits one phone screen without scrolling, down to 360×780
+   (the smallest of the common North American sizes). */
+.qs {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+}
+.qs-screen {
+  box-sizing: border-box;
+  height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: calc(var(--safe-top) + 8px) 20px calc(var(--safe-bottom) + 20px);
+}
+.qs-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto; /* only a safety net for very small screens */
+}
+.qs h1 {
+  margin: 8px 0 6px;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 700;
+  color: var(--brand);
+}
+.qs-sub { margin: 0 0 18px; font-size: 15px; line-height: 1.4; color: var(--muted); }
+
+/* Top bar: back, progress, skip */
+.qs-top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.qs-back {
+  width: 44px; height: 44px; flex: none;
+  border: 0; background: none; padding: 0; color: var(--brand);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.qs-progress { flex: 1; display: flex; gap: 4px; }
+.qs-progress span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.qs-progress span.is-on { background: var(--brand); }
+.qs-skip { min-width: 44px; min-height: 44px; text-align: right; font-size: 15px; }
+
+/* Buttons */
+.qs-primary {
+  flex: none;
+  height: 52px; width: 100%;
+  border: 0; border-radius: 26px;
+  background: var(--brand); color: #fbf6ee;
+  font: 600 17px var(--font);
+  cursor: pointer;
+}
+.qs-primary:hover:not(:disabled) { background: var(--brand-hover); }
+.qs-primary:disabled { opacity: 0.55; cursor: default; }
+.qs-err { margin: 0 0 10px; font-size: 14px; color: var(--heart); }
+
+/* Welcome */
+.qs-center { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.qs-pill { padding: 6px 14px; border-radius: 16px; background: #f1e7ef; color: var(--brand); font-size: 14px; font-weight: 600; margin-bottom: 16px; }
+.qs h1.qs-hero { font-size: 36px; margin: 0 0 28px; }
+.qs-benefits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; text-align: left; }
+.qs-benefits li { display: flex; align-items: center; gap: 14px; font-size: 17px; }
+.qs-icon { flex: none; width: 40px; height: 40px; border-radius: 50%; background: #f1e7ef; display: flex; align-items: center; justify-content: center; }
+.qs-icon svg, .qs-swap svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; color: var(--brand); }
+.qs-links { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 8px; }
+.qs-links .text-link { min-height: 40px; font-size: 15px; }
+
+/* Cards and steppers */
+.qs-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; }
+.qs-people { padding: 22px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 16px; margin-bottom: 22px; }
+.qs-stepper { display: flex; align-items: center; gap: 18px; }
+.qs-stepper button {
+  width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--bg); color: var(--brand);
+  font: 500 24px var(--font); cursor: pointer;
+}
+.qs-stepper button:disabled { opacity: 0.4; cursor: default; }
+.qs-stepper span { min-width: 32px; text-align: center; font-size: 40px; font-weight: 700; color: var(--brand); }
+.qs-count { display: flex; align-items: center; justify-content: space-between; padding: 6px 6px 6px 16px; margin-bottom: 12px; font-size: 16px; font-weight: 600; }
+.qs-count .qs-stepper { gap: 10px; }
+.qs-count .qs-stepper button { width: 44px; height: 44px; font-size: 22px; }
+.qs-count .qs-stepper span { font-size: 22px; min-width: 24px; }
+.qs-tip { margin: 18px 0 0; padding: 12px 14px; border-radius: 14px; background: #f1e7ef; color: var(--brand); font-size: 14px; line-height: 1.45; }
+
+/* Labels and chips */
+.qs-label { margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--ink); }
+.qs-note { margin: 1px 0 8px; font-size: 13px; color: var(--muted); }
+.qs-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.qs-chip {
+  height: 34px; padding: 0 12px; border-radius: 17px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font: 500 14px var(--font); cursor: pointer;
+}
+.qs-chip.is-on { background: var(--brand); border-color: var(--brand); color: #fbf6ee; }
+.qs-segment { display: flex; margin-top: 8px; padding: 3px; border-radius: 24px; border: 1px solid var(--line); background: var(--surface); }
+.qs-segment button { flex: 1; height: 40px; border: 0; border-radius: 20px; background: none; color: var(--ink); font: 500 15px var(--font); cursor: pointer; }
+.qs-segment button.is-on { background: var(--brand); color: #fbf6ee; }
+
+/* Here's your week */
+.qs-meals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.qs-meals li { display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; }
+.qs-meals .food-photo { width: 56px; flex: none; border-radius: 10px; overflow: hidden; }
+.qs-meals div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.qs-meals strong { font-size: 15px; line-height: 1.3; }
+.qs-meals div span { font-size: 13px; color: var(--muted); }
+.qs-swap {
+  flex: none; height: 44px; padding: 0 12px; border-radius: 22px;
+  border: 1px solid var(--line); background: var(--bg); color: var(--accent);
+  font: 600 14px var(--font); display: flex; align-items: center; gap: 6px; cursor: pointer;
+}
+.qs-swap svg { width: 16px; height: 16px; color: var(--accent); }
+
+/* Your week is ready */
+.qs-tips { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.qs-tips li { display: flex; gap: 12px; align-items: flex-start; }
+.qs-tips li > span { flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--coral); color: var(--brand); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.qs-tips p { margin: 2px 0 0; font-size: 15px; line-height: 1.45; }
+.qs-tips strong { display: block; color: var(--brand); }
+.qs-lab { margin: 24px 0 0; padding: 12px 14px; border-radius: 14px; background: #f1e7ef; font-size: 14px; line-height: 1.5; }
+
+/* Wide screens (tablets in landscape, laptops, desktops): a centered card on a soft backdrop
+   instead of a phone-width strip, with room used for side-by-side layouts. */
+@media (min-width: 768px) and (min-height: 600px) {
+  .qs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: #f1e7ef;
+    overflow-y: auto;
+  }
+  .qs-screen {
+    height: auto;
+    min-height: min(680px, calc(100dvh - 64px));
+    max-height: calc(100dvh - 64px);
+    width: min(760px, 100%);
+    max-width: none;
+    margin: auto;
+    padding: 28px 48px 36px;
+    background: var(--bg);
+    border-radius: 28px;
+    box-shadow: 0 12px 48px rgb(74 22 70 / 0.12);
+  }
+  .qs h1 { font-size: 34px; margin-top: 16px; }
+  .qs h1.qs-hero { font-size: 48px; max-width: 14ch; }
+  .qs-sub { font-size: 17px; }
+  .qs-primary { width: auto; min-width: 280px; align-self: center; padding: 0 40px; }
+  .qs-top { margin: 0 -12px 8px; }
+
+  /* Welcome: benefits side by side */
+  .qs-benefits { flex-direction: row; gap: 20px; text-align: center; }
+  .qs-benefits li { flex: 1; flex-direction: column; gap: 12px; font-size: 16px; }
+  .qs-icon { width: 52px; height: 52px; }
+
+  /* Who's eating: stepper card and cook time side by side */
+  .qs-people { margin-bottom: 0; }
+
+  /* Filters: bigger chips with room to breathe */
+  .qs-chip { height: 40px; padding: 0 16px; font-size: 15px; }
+  .qs-chips { gap: 8px; }
+  .qs-label { margin-top: 20px; font-size: 16px; }
+
+  /* Here's your week: meals in two columns */
+  .qs-count { max-width: 420px; }
+  .qs-meals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .qs-meals .food-photo { width: 72px; }
+
+  /* Your week is ready: the three tips side by side */
+  .qs-tips { flex-direction: row; gap: 24px; margin-top: 8px; }
+  .qs-tips li { flex: 1; flex-direction: column; }
+}

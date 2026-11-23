@@ -41,6 +41,8 @@ class Session {
 
     /** Show the quick start tour. Set it from anywhere (More, Settings) to replay the tour. */
     var showTour by mutableStateOf(false)
+    /** The tour was opened from Settings (a replay), not by first run or an app update. */
+    var tourReplay by mutableStateOf(false)
     private var tourCheckedFor: String? = null
 
     /** First run: the tour once if the household hasn't finished the current version, or this device is on a new build. */
