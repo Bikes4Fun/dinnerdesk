@@ -80,6 +80,7 @@ from app.models import (
     FavoritePut,
     GroceryLineCreate,
     GroceryPatch,
+    GroceryPreferencesPatch,
     HouseholdPut,
     IngredientReviewAnswer,
     IngredientReviewAudit,
@@ -2639,11 +2640,20 @@ def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
     row = db.execute("SELECT * FROM households WHERE id = ?", (household_id,)).fetchone()
     if not row:
         raise HTTPException(404, {"error": "not_found", "detail": "household"})
-    try:
-        prefs = json.loads(row["prefs_json"] or "{}")
-    except json.JSONDecodeError:
-        raise
+    return _household_out(row)
+
+
+def _grocery_revisions(grocery: dict) -> dict[str, str]:
+    return {
+        key: hashlib.sha256(json.dumps(grocery.get(key), sort_keys=True).encode()).hexdigest()
+        for key in ("stores", "aisles")
+    }
+
+
+def _household_out(row) -> dict:
+    prefs = json.loads(row["prefs_json"] or "{}")
     grocery = prefs.get("grocery")
+    revisions = _grocery_revisions(grocery if isinstance(grocery, dict) else {})
     aisles = grocery.get("aisles") if isinstance(grocery, dict) else None
     if isinstance(aisles, list) and aisles:
         existing = {aisle.get("id") for aisle in aisles if isinstance(aisle, dict)}
@@ -2656,7 +2666,7 @@ def get_household_row(db: PgConnection = DbDep, household_id: int = HhDep):
             len(aisles),
         )
         aisles[other_index:other_index] = missing
-    return {"id": row["id"], "name": row["name"], "prefs": prefs}
+    return {"id": row["id"], "name": row["name"], "prefs": prefs, "grocery_revisions": revisions}
 
 
 # "Download my data" (#64): every table that holds this household's own data. Catalog
@@ -2756,6 +2766,49 @@ def export_household(request: Request, db: PgConnection = DbDep, household_id: i
         data, headers={"Content-Disposition": f'attachment; filename="dinnerdesk-data-{date.today().isoformat()}.json"'})
 
 
+def _lock_household_preferences(db: PgConnection, household_id: int):
+    row = db.execute("SELECT * FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
+    if not row:
+        raise HTTPException(404, {"error": "not_found", "detail": "household"})
+    return row
+
+
+def _clear_removed_stores(db: PgConnection, household_id: int, removed_stores: set[str]) -> None:
+    for store_id in removed_stores:
+        db.execute("UPDATE grocery_places SET store = '' WHERE household_id = ? AND store = ?", (household_id, store_id))
+        db.execute("UPDATE grocery_lines SET store = '' WHERE store = ? AND plan_id IN (SELECT id FROM plans WHERE household_id = ?)", (store_id, household_id))
+
+
+@router.patch("/household/grocery")
+def patch_grocery_preferences(
+    body: GroceryPreferencesPatch,
+    db: PgConnection = DbDep,
+    household_id: int = HhDep,
+):
+    household_filters(db, household_id)
+    with transaction(db):
+        row = _lock_household_preferences(db, household_id)
+        prefs = json.loads(row["prefs_json"] or "{}")
+        grocery = prefs.get("grocery")
+        if not isinstance(grocery, dict):
+            grocery = {}
+        revisions = _grocery_revisions(grocery)
+        if any(revisions[key] != expected for key, expected in body.expected_revisions.items()):
+            raise HTTPException(409, {"error": "grocery_preferences_changed", "household": _household_out(row)})
+        changes = body.model_dump(exclude_unset=True, exclude={"expected_revisions"})
+        if "stores" in changes:
+            previous = {store["id"] for store in grocery.get("stores", [])}
+            current = {store["id"] for store in changes["stores"]}
+            _clear_removed_stores(db, household_id, previous - current)
+        grocery.update(changes)
+        prefs["grocery"] = grocery
+        saved = db.execute(
+            "UPDATE households SET prefs_json = ? WHERE id = ? RETURNING id, name, prefs_json",
+            (json.dumps(prefs), household_id),
+        ).fetchone()
+    return _household_out(saved)
+
+
 @router.put("/household")
 def put_household(
     body: HouseholdPut,
@@ -2764,43 +2817,36 @@ def put_household(
 ):
     # Fold old Taste Lab filters in before this save, so a later read can't add them back on top.
     household_filters(db, household_id)
-    row = db.execute("SELECT * FROM households WHERE id = ?", (household_id,)).fetchone()
-    if not row:
-        raise HTTPException(404, {"error": "not_found", "detail": "household"})
-    try:
-        prefs = json.loads(row["prefs_json"] or "{}")
-    except json.JSONDecodeError:
-        raise
-    removed_stores = set()
-    if body.prefs is not None:
-        grocery = body.prefs.get("grocery")
-        if isinstance(grocery, dict) and "stores" in grocery:
-            previous = {store["id"] for store in prefs.get("grocery", {}).get("stores", [])}
-            current = {store["id"] for store in grocery["stores"]}
-            removed_stores = previous - current
-        saved_filters = prefs.get("filters")
-        # Resending the saved value (e.g. a screen that writes every pref back) must not re-tick
-        # pantry items the user has unchecked since (#172); only a real change touches the list.
-        auto_check_changed = (
-            "pantry_auto_check" in body.prefs
-            and bool(body.prefs["pantry_auto_check"]) != bool(prefs.get("pantry_auto_check"))
-        )
-        prefs.update(body.prefs)
-        if isinstance(body.prefs.get("filters"), dict):
-            # Settings, the tour and Taste Lab each send only what they show; merge so one
-            # screen can't wipe another's choices. Diets rule each other out; "none" isn't an avoid.
-            prefs["filters"] = merge_filters(saved_filters, body.prefs["filters"])
-    else:
-        auto_check_changed = False
-    name = body.name.strip() if body.name else row["name"]
     with transaction(db):
+        row = _lock_household_preferences(db, household_id)
+        prefs = json.loads(row["prefs_json"] or "{}")
+        removed_stores = set()
+        if body.prefs is not None:
+            grocery = body.prefs.get("grocery")
+            if isinstance(grocery, dict) and "stores" in grocery:
+                previous = {store["id"] for store in prefs.get("grocery", {}).get("stores", [])}
+                current = {store["id"] for store in grocery["stores"]}
+                removed_stores = previous - current
+            saved_filters = prefs.get("filters")
+            # Resending the saved value (e.g. a screen that writes every pref back) must not re-tick
+            # pantry items the user has unchecked since (#172); only a real change touches the list.
+            auto_check_changed = (
+                "pantry_auto_check" in body.prefs
+                and bool(body.prefs["pantry_auto_check"]) != bool(prefs.get("pantry_auto_check"))
+            )
+            prefs.update(body.prefs)
+            if isinstance(body.prefs.get("filters"), dict):
+                # Settings, the tour and Taste Lab each send only what they show; merge so one
+                # screen can't wipe another's choices. Diets rule each other out; "none" isn't an avoid.
+                prefs["filters"] = merge_filters(saved_filters, body.prefs["filters"])
+        else:
+            auto_check_changed = False
+        name = body.name.strip() if body.name else row["name"]
         db.execute(
             "UPDATE households SET name = ?, prefs_json = ? WHERE id = ?",
             (name, json.dumps(prefs), household_id),
         )
-        for store_id in removed_stores:
-            db.execute("UPDATE grocery_places SET store = '' WHERE household_id = ? AND store = ?", (household_id, store_id))
-            db.execute("UPDATE grocery_lines SET store = '' WHERE store = ? AND plan_id IN (SELECT id FROM plans WHERE household_id = ?)", (store_id, household_id))
+        _clear_removed_stores(db, household_id, removed_stores)
         if auto_check_changed:
             # Turning the switch on or off checks or unchecks pantry items on this week's list.
             plan_id = _plan_id_for_household(db, household_id)
@@ -3784,7 +3830,7 @@ def create_plan(body: PlanCreate, db: PgConnection = DbDep, household_id: int = 
         if not picked:
             raise HTTPException(409, "No matching suggestions. Loosen Settings → Filters or choose meals yourself.")
     with transaction(db):
-        db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+        db.execute("SELECT id FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
         if not body.draft and not picked:
             db.execute("UPDATE plans SET status = 'history' WHERE household_id = ? AND status = 'active'", (household_id,))
         cur = db.execute("INSERT INTO plans (household_id, start_date, days, title, created_at, status) VALUES (?, ?, ?, ?, ?, ?)",
@@ -3844,7 +3890,7 @@ def decide_suggestion(plan_id: int, decision: str, db: PgConnection = DbDep, hou
     if decision not in {"approve", "decline"}:
         raise HTTPException(400, "Unknown decision")
     with transaction(db):
-        db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+        db.execute("SELECT id FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
         plan = _plan_out(db, plan_id, household_id)
         if plan["status"] != "suggested":
             raise HTTPException(409, "This suggestion has already been reviewed")
@@ -3865,7 +3911,7 @@ def decide_suggestion(plan_id: int, decision: str, db: PgConnection = DbDep, hou
 @router.post("/plans/{plan_id}/swap/{slot_id}")
 def swap_suggestion(plan_id: int, slot_id: int, body: SuggestionSwap | None = None, db: PgConnection = DbDep, household_id: int = HhDep):
     with transaction(db):
-        db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+        db.execute("SELECT id FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
         plan = _plan_out(db, plan_id, household_id)
         if plan["status"] != "suggested":
             raise HTTPException(409, "Review a suggested plan to swap meals")
@@ -3940,7 +3986,7 @@ def _fresh_suggestion(db: PgConnection, household_id: int) -> int | None:
         stale = [s for s in plan["slots"] if s["recipe_id"] not in kept]
         picked, _, reasons, context, stamp, spares = _rank_proposal(db, household_id, len(stale), kept, current_ids, plan_id)
         with transaction(db):
-            db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+            db.execute("SELECT id FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
             now_row = db.execute("SELECT status, suggestion_json FROM plans WHERE id = ?", (plan_id,)).fetchone()
             if not now_row or now_row["status"] != "suggested" or now_row["suggestion_json"] != raw:
                 return plan_id  # reviewed, swapped or resized mid-rank; that change wins
@@ -4039,7 +4085,7 @@ def recipe_suggestions(db: PgConnection = DbDep, household_id: int = HhDep):
 @router.post("/plans/{plan_id}/resize")
 def resize_suggestion(plan_id: int, body: SuggestionResize, db: PgConnection = DbDep, household_id: int = HhDep):
     with transaction(db):
-        db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+        db.execute("SELECT id FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
         plan = _plan_out(db, plan_id, household_id)
         if plan["status"] != "suggested":
             raise HTTPException(409, "This plan has already been reviewed")
@@ -4083,7 +4129,7 @@ def suggestion_capabilities(household_id: int = HhDep):
 @router.delete("/plans/{plan_id}")
 def delete_saved_plan(plan_id: int, db: PgConnection = DbDep, household_id: int = HhDep):
     with transaction(db):
-        db.execute("SELECT id FROM households WHERE id = ? FOR UPDATE", (household_id,)).fetchone()
+        db.execute("SELECT id FROM households WHERE id = ? FOR NO KEY UPDATE", (household_id,)).fetchone()
         plan = _plan_out(db, plan_id, household_id)
         if plan["status"] == "active":
             raise HTTPException(409, "Your current plan cannot be deleted. Start another plan first.")
