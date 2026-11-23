@@ -9,7 +9,7 @@ export function HouseholdSharingNote() {
   );
 }
 
-/** The one-screen version for first open and sign up (privacy.short.* in copy.json). */
+/** The one-screen version for first open (sign up uses privacy.signup.note) (privacy.short.* in copy.json). */
 function ShortSummary() {
   return (
     <div className="privacy-summary is-compact">
@@ -32,7 +32,7 @@ function ShortSummary() {
 
 /**
  * The short version of the privacy policy: what we keep, what we never collect, who else can see it.
- * Full at the top of Privacy; `compact` is the one-screen version for first open and sign up. Words:
+ * Full at the top of Privacy; `compact` is the one-screen version for first open (sign up uses privacy.signup.note). Words:
  * privacy.* in copy.json, shared with iOS (PrivacySummaryView) and Android (PrivacySummary).
  */
 export function PrivacySummary({ compact = false }) {

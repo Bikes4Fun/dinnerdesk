@@ -14,7 +14,7 @@ struct HouseholdSharingNote: View {
 }
 
 /// The short version of the privacy policy: what we keep, what we never collect, who else can see it.
-/// Full at the top of Privacy; `compact` is the one-screen version for first open and sign up.
+/// Full at the top of Privacy; `compact` is the one-screen version for first open (sign up uses privacy.signup.note).
 /// Words: privacy.* in copy.json, shared with web (PrivacySummary.jsx) and Android (PrivacySummary).
 struct PrivacySummaryView: View {
   var compact = false

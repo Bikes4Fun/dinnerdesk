@@ -32,9 +32,9 @@ import build.computerscience.dinnerdesk.data.Copy
 
 /**
  * The short version of the privacy policy: what we keep, what we never collect, who else can see it.
- * Shown at the top of Privacy, on sign up, and on the first-open agreement screen. Words: privacy.*
- * in copy.json, shared with web (PrivacySummary.jsx) and iOS (PrivacySummaryView).
- * [compact] leaves out "Who else can see it" where space is tight.
+ * Words: privacy.* in copy.json, shared with web (PrivacySummary.jsx) and iOS (PrivacySummaryView).
+ * Full at the top of Privacy; [compact] is the one-screen version for first open: the don't-sell line,
+ * four "We keep" bullets, the household sharing note, and one "We never collect" sentence.
  */
 @Composable
 fun PrivacySummary(compact: Boolean = false) {
