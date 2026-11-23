@@ -16,7 +16,7 @@ def render() -> str:
     app = copy["app.name"]
     text = lambda key: copy[key].replace("{app}", app)
     out = ["# Privacy policy", "", "<!-- Written by scripts/write_privacy_md.py from copy.json. Edit copy.json, not this file. -->",
-           "", text("privacy.intro"), ""]
+           "", text("privacy.policy.intro"), ""]
     for i in range(1, int(copy["privacy.policy.count"]) + 1):
         out += [f"## {text(f'privacy.policy.{i}.title')}", "", text(f"privacy.policy.{i}"), ""]
     return "\n".join(out)

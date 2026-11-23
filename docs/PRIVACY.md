@@ -2,7 +2,7 @@
 
 <!-- Written by scripts/write_privacy_md.py from copy.json. Edit copy.json, not this file. -->
 
-Dinner Desk keeps only what it needs to plan your household's meals. Here's the short version.
+Dinner Desk is a meal planner for a household. This is what we store, and what we do with it.
 
 ## Agreeing to this policy
 
