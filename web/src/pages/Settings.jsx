@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api.js";
+import { Copy } from "../Copy.js";
 import { ADMIN_PAGES, go, inboxCount } from "../nav.js";
 import { ALLERGENS, AVOIDS, CUISINES, DIETS, PROTEINS, WHO, TIMES, DIET_LABELS, FilterOptions, cleanDiets, otherWords, toggleAvoid, toggleDiet } from "../diet.js";
 import { Tip } from "../Tip.jsx";
@@ -879,6 +880,7 @@ export function AccountSecurity() {
                     <Tip id="settings.invite-link">
                       Someone new opens this link and creates an account in your household, with the same recipes, plan, and grocery list. Someone who already has an account pastes this same link into Join a household. Expires in 7 days, one-time use.
                     </Tip>
+                    <p className="privacy-note">{Copy.text("privacy.invite.note")}</p>
                     <input className="field" aria-label="Household invite link" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
                     <button type="button" className="btn-secondary block" onClick={shareInvite}>
                       Copy link
@@ -900,7 +902,7 @@ export function AccountSecurity() {
                     <label className="block-label" htmlFor="join-household">Invite link</label>
                     <input id="join-household" className="field" placeholder="Paste the whole link" value={joinToken} onChange={(e) => setJoinToken(e.target.value)} />
                     <p className="help">The whole link works. The code at the end works too.</p>
-                    <button className="btn-secondary block" disabled={busy || !joinToken.trim()} onClick={() => { if (confirm("Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.")) householdAction(() => api.joinHousehold(joinToken.trim().split("/").pop())); }}>Join household</button>
+                    <button className="btn-secondary block" disabled={busy || !joinToken.trim()} onClick={() => { if (confirm(`Join this household? Your current solo kitchen will be removed; shared kitchens remain for their members.\n\n${Copy.text("privacy.join.note")}`)) householdAction(() => api.joinHousehold(joinToken.trim().split("/").pop())); }}>Join household</button>
                   </div>
                 </div>
               )}

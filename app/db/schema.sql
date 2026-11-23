@@ -331,6 +331,16 @@ CREATE TABLE IF NOT EXISTS privacy_agreements (
 
 CREATE INDEX IF NOT EXISTS privacy_agreements_user ON privacy_agreements(user_id);
 CREATE INDEX IF NOT EXISTS privacy_agreements_household ON privacy_agreements(household_id);
+-- One agreement per account (or per guest kitchen) per version. Clear any repeats saved
+-- before these indexes existed (a double tap), keeping the first.
+DELETE FROM privacy_agreements a USING privacy_agreements b
+  WHERE a.id > b.id AND a.policy_version = b.policy_version
+    AND ((a.user_id IS NOT NULL AND a.user_id = b.user_id)
+      OR (a.user_id IS NULL AND b.user_id IS NULL AND a.household_id = b.household_id));
+CREATE UNIQUE INDEX IF NOT EXISTS privacy_agreements_account_version
+  ON privacy_agreements(user_id, policy_version) WHERE user_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS privacy_agreements_guest_version
+  ON privacy_agreements(household_id, policy_version) WHERE user_id IS NULL;
 
 -- A crash the app caught in someone's browser, so it reaches the Inbox instead of the person
 -- using the app. One row per message per screen; a repeat bumps `seen` rather than piling up.
