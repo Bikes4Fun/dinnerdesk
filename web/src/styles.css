@@ -2302,3 +2302,45 @@ input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
   .privacy-agreement .privacy-summary.is-compact h2 { margin: 0.75rem 0 0.3rem; }
   .privacy-agreement .privacy-fine { margin: 0.4rem 0 0; }
 }
+
+/* ===== Desktop: one page layout for every screen (from 880px wide) =====
+   Every page used to pick its own width: some centered an 800px or 720px column, some ran
+   full width from the left, sub-pages kept the phone header (back arrow, centered title).
+   Now every page's header and body share one centered column with the same left edge, the
+   same big title, and the guest notice lines up with it. --col narrows it for reading pages. */
+@media (min-width: 880px) {
+  :root { --col: 920px; }
+  .screen.narrow, .screen.narrow.col-720 { --col: 920px; }
+  .screen > .top,
+  .screen > .scroll.pad,
+  .screen > .scroll > .acct {
+    padding-left: max(32px, calc((100% - var(--col)) / 2));
+    padding-right: max(32px, calc((100% - var(--col)) / 2));
+  }
+  .screen > .top { padding-top: 32px; padding-bottom: 12px; }
+  .screen > .scroll > .acct { max-width: none; }
+  .screen > .scroll > .acct > * { max-width: 640px; }
+  .guest-notice { width: auto; margin: 24px max(32px, calc((100% - var(--col)) / 2)) 0; }
+
+  /* Sub-pages: a desktop title, not the phone bar (left-aligned, big, no centered title). */
+  .top.sub { display: flex; align-items: center; gap: 12px; border-bottom: 0; }
+  .top.sub > span:empty { display: none; }
+  .top h1, .top.sub h1 { flex: 1; font-size: 34px; font-weight: 700; letter-spacing: -0.01em; text-align: left; }
+
+  /* Reading pages (Privacy, About, Support): comfortable line length inside the column. */
+  .scroll.pad.privacy > * { max-width: 720px; }
+  .scroll.pad.privacy > .privacy-summary { max-width: none; }
+
+  /* Sign in, invite links, reset and confirm pages: a card in the middle of the window. */
+  .app.is-auth .auth-pad:not(.privacy-agreement) {
+    max-width: 440px; margin: auto; padding: 40px 40px 32px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(74, 22, 70, 0.08);
+  }
+  .app.is-auth .auth-screen { overflow: auto; padding: 48px 24px; }
+  .app.is-auth .auth-pad:not(.privacy-agreement) { flex: 0 0 auto; overflow: visible; }
+  .app.is-auth .auth-pad:not(.privacy-agreement) .auth-brand { font-size: 2rem; }
+}
+
+/* Short link pairs (first open, sign in) stay on one line each. */
+.privacy-links .text-link, .auth-pad .text-link { white-space: nowrap; }

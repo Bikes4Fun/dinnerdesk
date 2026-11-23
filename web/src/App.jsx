@@ -87,8 +87,6 @@ function isOn(page, key) {
       page === "filters" ||
       page === "social" ||
       page === "newsletter" ||
-      page === "account-security" ||
-      page === "feedback" ||
       page === "taste-lab"
     );
   }
