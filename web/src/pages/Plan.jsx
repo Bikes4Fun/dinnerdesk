@@ -102,6 +102,12 @@ export function Plan() {
   }, [swapping, proposal?.id, swapQuery]);
   async function load() { setPlan(await api.plan()); setProposal((await api.pendingSuggestion()).plan); await week.load(); }
   useEffect(() => { load().catch((e) => setErr(e.message)); }, []);
+  // Quick start can approve a plan while Plan is already showing.
+  useEffect(() => {
+    const reload = () => { load().catch((e) => setErr(e.message)); week.load().catch((e) => setErr(e.message)); };
+    window.addEventListener("dinnerdesk-plan-changed", reload);
+    return () => window.removeEventListener("dinnerdesk-plan-changed", reload);
+  }, []);
 
   async function act(work) {
     setBusy(true); setErr(""); setMessage("");
