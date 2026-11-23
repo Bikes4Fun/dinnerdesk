@@ -345,9 +345,10 @@ struct TourView: View {
           tip(2, "Grocery", "Your list builds itself. Check things off in the store.")
           tip(3, "Prep ahead", "Got time on the weekend? See what you can chop and cook early.")
         }
-        HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 2) {
           Text("Want better picks next week?").foregroundStyle(Theme.ink)
-          Button("Try Taste Lab") { Task { await markDone(); showTasteLab = true } }
+          Button("Try Taste Lab (about 2 min)") { Task { await markDone(); showTasteLab = true } }
+            .frame(minHeight: 44)
         }
         .font(Self.small)
         .padding(14).frame(maxWidth: .infinity, alignment: .leading)

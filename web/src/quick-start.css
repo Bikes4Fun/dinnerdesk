@@ -119,3 +119,55 @@
 .qs-tips p { margin: 2px 0 0; font-size: 15px; line-height: 1.45; }
 .qs-tips strong { display: block; color: var(--brand); }
 .qs-lab { margin: 24px 0 0; padding: 12px 14px; border-radius: 14px; background: #f1e7ef; font-size: 14px; line-height: 1.5; }
+
+/* Wide screens (tablets in landscape, laptops, desktops): a centered card on a soft backdrop
+   instead of a phone-width strip, with room used for side-by-side layouts. */
+@media (min-width: 768px) and (min-height: 600px) {
+  .qs {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    background: #f1e7ef;
+    overflow-y: auto;
+  }
+  .qs-screen {
+    height: auto;
+    min-height: min(680px, calc(100dvh - 64px));
+    max-height: calc(100dvh - 64px);
+    width: min(760px, 100%);
+    max-width: none;
+    margin: auto;
+    padding: 28px 48px 36px;
+    background: var(--bg);
+    border-radius: 28px;
+    box-shadow: 0 12px 48px rgb(74 22 70 / 0.12);
+  }
+  .qs h1 { font-size: 34px; margin-top: 16px; }
+  .qs h1.qs-hero { font-size: 48px; max-width: 14ch; }
+  .qs-sub { font-size: 17px; }
+  .qs-primary { width: auto; min-width: 280px; align-self: center; padding: 0 40px; }
+  .qs-top { margin: 0 -12px 8px; }
+
+  /* Welcome: benefits side by side */
+  .qs-benefits { flex-direction: row; gap: 20px; text-align: center; }
+  .qs-benefits li { flex: 1; flex-direction: column; gap: 12px; font-size: 16px; }
+  .qs-icon { width: 52px; height: 52px; }
+
+  /* Who's eating: stepper card and cook time side by side */
+  .qs-people { margin-bottom: 0; }
+
+  /* Filters: bigger chips with room to breathe */
+  .qs-chip { height: 40px; padding: 0 16px; font-size: 15px; }
+  .qs-chips { gap: 8px; }
+  .qs-label { margin-top: 20px; font-size: 16px; }
+
+  /* Here's your week: meals in two columns */
+  .qs-count { max-width: 420px; }
+  .qs-meals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .qs-meals .food-photo { width: 72px; }
+
+  /* Your week is ready: the three tips side by side */
+  .qs-tips { flex-direction: row; gap: 24px; margin-top: 8px; }
+  .qs-tips li { flex: 1; flex-direction: column; }
+}

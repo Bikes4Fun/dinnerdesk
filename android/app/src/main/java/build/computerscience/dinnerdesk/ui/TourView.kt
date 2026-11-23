@@ -247,7 +247,7 @@ fun TourView() {
                     }
                     Primary("Get started", error, busy) { step = TourStep.Household }
                     LinkButton("Skip, I’ll look around", Modifier.fillMaxWidth(), enabled = !busy, style = Theme.chipLabel) { finish() }
-                    LinkButton(Copy.text("tour.ai.more"), Modifier.fillMaxWidth(), style = Theme.chipLabel) { openUrl(Api.url("support") + "#ai") }
+                    LinkButton("How we use AI", Modifier.fillMaxWidth(), style = Theme.chipLabel) { openUrl(Api.url("support") + "#ai") }
                 }
                 TourStep.Household -> {
                     Page {
