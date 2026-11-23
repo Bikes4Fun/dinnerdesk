@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -66,8 +67,8 @@ fun PrivacyAgreement() {
 
     Column(
         Modifier.fillMaxSize().background(Theme.bg).statusBarsPadding().navigationBarsPadding()
-            .verticalScroll(rememberScrollState()).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(Copy.appName, style = Theme.action, color = Theme.accent)
         Text(Copy.text("privacy.agree.title"), style = Theme.bigTitle, color = Theme.ink)
@@ -76,10 +77,7 @@ fun PrivacyAgreement() {
         PrivacySummary(compact = true)
 
         if (!signedIn) {
-            Text(
-                Copy.text("privacy.agree.device"), style = Theme.subtitle, color = Theme.accent,
-                modifier = Modifier.fillMaxWidth().background(Theme.aubergineTint, RoundedCornerShape(12.dp)).padding(12.dp),
-            )
+            Text(Copy.text("privacy.agree.device"), style = Theme.subtitle, color = Theme.muted)
         }
         error?.let { ErrorBanner(it) }
 
@@ -95,15 +93,15 @@ fun PrivacyAgreement() {
             Copy.text("privacy.agree.fine"), style = Theme.subtitle, color = Theme.muted,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
         )
-        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(20.dp, Alignment.CenterHorizontally)) {
             Text(
-                Copy.text("privacy.agree.read"), style = Theme.action, color = Theme.accent,
+                Copy.text("privacy.link"), style = Theme.action, color = Theme.accent,
                 modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button) { showPrivacy = true }.padding(10.dp),
             )
             if (!signedIn) {
                 // Back to the sign-in screen, which has Create account.
                 Text(
-                    "Create an account instead", style = Theme.action, color = Theme.accent,
+                    Copy.text("privacy.agree.account"), style = Theme.action, color = Theme.accent,
                     modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button) { session.guest = false }.padding(10.dp),
                 )
             }

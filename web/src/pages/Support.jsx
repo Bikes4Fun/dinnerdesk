@@ -28,7 +28,7 @@ export function Support() {
       </header>
       <div className="scroll pad privacy">
         <p>
-          Dinnerdesk plans a week of dinners for your household, builds the grocery list from those meals, and
+          Dinner Desk plans a week of dinners for your household, builds the grocery list from those meals, and
           lists make-ahead prep. Taste Lab, under More, learns which meals you like so later suggestions fit.
         </p>
 
@@ -61,7 +61,7 @@ export function Support() {
           <p className="muted">Loading…</p>
         ) : email ? (
           <p>
-            Email <a className="text-link" href={`mailto:${email}?subject=Dinnerdesk%20help`}>{email}</a>. Tell us
+            Email <a className="text-link" href={`mailto:${email}?subject=Dinner%20Desk%20help`}>{email}</a>. Tell us
             what you were doing, on iPhone or the website, and what you expected. A screenshot helps.
           </p>
         ) : (
