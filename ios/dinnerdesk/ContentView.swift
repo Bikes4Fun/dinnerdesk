@@ -58,6 +58,10 @@ struct ContentView: View {
       .onReceive(NotificationCenter.default.publisher(for: .dinnerdeskAccountChanged)) { _ in
         Task { await store.switchAccount() }
       }
+      // Quick start may have approved a plan and saved filters: show them.
+      .onReceive(NotificationCenter.default.publisher(for: .dinnerdeskTourFinished)) { _ in
+        Task { await store.loadAll() }
+      }
       // Coming back while the app is still in memory keeps the tab and screen the person left.
       // A fresh launch starts on Plan, since `tab` isn't saved anywhere.
       .onChange(of: scenePhase) { _, next in
