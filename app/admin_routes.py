@@ -7,6 +7,7 @@ browser, and the page's Export button downloads them.
 import json
 from pathlib import Path
 
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException
@@ -18,6 +19,7 @@ from app.db.database import PgConnection, now
 from app.deps import AdminDep, DbDep
 from app.domain.recipe_photos import usable_photo
 from app.domain.report_options import ReportCatalog
+from app.domain.taste_rank import learn
 from app.routes import _app_versions
 from app.mailer import mail_ready, reset_link, send_reset_email, send_verify_email, verify_link
 
@@ -69,6 +71,31 @@ def _recipe_tags(db: PgConnection) -> dict:
     return {"recipes": recipes, "suggestions": suggestions, "vocabulary": vocabulary, "source": "live"}
 
 
+def _taste_activity(db: PgConnection, user_id: int | None = None) -> dict:
+    if not db.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()["present"]:
+        return {}
+    account_filter = " AND u.id = ?" if user_id is not None else ""
+    params = (user_id,) if user_id is not None else ()
+    sessions = {
+        r["id"]: r["n"]
+        for r in db.execute(f"""SELECT u.id, COUNT(s.id) AS n FROM taste_people p
+            JOIN users u ON u.id::text = p.account_id
+            JOIN taste_sessions s ON s.person_id = p.id
+            WHERE TRUE{account_filter} GROUP BY u.id""", params)
+    }
+    snapshots = defaultdict(list)
+    for r in db.execute(f"""SELECT u.id, e.body FROM taste_events e
+        JOIN taste_sessions s ON s.id = e.session_id
+        JOIN taste_people p ON p.id = s.person_id
+        JOIN users u ON u.id::text = p.account_id
+        WHERE e.kind = 'snapshot'{account_filter} ORDER BY e.id""", params):
+        snapshot = json.loads(r["body"])
+        if isinstance(snapshot, dict):
+            snapshot["account_id"] = str(r["id"])
+            snapshots[r["id"]].append(snapshot)
+    return {uid: (count, learn(snapshots[uid], [])) for uid, count in sessions.items()}
+
+
 def _users(db: PgConnection, me) -> dict:
     sessions: dict[int, list] = {}
     # Expired sessions linger until their token is next used; they aren't signed in.
@@ -76,12 +103,12 @@ def _users(db: PgConnection, me) -> dict:
                         " ORDER BY created_at DESC", (now(),)):
         sessions.setdefault(r["user_id"], []).append({"id": auth.session_id(r["token"]), "created_at": r["created_at"],
                                                       "expires_at": r["expires_at"], "device": r["device"]})
-    taste: dict[str, int] = {}
-    if db.execute("SELECT to_regclass('taste_people') IS NOT NULL AS present").fetchone()["present"]:
-        for r in db.execute("""SELECT p.account_id, COUNT(s.id) AS n FROM taste_people p
-                               JOIN taste_sessions s ON s.person_id = p.id
-                               WHERE p.account_id IS NOT NULL GROUP BY p.account_id"""):
-            taste[r["account_id"]] = r["n"]
+    activity = {
+        uid: {"taste_sessions": count, "taste_likes": len(votes.liked) + len(votes.plan_liked),
+              "taste_dislikes": len(votes.passed)}
+        for uid, (count, votes) in _taste_activity(db).items()
+    }
+    empty_activity = {"taste_sessions": 0, "taste_likes": 0, "taste_dislikes": 0}
     users = [
         {"id": r["id"], "login": r["email"], "has_email": auth.has_email(r["email"]),
          "recovery_email": r["recovery_email"], "verified_at": r["email_verified_at"],
@@ -90,7 +117,7 @@ def _users(db: PgConnection, me) -> dict:
          # Accounts from before last seen was kept fall back to their newest sign-in.
          "last_seen": r["last_seen_at"] or max((x["created_at"] for x in sessions.get(r["id"], [])), default=None),
          "admin": auth.is_admin(r), "super": auth.is_admin_email(r["email"]), "sessions": sessions.get(r["id"], []),
-         "taste_sessions": taste.get(str(r["id"]), 0)}
+         **activity.get(r["id"], empty_activity)}
         for r in db.execute("""SELECT u.*, h.name AS household_name FROM users u
                                JOIN households h ON h.id = u.household_id ORDER BY u.id""")
     ]
@@ -310,6 +337,25 @@ def inbox_update(source: str, item_id: str, body: dict, _admin=AdminDep, db: PgC
     db.execute(f"UPDATE {table} SET {sets} WHERE {where}", (*changes.values(), *key))
     db.commit()
     return {"ok": True}
+
+
+@router.get("/admin/users/{user_id}/taste")
+def user_taste(user_id: int, _admin=AdminDep, db: PgConnection = DbDep):
+    if not db.execute("SELECT 1 FROM users WHERE id = ?", (user_id,)).fetchone():
+        raise HTTPException(404, {"error": "not_found", "detail": "account"})
+    activity = _taste_activity(db, user_id).get(user_id)
+    ratings = []
+    if activity:
+        _, votes = activity
+        recipe_ids = sorted(votes.liked | votes.plan_liked | votes.passed)
+        names = {
+            str(r["id"]): r["name"] for r in db.execute(
+                "SELECT id, name FROM recipes WHERE id::text = ANY(?)", (recipe_ids,))
+        }
+        ratings = [{"recipe_id": rid, "name": names.get(rid), "liked": rid not in votes.passed}
+                   for rid in recipe_ids]
+        ratings.sort(key=lambda rating: (not rating["liked"], (rating["name"] or "").casefold()))
+    return JSONResponse({"ratings": ratings}, headers={"Cache-Control": "no-store"})
 
 
 @router.post("/admin/users/{user_id}/{action}")

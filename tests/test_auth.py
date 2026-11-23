@@ -716,12 +716,26 @@ def test_admin_resets_taste_lab(tmp_path):
             db.execute("INSERT INTO taste_sessions (id, person_id, created_at, updated_at) VALUES (?, ?, ?, ?)", ("s1", pid, "t", "t"))
             db.execute("INSERT INTO taste_events (session_id, t, kind, body) VALUES (?, ?, 'snapshot', ?)",
                        ("s1", "t", json.dumps({"swipes": [{"recipe_id": "7", "liked": False}]})))
+            db.execute("INSERT INTO taste_sessions (id, person_id, created_at, updated_at) VALUES (?, ?, ?, ?)", ("s2", pid, "t", "t"))
+            db.execute("INSERT INTO taste_events (session_id, t, kind, body) VALUES (?, ?, 'snapshot', ?)",
+                       ("s2", "t", json.dumps({"swipes": [{"recipe_id": "7", "liked": True},
+                                                         {"recipe_id": "8", "liked": False}]})))
             db.commit()
-        assert '"taste_sessions": 1' in admin.get("/admin/users").text
+        page = admin.get("/admin/users").text
+        assert '"taste_sessions": 2, "taste_likes": 1, "taste_dislikes": 1' in page
+        url = f"/admin/users/{uid}/taste"
+        assert user.get(url).status_code == 403
+        assert admin.get(url).json()["ratings"] == [
+            {"recipe_id": "7", "name": None, "liked": True},
+            {"recipe_id": "8", "name": None, "liked": False},
+        ]
+        assert user.post(f"/admin/users/{uid}/reset-taste", json={}).status_code == 403
         assert admin.post(f"/admin/users/{uid}/reset-taste", json={}).status_code == 200
+        assert admin.get(url).json() == {"ratings": []}
+        assert '"taste_sessions": 0, "taste_likes": 0, "taste_dislikes": 0' in admin.get("/admin/users").text
         with connect() as db:
             assert not db.execute("SELECT 1 FROM taste_people WHERE account_id = ?", (str(uid),)).fetchone()
-            assert json.loads(db.execute("SELECT votes_json FROM anonymous_taste_history").fetchone()["votes_json"]) == {"7": "pass"}
+            assert json.loads(db.execute("SELECT votes_json FROM anonymous_taste_history").fetchone()["votes_json"]) == {"7": "like", "8": "pass"}
 
 
 def test_admin_emails_reset_and_confirm_links(tmp_path, monkeypatch):
