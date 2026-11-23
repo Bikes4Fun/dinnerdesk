@@ -32,8 +32,8 @@ export class RecipeCollections {
     ["fav", "Your favorites"],
     ["try", "To try"],
     ["popular", "Popular"],
-    ["quick", "Quick"],
     ["reviewed", "Kitchen-tested"],
+    ["quick", "Quick"],
     ["hidden", "Hidden"],
     ["soon", "Coming soon"],
   ];
