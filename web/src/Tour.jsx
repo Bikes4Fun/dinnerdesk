@@ -1,26 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "./api.js";
 import { go } from "./nav.js";
-import { AVOIDS, DIETS, TIMES, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
-import { TourPicture } from "./TourPicture.jsx";
-import { Sparkle, Tip } from "./Tip.jsx";
+import { ALLERGENS, AVOIDS, DIETS, DIET_LABELS, TIMES, cleanDiets, toggleAvoid, toggleDiet } from "./diet.js";
 import { Notice } from "./Notice.jsx";
-import { Copy } from "./Copy.js";
-// Real iPhone screenshots for how-to cards, by card index; the others use TourPicture.
-import suggestionsShot from "./images/tour-suggestions.jpg";
-import storesShot from "./images/tour-stores.jpg";
-
-// Order chosen on #24: Suggestions, Review and approve, Grocery, Weekend prep, Recipes and tips,
-// Taste Lab. Same order and pictures as TourView.swift and TourView.kt.
-const SHOTS = { 0: suggestionsShot, 2: storesShot };
-// Drawn pictures (TourPicture: 0 suggestions, 3 prep).
-const DRAWINGS = { 1: 0, 3: 3 };
-// The recipes and tips card shows a real tip instead of a picture.
-const TIPS_CARD = 4;
-
-// One wording source for web, iOS and Android.
-const HOW = Copy.steps("tour.how", 6);
-const AI = Copy.steps("tour.ai", 4).map(({ title, body }) => [title, body]);
+import FoodPhoto from "./FoodPhoto.jsx";
+import "./quick-start.css";
 
 // One line for the notice; Details shows the rest.
 const UPDATE_SHORT = "More varied meal plans, cuisine and protein filters, and 58 new recipes.";
@@ -78,29 +62,76 @@ export function WhatsNew() {
   );
 }
 
+// Quick start: five full screens, one job each, each fitting one phone screen (down to 360×780)
+// without scrolling. Same steps and words as TourView.swift and TourView.kt.
+const STEPS = ["welcome", "household", "avoid", "week", "ready"];
+// Settings shows the first six "I avoid" foods as chips; the tour shows the same six.
+const COMMON_AVOIDS = AVOIDS.slice(0, 6);
+const MAX_DINNERS = 7;
+
+function cap(s) {
+  return s ? s[0].toUpperCase() + s.slice(1) : s;
+}
+
+function Chip({ on, children, onClick }) {
+  return (
+    <button type="button" className={`qs-chip${on ? " is-on" : ""}`} aria-pressed={on} onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function Stepper({ value, min, max, onChange, label, busy }) {
+  return (
+    <div className="qs-stepper">
+      <button type="button" aria-label={`Fewer ${label}`} disabled={busy || value <= min} onClick={() => onChange(value - 1)}>−</button>
+      <span aria-live="polite">{value}</span>
+      <button type="button" aria-label={`More ${label}`} disabled={busy || value >= max} onClick={() => onChange(value + 1)}>+</button>
+    </div>
+  );
+}
+
 export function Tour() {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState("welcome");
-  const [how, setHow] = useState(0);
-  const [diets, setDiets] = useState(["omnivore"]);
-  const [avoids, setAvoids] = useState([]);
-  const [time, setTime] = useState("any");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  // The household's saved filters, so saving the tour's choices keeps the ones it doesn't show.
+  const [saved, setSaved] = useState({});
+  const [people, setPeople] = useState(2);
+  const [time, setTime] = useState("any");
+  const [diets, setDiets] = useState(["omnivore"]);
+  const [allergens, setAllergens] = useState([]);
+  const [avoids, setAvoids] = useState([]);
+  const [dinners, setDinners] = useState(3);
+  const [proposal, setProposal] = useState(null);
+  const [plan, setPlan] = useState(null);
+  const [toBuy, setToBuy] = useState(null);
+
+  function load(hh) {
+    const f = hh.prefs?.filters || {};
+    setSaved(f);
+    if (Array.isArray(f.diets) && f.diets.length) setDiets(cleanDiets(f.diets));
+    if (Array.isArray(f.allergens)) setAllergens(f.allergens);
+    if (Array.isArray(f.avoids)) setAvoids(f.avoids);
+    if (f.time) setTime(f.time);
+    const n = Number(hh.prefs?.family_portions);
+    if (n >= 1) setPeople(Math.min(12, n));
+  }
 
   useEffect(() => {
+    // Replay from Settings skips the welcome screen.
     function start() {
-      setStep("welcome");
-      setHow(0);
+      setErr(""); setProposal(null); setPlan(null); setToBuy(null);
+      setStep("household");
       setOpen(true);
+      api.household().then(load).catch(() => {});
     }
     window.addEventListener("dinnerdesk-tour", start);
     api
       .household()
       .then((hh) => {
-        const f = hh.prefs?.filters || {};
-        if (Array.isArray(f.diets) && f.diets.length) setDiets(cleanDiets(f.diets));
-        if (Array.isArray(f.avoids)) setAvoids(f.avoids);
-        if (f.time) setTime(f.time);
+        load(hh);
         // Only a first visit opens the tour; after a major update WhatsNew shows a notice instead.
         if (tourSeen(hh.prefs) === 0) setOpen(true);
       })
@@ -108,7 +139,14 @@ export function Tour() {
     return () => window.removeEventListener("dinnerdesk-tour", start);
   }, []);
 
-  /** Ends the tour; `to` is where to go next, or null to stay on this page. */
+  async function act(fn) {
+    setBusy(true); setErr("");
+    try { await fn(); } catch (e) { setErr(e.message || "Something went wrong. Try again."); }
+    finally { setBusy(false); }
+  }
+
+  /** Ends the tour; `to` is where to go next, or null to stay on this page. A suggested plan
+   *  that wasn't approved stays on Plan for review. */
   async function finish(to = null) {
     setBusy(true);
     try {
@@ -122,164 +160,196 @@ export function Tour() {
     if (to) go(to);
   }
 
-  // Filters come before the how-to cards (#24), so they're saved on Next: skipping later keeps them.
-  async function saveFilters() {
-    setBusy(true);
-    try {
-      await api.putHousehold({ prefs: { filters: { diets, avoids, time } } });
-    } finally { setBusy(false); }
-    setStep("how");
-  }
+  const saveHousehold = () => act(async () => {
+    await api.putHousehold({ prefs: { family_portions: people, filters: { ...saved, time } } });
+    setSaved({ ...saved, time });
+    setStep("avoid");
+  });
 
-  async function pickTasteLab() {
-    await finish();
-    go("/settings/tastelab");
-  }
+  // Saves the filters, then asks for a suggested plan that respects them.
+  const saveFilters = () => act(async () => {
+    const filters = { ...saved, diets, allergens, avoids, time };
+    await api.putHousehold({ prefs: { filters } });
+    setSaved(filters);
+    const caps = await api.suggestionCapabilities();
+    if (caps.version < 2 || !caps.review || !caps.resize || !caps.swap) throw new Error("Meal planning needs the updated server. Please try again after the server update.");
+    const created = await api.createPlan({ meal_count: dinners, keep_current: false });
+    setProposal(created);
+    setDinners(created.slots?.length || dinners);
+    setStep("week");
+  });
+
+  const resize = (n) => act(async () => {
+    setDinners(n);
+    setProposal(await api.resizeSuggestion(proposal.id, n));
+  });
+
+  // Swap brings in the next-best match; the server records it as a pass for Taste Lab.
+  const swap = (slot) => act(async () => setProposal(await api.swapSuggestion(proposal.id, slot.id)));
+
+  const approve = () => act(async () => {
+    const approved = proposal.status === "suggested" ? await api.decideSuggestion(proposal.id, "approve") : proposal;
+    setPlan(approved);
+    setStep("ready");
+    try {
+      const g = await api.grocery(approved.id);
+      setToBuy((g.lines || []).filter((l) => !l.checked && !l.never_shop).length);
+    } catch { setToBuy(null); }
+  });
 
   if (!open) return null;
 
-  const howStep = HOW[how];
+  const index = STEPS.indexOf(step);
+  const back = { avoid: "household", week: "avoid" }[step];
+
+  function Top() {
+    return (
+      <div className="qs-top">
+        {back ? (
+          <button type="button" className="qs-back" aria-label="Back" disabled={busy} onClick={() => { setErr(""); setStep(back); }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+        ) : <span className="qs-back" aria-hidden="true" />}
+        <div className="qs-progress" role="progressbar" aria-valuemin={1} aria-valuemax={STEPS.length} aria-valuenow={index + 1} aria-label={`Step ${index + 1} of ${STEPS.length}`}>
+          {STEPS.map((s, i) => <span key={s} className={i <= index ? "is-on" : ""} />)}
+        </div>
+        {step !== "ready" ? (
+          <button type="button" className="text-link qs-skip" disabled={busy} onClick={() => finish(proposal ? "/" : "/recipes")}>Skip</button>
+        ) : <span className="qs-skip" />}
+      </div>
+    );
+  }
+
+  const slots = proposal?.slots || [];
+  const mealCount = (plan?.slots || slots).length;
 
   return (
-    <div className="tour-scrim" role="dialog" aria-modal="true" aria-labelledby="tour-title">
-      <div className="tour-card">
+    <div className="qs" role="dialog" aria-modal="true" aria-labelledby="qs-title">
+      <div className="qs-screen">
         {step === "welcome" && (
           <>
-            <h2 id="tour-title">Welcome to Dinnerdesk</h2>
-            <p className="help" data-tip="tour.welcome">
-              Quick start walks through eat and how. Taste Lab is the swipe kitchen. Skip anytime.
-            </p>
-            <div className="tour-actions">
-              <button type="button" className="btn-primary" onClick={() => setStep("ai")}>
-                Quick start
-              </button>
-              <button type="button" className="btn-secondary" disabled={busy} onClick={pickTasteLab}>
-                Taste Lab
-              </button>
-              <button type="button" className="text-link" disabled={busy} onClick={() => finish()}>
-                Skip
-              </button>
+            <div className="qs-center">
+              <span className="qs-pill">Free. No ads, ever.</span>
+              <h1 id="qs-title" className="qs-hero">Custom meal plans in 5 minutes.</h1>
+              <ul className="qs-benefits">
+                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2" /></svg></span>Grocery list built for you</li>
+                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8" /><path d="M12 9v4l2.5 2.5M9 2h6" /></svg></span>Prep-ahead steps for busy nights</li>
+                <li><span className="qs-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19c0-8 6-14 15-14-1 9-6 15-14 15" /><path d="M5 19l7-7" /></svg></span>Less waste, using your pantry</li>
+              </ul>
+            </div>
+            <button type="button" className="qs-primary" onClick={() => setStep("household")}>Get started</button>
+            <div className="qs-links">
+              <button type="button" className="text-link" disabled={busy} onClick={() => finish("/recipes")}>Skip, I’ll look around</button>
+              <a className="text-link" href="/support#ai" target="_blank" rel="noopener">How we use AI</a>
             </div>
           </>
         )}
-        {step === "eat" && (
+
+        {step === "household" && (
           <>
-            {/* Same words as tour.filters.* in ios/dinnerdesk/copy.json. */}
-            <h2 id="tour-title">What do you eat?</h2>
-            <p className="help" data-tip="tour.filters">Tap what fits, and suggestions are made for your household. Change this anytime in Settings → Filters.</p>
-            <h3 className="block-label">Diet</h3>
-            <div className="chip-row wrap filter-chips">
-              {DIETS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`chip${diets.includes(d) ? " is-on" : ""}`}
-                  onClick={() => setDiets(toggleDiet(diets, d))}
-                >
-                  {d}
-                </button>
-              ))}
+            <Top />
+            <div className="qs-body">
+              <h1 id="qs-title">Who’s eating dinner?</h1>
+              <p className="qs-sub">We’ll size recipes and the grocery list to match.</p>
+              <div className="qs-card qs-people">
+                <Stepper value={people} min={1} max={12} label="people" busy={busy} onChange={setPeople} />
+                <span>people, most nights</span>
+              </div>
+              <h2 className="qs-label">Weeknight cook time</h2>
+              <div className="qs-segment" role="radiogroup" aria-label="Weeknight cook time">
+                {TIMES.map(([id, label]) => (
+                  <button key={id} type="button" role="radio" aria-checked={time === id} className={time === id ? "is-on" : ""} onClick={() => setTime(id)}>
+                    {label.replace(" or less", "").replace("Any time", "Any")}
+                  </button>
+                ))}
+              </div>
+              <p className="qs-tip">Feeding a crowd one night? Change servings on any single meal later.</p>
             </div>
-            <h3 className="block-label">Avoid</h3>
-            <div className="chip-row wrap filter-chips">
-              <button type="button" className={`chip${avoids.length ? "" : " is-on"}`} onClick={() => setAvoids([])}>
-                none
-              </button>
-              {AVOIDS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  className={`chip${avoids.includes(d) ? " is-on" : ""}`}
-                  onClick={() => setAvoids(toggleAvoid(avoids, d))}
-                >
-                  {d}
-                </button>
-              ))}
-            </div>
-            <h3 className="block-label">Cook time</h3>
-            <div className="chip-row wrap filter-chips">
-              {TIMES.map(([id, label]) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={`chip${time === id ? " is-on" : ""}`}
-                  onClick={() => setTime(id)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <button type="button" className="btn-primary block" disabled={busy} onClick={saveFilters}>
-              {busy ? "Saving…" : "Next"}
-            </button>
-            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish("/recipes")}>
-              Skip the tour
-            </button>
+            {err && <p className="qs-err" role="alert">{err}</p>}
+            <button type="button" className="qs-primary" disabled={busy} onClick={saveHousehold}>{busy ? "Saving…" : "Next"}</button>
           </>
         )}
-        {step === "ai" && (
+
+        {step === "avoid" && (
           <>
-            <h2 id="tour-title">How we use AI</h2>
-            <ul className="tour-points">
-              {AI.map(([title, body], i) => (
-                <li key={title} data-tip={`tour.ai.${i + 1}`}>
-                  <strong>{title}</strong>
-                  <span>{body}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="tour-more">
-              <a className="text-link" href="/support#ai" target="_blank" rel="noopener">More about how we use AI</a>
-            </p>
-            <button type="button" className="btn-primary block" onClick={() => setStep("eat")}>
-              Next
-            </button>
-            <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish("/recipes")}>
-              Skip the tour
-            </button>
+            <Top />
+            <div className="qs-body">
+              <h1 id="qs-title">Anything to avoid?</h1>
+              <h2 className="qs-label">Diet</h2>
+              <p className="qs-note">Only show recipes that fit.</p>
+              <div className="qs-chips">
+                {DIETS.map((d) => <Chip key={d} on={diets.includes(d)} onClick={() => setDiets(toggleDiet(diets, d))}>{DIET_LABELS[d] || d}</Chip>)}
+              </div>
+              <h2 className="qs-label">Allergies</h2>
+              <p className="qs-note">Never shown. We check every ingredient.</p>
+              <div className="qs-chips">
+                {ALLERGENS.map(([id, text]) => <Chip key={id} on={allergens.includes(id)} onClick={() => setAllergens(toggleAvoid(allergens, id))}>{text}</Chip>)}
+              </div>
+              <h2 className="qs-label">I avoid</h2>
+              <p className="qs-note">Left out of picks. More in Settings → Filters.</p>
+              <div className="qs-chips">
+                {COMMON_AVOIDS.map((id) => <Chip key={id} on={avoids.includes(id)} onClick={() => setAvoids(toggleAvoid(avoids, id))}>{cap(id)}</Chip>)}
+              </div>
+            </div>
+            {err && <p className="qs-err" role="alert">{err}</p>}
+            <button type="button" className="qs-primary" disabled={busy} onClick={saveFilters}>{busy ? "Planning your week…" : "Next"}</button>
           </>
         )}
-        {step === "how" && howStep && (
+
+        {step === "week" && (
           <>
-            <p className="tour-kicker">
-              How to use · {how + 1} of {HOW.length}
-            </p>
-            <h2 id="tour-title">{howStep.title}</h2>
-            <p className="help tour-how-text" data-tip={`tour.how.${how + 1}`}>{howStep.body}</p>
-            {SHOTS[how] ? (
-              <>
-                {how === 0 && (
-                  <p className="tour-tap">
-                    On Plan, tap <span className="tour-fake-btn"><Sparkle /> New meal plan</span>
-                  </p>
-                )}
-                <img className="tour-shot" src={SHOTS[how]} alt="" />
-              </>
-            ) : DRAWINGS[how] !== undefined ? (
-              <TourPicture index={DRAWINGS[how]} />
-            ) : how === TIPS_CARD ? (
-              <Tip id="recipes.ai-photo">This photo was made with AI. It shows the kind of dish, not this exact recipe.</Tip>
-            ) : null}
-            {how + 1 < HOW.length ? (
-              <>
-                <button type="button" className="btn-primary block" onClick={() => setHow(how + 1)}>
-                  Next
-                </button>
-                <button type="button" className="text-link tour-skip" disabled={busy} onClick={() => finish("/recipes")}>
-                  Skip rest
-                </button>
-              </>
-            ) : (
-              // Last card (Taste Lab): start planning, or try Taste Lab now.
-              <>
-                <button type="button" className="btn-primary block" disabled={busy} onClick={() => finish("/")}>
-                  {busy ? "Saving…" : "Start planning"}
-                </button>
-                <button type="button" className="btn-secondary block" disabled={busy} onClick={pickTasteLab}>
-                  Try Taste Lab
-                </button>
-              </>
-            )}
+            <Top />
+            <div className="qs-body">
+              <h1 id="qs-title">Here’s your week</h1>
+              <p className="qs-sub">Picked for you. Swap anything that doesn’t sound good.</p>
+              <div className="qs-card qs-count">
+                <span>Dinners this week</span>
+                <Stepper value={dinners} min={1} max={MAX_DINNERS} label="dinners" busy={busy} onChange={resize} />
+              </div>
+              <ul className="qs-meals">
+                {slots.map((s) => (
+                  <li key={s.id}>
+                    <FoodPhoto path={s.photo_path} />
+                    <div>
+                      <strong>{s.recipe_name}</strong>
+                      {s.cooking_minutes ? <span>{s.cooking_minutes} min</span> : null}
+                    </div>
+                    {proposal.suggested_recipe_ids?.includes(s.recipe_id) && (
+                      <button type="button" className="qs-swap" disabled={busy} aria-label={`Swap ${s.recipe_name}`} onClick={() => swap(s)}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h13l-3-3M20 17H7l3 3" /></svg>Swap
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {err && <p className="qs-err" role="alert">{err}</p>}
+            <button type="button" className="qs-primary" disabled={busy || !slots.length} onClick={approve}>Looks good</button>
+          </>
+        )}
+
+        {step === "ready" && (
+          <>
+            <Top />
+            <div className="qs-body">
+              <h1 id="qs-title">Your week is ready</h1>
+              <p className="qs-sub">
+                {mealCount} dinner{mealCount === 1 ? "" : "s"} for {people}
+                {toBuy != null ? ` · ${toBuy} thing${toBuy === 1 ? "" : "s"} to buy` : ""}
+              </p>
+              <ol className="qs-tips">
+                <li><span>1</span><p><strong>Plan</strong> Give meals a day when you know it. No rush, they stay on your list.</p></li>
+                <li><span>2</span><p><strong>Grocery</strong> Your list builds itself. Check things off in the store.</p></li>
+                <li><span>3</span><p><strong>Prep ahead</strong> Got time on the weekend? See what you can chop and cook early.</p></li>
+              </ol>
+              <p className="qs-lab">
+                Want better picks next week?{" "}
+                <button type="button" className="text-link" disabled={busy} onClick={() => finish("/settings/tastelab?swipe=1")}>Try Taste Lab</button>
+                {" "}(about 2 min)
+              </p>
+            </div>
+            {err && <p className="qs-err" role="alert">{err}</p>}
+            <button type="button" className="qs-primary" disabled={busy} onClick={() => finish("/")}>Done</button>
           </>
         )}
       </div>
