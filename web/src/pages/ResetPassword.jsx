@@ -1,3 +1,4 @@
+import { Copy } from "../Copy.js";
 import { useState } from "react";
 import { api } from "../api.js";
 import { go } from "../nav.js";
@@ -36,7 +37,7 @@ export function ResetPassword({ token, onAuthed }) {
     <div className="app is-auth">
       <section className="screen auth-screen">
         <div className="scroll pad auth-pad">
-          <div className="brand auth-brand">Dinnerdesk</div>
+          <div className="brand auth-brand">{Copy.text("app.name")}</div>
           <h1 className="auth-title">Set a new password</h1>
           {err ? <p className="banner err" role="alert">{err}</p> : null}
           {done ? (

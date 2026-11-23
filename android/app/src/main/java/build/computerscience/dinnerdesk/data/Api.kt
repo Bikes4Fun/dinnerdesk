@@ -221,7 +221,7 @@ object Api {
 class ApiError(val code: Int, val body: String) : Exception() {
     override val message: String
         get() {
-            if (code == 404 || code == 405) return "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinnerdesk support."
+            if (code == 404 || code == 405) return "This action is currently unavailable. Please try again later. If it keeps happening, contact Dinner Desk support."
             if (code >= 500) return "The server couldn't complete this action. Please try again shortly."
             try {
                 val obj = Api.json.parseToJsonElement(body) as? JsonObject

@@ -1,3 +1,4 @@
+import { Copy } from "./Copy.js";
 import { useEffect, useRef, useState } from "react";
 import FoodPhoto from "./FoodPhoto.jsx";
 import { RecipeStatusLine } from "./ReviewedBadge.jsx";
@@ -142,7 +143,7 @@ export function RecipeTileFlagButton({ onClick, corner = RecipeTileCorner.topTra
 
 export function RecipeTileKitchenTestedBadge({ corner = RecipeTileCorner.topLeading }) {
   return (
-    <RecipeTilePhotoOverlay corner={corner} mode="static" label="Kitchen-tested by Dinnerdesk">
+    <RecipeTilePhotoOverlay corner={corner} mode="static" label={Copy.text("recipe.reviewed.description")}>
       ✓
     </RecipeTilePhotoOverlay>
   );

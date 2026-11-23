@@ -51,7 +51,7 @@ export function Auth({ onAuthed }) {
     <div className="app is-auth">
       <section className="screen auth-screen">
         <div className="scroll pad auth-pad">
-          <div className="brand auth-brand">Dinnerdesk</div>
+          <div className="brand auth-brand">{Copy.text("app.name")}</div>
           <h1 className="auth-title">
             {mode === "signup" ? "Create your household" : mode === "forgot" ? "Reset your password" : "Welcome back"}
           </h1>

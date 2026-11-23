@@ -6,7 +6,7 @@ export function About() {
       </header>
       <div className="scroll pad privacy">
         <p>
-          Dinnerdesk is a household meal planner. It suggests the week’s dinners, builds the grocery list from those meals, and lists the prep you can do ahead. The same kitchen works on the iPhone app and the website.
+          Dinner Desk is a household meal planner. It suggests the week’s dinners, builds the grocery list from those meals, and lists the prep you can do ahead. The same kitchen works on the iPhone app and the website.
         </p>
         <p>
           It is built as one product on three surfaces: a SwiftUI iPhone app, a React website, and a Python API on PostgreSQL. A household shares one plan, grocery list, pantry, and preferences. Guests can use the app without an account; creating one keeps that kitchen.
