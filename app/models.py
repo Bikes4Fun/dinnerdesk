@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, model_validator
 from app.domain.report_options import ReportCatalog
 
 
@@ -95,6 +95,42 @@ class IngredientReviewAuditResolution(BaseModel):
 class HouseholdPut(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     prefs: dict | None = None
+
+
+class GroceryStorePreference(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+
+
+class GroceryAislePreference(GroceryStorePreference):
+    number: str = ""
+
+
+class GroceryPreferencesPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    groupByStore: StrictBool | None = None
+    showMeals: StrictBool | None = None
+    hideChecked: StrictBool | None = None
+    showAisleNums: StrictBool | None = None
+    showEmoji: StrictBool | None = None
+    stores: list[GroceryStorePreference] | None = None
+    aisles: list[GroceryAislePreference] | None = None
+    expected_revisions: dict[Literal["stores", "aisles"], str] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def validate_patch(self):
+        changes = self.model_fields_set - {"expected_revisions"}
+        if not changes or any(getattr(self, key) is None for key in changes):
+            raise ValueError("Provide one or more non-null grocery preferences")
+        lists = changes & {"stores", "aisles"}
+        if lists != self.expected_revisions.keys():
+            raise ValueError("Provide an expected revision for each list being changed")
+        for key in lists:
+            entries = getattr(self, key)
+            if len({entry.id for entry in entries}) != len(entries):
+                raise ValueError(f"Duplicate IDs in {key}")
+        return self
 
 
 class SlotIn(BaseModel):
