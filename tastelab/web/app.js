@@ -266,8 +266,10 @@ const macros = (r) => {
 
   const photo = (url, name, cls = "") => {
     const letter = esc((name || "?").slice(0, 1));
+    // Placeholder via onerror uses a data attribute (not a string-built outerHTML) so a
+    // recipe name can't break out of the attribute into HTML.
     const content = url
-      ? `<img src="${esc(url)}" alt="" onerror="this.outerHTML='<div class=&quot;ph&quot;>${letter}</div>'" />`
+      ? `<img src="${esc(url)}" alt="" data-ph="${letter}" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ph',textContent:this.dataset.ph||'?'}))" />`
       : `<div class="ph">${letter}</div>`;
     return `<div class="food-photo ${cls}">${content}</div>`;
   };
@@ -839,7 +841,16 @@ const macros = (r) => {
     if (state.photoReport) {
       app.firstElementChild.inert = true;
       app.insertAdjacentHTML("beforeend", photoReportSheet());
-      app.querySelector("[data-photo-report-note]")?.focus();
+      // Set user text via DOM properties, not HTML interpolation (CodeQL js/xss-through-dom).
+      const nameEl = app.querySelector("[data-photo-report-name]");
+      if (nameEl) nameEl.textContent = state.photoReport.name || "";
+      const noteEl = app.querySelector("[data-photo-report-note]");
+      if (noteEl) {
+        noteEl.value = state.photoReportNote || "";
+        noteEl.focus();
+      }
+      const errEl = app.querySelector("[data-photo-report-error]");
+      if (errEl) errEl.textContent = state.photoReportError || "";
     }
     if (state.screen === "swipe") bindSwipe();
   };
@@ -848,11 +859,11 @@ const macros = (r) => {
     <div class="photo-report-backdrop">
       <section class="photo-report-dialog" role="dialog" aria-modal="true" aria-labelledby="photo-report-title">
         <h2 id="photo-report-title">Report photo</h2>
-        <p>${esc(state.photoReport.name)}</p>
+        <p data-photo-report-name></p>
         <p>Photo doesn't match</p>
         <label for="photo-report-note">Anything to add? (optional)</label>
-        <textarea id="photo-report-note" data-photo-report-note rows="3" ${state.photoReportSending ? "disabled" : ""}>${esc(state.photoReportNote)}</textarea>
-        ${state.photoReportError ? `<p class="err" role="alert">${esc(state.photoReportError)}</p>` : ""}
+        <textarea id="photo-report-note" data-photo-report-note rows="3" ${state.photoReportSending ? "disabled" : ""}></textarea>
+        ${state.photoReportError ? `<p class="err" role="alert" data-photo-report-error></p>` : ""}
         <button type="button" class="btn primary" data-send-photo-report ${state.photoReportSending ? "disabled" : ""}>${state.photoReportSending ? "Sending…" : "Send report"}</button>
         <button type="button" class="text-link" data-close-photo-report ${state.photoReportSending ? "disabled" : ""}>Cancel</button>
       </section>
