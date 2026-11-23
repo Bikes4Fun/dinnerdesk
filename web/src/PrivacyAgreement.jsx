@@ -31,10 +31,13 @@ export function PrivacyAgreement({ signedIn, onAgreed }) {
         <div className="scroll pad auth-pad privacy-agreement">
           <div className="brand auth-brand">{Copy.text("app.name")}</div>
           <h1 className="auth-title">{Copy.text("privacy.agree.title")}</h1>
-          <p>{Copy.text(signedIn ? "privacy.agree.updated" : "privacy.agree.guest")}</p>
+          <p className="privacy-agreement-intro">{Copy.text(signedIn ? "privacy.agree.updated" : "privacy.agree.guest")}</p>
 
+          {/* One column on a phone; on a wide screen the summary sits left and the actions right. */}
+          <div className="privacy-agreement-body">
           <PrivacySummary compact />
 
+          <div className="privacy-agreement-actions">
           {!signedIn && <p className="privacy-device-note">{Copy.text("privacy.agree.device")}</p>}
           {err && <p className="banner err" role="alert">{err}</p>}
 
@@ -51,6 +54,8 @@ export function PrivacyAgreement({ signedIn, onAgreed }) {
                 {Copy.text("privacy.agree.account")}
               </button>
             )}
+          </div>
+          </div>
           </div>
         </div>
       </section>
