@@ -3,30 +3,30 @@
 package build.computerscience.dinnerdesk.data
 
 enum class RecipeReportReason(val id: String, val label: String) {
-    Ingredients("ingredients", Copy.text("ui.ingredients.are.wrong.or.missing")),
-    Steps("steps", Copy.text("ui.steps.are.wrong.or.confusing")),
-    Diet("diet", Copy.text("ui.shows.up.despite.my.diet")),
-    Photo("photo", Copy.text("ui.photo.doesnt.match")),
-    Duplicate("duplicate", Copy.text("ui.duplicate.of.another.recipe")),
-    TurnedOut("turned_out", Copy.text("ui.didnt.turn.out.well")),
-    Other("other", Copy.text("ui.something.else"));
+    Ingredients("ingredients", "Ingredients are wrong or missing"),
+    Steps("steps", "Steps are wrong or confusing"),
+    Diet("diet", "Shows up despite my diet or allergies"),
+    Photo("photo", "Photo doesn't match"),
+    Duplicate("duplicate", "Duplicate of another recipe"),
+    TurnedOut("turned_out", "Didn't turn out well"),
+    Other("other", "Something else");
 }
 
 enum class IngredientReportReason(val id: String, val label: String) {
-    Name("name", Copy.text("ui.wrong.name.or.spelling")),
-    Aisle("aisle", Copy.text("ui.in.the.wrong.aisle")),
-    Amount("amount", Copy.text("ui.amount.or.unit.is.wrong")),
-    Photo("photo", Copy.text("ui.photo.doesnt.match")),
-    Duplicate("duplicate", Copy.text("ui.listed.twice.should.be.combined")),
-    Other("other", Copy.text("ui.something.else"));
+    Name("name", "Wrong name or spelling"),
+    Aisle("aisle", "In the wrong aisle"),
+    Amount("amount", "Amount or unit is wrong"),
+    Photo("photo", "Photo doesn't match"),
+    Duplicate("duplicate", "Listed twice / should be combined"),
+    Other("other", "Something else");
 }
 
 enum class PrepReason(val id: String, val label: String) {
-    DayOf("day_of", Copy.text("ui.better.done.dayof")),
-    KeptBadly("kept_badly", Copy.text("ui.didnt.keep.well")),
-    TooSmall("too_small", Copy.text("ui.too.small.to.bother")),
-    PrepDifferently("prep_differently", Copy.text("ui.prep.it.differently")),
-    NotPrep("not_prep", Copy.text("ui.not.a.prep.step"));
+    DayOf("day_of", "Better done day-of"),
+    KeptBadly("kept_badly", "Didn't keep well"),
+    TooSmall("too_small", "Too small to bother"),
+    PrepDifferently("prep_differently", "Prep it differently"),
+    NotPrep("not_prep", "Not a prep step");
 
     companion object {
         fun of(id: String?) = entries.firstOrNull { it.id == id }
