@@ -1,7 +1,7 @@
 """Build offline charts from the recipe records used by the Taste Lab scaffold."""
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 from itertools import combinations
 import json
 from pathlib import Path
@@ -13,42 +13,30 @@ STAPLES = {
 }
 
 
-def cooccurrence(recipes, field, min_shared=3, links_per_item=5):
-    """Count each label and pair once per recipe, then keep the strongest links."""
+def cooccurrence(recipes, field, min_shared=3):
+    """Count each label and pair once per recipe."""
     counts = Counter()
-    pairs = Counter()
-    for recipe in recipes:
+    pairs = defaultdict(list)
+    for index, recipe in enumerate(recipes):
         labels = sorted({label.strip().casefold() for label in recipe[field] if label.strip()})
         counts.update(labels)
-        pairs.update(combinations(labels, 2))
-
-    links = []
-    for (left, right), shared in pairs.items():
-        if shared >= min_shared:
-            lift = shared * len(recipes) / (counts[left] * counts[right])
-            if lift > 1:
-                links.append(dict(left=left, right=right, shared=shared, lift=lift))
-
-    # Keep a neighborhood for each item, including when staples are hidden.
-    selected = {}
-    for hide_staples in ([True, False] if field == "ingredients" else [False]):
-        degree = Counter()
-        for link in sorted(links, key=lambda row: (-row["lift"], -row["shared"], row["left"], row["right"])):
-            left, right = link["left"], link["right"]
-            if hide_staples and (left in STAPLES or right in STAPLES):
-                continue
-            if degree[left] >= links_per_item or degree[right] >= links_per_item:
-                continue
-            selected[left, right] = link
-            degree.update((left, right))
+        for pair in combinations(labels, 2):
+            pairs[pair].append(index)
 
     return {
+        "minShared": min_shared,
+        "recipes": [recipe.get("name") or str(recipe.get("id", index + 1))
+                    for index, recipe in enumerate(recipes)],
         "nodes": [
             dict(name=name, count=count, staple=field == "ingredients" and name in STAPLES)
             for name, count in sorted(counts.items())
-            if field == "tags" or count >= min_shared
         ],
-        "links": list(selected.values()),
+        "links": [
+            dict(left=left, right=right, shared=len(indices),
+                 lift=len(indices) * len(recipes) / (counts[left] * counts[right]),
+                 recipes=indices)
+            for (left, right), indices in pairs.items()
+        ],
     }
 
 

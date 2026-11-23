@@ -14,7 +14,7 @@ def load_data(path):
 def prepare_swipes(features, swipes):
     """Join each like or pass to the recipe's current features."""
     return [
-        (features[swipe["recipe_id"]], swipe["liked"])
+        (features[str(swipe["recipe_id"])], swipe["liked"])
         for swipe in swipes
     ]
 
@@ -22,7 +22,7 @@ def prepare_swipes(features, swipes):
 def create_features(recipes):
     """Keep ingredient and tag names in separate feature groups."""
     return {
-        recipe["id"]: {
+        str(recipe["id"]): {
             "ingredients": sorted(set(recipe["ingredients"])),
             "tags": sorted(set(recipe["tags"])),
         }

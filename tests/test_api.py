@@ -91,6 +91,55 @@ def test_only_admins_can_edit_recipes(tmp_path):
         assert client.get("/api/recipes/1").json()["name"] != "Hacked soup"
 
 
+def test_grocery_preference_patch_preserves_concurrent_changes(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+    from app import routes
+
+    with _client(tmp_path) as client:
+        assert client.get("/api/household").status_code == 200
+        barrier = Barrier(2, timeout=5)
+        lock = routes._lock_household_preferences
+
+        def wait_then_lock(db, household_id):
+            barrier.wait()
+            return lock(db, household_id)
+
+        monkeypatch.setattr(routes, "_lock_household_preferences", wait_then_lock)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(client.patch, "/api/household/grocery", json={"showMeals": True})
+            second = pool.submit(client.patch, "/api/household/grocery", json={"hideChecked": False})
+            assert first.result(timeout=10).status_code == 200
+            assert second.result(timeout=10).status_code == 200
+        assert client.get("/api/household").json()["prefs"]["grocery"] == {
+            "showMeals": True, "hideChecked": False,
+        }
+
+
+def test_grocery_list_patch_checks_revision_and_clears_store_assignments(tmp_path):
+    with _client(tmp_path) as client:
+        stores = [{"id": "market", "name": "Market"}, {"id": "farm", "name": "Farm"}]
+        saved = client.put("/api/household", json={"prefs": {"grocery": {"stores": stores}}}).json()
+        household_id = saved["id"]
+        plan_id = client.get("/api/plans/current").json()["id"]
+        with connect() as db:
+            db.execute("INSERT INTO grocery_places (household_id, name, store) VALUES (?, 'carrot', 'market')",
+                       (household_id,))
+            db.execute("INSERT INTO grocery_lines (plan_id, store) VALUES (?, 'market')", (plan_id,))
+        patch = {"stores": stores[1:], "expected_revisions": {"stores": saved["grocery_revisions"]["stores"]}}
+        assert client.patch("/api/household/grocery", json={"stores": []}).status_code == 422
+        response = client.patch("/api/household/grocery", json=patch)
+        assert response.status_code == 200
+        assert response.json()["prefs"]["grocery"]["stores"] == stores[1:]
+        stale = client.patch("/api/household/grocery", json={**patch, "stores": stores, "showMeals": True})
+        assert stale.status_code == 409
+        assert stale.json()["household"] == response.json()
+        assert client.get("/api/household").json() == response.json()
+        with connect() as db:
+            assert db.execute("SELECT store FROM grocery_places WHERE household_id = ?", (household_id,)).fetchone()["store"] == ""
+            assert db.execute("SELECT store FROM grocery_lines WHERE plan_id = ?", (plan_id,)).fetchone()["store"] == ""
+
+
 def test_household_cannot_see_other_household_pantry(tmp_path):
     with _client(tmp_path) as client:
         res = client.get("/api/pantry")
