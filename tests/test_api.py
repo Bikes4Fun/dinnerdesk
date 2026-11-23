@@ -760,6 +760,47 @@ def test_a_different_screen_is_its_own_crash(tmp_path):
         db.close()
 
 
+def test_a_crash_emails_the_admin_at_most_once_an_hour(tmp_path, monkeypatch):
+    """Crash emails (app/crash_alerts.py): the first one goes out, repeats within the hour wait,
+    and the next email says how many happened meanwhile."""
+    from app import crash_alerts
+    sent = []
+    monkeypatch.setattr(crash_alerts, "send", lambda message, screen, count, device: sent.append((screen, count)))
+    with _client(tmp_path) as client:
+        crash = {"message": "boom", "screen": "/grocery"}
+        for _ in range(3):
+            client.post("/api/client-errors", json=crash)
+        assert sent == [("/grocery", 1)]
+        client.post("/api/client-errors", json={"message": "boom", "screen": "/"})  # another kind
+        assert sent == [("/grocery", 1), ("/", 1)]
+        db = connect()
+        db.execute("UPDATE crash_alerts SET last_sent_at = '2000-01-01T00:00:00+00:00'")
+        db.commit()
+        db.close()
+        client.post("/api/client-errors", json=crash)
+        assert sent[-1] == ("/grocery", 3)  # the two that waited, plus this one
+
+
+def test_crash_email_goes_to_crash_email_to_or_the_admin(monkeypatch):
+    from app import crash_alerts
+    monkeypatch.delenv("CRASH_EMAIL_TO", raising=False)
+    monkeypatch.setenv("ADMIN_EMAIL", "owner@example.com")
+    assert crash_alerts.recipients() == ["owner@example.com"]
+    monkeypatch.setenv("CRASH_EMAIL_TO", "a@example.com, b@example.com")
+    assert crash_alerts.recipients() == ["a@example.com", "b@example.com"]
+
+
+def test_crash_email_failure_never_raises(monkeypatch):
+    from app import crash_alerts, mailer
+    monkeypatch.setenv("ADMIN_EMAIL", "owner@example.com")
+    monkeypatch.setattr(mailer, "mail_ready", lambda: True)
+    monkeypatch.setattr(mailer, "public_url", lambda: "https://example.com")
+    def broken(*args):
+        raise RuntimeError("down")
+    monkeypatch.setattr(mailer, "_send", broken)
+    crash_alerts.send("boom", "/", 1, "Safari on Mac")  # logs, doesn't raise
+
+
 def test_rebuild_keeps_checks_on_same_item(tmp_path):
     with _client(tmp_path) as client:
         _link_soup_onion(tmp_path)
