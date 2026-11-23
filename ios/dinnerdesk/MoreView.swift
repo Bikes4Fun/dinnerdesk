@@ -14,19 +14,19 @@ struct MoreView: View {
           NavigationLink {
             KitchenView()
           } label: {
-            ThemeIconRow(title: "My Kitchen", systemImage: "refrigerator")
+            ThemeIconRow(title: Copy.text("ui.my.kitchen"), systemImage: "refrigerator")
           }
           if !ContentView.showsPrepTab(textSize) {
             NavigationLink {
               PrepView()
             } label: {
-              ThemeIconRow(title: "Weekend prep", systemImage: "list.bullet.clipboard")
+              ThemeIconRow(title: Copy.text("tour.how.4.title"), systemImage: "list.bullet.clipboard")
             }
           }
           NavigationLink {
             TasteLabView()
           } label: {
-            ThemeIconRow(title: "Taste Lab", systemImage: "hand.draw")
+            ThemeIconRow(title: Copy.text("tour.how.6.title"), systemImage: "hand.draw")
           }
           NavigationLink {
             AccountView()
@@ -40,7 +40,7 @@ struct MoreView: View {
           NavigationLink {
             FeedbackView()
           } label: {
-            ThemeIconRow(title: "Report a bug or suggest a feature", systemImage: "exclamationmark.bubble")
+            ThemeIconRow(title: Copy.text("ui.report.a.bug.or.suggest"), systemImage: "exclamationmark.bubble")
           }
           
           if isBeta {

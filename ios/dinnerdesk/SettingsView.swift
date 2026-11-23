@@ -21,7 +21,7 @@ struct SettingsView: View {
         Button {
           session.showTour = true
         } label: {
-          ThemeIconRow(title: "Quick start tour", systemImage: "arrow.counterclockwise")
+          ThemeIconRow(title: Copy.text("ui.quick.start.tour"), systemImage: "arrow.counterclockwise")
         }
         .accessibilityHint("Replays the first-run tour")
 
@@ -107,19 +107,19 @@ struct FiltersView: View {
         VStack(alignment: .leading, spacing: 12) {
           if let error { ErrorBanner(message: error) }
           cookTimeCard
-          tierCard("Hides meals", note: "Strict — never shown", strict: true) {
+          tierCard(Copy.text("ui.hides.meals"), note: Copy.text("ui.strict.never.shown"), strict: true) {
             foldSection("diet", "Diet", summary: dietSummary, isSet: diets != ["omnivore"]) { dietChips }
             foldSection("allergy", "Allergies", summary: Self.list(allergyLabels, empty: "None"), isSet: !allergyLabels.isEmpty) {
               allergyChips
             }
           }
-          tierCard("Shows fewer", note: "Suggested less often. You can still add them yourself.") {
+          tierCard(Copy.text("ui.shows.fewer"), note: Copy.text("ui.suggested.less.often.you.can")) {
             foldSection("avoid", "Dislikes", summary: Self.list(avoidLabels, empty: "Nothing yet"), isSet: !avoidLabels.isEmpty) {
               avoidChips
             }
           }
           tierCard("Preferences", note: "Tunes what we suggest") {
-            foldSection("who", "Who it's for", summary: Self.list(whoLabels, empty: "Anyone"), isSet: !who.isEmpty) {
+            foldSection("who", Copy.text("ui.who.its.for"), summary: Self.list(whoLabels, empty: "Anyone"), isSet: !who.isEmpty) {
               KitchenFlow(spacing: 6) {
                 ForEach(Self.who, id: \.0) { item in
                   choiceChip(item.1, on: who.contains(item.0)) { toggle(&who, item.0) }
@@ -160,20 +160,20 @@ struct FiltersView: View {
         // behind ⋯ and asks first.
         ToolbarItem(placement: .topBarTrailing) {
           Menu {
-            Button("Reset all filters", role: .destructive) { confirmingReset = true }
+            Button(Copy.text("ui.reset.all.filters"), role: .destructive) { confirmingReset = true }
           } label: {
             Image(systemName: "ellipsis").scaledIcon(size: 17, weight: .semibold)
               .frame(minWidth: 44, minHeight: 44)
           }
-          .accessibilityLabel("More filter options")
+          .accessibilityLabel(Copy.text("ui.more.filter.options"))
         }
       }
     }
-    .confirmationDialog("Reset all filters?", isPresented: $confirmingReset, titleVisibility: .visible) {
-      Button("Reset all filters", role: .destructive) { resetFilters() }
+    .confirmationDialog(Copy.text("ui.reset.all.filters.2"), isPresented: $confirmingReset, titleVisibility: .visible) {
+      Button(Copy.text("ui.reset.all.filters"), role: .destructive) { resetFilters() }
       Button("Cancel", role: .cancel) {}
     } message: {
-      Text("Diet, allergies, and preferences go back to the defaults.")
+      Text(Copy.text("ui.diet.allergies.and.preferences.go"))
     }
     .task { await load() }
   }
@@ -183,7 +183,7 @@ struct FiltersView: View {
   /// Always open: it's the filter people change most.
   private var cookTimeCard: some View {
     VStack(alignment: .leading, spacing: 10) {
-      Text("Cook time").font(Self.sectionFont).foregroundStyle(Theme.ink)
+      Text(Copy.text("ui.cook.time")).font(Self.sectionFont).foregroundStyle(Theme.ink)
         .accessibilityAddTraits(.isHeader)
       HStack(spacing: 4) {
         ForEach(Self.times) { option in
@@ -237,7 +237,7 @@ struct FiltersView: View {
         choiceChip("Other", on: otherAllergenOpen) { otherAllergenOpen.toggle() }
       }
       if otherAllergenOpen {
-        ItemSearchField(label: "Other allergies", selected: $otherAllergens) {
+        ItemSearchField(label: Copy.text("ui.other.allergies"), selected: $otherAllergens) {
           let known = Self.allergens.map(\.0)
           allergens.formUnion(otherAllergens.filter { known.contains($0) })
           otherAllergens.removeAll { known.contains($0) }
@@ -268,7 +268,7 @@ struct FiltersView: View {
         choiceChip("Other", on: otherAvoidOpen) { otherAvoidOpen.toggle() }
       }
       if otherAvoidOpen {
-        ItemSearchField(label: "Other dislikes", presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
+        ItemSearchField(label: Copy.text("ui.other.dislikes"), presets: Self.avoids, taken: avoids, selected: $otherAvoids) {
           avoids.formUnion(otherAvoids.filter { Self.avoids.contains($0) })
           otherAvoids.removeAll { Self.avoids.contains($0) }
           save()
@@ -705,11 +705,11 @@ private struct FilterSuggestionCard: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("Missing a filter?")
+      Text(Copy.text("ui.missing.a.filter"))
         .font(.custom("DMSans-SemiBold", size: 15, relativeTo: .subheadline))
         .foregroundStyle(Theme.ink)
         .accessibilityAddTraits(.isHeader)
-      Text("Tell us what you’d like to filter by, and we’ll look into adding it.")
+      Text(Copy.text("ui.tell.us.what.youd.like"))
         .font(.custom("DMSans-Regular", size: 13, relativeTo: .footnote))
         .foregroundStyle(Theme.muted)
         .fixedSize(horizontal: false, vertical: true)
@@ -722,7 +722,7 @@ private struct FilterSuggestionCard: View {
         .background(Theme.bg, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(Theme.line))
         .onChange(of: note) { _, _ in if !note.isEmpty { sent = false } }
-        .accessibilityLabel("Filter suggestion")
+        .accessibilityLabel(Copy.text("ui.filter.suggestion"))
       if let error {
         Text(error).font(.custom("DMSans-Regular", size: 13, relativeTo: .footnote)).foregroundStyle(Theme.accent)
       }
@@ -736,7 +736,7 @@ private struct FilterSuggestionCard: View {
         Button {
           Task { await send() }
         } label: {
-          Text(sending ? "Sending…" : "Send suggestion")
+          Text(sending ? "Sending…" : Copy.text("ui.send.suggestion"))
             .font(.custom("DMSans-SemiBold", size: 14, relativeTo: .subheadline))
             .foregroundStyle(Theme.surface)
             .padding(.horizontal, 14)
@@ -858,7 +858,7 @@ struct AccountView: View {
             .font(Theme.subtitle)
             .foregroundStyle(Theme.muted)
             .fixedSize(horizontal: false, vertical: true)
-            Button("Sign in or create account") { signingIn = true }
+            Button(Copy.text("ui.sign.in.or.create.account")) { signingIn = true }
               .font(Theme.mealName)
             privacySection
           }
@@ -875,15 +875,15 @@ struct AccountView: View {
       AuthView(isSheet: true)
         .environmentObject(session)
     }
-    .confirmationDialog("Join this household? Your current solo kitchen will be removed; shared kitchens stay with their members.", isPresented: $confirmJoin, titleVisibility: .visible) {
-      Button("Join household") { Task { await householdAction { try await KitchenAPI.joinHousehold(joinToken.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/").last.map(String.init) ?? "") } } }
+    .confirmationDialog(Copy.text("ui.join.this.household.your.current"), isPresented: $confirmJoin, titleVisibility: .visible) {
+      Button(Copy.text("ui.join.household")) { Task { await householdAction { try await KitchenAPI.joinHousehold(joinToken.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: "/").last.map(String.init) ?? "") } } }
     } message: {
       Text(Copy.text("privacy.join.note"))
     }
-    .alert("Transfer household ownership?", isPresented: Binding(get: { successor != nil }, set: { if !$0 { successor = nil } })) {
+    .alert(Copy.text("ui.transfer.household.ownership"), isPresented: Binding(get: { successor != nil }, set: { if !$0 { successor = nil } })) {
       Button("Transfer") { if let member = successor { Task { await householdAction { try await KitchenAPI.setRole(member.id, role: "owner") } } }; successor = nil }
       Button("Cancel", role: .cancel) { successor = nil }
-    } message: { Text("The selected member becomes the creator. You become an admin.") }
+    } message: { Text(Copy.text("ui.the.selected.member.becomes.the")) }
     .alert("Remove this person from the household?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
       Button("Remove", role: .destructive) { if let member = removing { Task { await remove(member) } }; removing = nil }
       Button("Cancel", role: .cancel) { removing = nil }
@@ -895,14 +895,14 @@ struct AccountView: View {
       }
     }
     .confirmationDialog(
-      "Remove your recovery email? Without it, a forgotten password can't be reset.",
+      Copy.text("ui.remove.your.recovery.email.without"),
       isPresented: $confirmRemoveRecovery, titleVisibility: .visible
     ) {
       Button("Remove recovery email", role: .destructive) { Task { await removeRecoveryEmail() } }
     }
-    .confirmationDialog("Sign out on every device?", isPresented: $confirmEverywhere, titleVisibility: .visible
+    .confirmationDialog(Copy.text("ui.sign.out.on.every.device"), isPresented: $confirmEverywhere, titleVisibility: .visible
     ) {
-      Button("Sign out everywhere", role: .destructive) { Task { await signOutEverywhere() } }
+      Button(Copy.text("ui.sign.out.everywhere"), role: .destructive) { Task { await signOutEverywhere() } }
     }
   }
 
@@ -919,7 +919,7 @@ struct AccountView: View {
           VStack(alignment: .leading, spacing: 2) {
             Text(name).font(AccountFont.strong).foregroundStyle(Theme.ink)
               .fixedSize(horizontal: false, vertical: true)
-            Text(hasEmail ? "Signed in with email · \(verified)" : "Signed in with username")
+            Text(hasEmail ? "Signed in with email · \(verified)" : Copy.text("ui.signed.in.with.username"))
               .font(AccountFont.sub).foregroundStyle(Theme.muted)
             if let recovery {
               Text("Recovery email: \(recovery) · \(verified)")
@@ -933,7 +933,7 @@ struct AccountView: View {
         // No email at all: the tinted "Add a recovery email" row carries the warning instead.
         if let nudge = session.status?.emailNudge, resetTo != nil {
           AccountDivider()
-          Text(nudge + (resetTo == nil ? " Add a recovery email below." : " Send a confirm link, or change it below if it has a typo."))
+          Text(nudge + (resetTo == nil ? Copy.text("ui.add.a.recovery.email.below") : Copy.text("ui.send.a.confirm.link.or")))
             .font(AccountFont.sub).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -942,16 +942,16 @@ struct AccountView: View {
         }
         if let resetTo, session.status?.emailVerified != true {
           AccountDivider()
-          AccountRow(title: "Send confirm link", subtitle: "To \(resetTo)", chevron: true) {
+          AccountRow(title: Copy.text("ui.send.confirm.link"), subtitle: "To \(resetTo)", chevron: true) {
             Task { await sendConfirmLink() }
           }
           .disabled(busy)
         }
         AccountDivider()
         AccountRow(
-          title: hasEmail ? "Change or remove email" : recovery != nil ? "Change or remove recovery email" : "Add a recovery email",
-          subtitle: hasEmail ? "Fix a typo, or sign in with a username instead"
-            : resetTo == nil ? "Without one, a forgotten password can't be reset" : "Reset your password and sign in with it",
+          title: hasEmail ? Copy.text("ui.change.or.remove.email") : recovery != nil ? Copy.text("ui.change.or.remove.recovery.email") : Copy.text("ui.add.a.recovery.email"),
+          subtitle: hasEmail ? Copy.text("ui.fix.a.typo.or.sign")
+            : resetTo == nil ? "Without one, a forgotten password can't be reset" : Copy.text("ui.reset.your.password.and.sign"),
           chevron: true, open: editingEmail
         ) {
           if editingEmail { closeEmailPane() } else { editingEmail = true }
@@ -959,18 +959,18 @@ struct AccountView: View {
         .background(resetTo == nil ? Theme.aubergineTint : .clear)
         if editingEmail {
           VStack(alignment: .leading, spacing: 10) {
-            TextField(hasEmail ? "New email, or a username to remove your email" : "Recovery email", text: $newLogin)
+            TextField(hasEmail ? Copy.text("ui.new.email.or.a.username") : Copy.text("ui.recovery.email"), text: $newLogin)
               .textContentType(.emailAddress).keyboardType(.emailAddress)
               .textInputAutocapitalization(.never).autocorrectionDisabled()
               .accountField()
-            SecureField("Your password", text: $loginPassword).textContentType(.password)
+            SecureField(Copy.text("ui.your.password"), text: $loginPassword).textContentType(.password)
               .accountField()
             Text(!hasEmail || newLogin.isEmpty || newLogin.contains("@")
-                 ? "We'll email a confirm link. Nothing changes until you open it, so a typo can't lock you out."
+                 ? Copy.text("ui.well.email.a.confirm.link")
                  : "Without an email, a forgotten password can't be reset.")
               .font(AccountFont.sub).foregroundStyle(Theme.muted)
               .fixedSize(horizontal: false, vertical: true)
-            Button(!hasEmail || newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : "Use username") {
+            Button(!hasEmail || newLogin.contains("@") || newLogin.isEmpty ? "Send confirm link" : Copy.text("ui.use.username")) {
               Task { await changeLogin() }
             }
             .font(AccountFont.button)
@@ -985,7 +985,7 @@ struct AccountView: View {
         }
         if resetTo != nil && session.status?.emailVerified == true {
           AccountDivider()
-          AccountRow(title: "Reset password", subtitle: "We'll email you a reset link", chevron: true) {
+          AccountRow(title: Copy.text("ui.reset.password"), subtitle: Copy.text("ui.well.email.you.a.reset"), chevron: true) {
             Task { await resetPassword() }
           }
           .disabled(busy)
@@ -995,13 +995,13 @@ struct AccountView: View {
         AccountDivider()
         HStack(spacing: 0) {
           Button { Task { await session.signOut() } } label: {
-            Text("Sign out")
+            Text(Copy.text("ui.sign.out"))
               .frame(maxWidth: .infinity, minHeight: 56)
               .contentShape(Rectangle())
           }
           Rectangle().fill(Theme.line).frame(width: 1)
           Button { confirmEverywhere = true } label: {
-            Text("Sign out everywhere")
+            Text(Copy.text("ui.sign.out.everywhere"))
               .frame(maxWidth: .infinity, minHeight: 56)
               .contentShape(Rectangle())
           }
@@ -1066,7 +1066,7 @@ struct AccountView: View {
               .padding(EdgeInsets(top: 6, leading: 16, bottom: 0, trailing: 16))
           }
           Button { Task { await invite() } } label: {
-            Label("Invite someone", systemImage: "plus")
+            Label(Copy.text("ui.invite.someone"), systemImage: "plus")
               .font(AccountFont.strong)
               .foregroundStyle(Theme.surface)
               .frame(maxWidth: .infinity, minHeight: 48)
@@ -1086,12 +1086,12 @@ struct AccountView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Theme.aubergineTint, in: RoundedRectangle(cornerRadius: 12))
               ShareLink(item: inviteURL) {
-                Label("Share invite link", systemImage: "square.and.arrow.up").font(AccountFont.strong)
+                Label(Copy.text("ui.share.invite.link"), systemImage: "square.and.arrow.up").font(AccountFont.strong)
               }
             }
             .padding(EdgeInsets(top: 12, leading: 16, bottom: 0, trailing: 16))
           }
-          Button(alone ? "Already have an account? Join with a link" : "Join a different household") {
+          Button(alone ? "Already have an account? Join with a link" : Copy.text("ui.join.a.different.household")) {
             withMotion { joining.toggle() }
           }
           .font(AccountFont.label)
@@ -1104,13 +1104,13 @@ struct AccountView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .accountField()
-              Text("The whole link works. The code at the end works too.")
+              Text(Copy.text("ui.the.whole.link.works.the"))
                 .font(AccountFont.sub).foregroundStyle(Theme.muted)
                 .fixedSize(horizontal: false, vertical: true)
               Text(Copy.text("privacy.join.note"))
                 .font(AccountFont.sub).foregroundStyle(Theme.ink)
                 .fixedSize(horizontal: false, vertical: true)
-              Button("Join household") { confirmJoin = true }
+              Button(Copy.text("ui.join.household")) { confirmJoin = true }
                 .font(AccountFont.strong)
                 .disabled(busy || joinToken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -1123,12 +1123,12 @@ struct AccountView: View {
       // Solo: just Delete (leaving would only make another solo kitchen). Shared: Leave or delete behind one link.
       HStack(spacing: 10) {
         if alone ? canManage : true {
-          Button(alone ? "Delete household" : canManage ? "Leave or delete household…" : "Leave household…") {
+          Button(alone ? Copy.text("ui.delete.household") : canManage ? "Leave or delete household…" : "Leave household…") {
             if alone { withMotion { deletingHome.toggle() } } else { confirmLeaveOrDelete = true }
           }
           Text("·").accessibilityHidden(true)
         }
-        Button("Delete account") { deletingAccount = true }
+        Button(Copy.text("ui.delete.account")) { deletingAccount = true }
       }
       .font(AccountFont.sub)
       .foregroundStyle(Theme.muted)
@@ -1138,13 +1138,13 @@ struct AccountView: View {
       if deletingHome {
         AccountCard {
           VStack(alignment: .leading, spacing: 8) {
-            Text("Permanently removes this kitchen and its plans. Everyone keeps their account and receives an empty solo household. Anonymous meal votes are retained.")
+            Text(Copy.text("ui.permanently.removes.this.kitchen.and"))
               .font(AccountFont.sub).foregroundStyle(Theme.muted)
               .fixedSize(horizontal: false, vertical: true)
-            SecureField("Your password", text: $homePassword)
+            SecureField(Copy.text("ui.your.password"), text: $homePassword)
               .textContentType(.password)
               .accountField()
-            Button("Confirm household deletion", role: .destructive) {
+            Button(Copy.text("ui.confirm.household.deletion"), role: .destructive) {
               Task { await householdAction { try await KitchenAPI.deleteHousehold(password: homePassword) } }
             }
             .font(AccountFont.strong)
@@ -1156,7 +1156,7 @@ struct AccountView: View {
       }
     }
     .confirmationDialog("Leave or delete this household?", isPresented: $confirmLeaveOrDelete, titleVisibility: .visible) {
-      Button("Leave household", role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
+      Button(Copy.text("ui.leave.household"), role: .destructive) { Task { await householdAction { try await KitchenAPI.leaveHousehold() } } }
       if canManage {
         Button("Delete household for everyone", role: .destructive) { withMotion { deletingHome = true } }
       }
@@ -1169,7 +1169,7 @@ struct AccountView: View {
   @ViewBuilder private var householdNameHeader: some View {
     if editingName {
       HStack(spacing: 8) {
-        TextField("Household name", text: $householdName)
+        TextField(Copy.text("ui.household.name"), text: $householdName)
           .textContentType(.organizationName)
           .onChange(of: householdName) { _, name in if name.count > 80 { householdName = String(name.prefix(80)) } }
           .onSubmit { Task { await saveHouseholdName() } }
@@ -1189,7 +1189,7 @@ struct AccountView: View {
     } else {
       Button { editingName = true } label: {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text(savedName.isEmpty ? "My household" : savedName)
+          Text(savedName.isEmpty ? Copy.text("ui.my.household") : savedName)
             .font(Theme.title).foregroundStyle(Theme.ink)
             .multilineTextAlignment(.leading)
           Spacer(minLength: 0)
@@ -1248,10 +1248,10 @@ struct AccountView: View {
       if open {
         KitchenFlow {
           if canRole {
-            MemberChip(title: member.householdRole == "admin" ? "Remove admin" : "Make admin") {
+            MemberChip(title: member.householdRole == "admin" ? Copy.text("ui.remove.admin") : Copy.text("ui.make.admin")) {
               Task { await householdAction { try await KitchenAPI.setRole(member.id, role: member.householdRole == "admin" ? "member" : "admin") } }
             }
-            MemberChip(title: "Make owner…") { successor = member }
+            MemberChip(title: Copy.text("ui.make.owner")) { successor = member }
           }
           if canRemove {
             MemberChip(title: "Remove…", danger: true) { removing = member }
@@ -1291,7 +1291,7 @@ struct AccountView: View {
     defer { busy = false }
     do {
       try await AuthAPI.forgotPassword(email: email)
-      message = "Check your email for a password reset link."
+      message = Copy.text("ui.check.your.email.for.a")
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
   }
@@ -1318,7 +1318,7 @@ struct AccountView: View {
       } else {
         try await AuthAPI.useUsername(name, password: loginPassword)
         await session.refresh()
-        message = "You now sign in with your username."
+        message = Copy.text("ui.you.now.sign.in.with")
       }
       error = nil
       closeEmailPane()
@@ -1331,7 +1331,7 @@ struct AccountView: View {
     do {
       try await AuthAPI.removeRecoveryEmail(password: loginPassword)
       await session.refresh()
-      message = "Recovery email removed."
+      message = Copy.text("ui.recovery.email.removed")
       error = nil
       closeEmailPane()
     } catch { self.error = KitchenAPI.message(error) }
@@ -1353,7 +1353,7 @@ struct AccountView: View {
       householdName = name
       savedName = name
       editingName = false
-      message = "Household name saved."
+      message = Copy.text("ui.household.name.saved")
       error = nil
     } catch { self.error = KitchenAPI.message(error) }
   }
@@ -1382,7 +1382,7 @@ struct AccountView: View {
       await loadMembers()
       await store.switchAccount()
       error = nil
-      message = "Household updated."
+      message = Copy.text("ui.household.updated")
     }
     catch { self.error = KitchenAPI.message(error) }
   }
@@ -1422,24 +1422,24 @@ private struct DeleteAccountSheet: View {
         if let error { ErrorBanner(message: error).themeBareRow() }
         Section {
           Text(alone
-            ? "This deletes your account and everything in this household: plans, pantry, grocery list, ratings and recipes you added. It can’t be undone."
-            : "This deletes your account and your sign-ins. The household and its plans stay for the other members.")
+            ? Copy.text("ui.this.deletes.your.account.and")
+            : Copy.text("ui.this.deletes.your.account.and.2"))
             .font(Theme.body).foregroundStyle(Theme.ink)
             .fixedSize(horizontal: false, vertical: true)
-          Text("Anonymous meal votes are retained without account identifiers.").font(Theme.subtitle)
-          SecureField("Your password", text: $password)
+          Text(Copy.text("ui.anonymous.meal.votes.are.retained")).font(Theme.subtitle)
+          SecureField(Copy.text("ui.your.password"), text: $password)
             .textContentType(.password)
             .onSubmit { Task { await delete() } }
         }
         .themeRows()
         Section {
-          Button("Delete account", role: .destructive) { Task { await delete() } }
+          Button(Copy.text("ui.delete.account"), role: .destructive) { Task { await delete() } }
             .disabled(busy || password.isEmpty)
         }
         .themeRows()
       }
       .themeList()
-      .navigationTitle("Delete account")
+      .navigationTitle(Copy.text("ui.delete.account"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1621,14 +1621,14 @@ extension View {
 enum FeedbackKind: String, CaseIterable, Identifiable {
   case bug, feature
   var id: String { rawValue }
-  var label: String { self == .bug ? "Report a bug" : "Suggest a feature" }
+  var label: String { self == .bug ? Copy.text("ui.report.a.bug") : Copy.text("ui.suggest.a.feature") }
   var help: String {
-    self == .bug ? "Something broke or didn't work the way it should." : "Something you wish \(Copy.appName) did."
+    self == .bug ? Copy.text("ui.something.broke.or.didnt.work") : "Something you wish \(Copy.appName) did."
   }
-  var prompt: String { self == .bug ? "What went wrong?" : "What would you like?" }
+  var prompt: String { self == .bug ? Copy.text("ui.what.went.wrong") : Copy.text("ui.what.would.you.like") }
   var placeholder: String {
     self == .bug
-      ? "What happened, and what did you expect? e.g. I checked off milk and it came back after a refresh."
+      ? Copy.text("ui.what.happened.and.what.did")
       : "e.g. Let me plan lunches too, not just dinners."
   }
 }
@@ -1652,13 +1652,13 @@ struct FeedbackView: View {
       VStack(alignment: .leading, spacing: 12) {
         if let error { ErrorBanner(message: error) }
         if let sent {
-          Text(sent == .bug ? "Thanks. We'll look into it." : "Thanks for the idea. We read every one.")
+          Text(sent == .bug ? Copy.text("ui.thanks.well.look.into.it") : Copy.text("ui.thanks.for.the.idea.we"))
             .font(Theme.body).foregroundStyle(Theme.ink)
-          Button("Send another") { self.sent = nil }
+          Button(Copy.text("ui.send.another")) { self.sent = nil }
             .font(Theme.action)
             .frame(minHeight: 44)
         } else {
-          Text("What's this about?").font(Theme.action).foregroundStyle(Theme.ink)
+          Text(Copy.text("ui.whats.this.about")).font(Theme.action).foregroundStyle(Theme.ink)
           ForEach(FeedbackKind.allCases) { option in
             Button { kind = option } label: {
               HStack(alignment: .top, spacing: 10) {
@@ -1733,7 +1733,7 @@ struct FeedbackView: View {
       }
       if shots.count < Self.maxShots {
         PhotosPicker(selection: $picked, maxSelectionCount: Self.maxShots - shots.count, matching: .images) {
-          Label(shots.isEmpty ? "Add a screenshot (optional)" : "Add another screenshot", systemImage: "photo.badge.plus")
+          Label(shots.isEmpty ? Copy.text("ui.add.a.screenshot.optional") : Copy.text("ui.add.another.screenshot"), systemImage: "photo.badge.plus")
             .font(Theme.action).foregroundStyle(Theme.accent)
             .frame(minHeight: 44)
         }
@@ -1797,9 +1797,9 @@ struct PrivacyView: View {
   @State private var dataError: String?
 
   private static let clearable = [
-    ("taste_lab", "Taste Lab history", "Your likes and passes in Taste Lab. Your filters stay in Settings."),
-    ("meal_ratings", "Meal ratings", "Thumbs up or down on planned meals, for the whole household."),
-    ("prep_votes", "Prep votes", "Thumbs up or down on prep steps, and steps you added, for the whole household."),
+    ("taste_lab", Copy.text("ui.taste.lab.history"), Copy.text("ui.your.likes.and.passes.in")),
+    ("meal_ratings", Copy.text("privacy.short.keep.4"), Copy.text("ui.thumbs.up.or.down.on")),
+    ("prep_votes", Copy.text("ui.prep.votes"), Copy.text("ui.thumbs.up.or.down.on.2")),
   ]
 
   var body: some View {
@@ -1835,18 +1835,18 @@ struct PrivacyView: View {
       }
     }
     .confirmationDialog(
-      "Delete this kitchen from our server? Plans, pantry, grocery lists, ratings and Taste Lab answers are removed. It can’t be undone.",
+      Copy.text("ui.delete.this.kitchen.from.our"),
       isPresented: $confirmDeleteKitchen, titleVisibility: .visible
     ) {
-      Button("Delete this kitchen", role: .destructive) { Task { await deleteKitchen() } }
+      Button(Copy.text("ui.delete.this.kitchen"), role: .destructive) { Task { await deleteKitchen() } }
     }
   }
 
   /// Clear one kind of data and keep the rest (#101).
   private var clearData: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("Clear part of your data").font(Theme.title)
-      Text("Clear one kind of data and keep the rest of your kitchen and your account. Only the household creator or an admin can clear the household’s ratings and prep votes.")
+      Text(Copy.text("ui.clear.part.of.your.data")).font(Theme.title)
+      Text(Copy.text("ui.clear.one.kind.of.data"))
         .foregroundStyle(Theme.muted)
       ForEach(Self.clearable, id: \.0) { item in
         VStack(alignment: .leading, spacing: 2) {
@@ -1858,7 +1858,7 @@ struct PrivacyView: View {
       }
       if session.status?.authenticated == false {
         VStack(alignment: .leading, spacing: 2) {
-          Button("Delete this kitchen") { confirmDeleteKitchen = true }
+          Button(Copy.text("ui.delete.this.kitchen")) { confirmDeleteKitchen = true }
             .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
             .disabled(dataBusy)
           Text("Removes this guest kitchen from our server, not just from this device.")
@@ -1901,8 +1901,8 @@ struct PrivacyView: View {
   /// "Download my data" (#64): everything stored for this household as one JSON file.
   private var yourData: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text("Your data").font(Theme.title)
-      Text("Get a copy of everything we store for your household: plans, grocery lists, pantry, filters, ratings, prep votes, Taste Lab answers and the recipes you added. Passwords and sign-in tokens are never included.")
+      Text(Copy.text("ui.your.data")).font(Theme.title)
+      Text(Copy.text("ui.get.a.copy.of.everything"))
         .foregroundStyle(Theme.muted)
       if let exportFile {
         ShareLink(item: exportFile) {
@@ -1915,7 +1915,7 @@ struct PrivacyView: View {
         } label: {
           HStack(spacing: 8) {
             if exporting { ProgressView().controlSize(.small) }
-            Text(exporting ? "Preparing…" : "Download my data")
+            Text(exporting ? "Preparing…" : Copy.text("ui.download.my.data"))
           }
           .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
         }
@@ -1924,7 +1924,7 @@ struct PrivacyView: View {
       if exportPartial {
         Text("Taste Lab was unavailable, so this file is missing your Taste Lab answers.")
           .font(Theme.subtitle).foregroundStyle(Theme.accent)
-        Button("Try again") { Task { await download() } }
+        Button(Copy.text("ui.try.again")) { Task { await download() } }
           .font(Theme.action).foregroundStyle(Theme.accent).frame(minHeight: 44)
           .disabled(exporting)
       }
@@ -1946,7 +1946,7 @@ struct PrivacyView: View {
       let summary = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
       exportPartial = summary?["complete"] as? Bool == false
     } catch {
-      exportError = "Couldn’t prepare your data. Please try again."
+      exportError = Copy.text("ui.couldnt.prepare.your.data.please")
     }
   }
 

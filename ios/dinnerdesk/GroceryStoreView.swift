@@ -60,7 +60,7 @@ struct GroceryStoreView: View {
         ErrorBanner(message: error).themeBareRow()
       }
 
-      ThemeSection("Your stores") {
+      ThemeSection(Copy.text("ui.your.stores")) {
         KitchenFlow(spacing: 8) {
           ForEach(stores) { store in
             // A Menu per chip: a context menu inside a List row lifts the whole row and
@@ -95,12 +95,12 @@ struct GroceryStoreView: View {
           AisleOrderView()
         } label: {
           ThemeIconRow(
-            title: "Aisle order", systemImage: "list.number", value: "\(aisles.count) aisles")
+            title: Copy.text("ui.aisle.order"), systemImage: "list.number", value: "\(aisles.count) aisles")
         }
         .themeRows()
       }
 
-      ThemeSection("Store & aisle for each item") {
+      ThemeSection(Copy.text("ui.store.aisle.for.each.item")) {
         Picker("Which items", selection: $tab) {
           Text("Not set · \(unset.count)").tag(Tab.unset)
           Text("All items · \(items.count)").tag(Tab.all)
@@ -115,8 +115,8 @@ struct GroceryStoreView: View {
         Section {
           Text(
             tab == .unset
-              ? "Every item has a store."
-              : "Items show up here once they're on a grocery list or in your pantry."
+              ? Copy.text("ui.every.item.has.a.store")
+              : Copy.text("ui.items.show.up.here.once")
           )
           .foregroundStyle(Theme.muted)
           .themeBareRow()
@@ -137,11 +137,11 @@ struct GroceryStoreView: View {
     .themeList()
     .navigationTitle("Stores & aisles")
     .navigationBarTitleDisplayMode(.inline)
-    .searchable(text: $query, prompt: "Search items")
+    .searchable(text: $query, prompt: Copy.text("ui.search.items"))
     .task { await load() }
     .refreshable { await load() }
-    .alert("Add a store", isPresented: $addingStore) {
-      TextField("Store name", text: $newStore)
+    .alert(Copy.text("ui.add.a.store"), isPresented: $addingStore) {
+      TextField(Copy.text("ui.store.name"), text: $newStore)
       Button("Add") { Task { await addStore() } }
       Button("Cancel", role: .cancel) { newStore = "" }
     }
@@ -149,7 +149,7 @@ struct GroceryStoreView: View {
       "Rename \(renamingStore?.name ?? "store")",
       isPresented: Binding(get: { renamingStore != nil }, set: { if !$0 { renamingStore = nil } })
     ) {
-      TextField("Store name", text: $renamedTo)
+      TextField(Copy.text("ui.store.name"), text: $renamedTo)
       Button("Save") {
         if let store = renamingStore { Task { await rename(store, to: renamedTo) } }
         renamingStore = nil
@@ -204,7 +204,7 @@ struct GroceryStoreView: View {
   private func removeMessage(_ store: KitchenStore?) -> String {
     guard let store else { return "You can add it back anytime." }
     let n = count(store)
-    guard n > 0 else { return "No items are assigned to it. You can add it back anytime." }
+    guard n > 0 else { return Copy.text("ui.no.items.are.assigned.to") }
     let what = n == 1 ? "1 item moves" : "\(n) items move"
     return "\(what) to Any store. You can add it back anytime."
   }
@@ -253,7 +253,7 @@ private struct PlacementRow: View {
   let onChange: (_ store: String?, _ aisle: String?) -> Void
 
   private var storeName: String {
-    stores.first { $0.id == item.store }?.name ?? "Not set"
+    stores.first { $0.id == item.store }?.name ?? Copy.text("ui.not.set")
   }
 
   private var aisleName: String {
@@ -281,7 +281,7 @@ private struct PlacementRow: View {
   private var pickers: some View {
     HStack(spacing: 6) {
       Menu {
-        Button("Not set") { onChange("", nil) }
+        Button(Copy.text("ui.not.set")) { onChange("", nil) }
         ForEach(stores) { store in
           Button(store.name) { onChange(store.id, nil) }
         }
@@ -336,7 +336,7 @@ struct AisleOrderView: View {
       if let error {
         ErrorBanner(message: error).themeBareRow()
       }
-      ThemeSection("Walk-the-store order") {
+      ThemeSection(Copy.text("ui.walkthestore.order")) {
         ForEach($aisles) { $aisle in
           HStack(spacing: 12) {
             TextField("#", text: $aisle.number)
@@ -363,7 +363,7 @@ struct AisleOrderView: View {
           next.move(fromOffsets: from, toOffset: to)
           Task { await save(next) }
         }
-        ThemeAddRow(title: "Add aisle") { addingAisle = true }
+        ThemeAddRow(title: Copy.text("ui.add.aisle")) { addingAisle = true }
       } footer: {
         StarTip(id: "kitchen.aisle-order")
       }
@@ -371,12 +371,12 @@ struct AisleOrderView: View {
     }
     .themeList()
     .environment(\.editMode, .constant(.active))
-    .navigationTitle("Aisle order")
+    .navigationTitle(Copy.text("ui.aisle.order"))
     .navigationBarTitleDisplayMode(.inline)
     .task { await load() }
     .onDisappear { Task { await save(aisles) } }
-    .alert("Add an aisle", isPresented: $addingAisle) {
-      TextField("Aisle name", text: $newAisle)
+    .alert(Copy.text("ui.add.an.aisle"), isPresented: $addingAisle) {
+      TextField(Copy.text("ui.aisle.name"), text: $newAisle)
       Button("Add") { Task { await addAisle() } }
       Button("Cancel", role: .cancel) { newAisle = "" }
     }

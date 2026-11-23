@@ -15,10 +15,10 @@ struct PantryView: View {
       if let error {
         ErrorBanner(message: error).themeBareRow()
       }
-      ThemeAddRow(title: "Add item") { adding = true }.themeRows()
+      ThemeAddRow(title: Copy.text("ui.add.item")) { adding = true }.themeRows()
       
       Toggle(isOn: Binding(get: { autoCheck }, set: { on in Task { await setAutoCheck(on) } })) {
-        Text("Always check off pantry items")
+        Text(Copy.text("ui.always.check.off.pantry.items"))
           .font(Theme.mealName)
           .foregroundStyle(Theme.ink)
       }
@@ -28,7 +28,7 @@ struct PantryView: View {
 
       ThemeSection("In your pantry · \(items.count)") {
         if items.isEmpty {
-          Text("Nothing here yet.").foregroundStyle(Theme.muted)
+          Text(Copy.text("ui.nothing.here.yet")).foregroundStyle(Theme.muted)
         }
         ForEach(items, id: \.name) { item in
           NavigationLink {
@@ -51,7 +51,7 @@ struct PantryView: View {
     .navigationTitle("Pantry")
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $adding) {
-      KitchenItemPicker(title: "Add to pantry") { names in
+      KitchenItemPicker(title: Copy.text("ui.add.to.pantry")) { names in
         await add(names)
       }
     }
@@ -61,7 +61,7 @@ struct PantryView: View {
 
   private func placeText(_ item: KitchenPantryItem) -> String? {
     guard item.store != nil || item.aisle != nil else { return nil }
-    let store = stores.first { $0.id == item.store }?.name ?? "Any store"
+    let store = stores.first { $0.id == item.store }?.name ?? Copy.text("ui.any.store")
     let aisle = aisles.first { $0.id == (item.aisle ?? "other") }?.name ?? "Other"
     return "\(store), \(aisle)"
   }
@@ -142,7 +142,7 @@ private struct PantryRow: View {
       if item.neverShop || checksOff {
         Image(systemName: "checkmark.circle.fill")
           .foregroundStyle(Theme.muted.opacity(0.6))
-          .accessibilityLabel("Checked off on the grocery list")
+          .accessibilityLabel(Copy.text("ui.checked.off.on.the.grocery"))
       }
     }
     .padding(.vertical, 4)
@@ -166,10 +166,10 @@ struct AlwaysCheckedView: View {
       ThemeSection("Always checked off · \(items.count)") {
         if items.isEmpty {
           VStack(alignment: .leading, spacing: 10) {
-            Text("Examples — add the items you always keep on hand")
+            Text(Copy.text("ui.examples.add.the.items.you"))
             Text("Salt")
-            Text("Olive oil")
-            Text("Black pepper")
+            Text(Copy.text("ui.olive.oil"))
+            Text(Copy.text("ui.black.pepper"))
           }.foregroundStyle(Theme.muted).opacity(0.5)
         }
         ForEach(items, id: \.name) { item in
@@ -183,15 +183,15 @@ struct AlwaysCheckedView: View {
             for item in doomed { await remove(item) }
           }
         }
-        ThemeAddRow(title: "Add item") { adding = true }
+        ThemeAddRow(title: Copy.text("ui.add.item")) { adding = true }
       }
       .themeRows()
     }
     .themeList()
-    .navigationTitle("Always checked off")
+    .navigationTitle(Copy.text("ui.always.checked.off"))
     .navigationBarTitleDisplayMode(.inline)
     .sheet(isPresented: $adding) {
-      KitchenItemPicker(title: "Always check off") { names in
+      KitchenItemPicker(title: Copy.text("ui.always.check.off")) { names in
         await add(names)
       }
     }
@@ -266,7 +266,7 @@ struct KitchenItemPicker: View {
             }
           }
           ItemSearchField(
-            label: "Items", placeholder: "Type an item, like garlic or rice", autofocus: true,
+            label: "Items", placeholder: Copy.text("ui.type.an.item.like.garlic"), autofocus: true,
             selected: $picked, search: { try await KitchenAPI.searchItems($0) })
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -289,7 +289,7 @@ struct KitchenItemPicker: View {
           ) {
             Button("Add \(picked.count)") { save() }
             Button("Discard", role: .destructive) { dismiss() }
-            Button("Keep editing", role: .cancel) {}
+            Button(Copy.text("ui.keep.editing"), role: .cancel) {}
           }
         }
         ToolbarItem(placement: .confirmationAction) {
@@ -330,9 +330,9 @@ private struct PantryItemEditor: View {
     Form {
       Group {
         if let error { ErrorBanner(message: error) }
-        Toggle("Have this item", isOn: $have)
+        Toggle(Copy.text("ui.have.this.item"), isOn: $have)
           .onChange(of: have) { _, next in if ready { Task { await save(have: next) } } }
-        Toggle("Always check off", isOn: $neverShop)
+        Toggle(Copy.text("ui.always.check.off"), isOn: $neverShop)
           .onChange(of: neverShop) { _, next in if ready { Task { await save(neverShop: next) } } }
         TextField("Amount (optional)", text: $quantity)
           .focused($amountFocused)
@@ -357,7 +357,7 @@ private struct PantryItemEditor: View {
             ForEach(store.aisles) { Text($0.name).tag($0.id) }
           }
         }
-        Button("Delete item", role: .destructive) {
+        Button(Copy.text("ui.delete.item"), role: .destructive) {
           Task {
             do {
               guard let id = item.id else { preconditionFailure("Pantry item has no id") }

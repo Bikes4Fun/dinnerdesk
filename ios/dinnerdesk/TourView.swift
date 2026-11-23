@@ -196,26 +196,26 @@ struct TourView: View {
   private var welcome: some View {
     VStack(spacing: 0) {
       Spacer(minLength: 0)
-      Text("Free. No ads, ever.")
+      Text(Copy.text("ui.free.no.ads.ever"))
         .font(Theme.chipLabel).foregroundStyle(Theme.ink)
         .padding(.horizontal, 14).padding(.vertical, 6)
         .background(Capsule().fill(Theme.aubergineTint))
         .padding(.bottom, 16)
-      Text("Custom meal plans in 5 minutes.")
+      Text(Copy.text("ui.custom.meal.plans.in.5"))
         .font(Theme.bigTitle).foregroundStyle(Theme.ink)
         .multilineTextAlignment(.center)
         .padding(.bottom, 28)
       VStack(alignment: .leading, spacing: 16) {
-        benefit("checklist", "Grocery list built for you")
-        benefit("timer", "Prep-ahead steps for busy nights")
-        benefit("leaf", "Less waste, using your pantry")
+        benefit("checklist", Copy.text("ui.grocery.list.built.for.you"))
+        benefit("timer", Copy.text("ui.prepahead.steps.for.busy.nights"))
+        benefit("leaf", Copy.text("ui.less.waste.using.your.pantry"))
       }
       Spacer(minLength: 0)
-      primary("Get started") { step = .household }
-      Button("Skip, I’ll look around") { Task { await finish() } }
+      primary(Copy.text("ui.get.started")) { step = .household }
+      Button(Copy.text("ui.skip.ill.look.around")) { Task { await finish() } }
         .font(Theme.chipLabel).frame(minHeight: 44)
       if let more = URL(string: "support#ai", relativeTo: API.origin)?.absoluteURL {
-        Link("How we use AI", destination: more).font(Theme.chipLabel).frame(minHeight: 40)
+        Link(Copy.text("tour.ai.title"), destination: more).font(Theme.chipLabel).frame(minHeight: 40)
       }
     }
   }
@@ -234,7 +234,7 @@ struct TourView: View {
   private var household: some View {
     VStack(spacing: 0) {
       page {
-        heading("Who’s eating dinner?", "We’ll size recipes and the grocery list to match.")
+        heading(Copy.text("ui.whos.eating.dinner"), Copy.text("ui.well.size.recipes.and.the"))
         VStack(spacing: 10) {
           stepper(people, min: 1, max: 12, label: "people", big: true) { people = $0 }
           Text("people, most nights").font(Theme.body).foregroundStyle(Theme.ink)
@@ -243,14 +243,14 @@ struct TourView: View {
         .padding(.vertical, 22)
         .background(RoundedRectangle(cornerRadius: 18).fill(Theme.surface))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(Theme.line))
-        Text("Weeknight cook time").font(Theme.chipLabel).foregroundStyle(Theme.ink).padding(.top, 22).padding(.bottom, 8)
-        Picker("Weeknight cook time", selection: $time) {
+        Text(Copy.text("ui.weeknight.cook.time")).font(Theme.chipLabel).foregroundStyle(Theme.ink).padding(.top, 22).padding(.bottom, 8)
+        Picker(Copy.text("ui.weeknight.cook.time"), selection: $time) {
           ForEach(FilterOptions.times) { t in
             Text(t.label.replacingOccurrences(of: " or less", with: "").replacingOccurrences(of: "Any time", with: "Any")).tag(t.id)
           }
         }
         .pickerStyle(.segmented)
-        Text("Feeding a crowd one night? Change servings on any single meal later.")
+        Text(Copy.text("ui.feeding.a.crowd.one.night"))
           .font(Self.small).foregroundStyle(Theme.ink)
           .padding(14).frame(maxWidth: .infinity, alignment: .leading)
           .background(RoundedRectangle(cornerRadius: 14).fill(Theme.aubergineTint))
@@ -265,15 +265,15 @@ struct TourView: View {
   private var avoid: some View {
     VStack(spacing: 0) {
       page {
-        heading("Anything to avoid?")
-        group("Diet", "Only show recipes that fit.")
+        heading(Copy.text("ui.anything.to.avoid"))
+        group("Diet", Copy.text("ui.only.show.recipes.that.fit"))
         chips(FilterOptions.diets.map { ($0, FilterOptions.dietLabels[$0] ?? $0) }, selected: diets) { toggleDiet($0) }
-        group("Allergies", "Never shown. We check every ingredient.")
+        group("Allergies", Copy.text("ui.never.shown.we.check.every"))
         chips(FilterOptions.allergens, selected: allergens) { allergens.formSymmetricDifference([$0]) }
-        group("Dislikes", "Suggested less often. You can still add them yourself.")
+        group("Dislikes", Copy.text("ui.suggested.less.often.you.can"))
         chips(Self.commonAvoids.map { ($0, $0.capitalized) }, selected: avoids) { avoids.formSymmetricDifference([$0]) }
       }
-      primary(busy ? "Planning your week…" : "Next") { Task { await saveFilters() } }
+      primary(busy ? Copy.text("ui.planning.your.week") : "Next") { Task { await saveFilters() } }
     }
   }
 
@@ -290,9 +290,9 @@ struct TourView: View {
   private var week: some View {
     VStack(spacing: 0) {
       page {
-        heading("Here’s your week", "Picked for you. Swap anything that doesn’t sound good.")
+        heading(Copy.text("ui.heres.your.week"), Copy.text("ui.picked.for.you.swap.anything"))
         HStack {
-          Text("Dinners this week").font(Theme.action).foregroundStyle(Theme.ink)
+          Text(Copy.text("ui.dinners.this.week")).font(Theme.action).foregroundStyle(Theme.ink)
           Spacer()
           stepper(dinners, min: 1, max: Self.maxDinners, label: "dinners", big: false) { n in Task { await resize(n) } }
         }
@@ -304,7 +304,7 @@ struct TourView: View {
           ForEach(proposal?.slots ?? []) { slot in mealRow(slot) }
         }
       }
-      primary("Looks good", disabled: (proposal?.slots ?? []).isEmpty) { Task { await approve() } }
+      primary(Copy.text("ui.looks.good"), disabled: (proposal?.slots ?? []).isEmpty) { Task { await approve() } }
     }
   }
 
@@ -339,15 +339,15 @@ struct TourView: View {
     if let toBuy { sub += " · \(toBuy) thing\(toBuy == 1 ? "" : "s") to buy" }
     return VStack(spacing: 0) {
       page {
-        heading("Your week is ready", sub)
+        heading(Copy.text("ui.your.week.is.ready"), sub)
         VStack(alignment: .leading, spacing: 16) {
-          tip(1, "Plan", "Give meals a day when you know it. No rush, they stay on your list.")
-          tip(2, "Grocery", "Your list builds itself. Check things off in the store.")
-          tip(3, "Prep ahead", "Got time on the weekend? See what you can chop and cook early.")
+          tip(1, "Plan", Copy.text("ui.give.meals.a.day.when"))
+          tip(2, "Grocery", Copy.text("ui.your.list.builds.itself.check"))
+          tip(3, Copy.text("ui.prep.ahead"), Copy.text("ui.got.time.on.the.weekend"))
         }
         VStack(alignment: .leading, spacing: 2) {
-          Text("Want better picks next week?").foregroundStyle(Theme.ink)
-          Button("Try Taste Lab (about 2 min)") { Task { await markDone(); showTasteLab = true } }
+          Text(Copy.text("ui.want.better.picks.next.week")).foregroundStyle(Theme.ink)
+          Button(Copy.text("ui.try.taste.lab.about.2")) { Task { await markDone(); showTasteLab = true } }
             .frame(minHeight: 44)
         }
         .font(Self.small)
@@ -419,9 +419,9 @@ struct TourView: View {
       savedFilters = filters
       let caps: SuggestionCapabilities = try await API.get("suggestions/capabilities", reportErrors: false)
       guard caps.version >= 2 && caps.review && caps.resize && caps.swap else {
-        throw APIError.http(409, "Meal planning needs the updated server. Please try again after the server update.")
+        throw APIError.http(409, Copy.text("ui.meal.planning.needs.the.updated"))
       }
-      let created: Plan = try await API.send("plans", method: "POST", body: ["title": "This week", "meal_count": dinners, "keep_current": false])
+      let created: Plan = try await API.send("plans", method: "POST", body: ["title": Copy.text("ui.this.week"), "meal_count": dinners, "keep_current": false])
       proposal = created
       dinners = created.slots.count
       step = .week

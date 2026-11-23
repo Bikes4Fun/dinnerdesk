@@ -8,17 +8,17 @@ private enum RecipeListKind: String, CaseIterable, Identifiable {
   var title: String {
     switch self {
     case .suggestions: "Suggestions"
-    case .fav: "Your Favorites"
-    case .tryLater: "To try"
-    case .popular: "Most Popular"
-    case .mine: "Your Recipes"
-    case .simple: "Super simple"
-    case .budget: "Budget friendly"
-    case .pantry: "Uses pantry"
+    case .fav: Copy.text("ui.your.favorites")
+    case .tryLater: Copy.text("ui.to.try.2")
+    case .popular: Copy.text("ui.most.popular")
+    case .mine: Copy.text("ui.your.recipes")
+    case .simple: Copy.text("ui.super.simple")
+    case .budget: Copy.text("ui.budget.friendly")
+    case .pantry: Copy.text("ui.uses.pantry")
     case .sauces: "Sauces & dressings"
-    case .comingSoon: "Coming soon"
+    case .comingSoon: Copy.text("ui.coming.soon")
     case .hidden: "Hidden"
-    case .all: "All recipes"
+    case .all: Copy.text("ui.all.recipes")
     }
   }
 }
@@ -50,7 +50,7 @@ struct RecipesView: View {
     NavigationStack {
       VStack(spacing: 0) {
         TabHeader("Recipes") {
-          HeaderIconButton("Search Recipes", systemImage: "magnifyingglass") {
+          HeaderIconButton(Copy.text("ui.search.recipes"), systemImage: "magnifyingglass") {
             searchOpen.toggle()
             if !searchOpen {
               query = ""
@@ -60,7 +60,7 @@ struct RecipesView: View {
           }
         }
         if searchOpen {
-          TextField(store.recipeTotal.map { "Search \($0) recipes or ingredients" } ?? "Search recipes or ingredients", text: $query)
+          TextField(store.recipeTotal.map { "Search \($0) recipes or ingredients" } ?? Copy.text("ui.search.recipes.or.ingredients"), text: $query)
             .textFieldStyle(.plain)
             .font(Theme.body)
             .padding(12)
@@ -90,7 +90,7 @@ struct RecipesView: View {
           }
           filterChips
           if searching {
-            recipeGrid(searchRows, empty: query.isEmpty ? "No recipes" : "No matches")
+            recipeGrid(searchRows, empty: query.isEmpty ? Copy.text("ui.no.recipes") : Copy.text("ui.no.matches"))
               .padding(.horizontal, 16)
           } else {
             browseHome
@@ -144,38 +144,38 @@ struct RecipesView: View {
   private var browseHome: some View {
     if !suggestedIds.isEmpty { browseSection("Suggestions", rows: rows(for: .suggestions), seeAll: .suggestions) }
     browseSection(
-      "Your favorites", rows: favorites, seeAll: .fav, empty: "Heart a recipe to keep it here.")
+      Copy.text("ui.your.favorites.2"), rows: favorites, seeAll: .fav, empty: Copy.text("ui.heart.a.recipe.to.keep"))
     if !toTry.isEmpty {
-      browseSection("To try", rows: toTry, seeAll: .tryLater)
+      browseSection(Copy.text("ui.to.try.2"), rows: toTry, seeAll: .tryLater)
     }
-    browseSection("Create from a template", rows: [], seeAll: .all, empty: "Coming soon")
+    browseSection(Copy.text("ui.create.from.a.template"), rows: [], seeAll: .all, empty: Copy.text("ui.coming.soon"))
       .opacity(0.65)
     if !popular.isEmpty {
-      browseSection("Most popular", rows: popular, seeAll: .popular)
+      browseSection(Copy.text("ui.most.popular.2"), rows: popular, seeAll: .popular)
     }
     if !mine.isEmpty {
-      browseSection("Your recipes", rows: mine, seeAll: .mine)
+      browseSection(Copy.text("ui.your.recipes.2"), rows: mine, seeAll: .mine)
     }
     if !simple.isEmpty {
-      browseSection("Super simple", rows: simple, seeAll: .simple)
+      browseSection(Copy.text("ui.super.simple"), rows: simple, seeAll: .simple)
     }
     if !collections.budget.isEmpty {
-      browseSection("Budget friendly", rows: collections.budget, seeAll: .budget)
+      browseSection(Copy.text("ui.budget.friendly"), rows: collections.budget, seeAll: .budget)
     }
     if !collections.pantry.isEmpty {
-      browseSection("Uses pantry", rows: collections.pantry, seeAll: .pantry)
+      browseSection(Copy.text("ui.uses.pantry"), rows: collections.pantry, seeAll: .pantry)
     }
     if !sauces.isEmpty {
       browseSection("Sauces & dressings", rows: sauces, seeAll: .sauces)
     }
     if !comingSoon.isEmpty {
-      browseSection("Coming soon", rows: comingSoon, seeAll: .comingSoon)
+      browseSection(Copy.text("ui.coming.soon"), rows: comingSoon, seeAll: .comingSoon)
     }
-    browseSection("All recipes", rows: rows(for: .all), seeAll: .all, empty: "No recipes")
+    browseSection(Copy.text("ui.all.recipes"), rows: rows(for: .all), seeAll: .all, empty: Copy.text("ui.no.recipes"))
   }
 
   private func seeAllButton(_ title: String, _ kind: RecipeListKind) -> some View {
-    Button("See all") { list = kind }
+    Button(Copy.text("ui.see.all")) { list = kind }
       .font(Theme.action)
       .foregroundStyle(Theme.accent)
       .frame(minHeight: 44)
@@ -352,7 +352,7 @@ private struct RecipeGridPage: View {
   var body: some View {
     ScrollView {
       if recipes.isEmpty {
-        Text("No recipes")
+        Text(Copy.text("ui.no.recipes"))
           .foregroundStyle(Theme.muted)
           .frame(maxWidth: .infinity, alignment: .leading)
           .padding()
@@ -419,7 +419,7 @@ private struct PlanStrip: View {
                 .frame(width: 44, height: 32)
                 .contentShape(Rectangle())
             }
-            .accessibilityLabel("Hide this week's meals")
+            .accessibilityLabel(Copy.text("ui.hide.this.weeks.meals"))
           }
           .padding(.leading, 16)
           .padding(.trailing, 4)
@@ -491,7 +491,7 @@ struct BrowseRecipeTile: View {
             .opacity(0.6)
         }
         .overlay {
-          Text("Coming soon")
+          Text(Copy.text("ui.coming.soon"))
             .font(.footnote.weight(.bold))
             .foregroundStyle(.white)
             .shadow(color: .black.opacity(0.6), radius: 3)
@@ -540,7 +540,7 @@ struct BrowseRecipeTile: View {
             .buttonStyle(.borderless)
             .padding(4)
             .accessibilityLabel(
-              store.onWeek(recipe.id) ? "Remove from this plan" : "Add to this plan")
+              store.onWeek(recipe.id) ? Copy.text("ui.remove.from.this.plan") : Copy.text("ui.add.to.this.plan"))
           }
           .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         RecipeCardName(name: recipe.name, lineLimit: 2, reservesSpace: true)
@@ -552,14 +552,14 @@ struct BrowseRecipeTile: View {
       Button(recipe.favorited ? "Unfavorite" : "Favorite") {
         Task { await store.toggleFavorite(recipe) }
       }
-      Button(store.onWeek(recipe.id) ? "Remove from plan" : "Add to plan") {
+      Button(store.onWeek(recipe.id) ? Copy.text("ui.remove.from.plan") : Copy.text("ui.add.to.plan")) {
         Task { await store.toggleWeek(recipe) }
       }
-      Button(recipe.toTry ? "Remove from To try" : "To try") {
+      Button(recipe.toTry ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.to.try.2")) {
         Task { await store.toggleTryLater(recipe) }
       }
       Button(
-        recipe.hidden ? "Unhide recipe" : "Hide recipe",
+        recipe.hidden ? Copy.text("ui.unhide.recipe") : Copy.text("ui.hide.recipe"),
         role: recipe.hidden ? .none : .destructive
       ) {
         Task { _ = await store.setHidden(id: recipe.id, on: !recipe.hidden) }
@@ -654,13 +654,13 @@ struct RecipeDetailView: View {
               .padding(.horizontal)
             } else {
               if recipe.instructionsCustomized {
-                Text("Instructions customized by Dinner Desk")
+                Text(Copy.text("ui.instructions.customized.by.dinner.desk"))
                   .font(Theme.subtitle).foregroundStyle(Theme.muted)
                   .padding(.horizontal)
               }
               if let link = recipe.sourceLink {
                 Link(destination: link) {
-                  Text("\(recipe.instructionsSource == "import" ? "Steps from" : "Source:") \((link.host() ?? "").replacingOccurrences(of: "www.", with: ""))")
+                  Text("\(recipe.instructionsSource == "import" ? Copy.text("ui.steps.from") : "Source:") \((link.host() ?? "").replacingOccurrences(of: "www.", with: ""))")
                     .font(Theme.subtitle).foregroundStyle(Theme.accent)
                 }
                 .padding(.horizontal)
@@ -711,14 +711,14 @@ struct RecipeDetailView: View {
     .menuSheet(isPresented: $showingMenu) {
       if let recipe {
         [
-          MenuSheetItem(title: recipe.toTry ? "Remove from To try" : "To try", systemImage: recipe.toTry ? "bookmark.fill" : "bookmark") {
+          MenuSheetItem(title: recipe.toTry ? Copy.text("ui.remove.from.to.try") : Copy.text("ui.to.try.2"), systemImage: recipe.toTry ? "bookmark.fill" : "bookmark") {
             Task { await tryLater(recipe) }
           },
-          MenuSheetItem(title: recipe.hidden ? "Unhide recipe" : "Hide recipe", systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
+          MenuSheetItem(title: recipe.hidden ? Copy.text("ui.unhide.recipe") : Copy.text("ui.hide.recipe"), systemImage: recipe.hidden ? "eye" : "eye.slash", destructive: !recipe.hidden) {
             Task { await hide(on: !recipe.hidden) }
           }
         ] + (recipe.catalog ? [
-          MenuSheetItem(title: reported ? "Reported. Thanks" : "Report a problem", systemImage: "flag") {
+          MenuSheetItem(title: reported ? "Reported. Thanks" : Copy.text("ui.report.a.problem"), systemImage: "flag") {
             guard !reported else { return }
             reportReason = nil
             reportNote = ""
@@ -771,7 +771,7 @@ struct RecipeDetailView: View {
             .buttonStyle(.plain)
             .accessibilityAddTraits(reportReason == reason ? .isSelected : [])
           }
-          Text("Anything to add? (optional)").font(Theme.action).foregroundStyle(Theme.ink)
+          Text(Copy.text("ui.anything.to.add.optional")).font(Theme.action).foregroundStyle(Theme.ink)
           TextField("e.g. Step 4 says to add the cream but it's not in the ingredients", text: $reportNote, axis: .vertical)
             .accessibilityLabel("Recipe report details (optional)")
             .font(Theme.subtitle)
@@ -786,10 +786,10 @@ struct RecipeDetailView: View {
               let sent = await store.reportRecipe(id, reason: reason.rawValue,
                                                   note: reportNote.trimmingCharacters(in: .whitespacesAndNewlines))
               reportSending = false
-              if sent { reported = true; reporting = false; planNotice = "Thanks. We'll take a look." }
+              if sent { reported = true; reporting = false; planNotice = Copy.text("ui.thanks.well.take.a.look") }
             }
           } label: {
-            Text(reportSending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+            Text(reportSending ? "Sending…" : Copy.text("ui.send.report")).font(Theme.action).foregroundStyle(Theme.bg)
               .frame(maxWidth: .infinity, minHeight: 50)
               .background(reportReason == nil ? Theme.muted : Theme.ink, in: RoundedRectangle(cornerRadius: 14))
           }
@@ -799,7 +799,7 @@ struct RecipeDetailView: View {
         .padding()
       }
       .background(Theme.bg)
-      .navigationTitle("Report a problem").navigationBarTitleDisplayMode(.inline)
+      .navigationTitle(Copy.text("ui.report.a.problem")).navigationBarTitleDisplayMode(.inline)
       .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { reporting = false } } }
     }
   }
@@ -853,7 +853,7 @@ struct RecipeDetailView: View {
             .frame(width: 44, height: 44)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Recipe options")
+        .accessibilityLabel(Copy.text("ui.recipe.options"))
       }
       .padding(.horizontal, 4)
       .background(Theme.surface, in: Capsule())
@@ -943,7 +943,7 @@ struct RecipeDetailView: View {
           .contentShape(Rectangle())
       }
       .disabled(mealServings <= 1)
-      .accessibilityLabel("Fewer servings")
+      .accessibilityLabel(Copy.text("ui.fewer.servings"))
       HStack(spacing: 4) {
         Image(systemName: "person.2").font(.caption).foregroundStyle(Theme.muted)
         Text("\(mealServings)")
@@ -960,7 +960,7 @@ struct RecipeDetailView: View {
           .contentShape(Rectangle())
       }
       .disabled(mealServings >= 50)
-      .accessibilityLabel("More servings")
+      .accessibilityLabel(Copy.text("ui.more.servings"))
     }
     .buttonStyle(.borderless)
   }
@@ -1014,7 +1014,7 @@ struct RecipeDetailView: View {
     if removing { await store.removeFromWeek(recipeId: id) }
     else { await store.addToWeek(recipeId: id, servings: draftServings) }
     if added != removing {
-      planNotice = removing ? "Removed from this plan" : "Added to this plan"
+      planNotice = removing ? Copy.text("ui.removed.from.this.plan") : Copy.text("ui.added.to.this.plan")
     } else { error = store.error }
   }
 }
@@ -1124,13 +1124,13 @@ private struct RecipeGalleryView: View {
           .overlay(alignment: .bottomTrailing) {
             if hero, let current { RecipePhotoCredit(photo: current).padding(8) }
           }
-          .accessibilityLabel("Recipe photos")
+          .accessibilityLabel(Copy.text("ui.recipe.photos"))
         if !hero {
         HStack {
           if recipe.photos.count > 1 {
             Button { move(-1) } label: { Image(systemName: "chevron.left").frame(minWidth: 44, minHeight: 44) }
               .disabled(current?.path == recipe.photos.first?.path)
-              .accessibilityLabel("Previous photo")
+              .accessibilityLabel(Copy.text("ui.previous.photo"))
           }
           if let current, let index = recipe.photos.firstIndex(where: { $0.path == current.path }) {
             Text("\(index + 1) / \(recipe.photos.count)\(current.primary ? " · Primary" : "")")
@@ -1140,7 +1140,7 @@ private struct RecipeGalleryView: View {
           if recipe.photos.count > 1 {
             Button { move(1) } label: { Image(systemName: "chevron.right").frame(minWidth: 44, minHeight: 44) }
               .disabled(current?.path == recipe.photos.last?.path)
-              .accessibilityLabel("Next photo")
+              .accessibilityLabel(Copy.text("ui.next.photo"))
           }
         }
         .frame(maxWidth: .infinity)
@@ -1174,7 +1174,7 @@ private struct RecipeGalleryView: View {
       isPresented: $confirmDelete,
       titleVisibility: .visible
     ) {
-      Button("Delete photo", role: .destructive) { Task { await deleteCurrent() } }
+      Button(Copy.text("ui.delete.photo"), role: .destructive) { Task { await deleteCurrent() } }
       Button("Cancel", role: .cancel) {}
     }
     .onAppear { selected = recipe.photos.first?.path ?? "" }
@@ -1209,15 +1209,15 @@ private struct RecipeGalleryView: View {
 
   @ViewBuilder private var photoActions: some View {
     PhotosPicker(selection: $picked, matching: .images) {
-      Label("Add photos", systemImage: "photo.badge.plus")
+      Label(Copy.text("ui.add.photos"), systemImage: "photo.badge.plus")
         .frame(minHeight: 44)
     }
     if let current, !current.primary {
-      Button("Make primary") { Task { await makePrimary(current.path) } }
+      Button(Copy.text("ui.make.primary")) { Task { await makePrimary(current.path) } }
         .frame(minHeight: 44)
     }
     if current != nil {
-      Button("Delete photo", role: .destructive) { confirmDelete = true }
+      Button(Copy.text("ui.delete.photo"), role: .destructive) { confirmDelete = true }
         .frame(minHeight: 44)
     }
   }
@@ -1264,7 +1264,7 @@ private struct RecipeGalleryView: View {
         body: ["path": current.path], cacheAs: "recipes/\(recipe.id)")
       onChange(next)
       selected = next.photos.first?.path ?? ""
-      notice = "Photo deleted."
+      notice = Copy.text("ui.photo.deleted")
       await store.loadAll()
     } catch { self.error = error.localizedDescription }
   }
@@ -1277,7 +1277,7 @@ private struct RecipeGalleryView: View {
       let next: RecipeDetail = try await API.send("recipes/\(recipe.id)/photos/primary", method: "PUT",
         body: ["path": path], cacheAs: "recipes/\(recipe.id)")
       onChange(next)
-      notice = "Primary photo saved."
+      notice = Copy.text("ui.primary.photo.saved")
       await store.loadAll()
     } catch { self.error = error.localizedDescription }
   }
@@ -1304,14 +1304,14 @@ private struct RecipePhotoCredit: View {
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-    .accessibilityLabel("Photo source")
-    .help(photo.credit ?? "Photo source not recorded")
+    .accessibilityLabel(Copy.text("ui.photo.source"))
+    .help(photo.credit ?? Copy.text("ui.photo.source.not.recorded"))
     .popover(isPresented: $showing) {
       VStack(alignment: .leading, spacing: 8) {
-        Text(photo.credit ?? "Photo source not recorded")
+        Text(photo.credit ?? Copy.text("ui.photo.source.not.recorded"))
         if let raw = photo.sourceUrl, let url = URL(string: raw),
            ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-          Link("View source", destination: url)
+          Link(Copy.text("ui.view.source"), destination: url)
         }
       }
       .font(.footnote)

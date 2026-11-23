@@ -16,8 +16,8 @@ struct MyRecipesView: View {
       }
       if loaded && recipes.isEmpty {
         EmptyState(
-          title: "No recipes of your own yet",
-          message: "Write one out, or import one from a recipe website with the + button.",
+          title: Copy.text("ui.no.recipes.of.your.own"),
+          message: Copy.text("ui.write.one.out.or.import"),
           systemImage: "book.closed"
         )
         .themeBareRow()
@@ -52,17 +52,17 @@ struct MyRecipesView: View {
       }
     }
     .themeList()
-    .navigationTitle("My recipes")
+    .navigationTitle(Copy.text("ui.my.recipes"))
     .navigationBarTitleDisplayMode(.inline)
     .toolbar {
       ToolbarItem(placement: .primaryAction) {
         Menu {
-          Button("Write your own", systemImage: "square.and.pencil") { form = .write }
-          Button("Import from a website", systemImage: "link") { form = .importURL }
+          Button(Copy.text("ui.write.your.own"), systemImage: "square.and.pencil") { form = .write }
+          Button(Copy.text("ui.import.from.a.website"), systemImage: "link") { form = .importURL }
         } label: {
           Image(systemName: "plus")
         }
-        .accessibilityLabel("Add recipe")
+        .accessibilityLabel(Copy.text("ui.add.recipe"))
       }
     }
     .sheet(item: $form) { mode in
@@ -155,25 +155,25 @@ struct RecipeFormView: View {
         if mode == .importURL {
           Section {
             TextField("https://", text: $url)
-              .accessibilityLabel("Recipe page URL")
+              .accessibilityLabel(Copy.text("ui.recipe.page.url"))
               .keyboardType(.URL)
               .textContentType(.URL)
               .textInputAutocapitalization(.never)
               .autocorrectionDisabled()
               .onSubmit { Task { await runImport() } }
-            Button(importing ? "Reading…" : imported ? "Read again" : "Import") {
+            Button(importing ? "Reading…" : imported ? Copy.text("ui.read.again") : "Import") {
               Task { await runImport() }
             }
             .disabled(importing || url.trimmingCharacters(in: .whitespaces).isEmpty)
           } header: {
-            Text("Recipe page")
+            Text(Copy.text("ui.recipe.page"))
           } footer: {
             if imported {
-              Text("Check it over before you save. The ingredients and steps came from that site.")
+              Text(Copy.text("ui.check.it.over.before.you"))
             } else if !typing {
               VStack(alignment: .leading, spacing: 6) {
-                Text("Paste a link to a recipe on a public website.")
-                Button("Type it in instead") { typing = true }
+                Text(Copy.text("ui.paste.a.link.to.a"))
+                Button(Copy.text("ui.type.it.in.instead")) { typing = true }
                   .foregroundStyle(Theme.accent)
               }
             }
@@ -190,12 +190,12 @@ struct RecipeFormView: View {
           .listRowBackground(Theme.surface)
           Section {
             TextField("1 onion\n2 cloves garlic", text: $ingredients, axis: .vertical)
-              .accessibilityLabel("Ingredients, one per line")
+              .accessibilityLabel(Copy.text("ui.ingredients.one.per.line"))
               .lineLimit(5...30)
           } header: {
             Text("Ingredients")
           } footer: {
-            Text("One per line, amount first.")
+            Text(Copy.text("ui.one.per.line.amount.first"))
           }
           .listRowBackground(Theme.surface)
           Section {
@@ -214,11 +214,11 @@ struct RecipeFormView: View {
               .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             }
             PhotosPicker(
-              ownPhoto == nil ? "Choose your own photo" : "Choose a different photo",
+              ownPhoto == nil ? Copy.text("ui.choose.your.own.photo") : Copy.text("ui.choose.a.different.photo"),
               selection: $photoPick, matching: .images
             )
             if ownPhoto != nil {
-              Button(imported && !siteImage.isEmpty ? "Use the site's photo" : "Remove photo", role: .destructive) {
+              Button(imported && !siteImage.isEmpty ? Copy.text("ui.use.the.sites.photo") : Copy.text("ui.remove.photo"), role: .destructive) {
                 ownPhoto = nil
                 photoPick = nil
               }
@@ -229,21 +229,21 @@ struct RecipeFormView: View {
             if ownPhoto == nil && imported && !siteImage.isEmpty {
               Text("We selected a photo from that page, or choose your own.")
             } else if ownPhoto == nil {
-              Text("Add a photo you took or one you're free to use.")
+              Text(Copy.text("ui.add.a.photo.you.took"))
             }
           }
           .listRowBackground(Theme.surface)
           if mode == .write {
             Section {
               TextField("https://", text: $source)
-                .accessibilityLabel("Recipe source URL (optional)")
+                .accessibilityLabel(Copy.text("ui.recipe.source.url.optional"))
                 .keyboardType(.URL)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             } header: {
               Text("Source (optional)")
             } footer: {
-              Text("Where this recipe came from.")
+              Text(Copy.text("ui.where.this.recipe.came.from"))
             }
             .listRowBackground(Theme.surface)
           }
@@ -253,13 +253,13 @@ struct RecipeFormView: View {
                 Text("\((steps.firstIndex { $0.id == step.id } ?? 0) + 1).")
                   .font(Theme.count)
                   .foregroundStyle(Theme.muted)
-                TextField("What to do", text: $step.text, axis: .vertical)
+                TextField(Copy.text("ui.what.to.do"), text: $step.text, axis: .vertical)
                   .accessibilityLabel("Step \((steps.firstIndex { $0.id == step.id } ?? 0) + 1) instructions")
                   .lineLimit(2...12)
               }
             }
             .onDelete { steps.remove(atOffsets: $0) }
-            Button("Add step", systemImage: "plus") { steps.append(StepDraft()) }
+            Button(Copy.text("ui.add.step"), systemImage: "plus") { steps.append(StepDraft()) }
           }
           .listRowBackground(Theme.surface)
         }
@@ -268,7 +268,7 @@ struct RecipeFormView: View {
       .onChange(of: photoPick) { _, item in
         Task { await loadPhoto(item) }
       }
-      .navigationTitle(mode == .write ? "New recipe" : "Import a recipe")
+      .navigationTitle(mode == .write ? Copy.text("ui.new.recipe") : Copy.text("ui.import.a.recipe"))
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         ToolbarItem(placement: .cancellationAction) {
@@ -349,13 +349,13 @@ extension RecipeFormView {
     guard let item else { return }
     do {
       guard let data = try await item.loadTransferable(type: Data.self), let image = UIImage(data: data) else {
-        error = "Couldn't read that photo."
+        error = Copy.text("ui.couldnt.read.that.photo")
         return
       }
       ownPhoto = image
       error = nil
     } catch {
-      self.error = "Couldn't read that photo."
+      self.error = Copy.text("ui.couldnt.read.that.photo")
     }
   }
 

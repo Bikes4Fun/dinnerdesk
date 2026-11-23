@@ -45,7 +45,7 @@ struct TourScreenPicture: View {
       }
       HStack(spacing: 8) {
         pill("Swap", fill: Theme.surface, text: Theme.ink, outlined: true)
-        pill("Approve plan", fill: Theme.ink, text: Theme.surface)
+        pill(Copy.text("ui.approve.plan"), fill: Theme.ink, text: Theme.surface)
       }
     }
   }

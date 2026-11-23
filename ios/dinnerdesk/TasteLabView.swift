@@ -629,7 +629,7 @@ struct TasteLabView: View {
         Image(systemName: "xmark").font(.footnote.weight(.semibold)).foregroundStyle(Theme.muted)
           .frame(width: 44, height: 44)
       }
-      .accessibilityLabel("Dismiss note")
+      .accessibilityLabel(Copy.text("ui.dismiss.note"))
     }
     .padding(.leading, 14)
     .padding(.top, 10)
@@ -652,10 +652,10 @@ struct TasteLabView: View {
   private var title: String {
     switch lab.screen {
     case .swipe: "Keep going"
-    case .plan: "Review your suggestions"
+    case .plan: Copy.text("ui.review.your.suggestions")
     case .history: "Swipe history"
     case .empty: lab.phase == .free ? "No new meals to swipe" : "No meals match"
-    default: "Taste Lab"
+    default: Copy.text("tour.how.6.title")
     }
   }
 
@@ -677,9 +677,9 @@ struct TasteLabView: View {
   private var errorView: some View {
     VStack(spacing: 12) {
       EmptyState(
-        title: "Taste Lab didn't load", message: lab.error ?? "Something went wrong.",
+        title: Copy.text("ui.taste.lab.didnt.load"), message: lab.error ?? Copy.text("ui.something.went.wrong"),
         systemImage: "wifi.exclamationmark")
-      LabButton("Try again") { Task { await lab.boot(swipe: swipe) } }
+      LabButton(Copy.text("ui.try.again")) { Task { await lab.boot(swipe: swipe) } }
         .frame(maxWidth: 240)
     }
     .padding(20)
@@ -1074,7 +1074,7 @@ private struct PhotoReportButton: View {
           VStack(alignment: .leading, spacing: 12) {
             Text(name).font(Theme.action)
             Text(RecipeReportReason.photo.label).font(Theme.body)
-            TextField("Anything to add? (optional)", text: $note, axis: .vertical)
+            TextField(Copy.text("ui.anything.to.add.optional"), text: $note, axis: .vertical)
               .lineLimit(3...8).padding(12)
               .background(Theme.surface, in: RoundedRectangle(cornerRadius: 12))
             if let error { ErrorBanner(message: error) }
@@ -1093,7 +1093,7 @@ private struct PhotoReportButton: View {
                 sending = false
               }
             } label: {
-              Text(sending ? "Sending…" : "Send report").font(Theme.action).foregroundStyle(Theme.bg)
+              Text(sending ? "Sending…" : Copy.text("ui.send.report")).font(Theme.action).foregroundStyle(Theme.bg)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(Theme.ink, in: RoundedRectangle(cornerRadius: 14))
             }
@@ -1101,7 +1101,7 @@ private struct PhotoReportButton: View {
           }.padding()
         }
         .background(Theme.bg)
-        .navigationTitle("Report photo").navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(Copy.text("ui.report.photo")).navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showing = false }.disabled(sending) } }
         .interactiveDismissDisabled(sending)
       }.tint(Theme.accent)
@@ -1253,7 +1253,7 @@ private struct SwapSheet: View {
       }
       .safeAreaInset(edge: .bottom) {
         HStack(spacing: 10) {
-          LabButton("More options", primary: false) { lab.moreSwaps() }
+          LabButton(Copy.text("ui.more.options"), primary: false) { lab.moreSwaps() }
           LabButton("Save swap") { lab.applySwap() }
             .disabled(lab.swapPick == nil || lab.busy)
             .opacity(lab.swapPick == nil ? 0.5 : 1)

@@ -46,7 +46,7 @@ struct FeedbackTipView: View {
       Button {
         if showAlerts { dismiss() } else { withAnimation { showAlerts = true } }
       } label: {
-        Text(showAlerts ? "Got it" : "Next")
+        Text(showAlerts ? Copy.text("ui.got.it") : "Next")
           .font(Theme.action)
           .frame(maxWidth: .infinity)
           .frame(minHeight: 50)
